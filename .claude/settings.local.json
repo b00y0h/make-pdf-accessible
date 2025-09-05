@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(tree:*)",
+      "Bash(for service in router ocr structure tagger exporter validator notifier)",
+      "Bash(do cp services/api/Dockerfile services/functions/$service/)",
+      "Bash(done)",
+      "Bash(find:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

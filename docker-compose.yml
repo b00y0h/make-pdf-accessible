@@ -1,0 +1,163 @@
+services:
+  # API Service
+  api:
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/app_db
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./services/api:/app
+      - ./packages/schemas:/app/packages/schemas
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Worker Service
+  worker:
+    build:
+      context: ./services/worker
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/app_db
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./services/worker:/app
+      - ./packages/schemas:/app/packages/schemas
+
+  # Function Services
+  function-router:
+    build:
+      context: ./services/functions/router
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    volumes:
+      - ./services/functions/router:/app
+
+  function-ocr:
+    build:
+      context: ./services/functions/ocr
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    volumes:
+      - ./services/functions/ocr:/app
+
+  function-structure:
+    build:
+      context: ./services/functions/structure
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    volumes:
+      - ./services/functions/structure:/app
+
+  function-tagger:
+    build:
+      context: ./services/functions/tagger
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    volumes:
+      - ./services/functions/tagger:/app
+
+  function-exporter:
+    build:
+      context: ./services/functions/exporter
+      dockerfile: Dockerfile
+    ports:
+      - "8005:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    volumes:
+      - ./services/functions/exporter:/app
+
+  function-validator:
+    build:
+      context: ./services/functions/validator
+      dockerfile: Dockerfile
+    ports:
+      - "8006:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    volumes:
+      - ./services/functions/validator:/app
+
+  function-notifier:
+    build:
+      context: ./services/functions/notifier
+      dockerfile: Dockerfile
+    ports:
+      - "8007:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    volumes:
+      - ./services/functions/notifier:/app
+
+  # Web Application
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+    command: npm run dev
+
+  # Database
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=app_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
