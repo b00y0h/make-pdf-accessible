@@ -1,0 +1,397 @@
+name: Build and Deploy Lambda Functions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/functions/**'
+      - 'services/api/**'
+      - 'services/worker/**'
+      - '.github/workflows/build-and-deploy-lambda.yml'
+  create:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      services:
+        description: 'Comma-separated list of services to deploy (leave empty for all)'
+        required: false
+        type: string
+      force_rebuild:
+        description: 'Force rebuild all images'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+
+jobs:
+  detect-changes:
+    name: Detect Changed Services
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.changes.outputs.services }}
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed services
+        id: changes
+        run: |
+          # Define all available services
+          ALL_SERVICES="api worker router ocr structure tagger exporter validator notifier"
+
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ -n "${{ inputs.services }}" ]; then
+              # Use specified services from input
+              SERVICES="${{ inputs.services }}"
+            else
+              # Deploy all services for manual dispatch
+              SERVICES="$ALL_SERVICES"
+            fi
+          elif [ "${{ inputs.force_rebuild }}" == "true" ]; then
+            # Force rebuild all services
+            SERVICES="$ALL_SERVICES"
+          else
+            # Detect changed services based on file paths
+            CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} 2>/dev/null || echo "")
+
+            if [ -z "$CHANGED_FILES" ]; then
+              # If we can't detect changes (e.g., first push), build all services
+              SERVICES="$ALL_SERVICES"
+            else
+              SERVICES=""
+
+              # Check each service for changes
+              for service in $ALL_SERVICES; do
+                if echo "$CHANGED_FILES" | grep -q "services/functions/$service/\|services/$service/"; then
+                  SERVICES="$SERVICES $service"
+                fi
+              done
+
+              # Check for workflow changes - rebuild all if workflow changed
+              if echo "$CHANGED_FILES" | grep -q ".github/workflows/build-and-deploy-lambda.yml"; then
+                SERVICES="$ALL_SERVICES"
+              fi
+
+              # If no services detected but there are changes in services/, build all
+              if [ -z "$SERVICES" ] && echo "$CHANGED_FILES" | grep -q "services/"; then
+                SERVICES="$ALL_SERVICES"
+              fi
+            fi
+          fi
+
+          # Clean up services list and convert to JSON array
+          SERVICES=$(echo "$SERVICES" | tr ',' ' ' | tr -s ' ' | sed 's/^ *//;s/ *$//')
+
+          if [ -z "$SERVICES" ]; then
+            echo "services=[]" >> $GITHUB_OUTPUT
+            echo "No services to build"
+          else
+            # Convert space-separated list to JSON array
+            SERVICES_JSON=$(echo "$SERVICES" | tr ' ' '\n' | grep -v '^$' | jq -R . | jq -s .)
+            echo "services=$SERVICES_JSON" >> $GITHUB_OUTPUT
+            echo "Services to build: $SERVICES"
+          fi
+
+      - name: Generate version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            # Use tag name for tagged releases
+            VERSION=${GITHUB_REF#refs/tags/}
+          else
+            # Generate version from commit
+            VERSION="main-$(git rev-parse --short ${{ github.sha }})"
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Generated version: $VERSION"
+
+  build-and-deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.services != '[]'
+    strategy:
+      matrix:
+        service: ${{ fromJson(needs.detect-changes.outputs.services) }}
+      fail-fast: false
+      max-parallel: 3
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.GITHUB_LAMBDA_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-LambdaDeploy-${{ matrix.service }}-${{ github.run_id }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Determine service path
+        id: service-path
+        run: |
+          # Determine the correct path for the service
+          if [ -d "services/functions/${{ matrix.service }}" ]; then
+            SERVICE_PATH="services/functions/${{ matrix.service }}"
+          elif [ -d "services/${{ matrix.service }}" ]; then
+            SERVICE_PATH="services/${{ matrix.service }}"
+          else
+            echo "Error: Service directory not found for ${{ matrix.service }}"
+            exit 1
+          fi
+
+          echo "path=$SERVICE_PATH" >> $GITHUB_OUTPUT
+          echo "Service path: $SERVICE_PATH"
+
+      - name: Build and push Docker image
+        id: build-push
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ steps.service-path.outputs.path }}
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/pdf-accessibility-${{ inputs.environment || 'dev' }}-${{ matrix.service }}:${{ needs.detect-changes.outputs.version }}
+            ${{ env.ECR_REGISTRY }}/pdf-accessibility-${{ inputs.environment || 'dev' }}-${{ matrix.service }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+      - name: Get Lambda function name
+        id: lambda-name
+        run: |
+          FUNCTION_NAME="pdf-accessibility-${{ inputs.environment || 'dev' }}-${{ matrix.service }}"
+          echo "name=$FUNCTION_NAME" >> $GITHUB_OUTPUT
+          echo "Lambda function name: $FUNCTION_NAME"
+
+      - name: Check if Lambda function exists
+        id: check-function
+        run: |
+          if aws lambda get-function --function-name ${{ steps.lambda-name.outputs.name }} >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Lambda function exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Lambda function does not exist - will skip update"
+          fi
+
+      - name: Update Lambda function code
+        if: steps.check-function.outputs.exists == 'true'
+        id: update-function
+        run: |
+          IMAGE_URI="${{ env.ECR_REGISTRY }}/pdf-accessibility-${{ inputs.environment || 'dev' }}-${{ matrix.service }}:${{ needs.detect-changes.outputs.version }}"
+
+          echo "Updating Lambda function with image: $IMAGE_URI"
+
+          # Update function code
+          aws lambda update-function-code \
+            --function-name ${{ steps.lambda-name.outputs.name }} \
+            --image-uri "$IMAGE_URI" \
+            --output json > update_result.json
+
+          # Wait for update to complete
+          echo "Waiting for function update to complete..."
+          aws lambda wait function-updated \
+            --function-name ${{ steps.lambda-name.outputs.name }}
+
+          # Get the new version ARN
+          VERSION_ARN=$(cat update_result.json | jq -r '.FunctionArn')
+          echo "version_arn=$VERSION_ARN" >> $GITHUB_OUTPUT
+          echo "Function updated successfully: $VERSION_ARN"
+
+      - name: Publish new version
+        if: steps.check-function.outputs.exists == 'true'
+        id: publish-version
+        run: |
+          # Publish a new version
+          PUBLISH_RESULT=$(aws lambda publish-version \
+            --function-name ${{ steps.lambda-name.outputs.name }} \
+            --description "Deployed from commit ${{ github.sha }} via GitHub Actions" \
+            --output json)
+
+          VERSION_NUMBER=$(echo "$PUBLISH_RESULT" | jq -r '.Version')
+          VERSION_ARN=$(echo "$PUBLISH_RESULT" | jq -r '.FunctionArn')
+
+          echo "version_number=$VERSION_NUMBER" >> $GITHUB_OUTPUT
+          echo "version_arn=$VERSION_ARN" >> $GITHUB_OUTPUT
+          echo "Published version: $VERSION_NUMBER ($VERSION_ARN)"
+
+      - name: Update or create LIVE alias
+        if: steps.check-function.outputs.exists == 'true'
+        id: update-alias
+        run: |
+          ALIAS_NAME="LIVE"
+
+          # Check if alias exists
+          if aws lambda get-alias --function-name ${{ steps.lambda-name.outputs.name }} --name $ALIAS_NAME >/dev/null 2>&1; then
+            echo "Updating existing alias..."
+            aws lambda update-alias \
+              --function-name ${{ steps.lambda-name.outputs.name }} \
+              --name $ALIAS_NAME \
+              --function-version ${{ steps.publish-version.outputs.version_number }} \
+              --description "Live version deployed from ${{ github.sha }}"
+          else
+            echo "Creating new alias..."
+            aws lambda create-alias \
+              --function-name ${{ steps.lambda-name.outputs.name }} \
+              --name $ALIAS_NAME \
+              --function-version ${{ steps.publish-version.outputs.version_number }} \
+              --description "Live version deployed from ${{ github.sha }}"
+          fi
+
+          echo "Alias $ALIAS_NAME updated to version ${{ steps.publish-version.outputs.version_number }}"
+
+      - name: Run health check
+        if: steps.check-function.outputs.exists == 'true'
+        id: health-check
+        run: |
+          echo "Running health check for ${{ matrix.service }}..."
+
+          # Prepare health check payload
+          HEALTH_PAYLOAD='{"httpMethod": "GET", "path": "/health", "headers": {}}'
+
+          # Invoke the function health endpoint
+          INVOKE_RESULT=$(aws lambda invoke \
+            --function-name ${{ steps.lambda-name.outputs.name }}:LIVE \
+            --payload "$HEALTH_PAYLOAD" \
+            --output json \
+            response.json)
+
+          # Check if invocation was successful
+          STATUS_CODE=$(echo "$INVOKE_RESULT" | jq -r '.StatusCode')
+
+          if [ "$STATUS_CODE" != "200" ]; then
+            echo "Health check failed with status code: $STATUS_CODE"
+            cat response.json
+            exit 1
+          fi
+
+          # Check response content
+          if [ -f response.json ]; then
+            RESPONSE_BODY=$(cat response.json)
+            echo "Health check response: $RESPONSE_BODY"
+
+            # Parse response if it's JSON
+            if echo "$RESPONSE_BODY" | jq . >/dev/null 2>&1; then
+              STATUS=$(echo "$RESPONSE_BODY" | jq -r '.statusCode // .status // "unknown"')
+              if [ "$STATUS" = "200" ] || echo "$RESPONSE_BODY" | grep -q '"status".*"healthy"'; then
+                echo "✅ Health check passed for ${{ matrix.service }}"
+              else
+                echo "❌ Health check failed - unexpected response"
+                exit 1
+              fi
+            else
+              echo "✅ Health check completed (non-JSON response)"
+            fi
+          else
+            echo "✅ Health check invocation successful"
+          fi
+
+      - name: Generate deployment summary
+        if: always()
+        run: |
+          echo "## 🚀 Lambda Deployment Summary - ${{ matrix.service }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Service:** ${{ matrix.service }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ needs.detect-changes.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ inputs.environment || 'dev' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.check-function.outputs.exists }}" == "true" ]; then
+            echo "**Deployment Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
+            echo "**Function Name:** ${{ steps.lambda-name.outputs.name }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Published Version:** ${{ steps.publish-version.outputs.version_number }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Image URI:** ${{ env.ECR_REGISTRY }}/pdf-accessibility-${{ inputs.environment || 'dev' }}-${{ matrix.service }}:${{ needs.detect-changes.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+
+            if [ "${{ steps.health-check.outcome }}" == "success" ]; then
+              echo "**Health Check:** ✅ Passed" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "**Health Check:** ❌ Failed" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "**Deployment Status:** ⚠️ Skipped (Function not found)" >> $GITHUB_STEP_SUMMARY
+            echo "**Note:** Lambda function does not exist in AWS. Please create it via Terraform first." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  deployment-summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-and-deploy]
+    if: always() && needs.detect-changes.outputs.services != '[]'
+
+    steps:
+      - name: Generate overall summary
+        run: |
+          echo "## 📋 Lambda Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ needs.detect-changes.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ inputs.environment || 'dev' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Services:** ${{ join(fromJson(needs.detect-changes.outputs.services), ', ') }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check overall status
+          if [ "${{ needs.build-and-deploy.result }}" == "success" ]; then
+            echo "**Overall Status:** ✅ All deployments successful" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.build-and-deploy.result }}" == "failure" ]; then
+            echo "**Overall Status:** ❌ Some deployments failed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Overall Status:** ⚠️ Deployments completed with warnings" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Workflow Run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+
+  notify-deployment:
+    name: Notify Deployment
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-and-deploy]
+    if: always() && needs.detect-changes.outputs.services != '[]'
+
+    steps:
+      - name: Notify success
+        if: needs.build-and-deploy.result == 'success'
+        run: |
+          echo "✅ Lambda deployment completed successfully"
+          echo "Services deployed: ${{ join(fromJson(needs.detect-changes.outputs.services), ', ') }}"
+          echo "Version: ${{ needs.detect-changes.outputs.version }}"
+          # Add Slack/Teams notification here if configured
+
+      - name: Notify failure
+        if: needs.build-and-deploy.result == 'failure'
+        run: |
+          echo "❌ Lambda deployment failed"
+          echo "Services: ${{ join(fromJson(needs.detect-changes.outputs.services), ', ') }}"
+          echo "Check the workflow logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          # Add Slack/Teams notification here if configured
+          exit 1
