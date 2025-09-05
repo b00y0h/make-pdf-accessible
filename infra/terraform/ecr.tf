@@ -2,7 +2,7 @@
 locals {
   lambda_functions = [
     "api",
-    "worker", 
+    "worker",
     "router",
     "ocr",
     "structure",
@@ -15,7 +15,7 @@ locals {
 
 resource "aws_ecr_repository" "lambda_repos" {
   for_each = toset(local.lambda_functions)
-  
+
   name                 = "${local.name_prefix}-${each.value}"
   image_tag_mutability = "MUTABLE"
 
@@ -28,9 +28,9 @@ resource "aws_ecr_repository" "lambda_repos" {
   }
 
   tags = merge(local.common_tags, {
-    Name        = "${local.name_prefix}-${each.value}-ecr"
-    Service     = each.value
-    Purpose     = "Container registry for ${each.value} Lambda function"
+    Name    = "${local.name_prefix}-${each.value}-ecr"
+    Service = each.value
+    Purpose = "Container registry for ${each.value} Lambda function"
   })
 }
 
@@ -45,10 +45,10 @@ resource "aws_ecr_lifecycle_policy" "lambda_repos" {
         rulePriority = 1
         description  = "Keep last 10 production images"
         selection = {
-          tagStatus = "tagged"
+          tagStatus     = "tagged"
           tagPrefixList = ["prod", "v"]
-          countType   = "imageCountMoreThan"
-          countNumber = 10
+          countType     = "imageCountMoreThan"
+          countNumber   = 10
         }
         action = {
           type = "expire"
@@ -58,10 +58,10 @@ resource "aws_ecr_lifecycle_policy" "lambda_repos" {
         rulePriority = 2
         description  = "Keep last 5 development images"
         selection = {
-          tagStatus = "tagged"
+          tagStatus     = "tagged"
           tagPrefixList = ["dev", "staging", "test"]
-          countType   = "imageCountMoreThan"
-          countNumber = 5
+          countType     = "imageCountMoreThan"
+          countNumber   = 5
         }
         action = {
           type = "expire"
@@ -102,7 +102,7 @@ resource "aws_ecr_repository_policy" "lambda_repos" {
         }
         Action = [
           "ecr:BatchCheckLayerAvailability",
-          "ecr:BatchGetImage", 
+          "ecr:BatchGetImage",
           "ecr:GetDownloadUrlForLayer"
         ]
       }

@@ -11,8 +11,9 @@ private_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24"]
 public_subnet_cidrs  = ["10.0.101.0/24", "10.0.102.0/24"]
 
 # GitHub Configuration for OIDC
-github_repo     = "your-org/your-repo"
-github_branches = ["main", "develop"]
+github_repo                  = "your-org/your-repo"
+github_branches              = ["main", "develop"]  # Deprecated - now handled per role
+github_oidc_session_duration = 3600  # Session duration in seconds (15 min - 12 hours)
 
 # Domain Configuration (optional)
 domain_name     = ""  # e.g., "myapp.example.com"

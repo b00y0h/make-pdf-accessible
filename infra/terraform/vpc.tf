@@ -57,7 +57,7 @@ resource "aws_subnet" "private" {
 resource "aws_eip" "nat" {
   count = length(aws_subnet.public)
 
-  domain = "vpc"
+  domain     = "vpc"
   depends_on = [aws_internet_gateway.main]
 
   tags = merge(local.common_tags, {
@@ -127,10 +127,10 @@ resource "aws_route_table_association" "private" {
 
 # VPC Endpoints
 resource "aws_vpc_endpoint" "s3" {
-  vpc_id          = aws_vpc.main.id
-  service_name    = "com.amazonaws.${var.aws_region}.s3"
+  vpc_id            = aws_vpc.main.id
+  service_name      = "com.amazonaws.${var.aws_region}.s3"
   vpc_endpoint_type = "Gateway"
-  route_table_ids = aws_route_table.private[*].id
+  route_table_ids   = aws_route_table.private[*].id
 
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-s3-endpoint"

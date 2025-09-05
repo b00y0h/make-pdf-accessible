@@ -37,12 +37,28 @@ variable "public_subnet_cidrs" {
 variable "github_repo" {
   description = "GitHub repository for OIDC trust (format: owner/repo)"
   type        = string
+
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$", var.github_repo))
+    error_message = "GitHub repository must be in the format 'owner/repo'."
+  }
 }
 
 variable "github_branches" {
-  description = "GitHub branches allowed for OIDC"
+  description = "GitHub branches allowed for OIDC (deprecated - now handled per role)"
   type        = list(string)
   default     = ["main", "develop"]
+}
+
+variable "github_oidc_session_duration" {
+  description = "Maximum session duration for GitHub OIDC roles in seconds"
+  type        = number
+  default     = 3600
+
+  validation {
+    condition     = var.github_oidc_session_duration >= 900 && var.github_oidc_session_duration <= 43200
+    error_message = "Session duration must be between 900 seconds (15 minutes) and 43200 seconds (12 hours)."
+  }
 }
 
 variable "saml_provider_name" {

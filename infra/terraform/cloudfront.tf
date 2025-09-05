@@ -31,8 +31,8 @@ resource "aws_cloudfront_distribution" "web" {
     }
 
     min_ttl     = 0
-    default_ttl = 3600   # 1 hour
-    max_ttl     = 86400  # 24 hours
+    default_ttl = 3600  # 1 hour
+    max_ttl     = 86400 # 24 hours
   }
 
   # Cache behavior for API calls
@@ -53,7 +53,7 @@ resource "aws_cloudfront_distribution" "web" {
 
     viewer_protocol_policy = "redirect-to-https"
     min_ttl                = 0
-    default_ttl            = 0    # No caching for API calls
+    default_ttl            = 0 # No caching for API calls
     max_ttl                = 0
   }
 
@@ -73,13 +73,13 @@ resource "aws_cloudfront_distribution" "web" {
     }
 
     viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = 31536000  # 1 year
-    default_ttl            = 31536000  # 1 year
-    max_ttl                = 31536000  # 1 year
+    min_ttl                = 31536000 # 1 year
+    default_ttl            = 31536000 # 1 year
+    max_ttl                = 31536000 # 1 year
   }
 
   # Price class
-  price_class = "PriceClass_100"  # Use only North America and Europe
+  price_class = "PriceClass_100" # Use only North America and Europe
 
   # Restrictions
   restrictions {
@@ -91,9 +91,9 @@ resource "aws_cloudfront_distribution" "web" {
   # SSL Certificate
   viewer_certificate {
     cloudfront_default_certificate = var.certificate_arn == ""
-    acm_certificate_arn           = var.certificate_arn != "" ? var.certificate_arn : null
-    ssl_support_method            = var.certificate_arn != "" ? "sni-only" : null
-    minimum_protocol_version      = var.certificate_arn != "" ? "TLSv1.2_2021" : null
+    acm_certificate_arn            = var.certificate_arn != "" ? var.certificate_arn : null
+    ssl_support_method             = var.certificate_arn != "" ? "sni-only" : null
+    minimum_protocol_version       = var.certificate_arn != "" ? "TLSv1.2_2021" : null
   }
 
   # Custom error responses
@@ -112,8 +112,8 @@ resource "aws_cloudfront_distribution" "web" {
   # Logging
   logging_config {
     include_cookies = false
-    bucket         = aws_s3_bucket.cloudfront_logs.bucket_domain_name
-    prefix         = "cloudfront-logs/"
+    bucket          = aws_s3_bucket.cloudfront_logs.bucket_domain_name
+    prefix          = "cloudfront-logs/"
   }
 
   tags = merge(local.common_tags, {
@@ -126,7 +126,7 @@ resource "aws_s3_bucket" "cloudfront_logs" {
   bucket = "${local.name_prefix}-cloudfront-logs-${local.name_suffix}"
 
   tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}-cloudfront-logs"
+    Name    = "${local.name_prefix}-cloudfront-logs"
     Purpose = "Store CloudFront access logs"
   })
 }
@@ -198,8 +198,8 @@ resource "aws_wafv2_web_acl" "cloudfront" {
 
   visibility_config {
     cloudwatch_metrics_enabled = true
-    metric_name                 = "${local.name_prefix}-WebACL"
-    sampled_requests_enabled    = true
+    metric_name                = "${local.name_prefix}-WebACL"
+    sampled_requests_enabled   = true
   }
 
   # Rule 1: Block common exploits
@@ -220,8 +220,8 @@ resource "aws_wafv2_web_acl" "cloudfront" {
 
     visibility_config {
       cloudwatch_metrics_enabled = true
-      metric_name                 = "${local.name_prefix}-CommonRuleSetMetric"
-      sampled_requests_enabled    = true
+      metric_name                = "${local.name_prefix}-CommonRuleSetMetric"
+      sampled_requests_enabled   = true
     }
   }
 
@@ -243,8 +243,8 @@ resource "aws_wafv2_web_acl" "cloudfront" {
 
     visibility_config {
       cloudwatch_metrics_enabled = true
-      metric_name                 = "${local.name_prefix}-BadInputsRuleSetMetric"
-      sampled_requests_enabled    = true
+      metric_name                = "${local.name_prefix}-BadInputsRuleSetMetric"
+      sampled_requests_enabled   = true
     }
   }
 
@@ -259,15 +259,15 @@ resource "aws_wafv2_web_acl" "cloudfront" {
 
     statement {
       rate_based_statement {
-        limit          = 2000
+        limit              = 2000
         aggregate_key_type = "IP"
       }
     }
 
     visibility_config {
       cloudwatch_metrics_enabled = true
-      metric_name                 = "${local.name_prefix}-RateLimitMetric"
-      sampled_requests_enabled    = true
+      metric_name                = "${local.name_prefix}-RateLimitMetric"
+      sampled_requests_enabled   = true
     }
   }
 
@@ -283,14 +283,14 @@ resource "aws_wafv2_web_acl" "cloudfront" {
 
     statement {
       geo_match_statement {
-        country_codes = ["CU", "IR", "KP", "SY", "UA"]  # Replace with actual country codes
+        country_codes = ["CU", "IR", "KP", "SY", "UA"] # Replace with actual country codes
       }
     }
 
     visibility_config {
       cloudwatch_metrics_enabled = true
-      metric_name                 = "${local.name_prefix}-GeoBlockMetric"
-      sampled_requests_enabled    = true
+      metric_name                = "${local.name_prefix}-GeoBlockMetric"
+      sampled_requests_enabled   = true
     }
   }
 

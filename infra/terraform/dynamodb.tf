@@ -16,9 +16,9 @@ resource "aws_kms_alias" "dynamodb" {
 
 # DynamoDB Table: Documents
 resource "aws_dynamodb_table" "documents" {
-  name           = "${local.name_prefix}-documents"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "docId"
+  name         = "${local.name_prefix}-documents"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "docId"
 
   attribute {
     name = "docId"
@@ -65,17 +65,17 @@ resource "aws_dynamodb_table" "documents" {
   }
 
   tags = merge(local.common_tags, {
-    Name        = "${local.name_prefix}-documents-table"
-    Purpose     = "Store document metadata and processing status"
-    DataClass   = "primary"
+    Name      = "${local.name_prefix}-documents-table"
+    Purpose   = "Store document metadata and processing status"
+    DataClass = "primary"
   })
 }
 
 # DynamoDB Table: Jobs
 resource "aws_dynamodb_table" "jobs" {
-  name           = "${local.name_prefix}-jobs"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "jobId"
+  name         = "${local.name_prefix}-jobs"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "jobId"
 
   attribute {
     name = "jobId"
@@ -128,17 +128,17 @@ resource "aws_dynamodb_table" "jobs" {
   }
 
   tags = merge(local.common_tags, {
-    Name        = "${local.name_prefix}-jobs-table"
-    Purpose     = "Store job processing information"
-    DataClass   = "transient"
+    Name      = "${local.name_prefix}-jobs-table"
+    Purpose   = "Store job processing information"
+    DataClass = "transient"
   })
 }
 
 # DynamoDB Table: User Sessions (optional)
 resource "aws_dynamodb_table" "user_sessions" {
-  name           = "${local.name_prefix}-user-sessions"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "sessionId"
+  name         = "${local.name_prefix}-user-sessions"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "sessionId"
 
   attribute {
     name = "sessionId"
@@ -168,9 +168,9 @@ resource "aws_dynamodb_table" "user_sessions" {
   }
 
   tags = merge(local.common_tags, {
-    Name        = "${local.name_prefix}-sessions-table"
-    Purpose     = "Store user session data"
-    DataClass   = "session"
+    Name      = "${local.name_prefix}-sessions-table"
+    Purpose   = "Store user session data"
+    DataClass = "session"
   })
 }
 

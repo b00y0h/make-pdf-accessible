@@ -13,7 +13,7 @@ resource "aws_cognito_user_pool" "main" {
 
   # User attributes
   username_attributes = ["email"]
-  
+
   auto_verified_attributes = ["email"]
 
   # Account recovery
@@ -69,15 +69,15 @@ resource "aws_cognito_user_pool_client" "web_client" {
   name         = "${local.name_prefix}-web-client"
   user_pool_id = aws_cognito_user_pool.main.id
 
-  callback_urls                        = [
+  callback_urls = [
     "http://localhost:3000/auth/callback",
     var.domain_name != "" ? "https://${var.domain_name}/auth/callback" : "https://example.com/auth/callback"
   ]
-  logout_urls                          = [
+  logout_urls = [
     "http://localhost:3000",
     var.domain_name != "" ? "https://${var.domain_name}" : "https://example.com"
   ]
-  
+
   allowed_oauth_flows_user_pool_client = true
   allowed_oauth_flows                  = ["code"]
   allowed_oauth_scopes                 = ["openid", "email", "profile"]
@@ -86,7 +86,7 @@ resource "aws_cognito_user_pool_client" "web_client" {
 
   # Token validity
   access_token_validity  = 1  # 1 hour
-  id_token_validity     = 1  # 1 hour
+  id_token_validity      = 1  # 1 hour
   refresh_token_validity = 30 # 30 days
 
   token_validity_units {
@@ -97,7 +97,7 @@ resource "aws_cognito_user_pool_client" "web_client" {
 
   # Security
   prevent_user_existence_errors = "ENABLED"
-  
+
   explicit_auth_flows = [
     "ALLOW_USER_PASSWORD_AUTH",
     "ALLOW_REFRESH_TOKEN_AUTH",
@@ -113,7 +113,7 @@ resource "aws_cognito_user_pool_client" "web_client" {
 
   write_attributes = [
     "email",
-    "given_name", 
+    "given_name",
     "family_name"
   ]
 }

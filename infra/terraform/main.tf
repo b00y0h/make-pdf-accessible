@@ -1,6 +1,6 @@
 terraform {
   required_version = ">= 1.5"
-  
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -33,7 +33,7 @@ resource "random_id" "suffix" {
 locals {
   name_prefix = "${var.project_name}-${var.environment}"
   name_suffix = random_id.suffix.hex
-  
+
   common_tags = {
     Project     = var.project_name
     Environment = var.environment

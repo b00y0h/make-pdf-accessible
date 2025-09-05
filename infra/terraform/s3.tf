@@ -19,9 +19,9 @@ resource "aws_s3_bucket" "pdf_originals" {
   bucket = "${local.name_prefix}-pdf-originals-${local.name_suffix}"
 
   tags = merge(local.common_tags, {
-    Name        = "${local.name_prefix}-pdf-originals"
-    Purpose     = "Store original PDF files"
-    DataClass   = "sensitive"
+    Name      = "${local.name_prefix}-pdf-originals"
+    Purpose   = "Store original PDF files"
+    DataClass = "sensitive"
   })
 }
 
@@ -30,9 +30,9 @@ resource "aws_s3_bucket" "pdf_derivatives" {
   bucket = "${local.name_prefix}-pdf-derivatives-${local.name_suffix}"
 
   tags = merge(local.common_tags, {
-    Name        = "${local.name_prefix}-pdf-derivatives"
-    Purpose     = "Store processed/accessible PDF files"
-    DataClass   = "processed"
+    Name      = "${local.name_prefix}-pdf-derivatives"
+    Purpose   = "Store processed/accessible PDF files"
+    DataClass = "processed"
   })
 }
 
@@ -41,9 +41,9 @@ resource "aws_s3_bucket" "pdf_temp" {
   bucket = "${local.name_prefix}-pdf-temp-${local.name_suffix}"
 
   tags = merge(local.common_tags, {
-    Name        = "${local.name_prefix}-pdf-temp"
-    Purpose     = "Temporary storage during processing"
-    DataClass   = "temporary"
+    Name      = "${local.name_prefix}-pdf-temp"
+    Purpose   = "Temporary storage during processing"
+    DataClass = "temporary"
   })
 }
 
@@ -52,9 +52,9 @@ resource "aws_s3_bucket" "pdf_reports" {
   bucket = "${local.name_prefix}-pdf-reports-${local.name_suffix}"
 
   tags = merge(local.common_tags, {
-    Name        = "${local.name_prefix}-pdf-reports"
-    Purpose     = "Store accessibility reports and analysis"
-    DataClass   = "reports"
+    Name      = "${local.name_prefix}-pdf-reports"
+    Purpose   = "Store accessibility reports and analysis"
+    DataClass = "reports"
   })
 }
 
@@ -63,9 +63,9 @@ resource "aws_s3_bucket" "web_assets" {
   bucket = "${local.name_prefix}-web-assets-${local.name_suffix}"
 
   tags = merge(local.common_tags, {
-    Name        = "${local.name_prefix}-web-assets"
-    Purpose     = "Store web application assets"
-    DataClass   = "public"
+    Name      = "${local.name_prefix}-web-assets"
+    Purpose   = "Store web application assets"
+    DataClass = "public"
   })
 }
 

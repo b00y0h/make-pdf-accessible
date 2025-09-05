@@ -16,9 +16,9 @@ resource "aws_kms_alias" "sqs" {
 
 # Dead Letter Queues
 resource "aws_sqs_queue" "ingest_dlq" {
-  name                       = "${local.name_prefix}-ingest-dlq"
-  message_retention_seconds  = 1209600  # 14 days
-  kms_master_key_id         = aws_kms_key.sqs.arn
+  name                              = "${local.name_prefix}-ingest-dlq"
+  message_retention_seconds         = 1209600 # 14 days
+  kms_master_key_id                 = aws_kms_key.sqs.arn
   kms_data_key_reuse_period_seconds = 300
 
   tags = merge(local.common_tags, {
@@ -28,9 +28,9 @@ resource "aws_sqs_queue" "ingest_dlq" {
 }
 
 resource "aws_sqs_queue" "process_dlq" {
-  name                       = "${local.name_prefix}-process-dlq"
-  message_retention_seconds  = 1209600  # 14 days
-  kms_master_key_id         = aws_kms_key.sqs.arn
+  name                              = "${local.name_prefix}-process-dlq"
+  message_retention_seconds         = 1209600 # 14 days
+  kms_master_key_id                 = aws_kms_key.sqs.arn
   kms_data_key_reuse_period_seconds = 300
 
   tags = merge(local.common_tags, {
@@ -40,9 +40,9 @@ resource "aws_sqs_queue" "process_dlq" {
 }
 
 resource "aws_sqs_queue" "callback_dlq" {
-  name                       = "${local.name_prefix}-callback-dlq"
-  message_retention_seconds  = 1209600  # 14 days
-  kms_master_key_id         = aws_kms_key.sqs.arn
+  name                              = "${local.name_prefix}-callback-dlq"
+  message_retention_seconds         = 1209600 # 14 days
+  kms_master_key_id                 = aws_kms_key.sqs.arn
   kms_data_key_reuse_period_seconds = 300
 
   tags = merge(local.common_tags, {
@@ -53,12 +53,12 @@ resource "aws_sqs_queue" "callback_dlq" {
 
 # Main Queues
 resource "aws_sqs_queue" "ingest_queue" {
-  name                        = "${local.name_prefix}-ingest-queue"
+  name                       = "${local.name_prefix}-ingest-queue"
   delay_seconds              = 0
   max_message_size           = 262144
-  message_retention_seconds  = 345600  # 4 days
-  receive_wait_time_seconds  = 20      # Long polling
-  visibility_timeout_seconds = 900     # 15 minutes
+  message_retention_seconds  = 345600 # 4 days
+  receive_wait_time_seconds  = 20     # Long polling
+  visibility_timeout_seconds = 900    # 15 minutes
 
   kms_master_key_id                 = aws_kms_key.sqs.arn
   kms_data_key_reuse_period_seconds = 300
@@ -75,12 +75,12 @@ resource "aws_sqs_queue" "ingest_queue" {
 }
 
 resource "aws_sqs_queue" "process_queue" {
-  name                        = "${local.name_prefix}-process-queue"
+  name                       = "${local.name_prefix}-process-queue"
   delay_seconds              = 0
   max_message_size           = 262144
-  message_retention_seconds  = 345600  # 4 days
-  receive_wait_time_seconds  = 20      # Long polling
-  visibility_timeout_seconds = 1800    # 30 minutes (longer for processing)
+  message_retention_seconds  = 345600 # 4 days
+  receive_wait_time_seconds  = 20     # Long polling
+  visibility_timeout_seconds = 1800   # 30 minutes (longer for processing)
 
   kms_master_key_id                 = aws_kms_key.sqs.arn
   kms_data_key_reuse_period_seconds = 300
@@ -97,12 +97,12 @@ resource "aws_sqs_queue" "process_queue" {
 }
 
 resource "aws_sqs_queue" "callback_queue" {
-  name                        = "${local.name_prefix}-callback-queue"
+  name                       = "${local.name_prefix}-callback-queue"
   delay_seconds              = 0
   max_message_size           = 262144
-  message_retention_seconds  = 345600  # 4 days
-  receive_wait_time_seconds  = 20      # Long polling
-  visibility_timeout_seconds = 300     # 5 minutes
+  message_retention_seconds  = 345600 # 4 days
+  receive_wait_time_seconds  = 20     # Long polling
+  visibility_timeout_seconds = 300    # 5 minutes
 
   kms_master_key_id                 = aws_kms_key.sqs.arn
   kms_data_key_reuse_period_seconds = 300
@@ -123,11 +123,11 @@ resource "aws_sqs_queue" "priority_process_queue" {
   name                        = "${local.name_prefix}-priority-process-queue.fifo"
   fifo_queue                  = true
   content_based_deduplication = true
-  delay_seconds              = 0
-  max_message_size           = 262144
-  message_retention_seconds  = 345600
-  receive_wait_time_seconds  = 20
-  visibility_timeout_seconds = 1800
+  delay_seconds               = 0
+  max_message_size            = 262144
+  message_retention_seconds   = 345600
+  receive_wait_time_seconds   = 20
+  visibility_timeout_seconds  = 1800
 
   kms_master_key_id                 = aws_kms_key.sqs.arn
   kms_data_key_reuse_period_seconds = 300
@@ -205,7 +205,7 @@ resource "aws_cloudwatch_metric_alarm" "ingest_queue_age" {
   namespace           = "AWS/SQS"
   period              = "300"
   statistic           = "Average"
-  threshold           = "1800"  # 30 minutes
+  threshold           = "1800" # 30 minutes
   alarm_description   = "This metric monitors age of oldest message in ingest queue"
   alarm_actions       = []
 
@@ -224,7 +224,7 @@ resource "aws_cloudwatch_metric_alarm" "process_queue_age" {
   namespace           = "AWS/SQS"
   period              = "300"
   statistic           = "Average"
-  threshold           = "3600"  # 1 hour
+  threshold           = "3600" # 1 hour
   alarm_description   = "This metric monitors age of oldest message in process queue"
   alarm_actions       = []
 

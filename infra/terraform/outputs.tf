@@ -140,13 +140,81 @@ output "lambda_execution_role_arn" {
 }
 
 output "github_actions_role_arn" {
-  description = "ARN of the GitHub Actions role"
+  description = "ARN of the GitHub Actions role (legacy)"
   value       = aws_iam_role.github_actions.arn
 }
 
 output "step_functions_role_arn" {
   description = "ARN of the Step Functions role"
   value       = aws_iam_role.step_functions.arn
+}
+
+# Enhanced GitHub OIDC Role Outputs
+output "github_oidc_provider_arn" {
+  description = "ARN of the GitHub OIDC provider"
+  value       = var.github_repo != "" ? aws_iam_openid_connect_provider.github_enhanced[0].arn : null
+}
+
+output "github_infrastructure_ci_role_arn" {
+  description = "ARN of the GitHub Actions infrastructure CI role"
+  value       = var.github_repo != "" ? aws_iam_role.github_infrastructure_ci[0].arn : null
+}
+
+output "github_lambda_deploy_role_arn" {
+  description = "ARN of the GitHub Actions Lambda deploy role"
+  value       = var.github_repo != "" ? aws_iam_role.github_lambda_deploy[0].arn : null
+}
+
+output "github_web_deploy_role_arn" {
+  description = "ARN of the GitHub Actions web deploy role"
+  value       = var.github_repo != "" ? aws_iam_role.github_web_deploy[0].arn : null
+}
+
+output "github_api_deploy_role_arn" {
+  description = "ARN of the GitHub Actions API deploy role"
+  value       = var.github_repo != "" ? aws_iam_role.github_api_deploy[0].arn : null
+}
+
+output "github_testing_role_arn" {
+  description = "ARN of the GitHub Actions testing role"
+  value       = var.github_repo != "" ? aws_iam_role.github_testing[0].arn : null
+}
+
+# GitHub Actions Role Configuration Summary
+output "github_actions_roles_summary" {
+  description = "Summary of all GitHub Actions roles and their purposes"
+  value = var.github_repo != "" ? {
+    infrastructure_ci = {
+      arn         = aws_iam_role.github_infrastructure_ci[0].arn
+      name        = aws_iam_role.github_infrastructure_ci[0].name
+      description = "Terraform infrastructure deployment (main, develop, PRs)"
+      branches    = ["main", "develop", "pull_request"]
+    }
+    lambda_deploy = {
+      arn         = aws_iam_role.github_lambda_deploy[0].arn
+      name        = aws_iam_role.github_lambda_deploy[0].name
+      description = "Lambda function deployment (main, tags)"
+      branches    = ["main", "refs/tags/*"]
+    }
+    web_deploy = {
+      arn         = aws_iam_role.github_web_deploy[0].arn
+      name        = aws_iam_role.github_web_deploy[0].name
+      description = "Web application deployment (main only)"
+      branches    = ["main"]
+    }
+    api_deploy = {
+      arn         = aws_iam_role.github_api_deploy[0].arn
+      name        = aws_iam_role.github_api_deploy[0].name
+      description = "API deployment with blue/green strategy (main only)"
+      branches    = ["main"]
+    }
+    testing = {
+      arn         = aws_iam_role.github_testing[0].arn
+      name        = aws_iam_role.github_testing[0].name
+      description = "Testing workflows (main, develop, PRs)"
+      branches    = ["main", "develop", "pull_request"]
+    }
+  } : null
 }
 
 # Step Functions Outputs
@@ -175,16 +243,16 @@ output "kms_sqs_key_id" {
 output "environment_config" {
   description = "Environment configuration for applications"
   value = {
-    region                    = var.aws_region
-    project_name             = var.project_name
-    environment              = var.environment
-    vpc_id                   = aws_vpc.main.id
-    private_subnet_ids       = aws_subnet.private[*].id
-    api_gateway_url          = aws_apigatewayv2_api.main.api_endpoint
-    cognito_user_pool_id     = aws_cognito_user_pool.main.id
-    cognito_client_id        = aws_cognito_user_pool_client.web_client.id
-    cognito_domain          = aws_cognito_user_pool_domain.main.domain
-    web_app_url             = var.domain_name != "" && var.certificate_arn != "" ? "https://${var.domain_name}" : "https://${aws_cloudfront_distribution.web.domain_name}"
+    region               = var.aws_region
+    project_name         = var.project_name
+    environment          = var.environment
+    vpc_id               = aws_vpc.main.id
+    private_subnet_ids   = aws_subnet.private[*].id
+    api_gateway_url      = aws_apigatewayv2_api.main.api_endpoint
+    cognito_user_pool_id = aws_cognito_user_pool.main.id
+    cognito_client_id    = aws_cognito_user_pool_client.web_client.id
+    cognito_domain       = aws_cognito_user_pool_domain.main.domain
+    web_app_url          = var.domain_name != "" && var.certificate_arn != "" ? "https://${var.domain_name}" : "https://${aws_cloudfront_distribution.web.domain_name}"
   }
   sensitive = false
 }
@@ -196,20 +264,20 @@ output "resource_names" {
     s3_buckets = {
       originals   = aws_s3_bucket.pdf_originals.id
       derivatives = aws_s3_bucket.pdf_derivatives.id
-      temp       = aws_s3_bucket.pdf_temp.id
-      reports    = aws_s3_bucket.pdf_reports.id
-      web_assets = aws_s3_bucket.web_assets.id
+      temp        = aws_s3_bucket.pdf_temp.id
+      reports     = aws_s3_bucket.pdf_reports.id
+      web_assets  = aws_s3_bucket.web_assets.id
     }
     dynamodb_tables = {
       documents     = aws_dynamodb_table.documents.name
-      jobs         = aws_dynamodb_table.jobs.name
+      jobs          = aws_dynamodb_table.jobs.name
       user_sessions = aws_dynamodb_table.user_sessions.name
     }
     sqs_queues = {
-      ingest    = aws_sqs_queue.ingest_queue.name
-      process   = aws_sqs_queue.process_queue.name
-      callback  = aws_sqs_queue.callback_queue.name
-      priority  = aws_sqs_queue.priority_process_queue.name
+      ingest   = aws_sqs_queue.ingest_queue.name
+      process  = aws_sqs_queue.process_queue.name
+      callback = aws_sqs_queue.callback_queue.name
+      priority = aws_sqs_queue.priority_process_queue.name
     }
     ecr_repositories = {
       for k, v in aws_ecr_repository.lambda_repos : k => v.name
