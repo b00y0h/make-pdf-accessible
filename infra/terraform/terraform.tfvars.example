@@ -1,0 +1,28 @@
+# AWS Configuration
+aws_region = "us-east-1"
+
+# Project Configuration
+project_name = "pdf-accessibility"
+environment  = "dev"
+
+# VPC Configuration
+vpc_cidr             = "10.0.0.0/16"
+private_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24"]
+public_subnet_cidrs  = ["10.0.101.0/24", "10.0.102.0/24"]
+
+# GitHub Configuration for OIDC
+github_repo     = "your-org/your-repo"
+github_branches = ["main", "develop"]
+
+# Domain Configuration (optional)
+domain_name     = ""  # e.g., "myapp.example.com"
+certificate_arn = ""  # ACM certificate ARN in us-east-1
+
+# SAML Configuration
+saml_provider_name = "ExampleSAML"
+
+# Security Configuration
+enable_waf = true
+
+# Logging Configuration
+log_retention_days = 30

@@ -1,0 +1,264 @@
+{
+  "Comment": "PDF Accessibility Processing State Machine",
+  "StartAt": "ValidateInput",
+  "States": {
+    "ValidateInput": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "placeholder-validator-function",
+        "Payload.$": "$"
+      },
+      "ResultPath": "$.validationResult",
+      "Next": "CheckValidation",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "ValidationFailed",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+    "CheckValidation": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.validationResult.isValid",
+          "BooleanEquals": true,
+          "Next": "ExtractText"
+        }
+      ],
+      "Default": "ValidationFailed"
+    },
+    "ExtractText": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "placeholder-ocr-function",
+        "Payload.$": "$"
+      },
+      "ResultPath": "$.ocrResult",
+      "Next": "AnalyzeStructure",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "ProcessingFailed",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+    "AnalyzeStructure": {
+      "Type": "Task", 
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "placeholder-structure-function",
+        "Payload.$": "$"
+      },
+      "ResultPath": "$.structureResult",
+      "Next": "ParallelProcessing",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "ProcessingFailed",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+    "ParallelProcessing": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "TagContent",
+          "States": {
+            "TagContent": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "placeholder-tagger-function",
+                "Payload.$": "$"
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "GenerateReport",
+          "States": {
+            "GenerateReport": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "placeholder-reporter-function",
+                "Payload.$": "$"
+              },
+              "End": true
+            }
+          }
+        }
+      ],
+      "ResultPath": "$.parallelResults",
+      "Next": "ExportDocument",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "ProcessingFailed",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+    "ExportDocument": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "placeholder-exporter-function",
+        "Payload.$": "$"
+      },
+      "ResultPath": "$.exportResult",
+      "Next": "SendNotification",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "ProcessingFailed",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+    "SendNotification": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "placeholder-notifier-function",
+        "Payload.$": "$"
+      },
+      "ResultPath": "$.notificationResult",
+      "Next": "ProcessingCompleted",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "NotificationFailed",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+    "ProcessingCompleted": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "TableName": "${documents_table_name}",
+        "Key": {
+          "docId": {
+            "S.$": "$.documentId"
+          }
+        },
+        "UpdateExpression": "SET #status = :status, #updatedAt = :updatedAt, #completedAt = :completedAt",
+        "ExpressionAttributeNames": {
+          "#status": "status",
+          "#updatedAt": "updatedAt",
+          "#completedAt": "completedAt"
+        },
+        "ExpressionAttributeValues": {
+          ":status": {
+            "S": "completed"
+          },
+          ":updatedAt": {
+            "S.$": "$$.State.EnteredTime"
+          },
+          ":completedAt": {
+            "S.$": "$$.State.EnteredTime"
+          }
+        }
+      },
+      "End": true
+    },
+    "ValidationFailed": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "TableName": "${documents_table_name}",
+        "Key": {
+          "docId": {
+            "S.$": "$.documentId"
+          }
+        },
+        "UpdateExpression": "SET #status = :status, #updatedAt = :updatedAt, #errorMessage = :errorMessage",
+        "ExpressionAttributeNames": {
+          "#status": "status",
+          "#updatedAt": "updatedAt",
+          "#errorMessage": "errorMessage"
+        },
+        "ExpressionAttributeValues": {
+          ":status": {
+            "S": "validation_failed"
+          },
+          ":updatedAt": {
+            "S.$": "$$.State.EnteredTime"
+          },
+          ":errorMessage": {
+            "S.$": "$.error.Cause"
+          }
+        }
+      },
+      "End": true
+    },
+    "ProcessingFailed": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "TableName": "${documents_table_name}",
+        "Key": {
+          "docId": {
+            "S.$": "$.documentId"
+          }
+        },
+        "UpdateExpression": "SET #status = :status, #updatedAt = :updatedAt, #errorMessage = :errorMessage",
+        "ExpressionAttributeNames": {
+          "#status": "status",
+          "#updatedAt": "updatedAt",
+          "#errorMessage": "errorMessage"
+        },
+        "ExpressionAttributeValues": {
+          ":status": {
+            "S": "processing_failed"
+          },
+          ":updatedAt": {
+            "S.$": "$$.State.EnteredTime"
+          },
+          ":errorMessage": {
+            "S.$": "$.error.Cause"
+          }
+        }
+      },
+      "End": true
+    },
+    "NotificationFailed": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "TableName": "${documents_table_name}",
+        "Key": {
+          "docId": {
+            "S.$": "$.documentId"
+          }
+        },
+        "UpdateExpression": "SET #status = :status, #updatedAt = :updatedAt, #errorMessage = :errorMessage",
+        "ExpressionAttributeNames": {
+          "#status": "status",
+          "#updatedAt": "updatedAt",
+          "#errorMessage": "errorMessage"
+        },
+        "ExpressionAttributeValues": {
+          ":status": {
+            "S": "notification_failed"
+          },
+          ":updatedAt": {
+            "S.$": "$$.State.EnteredTime"
+          },
+          ":errorMessage": {
+            "S.$": "$.error.Cause"
+          }
+        }
+      },
+      "End": true
+    }
+  }
+}

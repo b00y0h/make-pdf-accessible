@@ -107,6 +107,10 @@ next-env.d.ts
 *.tfstate.*
 .terraform/
 .terraform.lock.hcl
+*.tfvars
+*.tfvars.json
+terraform.tfvars
+terraform.tfvars.json
 
 # Docker
 .docker/
