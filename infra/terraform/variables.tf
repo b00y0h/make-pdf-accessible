@@ -50,6 +50,57 @@ variable "github_branches" {
   default     = ["main", "develop"]
 }
 
+# Router function configuration
+variable "sqs_batch_size" {
+  description = "Number of SQS messages to process in a single Lambda invocation"
+  type        = number
+  default     = 10
+}
+
+variable "sqs_batching_window" {
+  description = "Maximum time in seconds to wait for additional messages before invoking Lambda"
+  type        = number
+  default     = 5
+}
+
+variable "router_max_concurrency" {
+  description = "Maximum number of concurrent router function instances"
+  type        = number
+  default     = 100
+}
+
+variable "log_level" {
+  description = "Log level for Lambda functions"
+  type        = string
+  default     = "INFO"
+  
+  validation {
+    condition     = contains(["DEBUG", "INFO", "WARN", "ERROR"], var.log_level)
+    error_message = "Log level must be one of: DEBUG, INFO, WARN, ERROR."
+  }
+}
+
+variable "log_retention_days" {
+  description = "Number of days to retain CloudWatch logs"
+  type        = number
+  default     = 30
+}
+
+variable "cloudwatch_logs_kms_key_id" {
+  description = "KMS key ID for encrypting CloudWatch logs"
+  type        = string
+  default     = null
+}
+
+variable "vpc_config" {
+  description = "VPC configuration for Lambda functions"
+  type = object({
+    subnet_ids         = list(string)
+    security_group_ids = list(string)
+  })
+  default = null
+}
+
 variable "github_oidc_session_duration" {
   description = "Maximum session duration for GitHub OIDC roles in seconds"
   type        = number
@@ -85,21 +136,6 @@ variable "enable_waf" {
   default     = true
 }
 
-variable "log_retention_days" {
-  description = "CloudWatch log retention in days"
-  type        = number
-  default     = 30
-}
-
-variable "log_level" {
-  description = "Application log level"
-  type        = string
-  default     = "INFO"
-  validation {
-    condition     = contains(["DEBUG", "INFO", "WARN", "ERROR"], var.log_level)
-    error_message = "Log level must be one of: DEBUG, INFO, WARN, ERROR."
-  }
-}
 
 variable "use_lambda_function_url" {
   description = "Use Lambda Function URL instead of API Gateway"
