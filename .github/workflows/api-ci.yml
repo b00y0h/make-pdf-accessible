@@ -118,11 +118,158 @@ jobs:
             echo "Will not deploy"
           fi
 
+  dependency-security-scan:
+    name: API Dependency Security Scan
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.api_changed == 'true'
+    outputs:
+      security_passed: ${{ steps.security-check.outputs.security_passed }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install security scanning tools
+        run: |
+          pip install safety pip-audit bandit[toml]
+
+      - name: Run Safety scan on API dependencies
+        id: safety-scan
+        run: |
+          cd ${{ env.API_WORKING_DIR }}
+
+          echo "Running Safety scan on API dependencies..."
+          if [ -f requirements.txt ]; then
+            safety check -r requirements.txt --json --output ../safety-api.json || echo "safety_failed=true" >> $GITHUB_OUTPUT
+          else
+            echo "No requirements.txt found"
+            echo '[]' > ../safety-api.json
+          fi
+
+          cd ..
+
+          if [ -f safety-api.json ]; then
+            SAFETY_VULNS=$(jq '. | length' safety-api.json 2>/dev/null || echo "0")
+            echo "safety_vulnerabilities=$SAFETY_VULNS" >> $GITHUB_OUTPUT
+            echo "Safety vulnerabilities found: $SAFETY_VULNS"
+          fi
+
+      - name: Run pip-audit scan
+        id: pip-audit-scan
+        run: |
+          cd ${{ env.API_WORKING_DIR }}
+
+          echo "Running pip-audit scan..."
+          if [ -f requirements.txt ]; then
+            pip-audit --requirement requirements.txt --format json --output ../pip-audit-api.json || echo "pip_audit_failed=true" >> $GITHUB_OUTPUT
+          else
+            echo "No requirements.txt found"
+            echo '[]' > ../pip-audit-api.json
+          fi
+
+          cd ..
+
+          if [ -f pip-audit-api.json ]; then
+            PIP_AUDIT_VULNS=$(jq '. | length' pip-audit-api.json 2>/dev/null || echo "0")
+            echo "pip_audit_vulnerabilities=$PIP_AUDIT_VULNS" >> $GITHUB_OUTPUT
+            echo "pip-audit vulnerabilities found: $PIP_AUDIT_VULNS"
+          fi
+
+      - name: Run Bandit SAST scan
+        id: bandit-scan
+        run: |
+          cd ${{ env.API_WORKING_DIR }}
+
+          echo "Running Bandit SAST scan on API code..."
+          bandit -r . -f json -o ../bandit-api.json || echo "bandit_failed=true" >> $GITHUB_OUTPUT
+
+          cd ..
+
+          if [ -f bandit-api.json ]; then
+            BANDIT_ISSUES=$(jq '.results | length' bandit-api.json 2>/dev/null || echo "0")
+            BANDIT_HIGH=$(jq '[.results[] | select(.issue_severity == "HIGH")] | length' bandit-api.json 2>/dev/null || echo "0")
+            BANDIT_MEDIUM=$(jq '[.results[] | select(.issue_severity == "MEDIUM")] | length' bandit-api.json 2>/dev/null || echo "0")
+
+            echo "bandit_issues=$BANDIT_ISSUES" >> $GITHUB_OUTPUT
+            echo "bandit_high=$BANDIT_HIGH" >> $GITHUB_OUTPUT
+            echo "bandit_medium=$BANDIT_MEDIUM" >> $GITHUB_OUTPUT
+
+            echo "Bandit SAST results:"
+            echo "- Total issues: $BANDIT_ISSUES"
+            echo "- High severity: $BANDIT_HIGH"
+            echo "- Medium severity: $BANDIT_MEDIUM"
+          fi
+
+      - name: Check security status
+        id: security-check
+        run: |
+          SAFETY_VULNS="${{ steps.safety-scan.outputs.safety_vulnerabilities || '0' }}"
+          PIP_AUDIT_VULNS="${{ steps.pip-audit-scan.outputs.pip_audit_vulnerabilities || '0' }}"
+          BANDIT_HIGH="${{ steps.bandit-scan.outputs.bandit_high || '0' }}"
+
+          # Fail if critical security issues found
+          if [ "$SAFETY_VULNS" -gt 0 ] || [ "$PIP_AUDIT_VULNS" -gt 0 ] || [ "$BANDIT_HIGH" -gt 0 ]; then
+            echo "security_passed=false" >> $GITHUB_OUTPUT
+            echo "❌ Critical security issues found - blocking build"
+          else
+            echo "security_passed=true" >> $GITHUB_OUTPUT
+            echo "✅ Security scan passed"
+          fi
+
+      - name: Upload API security results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-security-results-${{ github.run_id }}
+          path: |
+            safety-api.json
+            pip-audit-api.json
+            bandit-api.json
+          retention-days: 30
+
+      - name: Generate API security summary
+        run: |
+          SAFETY_VULNS="${{ steps.safety-scan.outputs.safety_vulnerabilities || '0' }}"
+          PIP_AUDIT_VULNS="${{ steps.pip-audit-scan.outputs.pip_audit_vulnerabilities || '0' }}"
+          BANDIT_ISSUES="${{ steps.bandit-scan.outputs.bandit_issues || '0' }}"
+          BANDIT_HIGH="${{ steps.bandit-scan.outputs.bandit_high || '0' }}"
+          BANDIT_MEDIUM="${{ steps.bandit-scan.outputs.bandit_medium || '0' }}"
+
+          echo "## 🔒 API Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Dependency Security" >> $GITHUB_STEP_SUMMARY
+          echo "| Tool | Vulnerabilities Found |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|----------------------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Safety | $SAFETY_VULNS |" >> $GITHUB_STEP_SUMMARY
+          echo "| pip-audit | $PIP_AUDIT_VULNS |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### SAST Results (Bandit)" >> $GITHUB_STEP_SUMMARY
+          echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| High | $BANDIT_HIGH |" >> $GITHUB_STEP_SUMMARY
+          echo "| Medium | $BANDIT_MEDIUM |" >> $GITHUB_STEP_SUMMARY
+          echo "| Total | $BANDIT_ISSUES |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$SAFETY_VULNS" -gt 0 ] || [ "$PIP_AUDIT_VULNS" -gt 0 ] || [ "$BANDIT_HIGH" -gt 0 ]; then
+            echo "🚨 **Critical security issues found!** Build will be blocked." >> $GITHUB_STEP_SUMMARY
+          elif [ "$BANDIT_MEDIUM" -gt 0 ]; then
+            echo "⚠️ **Medium severity issues found!** Review recommended." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ **No critical security issues found.**" >> $GITHUB_STEP_SUMMARY
+          fi
+
   test:
     name: Run Tests
     runs-on: ubuntu-latest
-    needs: detect-changes
-    if: needs.detect-changes.outputs.api_changed == 'true' && inputs.skip_tests != true
+    needs: [detect-changes, dependency-security-scan]
+    if: needs.detect-changes.outputs.api_changed == 'true' && inputs.skip_tests != true && needs.dependency-security-scan.outputs.security_passed == 'true'
     outputs:
       test_results: ${{ steps.test-summary.outputs.results }}
       coverage_percentage: ${{ steps.coverage.outputs.percentage }}

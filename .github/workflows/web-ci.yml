@@ -101,11 +101,170 @@ jobs:
             echo "Will not deploy"
           fi
 
-  test-and-build:
-    name: Test and Build
+  dependency-security-scan:
+    name: Web Dependency Security Scan
     runs-on: ubuntu-latest
     needs: detect-changes
     if: needs.detect-changes.outputs.web_changed == 'true'
+    outputs:
+      security_passed: ${{ steps.security-check.outputs.security_passed }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          cd ${{ env.WEB_WORKING_DIR }}
+          pnpm install --frozen-lockfile
+
+      - name: Run npm audit
+        id: npm-audit
+        run: |
+          cd ${{ env.WEB_WORKING_DIR }}
+
+          echo "Running npm audit security scan..."
+          pnpm audit --json > ../npm-audit-results.json || echo "npm_audit_failed=true" >> $GITHUB_OUTPUT
+
+          cd ..
+
+          if [ -f npm-audit-results.json ]; then
+            # Parse npm audit results
+            CRITICAL=$(jq '.metadata.vulnerabilities.critical // 0' npm-audit-results.json 2>/dev/null || echo "0")
+            HIGH=$(jq '.metadata.vulnerabilities.high // 0' npm-audit-results.json 2>/dev/null || echo "0")
+            MODERATE=$(jq '.metadata.vulnerabilities.moderate // 0' npm-audit-results.json 2>/dev/null || echo "0")
+            LOW=$(jq '.metadata.vulnerabilities.low // 0' npm-audit-results.json 2>/dev/null || echo "0")
+
+            echo "npm_critical=$CRITICAL" >> $GITHUB_OUTPUT
+            echo "npm_high=$HIGH" >> $GITHUB_OUTPUT
+            echo "npm_moderate=$MODERATE" >> $GITHUB_OUTPUT
+            echo "npm_low=$LOW" >> $GITHUB_OUTPUT
+
+            echo "npm audit results:"
+            echo "- Critical: $CRITICAL"
+            echo "- High: $HIGH"
+            echo "- Moderate: $MODERATE"
+            echo "- Low: $LOW"
+          fi
+
+      - name: Run ESLint security rules
+        id: eslint-security
+        run: |
+          cd ${{ env.WEB_WORKING_DIR }}
+
+          echo "Installing ESLint security plugins..."
+          pnpm add --save-dev eslint-plugin-security
+
+          echo "Running ESLint with security rules..."
+
+          # Create security-focused ESLint config
+          cat > .eslintrc.security.js << 'EOF'
+          module.exports = {
+            extends: [
+              './.eslintrc.js'
+            ],
+            plugins: ['security'],
+            rules: {
+              'security/detect-object-injection': 'error',
+              'security/detect-non-literal-regexp': 'error',
+              'security/detect-unsafe-regex': 'error',
+              'security/detect-buffer-noassert': 'error',
+              'security/detect-child-process': 'error',
+              'security/detect-disable-mustache-escape': 'error',
+              'security/detect-eval-with-expression': 'error',
+              'security/detect-no-csrf-before-method-override': 'error',
+              'security/detect-non-literal-fs-filename': 'error',
+              'security/detect-non-literal-require': 'error',
+              'security/detect-possible-timing-attacks': 'error',
+              'security/detect-pseudoRandomBytes': 'error'
+            }
+          };
+          EOF
+
+          npx eslint . --config .eslintrc.security.js --format json --output-file ../eslint-security-results.json || echo "eslint_security_failed=true" >> $GITHUB_OUTPUT
+
+          cd ..
+
+          if [ -f eslint-security-results.json ]; then
+            ESLINT_ISSUES=$(jq '. | length' eslint-security-results.json 2>/dev/null || echo "0")
+            echo "eslint_security_issues=$ESLINT_ISSUES" >> $GITHUB_OUTPUT
+            echo "ESLint security issues found: $ESLINT_ISSUES"
+          fi
+
+      - name: Check security status
+        id: security-check
+        run: |
+          CRITICAL="${{ steps.npm-audit.outputs.npm_critical || '0' }}"
+          HIGH="${{ steps.npm-audit.outputs.npm_high || '0' }}"
+
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "security_passed=false" >> $GITHUB_OUTPUT
+            echo "❌ Critical vulnerabilities found - blocking build"
+          elif [ "$HIGH" -gt 5 ]; then
+            echo "security_passed=false" >> $GITHUB_OUTPUT
+            echo "❌ Too many high severity vulnerabilities found - blocking build"
+          else
+            echo "security_passed=true" >> $GITHUB_OUTPUT
+            echo "✅ Security scan passed"
+          fi
+
+      - name: Upload dependency security results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dependency-security-${{ github.run_id }}
+          path: |
+            npm-audit-results.json
+            eslint-security-results.json
+          retention-days: 30
+
+      - name: Generate dependency security summary
+        run: |
+          CRITICAL="${{ steps.npm-audit.outputs.npm_critical || '0' }}"
+          HIGH="${{ steps.npm-audit.outputs.npm_high || '0' }}"
+          MODERATE="${{ steps.npm-audit.outputs.npm_moderate || '0' }}"
+          LOW="${{ steps.npm-audit.outputs.npm_low || '0' }}"
+          ESLINT_ISSUES="${{ steps.eslint-security.outputs.eslint_security_issues || '0' }}"
+
+          echo "## 🔒 Web Dependency Security Scan" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### npm audit Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Critical | $CRITICAL |" >> $GITHUB_STEP_SUMMARY
+          echo "| High | $HIGH |" >> $GITHUB_STEP_SUMMARY
+          echo "| Moderate | $MODERATE |" >> $GITHUB_STEP_SUMMARY
+          echo "| Low | $LOW |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ESLint Security Issues" >> $GITHUB_STEP_SUMMARY
+          echo "- **Issues Found:** $ESLINT_ISSUES" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "🚨 **Critical vulnerabilities found!** Build will be blocked." >> $GITHUB_STEP_SUMMARY
+          elif [ "$HIGH" -gt 5 ]; then
+            echo "⚠️ **Too many high severity vulnerabilities!** Build will be blocked." >> $GITHUB_STEP_SUMMARY
+          elif [ "$HIGH" -gt 0 ]; then
+            echo "⚠️ **High severity vulnerabilities found!** Review recommended." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ **No critical or high severity vulnerabilities found.**" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  test-and-build:
+    name: Test and Build
+    runs-on: ubuntu-latest
+    needs: [detect-changes, dependency-security-scan]
+    if: needs.detect-changes.outputs.web_changed == 'true' && needs.dependency-security-scan.outputs.security_passed == 'true'
     outputs:
       build_artifact: ${{ steps.upload-artifact.outputs.artifact-id }}
       build_version: ${{ steps.version.outputs.version }}

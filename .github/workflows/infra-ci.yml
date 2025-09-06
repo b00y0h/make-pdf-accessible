@@ -518,7 +518,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
   security-scan:
-    name: Security Scan
+    name: Infrastructure Security Scan
     runs-on: ubuntu-latest
     needs: terraform-validate
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
@@ -534,22 +534,57 @@ jobs:
           scan-ref: 'infra/terraform'
           format: 'sarif'
           output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
 
       - name: Run Trivy with JSON output for summary
         id: trivy-json
         run: |
           docker run --rm -v "$PWD:/workspace" aquasec/trivy config /workspace/infra/terraform \
-            --format json --output /workspace/trivy-results.json || echo "trivy_failed=true" >> $GITHUB_OUTPUT
+            --format json --output /workspace/trivy-results.json \
+            --severity CRITICAL,HIGH,MEDIUM || echo "trivy_failed=true" >> $GITHUB_OUTPUT
 
           if [ -f trivy-results.json ]; then
             # Count vulnerabilities by severity
+            CRITICAL=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "CRITICAL")] | length' trivy-results.json 2>/dev/null || echo "0")
             HIGH=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "HIGH")] | length' trivy-results.json 2>/dev/null || echo "0")
             MEDIUM=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "MEDIUM")] | length' trivy-results.json 2>/dev/null || echo "0")
-            LOW=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "LOW")] | length' trivy-results.json 2>/dev/null || echo "0")
 
+            echo "trivy_critical=$CRITICAL" >> $GITHUB_OUTPUT
             echo "trivy_high=$HIGH" >> $GITHUB_OUTPUT
             echo "trivy_medium=$MEDIUM" >> $GITHUB_OUTPUT
-            echo "trivy_low=$LOW" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Checkov security scan
+        id: checkov
+        run: |
+          pip install checkov
+
+          echo "Running Checkov security scan on Terraform..."
+          checkov -d infra/terraform --framework terraform \
+            --output json --output-file checkov-results.json \
+            --soft-fail || echo "checkov_failed=true" >> $GITHUB_OUTPUT
+
+          if [ -f checkov-results.json ]; then
+            FAILED_CHECKS=$(jq '.results.failed_checks | length' checkov-results.json 2>/dev/null || echo "0")
+            PASSED_CHECKS=$(jq '.results.passed_checks | length' checkov-results.json 2>/dev/null || echo "0")
+
+            echo "checkov_failed_checks=$FAILED_CHECKS" >> $GITHUB_OUTPUT
+            echo "checkov_passed_checks=$PASSED_CHECKS" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run TFSec security scan
+        id: tfsec
+        run: |
+          # Install tfsec
+          curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+
+          echo "Running tfsec security scan..."
+          tfsec infra/terraform --format json --out tfsec-results.json \
+            --soft-fail || echo "tfsec_failed=true" >> $GITHUB_OUTPUT
+
+          if [ -f tfsec-results.json ]; then
+            TFSEC_ISSUES=$(jq '.results | length' tfsec-results.json 2>/dev/null || echo "0")
+            echo "tfsec_issues=$TFSEC_ISSUES" >> $GITHUB_OUTPUT
           fi
 
       - name: Upload Trivy scan results
@@ -557,29 +592,49 @@ jobs:
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
+          category: 'terraform-security'
+
+      - name: Upload security scan artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infrastructure-security-results-${{ github.run_id }}
+          path: |
+            trivy-results.json
+            checkov-results.json
+            tfsec-results.json
+          retention-days: 30
 
       - name: Generate Security Summary
         run: |
+          CRITICAL="${{ steps.trivy-json.outputs.trivy_critical || '0' }}"
           HIGH="${{ steps.trivy-json.outputs.trivy_high || '0' }}"
           MEDIUM="${{ steps.trivy-json.outputs.trivy_medium || '0' }}"
-          LOW="${{ steps.trivy-json.outputs.trivy_low || '0' }}"
+          CHECKOV_FAILED="${{ steps.checkov.outputs.checkov_failed_checks || '0' }}"
+          TFSEC_ISSUES="${{ steps.tfsec.outputs.tfsec_issues || '0' }}"
 
-          echo "## 🔒 Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔒 Infrastructure Security Scan Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Trivy Infrastructure Scan" >> $GITHUB_STEP_SUMMARY
           echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
           echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Critical | $CRITICAL |" >> $GITHUB_STEP_SUMMARY
           echo "| High | $HIGH |" >> $GITHUB_STEP_SUMMARY
           echo "| Medium | $MEDIUM |" >> $GITHUB_STEP_SUMMARY
-          echo "| Low | $LOW |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Additional Security Tools" >> $GITHUB_STEP_SUMMARY
+          echo "- **Checkov Failed Checks:** $CHECKOV_FAILED" >> $GITHUB_STEP_SUMMARY
+          echo "- **TFSec Issues:** $TFSEC_ISSUES" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          if [ "$HIGH" -gt 0 ]; then
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "🚨 **Critical security issues found!** Immediate action required." >> $GITHUB_STEP_SUMMARY
+          elif [ "$HIGH" -gt 0 ]; then
             echo "⚠️ **High severity issues found!** Review the Security tab for details." >> $GITHUB_STEP_SUMMARY
-          elif [ "$MEDIUM" -gt 0 ]; then
-            echo "⚠️ **Medium severity issues found.** Consider reviewing the Security tab." >> $GITHUB_STEP_SUMMARY
+          elif [ "$MEDIUM" -gt 0 ] || [ "$CHECKOV_FAILED" -gt 0 ] || [ "$TFSEC_ISSUES" -gt 0 ]; then
+            echo "⚠️ **Medium severity or policy issues found.** Consider reviewing the Security tab." >> $GITHUB_STEP_SUMMARY
           else
-            echo "✅ **No high or medium severity issues found.**" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **No critical, high, or medium severity issues found.**" >> $GITHUB_STEP_SUMMARY
           fi
 
   security-monitoring:

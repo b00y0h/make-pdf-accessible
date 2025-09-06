@@ -1,0 +1,522 @@
+name: ECR Container Security Scanning
+
+on:
+  schedule:
+    # Run ECR security scans daily at 4 AM UTC
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+    inputs:
+      scan_type:
+        description: 'Type of ECR scan to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - basic
+          - enhanced
+      environment:
+        description: 'Environment to scan'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+  security-events: write
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  ecr-vulnerability-scan:
+    name: ECR Vulnerability Scanning
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        service:
+          [
+            api,
+            worker,
+            router,
+            ocr,
+            structure,
+            tagger,
+            exporter,
+            validator,
+            notifier,
+          ]
+      fail-fast: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.GITHUB_LAMBDA_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-ECRScan-${{ matrix.service }}-${{ github.run_id }}
+
+      - name: Get ECR repository details
+        id: ecr-details
+        run: |
+          ENVIRONMENT="${{ inputs.environment || 'dev' }}"
+          REPOSITORY_NAME="pdf-accessibility-${ENVIRONMENT}-${{ matrix.service }}"
+
+          echo "repository_name=$REPOSITORY_NAME" >> $GITHUB_OUTPUT
+          echo "Scanning repository: $REPOSITORY_NAME"
+
+          # Check if repository exists
+          if aws ecr describe-repositories --repository-names "$REPOSITORY_NAME" >/dev/null 2>&1; then
+            echo "repository_exists=true" >> $GITHUB_OUTPUT
+
+            # Get repository URI
+            REPOSITORY_URI=$(aws ecr describe-repositories --repository-names "$REPOSITORY_NAME" --query 'repositories[0].repositoryUri' --output text)
+            echo "repository_uri=$REPOSITORY_URI" >> $GITHUB_OUTPUT
+          else
+            echo "repository_exists=false" >> $GITHUB_OUTPUT
+            echo "Repository $REPOSITORY_NAME does not exist"
+          fi
+
+      - name: Enable ECR image scanning
+        if: steps.ecr-details.outputs.repository_exists == 'true'
+        run: |
+          REPOSITORY_NAME="${{ steps.ecr-details.outputs.repository_name }}"
+
+          echo "Enabling image scanning for $REPOSITORY_NAME..."
+
+          # Enable basic scanning
+          aws ecr put-image-scanning-configuration \
+            --repository-name "$REPOSITORY_NAME" \
+            --image-scanning-configuration scanOnPush=true
+
+          # Enable enhanced scanning if requested
+          if [ "${{ inputs.scan_type }}" = "enhanced" ] || [ "${{ inputs.scan_type }}" = "all" ]; then
+            echo "Enabling enhanced scanning..."
+            aws ecr put-registry-scanning-configuration \
+              --scan-type ENHANCED \
+              --rules '[{
+                "repositoryFilters": [
+                  {
+                    "filter": "'$REPOSITORY_NAME'",
+                    "filterType": "WILDCARD"
+                  }
+                ],
+                "scanFrequency": "SCAN_ON_PUSH"
+              }]' || echo "Enhanced scanning may not be available in this region"
+          fi
+
+      - name: Get latest image tags
+        if: steps.ecr-details.outputs.repository_exists == 'true'
+        id: image-tags
+        run: |
+          REPOSITORY_NAME="${{ steps.ecr-details.outputs.repository_name }}"
+
+          echo "Getting latest image tags for $REPOSITORY_NAME..."
+
+          # Get the latest 5 image tags
+          LATEST_TAGS=$(aws ecr describe-images \
+            --repository-name "$REPOSITORY_NAME" \
+            --query 'sort_by(imageDetails,&imagePushedAt)[-5:].imageTags[0]' \
+            --output text | tr '\t' '\n' | grep -v "None" | head -5)
+
+          if [ -n "$LATEST_TAGS" ]; then
+            echo "Found image tags:"
+            echo "$LATEST_TAGS"
+
+            # Convert to JSON array for matrix
+            TAGS_JSON=$(echo "$LATEST_TAGS" | jq -R . | jq -s .)
+            echo "image_tags=$TAGS_JSON" >> $GITHUB_OUTPUT
+          else
+            echo "No image tags found"
+            echo "image_tags=[]" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Trigger image scans
+        if: steps.ecr-details.outputs.repository_exists == 'true' && steps.image-tags.outputs.image_tags != '[]'
+        run: |
+          REPOSITORY_NAME="${{ steps.ecr-details.outputs.repository_name }}"
+          TAGS='${{ steps.image-tags.outputs.image_tags }}'
+
+          echo "Triggering scans for images in $REPOSITORY_NAME..."
+
+          # Trigger scan for each tag
+          echo "$TAGS" | jq -r '.[]' | while read -r tag; do
+            if [ -n "$tag" ] && [ "$tag" != "null" ]; then
+              echo "Triggering scan for tag: $tag"
+              aws ecr start-image-scan \
+                --repository-name "$REPOSITORY_NAME" \
+                --image-id imageTag="$tag" || echo "Scan already in progress or failed for $tag"
+            fi
+          done
+
+      - name: Wait for scan completion
+        if: steps.ecr-details.outputs.repository_exists == 'true' && steps.image-tags.outputs.image_tags != '[]'
+        run: |
+          REPOSITORY_NAME="${{ steps.ecr-details.outputs.repository_name }}"
+          TAGS='${{ steps.image-tags.outputs.image_tags }}'
+
+          echo "Waiting for scans to complete..."
+
+          # Wait for scans to complete (up to 10 minutes)
+          for i in {1..60}; do
+            ALL_COMPLETE=true
+
+            echo "$TAGS" | jq -r '.[]' | while read -r tag; do
+              if [ -n "$tag" ] && [ "$tag" != "null" ]; then
+                SCAN_STATUS=$(aws ecr describe-image-scan-findings \
+                  --repository-name "$REPOSITORY_NAME" \
+                  --image-id imageTag="$tag" \
+                  --query 'imageScanStatus.status' \
+                  --output text 2>/dev/null || echo "SCAN_NOT_FOUND")
+
+                if [ "$SCAN_STATUS" != "COMPLETE" ]; then
+                  ALL_COMPLETE=false
+                  break
+                fi
+              fi
+            done
+
+            if [ "$ALL_COMPLETE" = "true" ]; then
+              echo "All scans completed"
+              break
+            fi
+
+            echo "Waiting for scans to complete... ($i/60)"
+            sleep 10
+          done
+
+      - name: Collect scan results
+        if: steps.ecr-details.outputs.repository_exists == 'true' && steps.image-tags.outputs.image_tags != '[]'
+        id: scan-results
+        run: |
+          REPOSITORY_NAME="${{ steps.ecr-details.outputs.repository_name }}"
+          TAGS='${{ steps.image-tags.outputs.image_tags }}'
+
+          echo "Collecting scan results for $REPOSITORY_NAME..."
+
+          TOTAL_CRITICAL=0
+          TOTAL_HIGH=0
+          TOTAL_MEDIUM=0
+          TOTAL_LOW=0
+          TOTAL_INFORMATIONAL=0
+
+          # Create results file
+          echo "# ECR Scan Results for ${{ matrix.service }}" > ecr-scan-results-${{ matrix.service }}.md
+          echo "" >> ecr-scan-results-${{ matrix.service }}.md
+          echo "**Repository:** $REPOSITORY_NAME" >> ecr-scan-results-${{ matrix.service }}.md
+          echo "**Scan Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> ecr-scan-results-${{ matrix.service }}.md
+          echo "" >> ecr-scan-results-${{ matrix.service }}.md
+
+          # Collect results for each tag
+          echo "$TAGS" | jq -r '.[]' | while read -r tag; do
+            if [ -n "$tag" ] && [ "$tag" != "null" ]; then
+              echo "Getting scan results for tag: $tag"
+
+              SCAN_RESULTS=$(aws ecr describe-image-scan-findings \
+                --repository-name "$REPOSITORY_NAME" \
+                --image-id imageTag="$tag" \
+                --output json 2>/dev/null || echo '{}')
+
+              if [ "$SCAN_RESULTS" != "{}" ]; then
+                # Extract vulnerability counts
+                CRITICAL=$(echo "$SCAN_RESULTS" | jq '[.imageScanFindings.findings[] | select(.severity == "CRITICAL")] | length' 2>/dev/null || echo "0")
+                HIGH=$(echo "$SCAN_RESULTS" | jq '[.imageScanFindings.findings[] | select(.severity == "HIGH")] | length' 2>/dev/null || echo "0")
+                MEDIUM=$(echo "$SCAN_RESULTS" | jq '[.imageScanFindings.findings[] | select(.severity == "MEDIUM")] | length' 2>/dev/null || echo "0")
+                LOW=$(echo "$SCAN_RESULTS" | jq '[.imageScanFindings.findings[] | select(.severity == "LOW")] | length' 2>/dev/null || echo "0")
+                INFORMATIONAL=$(echo "$SCAN_RESULTS" | jq '[.imageScanFindings.findings[] | select(.severity == "INFORMATIONAL")] | length' 2>/dev/null || echo "0")
+
+                # Add to totals
+                TOTAL_CRITICAL=$((TOTAL_CRITICAL + CRITICAL))
+                TOTAL_HIGH=$((TOTAL_HIGH + HIGH))
+                TOTAL_MEDIUM=$((TOTAL_MEDIUM + MEDIUM))
+                TOTAL_LOW=$((TOTAL_LOW + LOW))
+                TOTAL_INFORMATIONAL=$((TOTAL_INFORMATIONAL + INFORMATIONAL))
+
+                # Add to report
+                echo "## Image Tag: $tag" >> ecr-scan-results-${{ matrix.service }}.md
+                echo "" >> ecr-scan-results-${{ matrix.service }}.md
+                echo "| Severity | Count |" >> ecr-scan-results-${{ matrix.service }}.md
+                echo "|----------|-------|" >> ecr-scan-results-${{ matrix.service }}.md
+                echo "| Critical | $CRITICAL |" >> ecr-scan-results-${{ matrix.service }}.md
+                echo "| High | $HIGH |" >> ecr-scan-results-${{ matrix.service }}.md
+                echo "| Medium | $MEDIUM |" >> ecr-scan-results-${{ matrix.service }}.md
+                echo "| Low | $LOW |" >> ecr-scan-results-${{ matrix.service }}.md
+                echo "| Informational | $INFORMATIONAL |" >> ecr-scan-results-${{ matrix.service }}.md
+                echo "" >> ecr-scan-results-${{ matrix.service }}.md
+
+                # Add critical and high severity details
+                if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+                  echo "### Critical and High Severity Vulnerabilities" >> ecr-scan-results-${{ matrix.service }}.md
+                  echo "$SCAN_RESULTS" | jq -r '.imageScanFindings.findings[] | select(.severity == "CRITICAL" or .severity == "HIGH") | "- **\(.name)** (\(.severity)): \(.description // "No description available")"' >> ecr-scan-results-${{ matrix.service }}.md
+                  echo "" >> ecr-scan-results-${{ matrix.service }}.md
+                fi
+              fi
+            fi
+          done
+
+          # Save totals to outputs
+          echo "total_critical=$TOTAL_CRITICAL" >> $GITHUB_OUTPUT
+          echo "total_high=$TOTAL_HIGH" >> $GITHUB_OUTPUT
+          echo "total_medium=$TOTAL_MEDIUM" >> $GITHUB_OUTPUT
+          echo "total_low=$TOTAL_LOW" >> $GITHUB_OUTPUT
+          echo "total_informational=$TOTAL_INFORMATIONAL" >> $GITHUB_OUTPUT
+
+          # Add summary to report
+          echo "## Summary" >> ecr-scan-results-${{ matrix.service }}.md
+          echo "" >> ecr-scan-results-${{ matrix.service }}.md
+          echo "**Total Vulnerabilities Across All Images:**" >> ecr-scan-results-${{ matrix.service }}.md
+          echo "- Critical: $TOTAL_CRITICAL" >> ecr-scan-results-${{ matrix.service }}.md
+          echo "- High: $TOTAL_HIGH" >> ecr-scan-results-${{ matrix.service }}.md
+          echo "- Medium: $TOTAL_MEDIUM" >> ecr-scan-results-${{ matrix.service }}.md
+          echo "- Low: $TOTAL_LOW" >> ecr-scan-results-${{ matrix.service }}.md
+          echo "- Informational: $TOTAL_INFORMATIONAL" >> ecr-scan-results-${{ matrix.service }}.md
+
+          echo "ECR scan results for ${{ matrix.service }}:"
+          echo "- Critical: $TOTAL_CRITICAL"
+          echo "- High: $TOTAL_HIGH"
+          echo "- Medium: $TOTAL_MEDIUM"
+          echo "- Low: $TOTAL_LOW"
+          echo "- Informational: $TOTAL_INFORMATIONAL"
+
+      - name: Upload ECR scan results
+        if: always() && steps.ecr-details.outputs.repository_exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ecr-scan-results-${{ matrix.service }}-${{ github.run_id }}
+          path: ecr-scan-results-${{ matrix.service }}.md
+          retention-days: 30
+
+      - name: Generate service summary
+        if: steps.ecr-details.outputs.repository_exists == 'true'
+        run: |
+          TOTAL_CRITICAL="${{ steps.scan-results.outputs.total_critical || '0' }}"
+          TOTAL_HIGH="${{ steps.scan-results.outputs.total_high || '0' }}"
+          TOTAL_MEDIUM="${{ steps.scan-results.outputs.total_medium || '0' }}"
+
+          echo "## 🐳 ECR Security Scan - ${{ matrix.service }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Repository:** ${{ steps.ecr-details.outputs.repository_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Vulnerability Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Critical | $TOTAL_CRITICAL |" >> $GITHUB_STEP_SUMMARY
+          echo "| High | $TOTAL_HIGH |" >> $GITHUB_STEP_SUMMARY
+          echo "| Medium | $TOTAL_MEDIUM |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$TOTAL_CRITICAL" -gt 0 ]; then
+            echo "🚨 **CRITICAL VULNERABILITIES FOUND** - Immediate action required!" >> $GITHUB_STEP_SUMMARY
+          elif [ "$TOTAL_HIGH" -gt 0 ]; then
+            echo "⚠️ **High severity vulnerabilities found** - Review and remediate soon" >> $GITHUB_STEP_SUMMARY
+          elif [ "$TOTAL_MEDIUM" -gt 0 ]; then
+            echo "⚠️ **Medium severity vulnerabilities found** - Consider remediation" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ **No critical or high severity vulnerabilities found**" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  ecr-scan-summary:
+    name: ECR Scan Summary
+    runs-on: ubuntu-latest
+    needs: ecr-vulnerability-scan
+    if: always()
+
+    steps:
+      - name: Download all ECR scan results
+        uses: actions/download-artifact@v4
+        with:
+          path: ecr-results
+
+      - name: Generate comprehensive ECR security report
+        run: |
+          echo "# 🐳 ECR Container Security Scan Report" > ecr-security-summary.md
+          echo "" >> ecr-security-summary.md
+          echo "**Scan Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> ecr-security-summary.md
+          echo "**Environment:** ${{ inputs.environment || 'dev' }}" >> ecr-security-summary.md
+          echo "**Repository:** ${{ github.repository }}" >> ecr-security-summary.md
+          echo "**Workflow:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> ecr-security-summary.md
+          echo "" >> ecr-security-summary.md
+
+          # Initialize counters
+          TOTAL_SERVICES=0
+          SERVICES_WITH_CRITICAL=0
+          SERVICES_WITH_HIGH=0
+          OVERALL_CRITICAL=0
+          OVERALL_HIGH=0
+          OVERALL_MEDIUM=0
+
+          echo "## 📊 Service-by-Service Results" >> ecr-security-summary.md
+          echo "" >> ecr-security-summary.md
+          echo "| Service | Critical | High | Medium | Status |" >> ecr-security-summary.md
+          echo "|---------|----------|------|--------|--------|" >> ecr-security-summary.md
+
+          # Process each service result
+          for service in api worker router ocr structure tagger exporter validator notifier; do
+            RESULT_FILE="ecr-results/ecr-scan-results-${service}-${{ github.run_id }}/ecr-scan-results-${service}.md"
+
+            if [ -f "$RESULT_FILE" ]; then
+              TOTAL_SERVICES=$((TOTAL_SERVICES + 1))
+
+              # Extract vulnerability counts from the report
+              CRITICAL=$(grep "Critical:" "$RESULT_FILE" | tail -1 | sed 's/.*Critical: //' || echo "0")
+              HIGH=$(grep "High:" "$RESULT_FILE" | tail -1 | sed 's/.*High: //' || echo "0")
+              MEDIUM=$(grep "Medium:" "$RESULT_FILE" | tail -1 | sed 's/.*Medium: //' || echo "0")
+
+              # Add to overall totals
+              OVERALL_CRITICAL=$((OVERALL_CRITICAL + CRITICAL))
+              OVERALL_HIGH=$((OVERALL_HIGH + HIGH))
+              OVERALL_MEDIUM=$((OVERALL_MEDIUM + MEDIUM))
+
+              # Count services with issues
+              [ "$CRITICAL" -gt 0 ] && SERVICES_WITH_CRITICAL=$((SERVICES_WITH_CRITICAL + 1))
+              [ "$HIGH" -gt 0 ] && SERVICES_WITH_HIGH=$((SERVICES_WITH_HIGH + 1))
+
+              # Determine status
+              if [ "$CRITICAL" -gt 0 ]; then
+                STATUS="🚨 Critical"
+              elif [ "$HIGH" -gt 0 ]; then
+                STATUS="⚠️ High Risk"
+              elif [ "$MEDIUM" -gt 0 ]; then
+                STATUS="⚠️ Medium Risk"
+              else
+                STATUS="✅ Clean"
+              fi
+
+              echo "| $service | $CRITICAL | $HIGH | $MEDIUM | $STATUS |" >> ecr-security-summary.md
+            else
+              echo "| $service | - | - | - | ❌ No scan data |" >> ecr-security-summary.md
+            fi
+          done
+
+          echo "" >> ecr-security-summary.md
+
+          # Overall summary
+          echo "## 🎯 Overall Security Status" >> ecr-security-summary.md
+          echo "" >> ecr-security-summary.md
+          echo "**Services Scanned:** $TOTAL_SERVICES" >> ecr-security-summary.md
+          echo "**Total Critical Vulnerabilities:** $OVERALL_CRITICAL" >> ecr-security-summary.md
+          echo "**Total High Vulnerabilities:** $OVERALL_HIGH" >> ecr-security-summary.md
+          echo "**Total Medium Vulnerabilities:** $OVERALL_MEDIUM" >> ecr-security-summary.md
+          echo "" >> ecr-security-summary.md
+          echo "**Services with Critical Issues:** $SERVICES_WITH_CRITICAL" >> ecr-security-summary.md
+          echo "**Services with High Risk Issues:** $SERVICES_WITH_HIGH" >> ecr-security-summary.md
+          echo "" >> ecr-security-summary.md
+
+          # Risk assessment
+          if [ "$OVERALL_CRITICAL" -gt 0 ]; then
+            echo "🚨 **SECURITY RISK: CRITICAL**" >> ecr-security-summary.md
+            echo "" >> ecr-security-summary.md
+            echo "**Immediate Action Required:**" >> ecr-security-summary.md
+            echo "- $OVERALL_CRITICAL critical vulnerabilities found across $SERVICES_WITH_CRITICAL services" >> ecr-security-summary.md
+            echo "- Stop deploying affected containers to production" >> ecr-security-summary.md
+            echo "- Update base images and dependencies immediately" >> ecr-security-summary.md
+            echo "- Re-scan after fixes are applied" >> ecr-security-summary.md
+          elif [ "$OVERALL_HIGH" -gt 10 ]; then
+            echo "⚠️ **SECURITY RISK: HIGH**" >> ecr-security-summary.md
+            echo "" >> ecr-security-summary.md
+            echo "**Action Required Soon:**" >> ecr-security-summary.md
+            echo "- $OVERALL_HIGH high severity vulnerabilities found" >> ecr-security-summary.md
+            echo "- Plan remediation within 7 days" >> ecr-security-summary.md
+            echo "- Review and update container dependencies" >> ecr-security-summary.md
+          elif [ "$OVERALL_HIGH" -gt 0 ]; then
+            echo "⚠️ **SECURITY RISK: MODERATE**" >> ecr-security-summary.md
+            echo "" >> ecr-security-summary.md
+            echo "**Action Recommended:**" >> ecr-security-summary.md
+            echo "- $OVERALL_HIGH high severity vulnerabilities found" >> ecr-security-summary.md
+            echo "- Plan remediation within 30 days" >> ecr-security-summary.md
+            echo "- Monitor for security updates" >> ecr-security-summary.md
+          else
+            echo "✅ **SECURITY STATUS: GOOD**" >> ecr-security-summary.md
+            echo "" >> ecr-security-summary.md
+            echo "- No critical or high severity vulnerabilities found" >> ecr-security-summary.md
+            echo "- Continue regular security scanning" >> ecr-security-summary.md
+            echo "- Monitor for new vulnerabilities" >> ecr-security-summary.md
+          fi
+
+          echo "" >> ecr-security-summary.md
+          echo "### Recommendations" >> ecr-security-summary.md
+          echo "1. **Regular Updates:** Keep base images and dependencies up to date" >> ecr-security-summary.md
+          echo "2. **Automated Scanning:** Enable ECR scan on push for all repositories" >> ecr-security-summary.md
+          echo "3. **Vulnerability Management:** Establish SLAs for vulnerability remediation" >> ecr-security-summary.md
+          echo "4. **Security Monitoring:** Set up alerts for critical vulnerabilities" >> ecr-security-summary.md
+          echo "5. **Image Signing:** Consider implementing container image signing" >> ecr-security-summary.md
+
+      - name: Upload comprehensive ECR security report
+        uses: actions/upload-artifact@v4
+        with:
+          name: comprehensive-ecr-security-report-${{ github.run_id }}
+          path: ecr-security-summary.md
+          retention-days: 90
+
+      - name: Generate step summary
+        run: |
+          cat ecr-security-summary.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Create security issue if critical vulnerabilities found
+        if: contains(needs.ecr-vulnerability-scan.outputs.*, 'total_critical') && needs.ecr-vulnerability-scan.outputs.total_critical > 0
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = '🚨 Critical Container Vulnerabilities Found in ECR';
+            const body = `
+            ## Critical Security Alert
+
+            Critical vulnerabilities have been detected in container images stored in ECR.
+
+            **Scan Details:**
+            - **Date:** ${new Date().toISOString()}
+            - **Environment:** ${{ inputs.environment || 'dev' }}
+            - **Workflow:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            **Immediate Actions Required:**
+            1. Review the detailed scan results in the workflow artifacts
+            2. Stop deploying affected containers to production
+            3. Update base images and dependencies
+            4. Re-scan containers after applying fixes
+            5. Verify fixes before resuming deployments
+
+            **Affected Services:**
+            Check the workflow summary for service-specific vulnerability counts.
+
+            This issue was automatically created by the ECR Security Scanning workflow.
+            `;
+
+            // Check if similar issue already exists
+            const existingIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'security,critical,ecr'
+            });
+
+            const existingIssue = existingIssues.data.find(issue =>
+              issue.title.includes('Critical Container Vulnerabilities')
+            );
+
+            if (existingIssue) {
+              // Update existing issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: `**New Critical Vulnerabilities Detected**\n\n${body}`
+              });
+            } else {
+              // Create new issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['security', 'critical', 'ecr', 'vulnerability']
+              });
+            }

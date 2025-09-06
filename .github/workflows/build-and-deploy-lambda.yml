@@ -299,9 +299,63 @@ jobs:
             ${{ steps.service-path.outputs.path }}/coverage.xml
           retention-days: 30
 
+      - name: Build Docker image for security scanning
+        id: build-local
+        if: steps.function-tests.outputs.function_tests_failed != 'true'
+        run: |
+          SERVICE_PATH="${{ steps.service-path.outputs.path }}"
+          LOCAL_IMAGE="security-scan-${{ matrix.service }}:${{ needs.detect-changes.outputs.version }}"
+
+          echo "Building image for security scanning: $LOCAL_IMAGE"
+          docker build -t "$LOCAL_IMAGE" "$SERVICE_PATH"
+          echo "local_image=$LOCAL_IMAGE" >> $GITHUB_OUTPUT
+
+      - name: Run container security scan with Trivy
+        id: container-security
+        if: steps.function-tests.outputs.function_tests_failed != 'true'
+        run: |
+          LOCAL_IMAGE="${{ steps.build-local.outputs.local_image }}"
+
+          echo "Running Trivy container security scan..."
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/workspace" aquasec/trivy image \
+            --format json --output /workspace/trivy-container-${{ matrix.service }}.json \
+            --severity CRITICAL,HIGH,MEDIUM \
+            "$LOCAL_IMAGE" || echo "trivy_container_failed=true" >> $GITHUB_OUTPUT
+
+          if [ -f trivy-container-${{ matrix.service }}.json ]; then
+            # Count vulnerabilities by severity
+            CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' trivy-container-${{ matrix.service }}.json 2>/dev/null || echo "0")
+            HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' trivy-container-${{ matrix.service }}.json 2>/dev/null || echo "0")
+            MEDIUM=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "MEDIUM")] | length' trivy-container-${{ matrix.service }}.json 2>/dev/null || echo "0")
+
+            echo "container_critical=$CRITICAL" >> $GITHUB_OUTPUT
+            echo "container_high=$HIGH" >> $GITHUB_OUTPUT
+            echo "container_medium=$MEDIUM" >> $GITHUB_OUTPUT
+
+            echo "Container security scan results for ${{ matrix.service }}:"
+            echo "- Critical: $CRITICAL"
+            echo "- High: $HIGH"
+            echo "- Medium: $MEDIUM"
+
+            # Fail build if critical vulnerabilities found
+            if [ "$CRITICAL" -gt 0 ]; then
+              echo "❌ Critical vulnerabilities found in container image!"
+              echo "container_security_failed=true" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Upload container security results
+        if: always() && steps.function-tests.outputs.function_tests_failed != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-security-${{ matrix.service }}-${{ needs.detect-changes.outputs.version }}
+          path: trivy-container-${{ matrix.service }}.json
+          retention-days: 30
+
       - name: Build and push Docker image
         id: build-push
-        if: steps.function-tests.outputs.function_tests_failed != 'true'
+        if: steps.function-tests.outputs.function_tests_failed != 'true' && steps.container-security.outputs.container_security_failed != 'true'
         uses: docker/build-push-action@v5
         with:
           context: ${{ steps.service-path.outputs.path }}
@@ -472,8 +526,34 @@ jobs:
             echo "**Coverage:** ${COVERAGE}%" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
+            # Security scan results
+            echo "### 🔒 Security Scan Results" >> $GITHUB_STEP_SUMMARY
+            CONTAINER_CRITICAL="${{ steps.container-security.outputs.container_critical || '0' }}"
+            CONTAINER_HIGH="${{ steps.container-security.outputs.container_high || '0' }}"
+            CONTAINER_MEDIUM="${{ steps.container-security.outputs.container_medium || '0' }}"
+
+            echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Critical | $CONTAINER_CRITICAL |" >> $GITHUB_STEP_SUMMARY
+            echo "| High | $CONTAINER_HIGH |" >> $GITHUB_STEP_SUMMARY
+            echo "| Medium | $CONTAINER_MEDIUM |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            if [ "${{ steps.container-security.outputs.container_security_failed }}" == "true" ]; then
+              echo "❌ **Deployment blocked due to critical security vulnerabilities**" >> $GITHUB_STEP_SUMMARY
+            elif [ "$CONTAINER_HIGH" -gt 0 ]; then
+              echo "⚠️ **High severity vulnerabilities found - review recommended**" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ **No critical or high severity vulnerabilities found**" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+
             # Deployment status
-            if [ "${{ steps.check-function.outputs.exists }}" == "true" ]; then
+            if [ "${{ steps.container-security.outputs.container_security_failed }}" == "true" ]; then
+              echo "### ❌ Deployment Blocked" >> $GITHUB_STEP_SUMMARY
+              echo "**Reason:** Critical security vulnerabilities found in container image" >> $GITHUB_STEP_SUMMARY
+              echo "**Action Required:** Fix vulnerabilities and rebuild" >> $GITHUB_STEP_SUMMARY
+            elif [ "${{ steps.check-function.outputs.exists }}" == "true" ]; then
               echo "### 🚀 Deployment Status" >> $GITHUB_STEP_SUMMARY
               echo "**Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
               echo "**Function Name:** ${{ steps.lambda-name.outputs.name }}" >> $GITHUB_STEP_SUMMARY

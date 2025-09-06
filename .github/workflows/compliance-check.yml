@@ -1,0 +1,711 @@
+name: Compliance and Accessibility Checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'services/api/**'
+  pull_request:
+    paths:
+      - 'web/**'
+      - 'services/api/**'
+  schedule:
+    # Run compliance checks weekly on Sundays at 3 AM UTC
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+    inputs:
+      check_type:
+        description: 'Type of compliance check to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - wcag
+          - security
+          - performance
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  NODE_VERSION: '18'
+  PNPM_VERSION: '8'
+  PYTHON_VERSION: '3.9'
+
+jobs:
+  wcag-compliance:
+    name: WCAG Accessibility Compliance
+    runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_dispatch' || inputs.check_type == 'all' || inputs.check_type == 'wcag'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies and build
+        run: |
+          cd web
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Install accessibility testing tools
+        run: |
+          cd web
+          pnpm add --save-dev @axe-core/cli pa11y lighthouse axe-playwright
+
+      - name: Start application for testing
+        run: |
+          cd web
+          pnpm start &
+          APP_PID=$!
+          echo "APP_PID=$APP_PID" >> $GITHUB_ENV
+
+          # Wait for application to start
+          echo "Waiting for application to start..."
+          for i in {1..30}; do
+            if curl -f http://localhost:3000 >/dev/null 2>&1; then
+              echo "Application is ready"
+              break
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+
+      - name: Run axe-core accessibility scan
+        id: axe-scan
+        run: |
+          cd web
+
+          echo "Running axe-core accessibility scan..."
+          npx axe http://localhost:3000 --save ../axe-results.json --tags wcag2a,wcag2aa,wcag21aa || echo "axe_failed=true" >> $GITHUB_OUTPUT
+
+          cd ..
+
+          if [ -f axe-results.json ]; then
+            AXE_VIOLATIONS=$(jq '.violations | length' axe-results.json 2>/dev/null || echo "0")
+            AXE_PASSES=$(jq '.passes | length' axe-results.json 2>/dev/null || echo "0")
+            AXE_INCOMPLETE=$(jq '.incomplete | length' axe-results.json 2>/dev/null || echo "0")
+
+            echo "axe_violations=$AXE_VIOLATIONS" >> $GITHUB_OUTPUT
+            echo "axe_passes=$AXE_PASSES" >> $GITHUB_OUTPUT
+            echo "axe_incomplete=$AXE_INCOMPLETE" >> $GITHUB_OUTPUT
+
+            echo "Axe-core results:"
+            echo "- Violations: $AXE_VIOLATIONS"
+            echo "- Passes: $AXE_PASSES"
+            echo "- Incomplete: $AXE_INCOMPLETE"
+
+            # Generate detailed violation report
+            if [ "$AXE_VIOLATIONS" -gt 0 ]; then
+              echo "## Axe-core Accessibility Violations" > axe-violations-report.md
+              echo "" >> axe-violations-report.md
+              jq -r '.violations[] | "### \(.id) - \(.impact | ascii_upcase)\n\n**Description:** \(.description)\n\n**Help:** \(.help)\n\n**Tags:** \(.tags | join(", "))\n\n**Nodes affected:** \(.nodes | length)\n\n---\n"' axe-results.json >> axe-violations-report.md
+            fi
+          fi
+
+      - name: Run pa11y accessibility scan
+        id: pa11y-scan
+        run: |
+          cd web
+
+          echo "Running pa11y accessibility scan..."
+          npx pa11y http://localhost:3000 --reporter json --standard WCAG2AA > ../pa11y-results.json || echo "pa11y_failed=true" >> $GITHUB_OUTPUT
+
+          cd ..
+
+          if [ -f pa11y-results.json ]; then
+            PA11Y_ISSUES=$(jq '. | length' pa11y-results.json 2>/dev/null || echo "0")
+            echo "pa11y_issues=$PA11Y_ISSUES" >> $GITHUB_OUTPUT
+            echo "Pa11y issues found: $PA11Y_ISSUES"
+
+            # Generate pa11y report
+            if [ "$PA11Y_ISSUES" -gt 0 ]; then
+              echo "## Pa11y Accessibility Issues" > pa11y-issues-report.md
+              echo "" >> pa11y-issues-report.md
+              jq -r '.[] | "### \(.type | ascii_upcase): \(.code)\n\n**Message:** \(.message)\n\n**Context:** \(.context)\n\n**Selector:** \(.selector)\n\n---\n"' pa11y-results.json >> pa11y-issues-report.md
+            fi
+          fi
+
+      - name: Run Lighthouse accessibility audit
+        id: lighthouse-scan
+        run: |
+          cd web
+
+          echo "Running Lighthouse accessibility audit..."
+          npx lighthouse http://localhost:3000 --only-categories=accessibility,best-practices --output=json --output-path=../lighthouse-results.json --chrome-flags="--headless --no-sandbox" || echo "lighthouse_failed=true" >> $GITHUB_OUTPUT
+
+          cd ..
+
+          if [ -f lighthouse-results.json ]; then
+            LIGHTHOUSE_A11Y_SCORE=$(jq '.lhr.categories.accessibility.score * 100' lighthouse-results.json 2>/dev/null || echo "0")
+            LIGHTHOUSE_BP_SCORE=$(jq '.lhr.categories["best-practices"].score * 100' lighthouse-results.json 2>/dev/null || echo "0")
+
+            echo "lighthouse_accessibility_score=$LIGHTHOUSE_A11Y_SCORE" >> $GITHUB_OUTPUT
+            echo "lighthouse_best_practices_score=$LIGHTHOUSE_BP_SCORE" >> $GITHUB_OUTPUT
+
+            echo "Lighthouse results:"
+            echo "- Accessibility Score: ${LIGHTHOUSE_A11Y_SCORE}%"
+            echo "- Best Practices Score: ${LIGHTHOUSE_BP_SCORE}%"
+
+            # Extract failed audits
+            FAILED_AUDITS=$(jq -r '.lhr.categories.accessibility.auditRefs[] | select(.result.score < 1) | .result.title' lighthouse-results.json 2>/dev/null | wc -l || echo "0")
+            echo "lighthouse_failed_audits=$FAILED_AUDITS" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Stop application
+        if: always()
+        run: |
+          if [ -n "$APP_PID" ]; then
+            kill $APP_PID || true
+          fi
+
+      - name: Run additional WCAG compliance checks
+        id: wcag-checks
+        run: |
+          echo "Running additional WCAG compliance checks..."
+
+          # Check for common accessibility issues in code
+          echo "## Additional WCAG Compliance Checks" > wcag-compliance-report.md
+          echo "" >> wcag-compliance-report.md
+
+          # Check for alt text on images
+          IMG_WITHOUT_ALT=$(grep -r "img" web/app web/components 2>/dev/null | grep -v "alt=" | wc -l || echo "0")
+          echo "images_without_alt=$IMG_WITHOUT_ALT" >> $GITHUB_OUTPUT
+          echo "### Images without alt text: $IMG_WITHOUT_ALT" >> wcag-compliance-report.md
+
+          # Check for proper heading structure
+          HEADING_ISSUES=$(grep -r -E "h[1-6]" web/app web/components 2>/dev/null | wc -l || echo "0")
+          echo "### Heading elements found: $HEADING_ISSUES" >> wcag-compliance-report.md
+
+          # Check for form labels
+          FORMS_WITHOUT_LABELS=$(grep -r "input\|select\|textarea" web/app web/components 2>/dev/null | grep -v "aria-label\|aria-labelledby" | grep -v "label" | wc -l || echo "0")
+          echo "forms_without_labels=$FORMS_WITHOUT_LABELS" >> $GITHUB_OUTPUT
+          echo "### Form elements potentially without labels: $FORMS_WITHOUT_LABELS" >> wcag-compliance-report.md
+
+          # Check for color contrast issues (basic check)
+          COLOR_KEYWORDS=$(grep -r -i "color:\|background-color:" web/app web/components web/styles 2>/dev/null | wc -l || echo "0")
+          echo "### Color declarations found (manual review needed): $COLOR_KEYWORDS" >> wcag-compliance-report.md
+
+          echo "" >> wcag-compliance-report.md
+          echo "**Note:** These are basic automated checks. Manual testing is still required for full WCAG compliance." >> wcag-compliance-report.md
+
+      - name: Upload accessibility results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: accessibility-results-${{ github.run_id }}
+          path: |
+            axe-results.json
+            pa11y-results.json
+            lighthouse-results.json
+            axe-violations-report.md
+            pa11y-issues-report.md
+            wcag-compliance-report.md
+          retention-days: 30
+
+      - name: Generate accessibility summary
+        run: |
+          AXE_VIOLATIONS="${{ steps.axe-scan.outputs.axe_violations || '0' }}"
+          PA11Y_ISSUES="${{ steps.pa11y-scan.outputs.pa11y_issues || '0' }}"
+          LIGHTHOUSE_SCORE="${{ steps.lighthouse-scan.outputs.lighthouse_accessibility_score || '0' }}"
+          IMG_WITHOUT_ALT="${{ steps.wcag-checks.outputs.images_without_alt || '0' }}"
+          FORMS_WITHOUT_LABELS="${{ steps.wcag-checks.outputs.forms_without_labels || '0' }}"
+
+          echo "## ♿ WCAG Accessibility Compliance Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Automated Testing Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Tool | Score/Issues | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$AXE_VIOLATIONS" -eq 0 ]; then
+            AXE_STATUS="✅ Passed"
+          else
+            AXE_STATUS="❌ $AXE_VIOLATIONS violations"
+          fi
+          echo "| Axe-core | $AXE_VIOLATIONS violations | $AXE_STATUS |" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$PA11Y_ISSUES" -eq 0 ]; then
+            PA11Y_STATUS="✅ Passed"
+          else
+            PA11Y_STATUS="❌ $PA11Y_ISSUES issues"
+          fi
+          echo "| Pa11y | $PA11Y_ISSUES issues | $PA11Y_STATUS |" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${LIGHTHOUSE_SCORE%.*}" -ge 90 ]; then
+            LIGHTHOUSE_STATUS="✅ Excellent"
+          elif [ "${LIGHTHOUSE_SCORE%.*}" -ge 70 ]; then
+            LIGHTHOUSE_STATUS="⚠️ Good"
+          else
+            LIGHTHOUSE_STATUS="❌ Needs Improvement"
+          fi
+          echo "| Lighthouse | ${LIGHTHOUSE_SCORE}% | $LIGHTHOUSE_STATUS |" >> $GITHUB_STEP_SUMMARY
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Code Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "- **Images without alt text:** $IMG_WITHOUT_ALT" >> $GITHUB_STEP_SUMMARY
+          echo "- **Forms potentially without labels:** $FORMS_WITHOUT_LABELS" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Overall compliance status
+          TOTAL_ISSUES=$((AXE_VIOLATIONS + PA11Y_ISSUES + IMG_WITHOUT_ALT + FORMS_WITHOUT_LABELS))
+
+          if [ "$TOTAL_ISSUES" -eq 0 ] && [ "${LIGHTHOUSE_SCORE%.*}" -ge 90 ]; then
+            echo "✅ **WCAG Compliance Status: EXCELLENT** - No automated issues found" >> $GITHUB_STEP_SUMMARY
+          elif [ "$TOTAL_ISSUES" -le 5 ] && [ "${LIGHTHOUSE_SCORE%.*}" -ge 70 ]; then
+            echo "⚠️ **WCAG Compliance Status: GOOD** - Minor issues found" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **WCAG Compliance Status: NEEDS IMPROVEMENT** - Multiple issues found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Important:** Automated testing covers only ~30% of WCAG requirements. Manual testing is essential for full compliance." >> $GITHUB_STEP_SUMMARY
+
+  security-compliance:
+    name: Security Compliance Checks
+    runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_dispatch' || inputs.check_type == 'all' || inputs.check_type == 'security'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Check security headers configuration
+        id: security-headers
+        run: |
+          echo "Checking security headers configuration..."
+
+          # Check Next.js security configuration
+          SECURITY_HEADERS_CONFIGURED=0
+          if [ -f web/next.config.js ]; then
+            if grep -q "contentSecurityPolicy\|frameOptions\|referrerPolicy\|hsts" web/next.config.js; then
+              SECURITY_HEADERS_CONFIGURED=1
+            fi
+          fi
+          echo "security_headers_configured=$SECURITY_HEADERS_CONFIGURED" >> $GITHUB_OUTPUT
+
+          # Check for HTTPS enforcement
+          HTTPS_ENFORCED=0
+          if grep -q "https\|secure" web/next.config.js 2>/dev/null || grep -q "HTTPS" web/.env.example 2>/dev/null; then
+            HTTPS_ENFORCED=1
+          fi
+          echo "https_enforced=$HTTPS_ENFORCED" >> $GITHUB_OUTPUT
+
+      - name: Check for secrets in code
+        id: secrets-check
+        run: |
+          echo "Scanning for potential secrets in code..."
+
+          # Define patterns for common secrets
+          SECRET_PATTERNS="password|secret|key|token|api_key|private_key|aws_access|aws_secret"
+
+          # Scan for secrets (excluding common false positives)
+          SECRET_MATCHES=$(grep -r -i -E "$SECRET_PATTERNS" \
+            --include="*.py" --include="*.js" --include="*.ts" --include="*.json" \
+            --exclude-dir=".git" --exclude-dir="node_modules" --exclude-dir="__pycache__" \
+            --exclude-dir=".next" --exclude="*.md" . | \
+            grep -v "example\|test\|mock\|placeholder\|TODO\|FIXME" | \
+            wc -l || echo "0")
+
+          echo "potential_secrets=$SECRET_MATCHES" >> $GITHUB_OUTPUT
+          echo "Potential secrets found: $SECRET_MATCHES"
+
+      - name: Check environment variable security
+        id: env-security
+        run: |
+          echo "Checking environment variable security..."
+
+          # Check for .env.example files
+          ENV_EXAMPLES=0
+          if [ -f .env.example ] || [ -f web/.env.example ]; then
+            ENV_EXAMPLES=1
+          fi
+          echo "env_examples_provided=$ENV_EXAMPLES" >> $GITHUB_OUTPUT
+
+          # Check for .env files in git (should not be there)
+          ENV_IN_GIT=$(find . -name ".env" -not -path "./.git/*" | wc -l || echo "0")
+          echo "env_files_in_git=$ENV_IN_GIT" >> $GITHUB_OUTPUT
+
+      - name: Check API security practices
+        id: api-security
+        run: |
+          echo "Checking API security practices..."
+
+          # Check for authentication middleware
+          AUTH_MIDDLEWARE=0
+          if grep -r "auth\|jwt\|token" services/api/app/ 2>/dev/null | grep -q "middleware\|decorator"; then
+            AUTH_MIDDLEWARE=1
+          fi
+          echo "auth_middleware_found=$AUTH_MIDDLEWARE" >> $GITHUB_OUTPUT
+
+          # Check for input validation
+          INPUT_VALIDATION=0
+          if grep -r "pydantic\|validator\|validate" services/api/app/ 2>/dev/null | wc -l | awk '{if($1>0) print 1; else print 0}'; then
+            INPUT_VALIDATION=1
+          fi
+          echo "input_validation_found=$INPUT_VALIDATION" >> $GITHUB_OUTPUT
+
+          # Check for CORS configuration
+          CORS_CONFIG=0
+          if grep -r "cors\|CORSMiddleware" services/api/app/ 2>/dev/null | wc -l | awk '{if($1>0) print 1; else print 0}'; then
+            CORS_CONFIG=1
+          fi
+          echo "cors_configured=$CORS_CONFIG" >> $GITHUB_OUTPUT
+
+      - name: Generate security compliance report
+        run: |
+          SECURITY_HEADERS="${{ steps.security-headers.outputs.security_headers_configured }}"
+          HTTPS_ENFORCED="${{ steps.security-headers.outputs.https_enforced }}"
+          POTENTIAL_SECRETS="${{ steps.secrets-check.outputs.potential_secrets }}"
+          ENV_EXAMPLES="${{ steps.env-security.outputs.env_examples_provided }}"
+          ENV_IN_GIT="${{ steps.env-security.outputs.env_files_in_git }}"
+          AUTH_MIDDLEWARE="${{ steps.api-security.outputs.auth_middleware_found }}"
+          INPUT_VALIDATION="${{ steps.api-security.outputs.input_validation_found }}"
+          CORS_CONFIG="${{ steps.api-security.outputs.cors_configured }}"
+
+          echo "## 🔒 Security Compliance Check Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Web Application Security" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Headers | $( [ "$SECURITY_HEADERS" = "1" ] && echo "✅ Configured" || echo "❌ Not configured" ) |" >> $GITHUB_STEP_SUMMARY
+          echo "| HTTPS Enforcement | $( [ "$HTTPS_ENFORCED" = "1" ] && echo "✅ Configured" || echo "⚠️ Not explicitly configured" ) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Code Security" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Potential Secrets | $( [ "$POTENTIAL_SECRETS" = "0" ] && echo "✅ None found" || echo "⚠️ $POTENTIAL_SECRETS potential matches" ) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment Examples | $( [ "$ENV_EXAMPLES" = "1" ] && echo "✅ Provided" || echo "⚠️ Not provided" ) |" >> $GITHUB_STEP_SUMMARY
+          echo "| .env in Git | $( [ "$ENV_IN_GIT" = "0" ] && echo "✅ None found" || echo "❌ $ENV_IN_GIT files found" ) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### API Security" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Authentication Middleware | $( [ "$AUTH_MIDDLEWARE" = "1" ] && echo "✅ Found" || echo "⚠️ Not detected" ) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Input Validation | $( [ "$INPUT_VALIDATION" = "1" ] && echo "✅ Found" || echo "⚠️ Not detected" ) |" >> $GITHUB_STEP_SUMMARY
+          echo "| CORS Configuration | $( [ "$CORS_CONFIG" = "1" ] && echo "✅ Found" || echo "⚠️ Not detected" ) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Calculate overall security score
+          SECURITY_SCORE=0
+          [ "$SECURITY_HEADERS" = "1" ] && SECURITY_SCORE=$((SECURITY_SCORE + 1))
+          [ "$HTTPS_ENFORCED" = "1" ] && SECURITY_SCORE=$((SECURITY_SCORE + 1))
+          [ "$POTENTIAL_SECRETS" = "0" ] && SECURITY_SCORE=$((SECURITY_SCORE + 1))
+          [ "$ENV_EXAMPLES" = "1" ] && SECURITY_SCORE=$((SECURITY_SCORE + 1))
+          [ "$ENV_IN_GIT" = "0" ] && SECURITY_SCORE=$((SECURITY_SCORE + 1))
+          [ "$AUTH_MIDDLEWARE" = "1" ] && SECURITY_SCORE=$((SECURITY_SCORE + 1))
+          [ "$INPUT_VALIDATION" = "1" ] && SECURITY_SCORE=$((SECURITY_SCORE + 1))
+          [ "$CORS_CONFIG" = "1" ] && SECURITY_SCORE=$((SECURITY_SCORE + 1))
+
+          SECURITY_PERCENTAGE=$((SECURITY_SCORE * 100 / 8))
+
+          if [ "$SECURITY_PERCENTAGE" -ge 80 ]; then
+            echo "✅ **Security Compliance: GOOD** (${SECURITY_PERCENTAGE}%)" >> $GITHUB_STEP_SUMMARY
+          elif [ "$SECURITY_PERCENTAGE" -ge 60 ]; then
+            echo "⚠️ **Security Compliance: FAIR** (${SECURITY_PERCENTAGE}%)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Security Compliance: NEEDS IMPROVEMENT** (${SECURITY_PERCENTAGE}%)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  performance-compliance:
+    name: Performance Compliance
+    runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_dispatch' || inputs.check_type == 'all' || inputs.check_type == 'performance'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Build application
+        run: |
+          cd web
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Start application for performance testing
+        run: |
+          cd web
+          pnpm start &
+          APP_PID=$!
+          echo "APP_PID=$APP_PID" >> $GITHUB_ENV
+
+          # Wait for application to start
+          echo "Waiting for application to start..."
+          for i in {1..30}; do
+            if curl -f http://localhost:3000 >/dev/null 2>&1; then
+              echo "Application is ready"
+              break
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+
+      - name: Run Lighthouse performance audit
+        id: lighthouse-performance
+        run: |
+          echo "Running Lighthouse performance audit..."
+          npx lighthouse http://localhost:3000 --only-categories=performance --output=json --output-path=lighthouse-performance.json --chrome-flags="--headless --no-sandbox" || echo "lighthouse_failed=true" >> $GITHUB_OUTPUT
+
+          if [ -f lighthouse-performance.json ]; then
+            PERFORMANCE_SCORE=$(jq '.lhr.categories.performance.score * 100' lighthouse-performance.json 2>/dev/null || echo "0")
+            FCP=$(jq '.lhr.audits["first-contentful-paint"].displayValue' lighthouse-performance.json 2>/dev/null | tr -d '"' || echo "N/A")
+            LCP=$(jq '.lhr.audits["largest-contentful-paint"].displayValue' lighthouse-performance.json 2>/dev/null | tr -d '"' || echo "N/A")
+            CLS=$(jq '.lhr.audits["cumulative-layout-shift"].displayValue' lighthouse-performance.json 2>/dev/null | tr -d '"' || echo "N/A")
+
+            echo "performance_score=$PERFORMANCE_SCORE" >> $GITHUB_OUTPUT
+            echo "first_contentful_paint=$FCP" >> $GITHUB_OUTPUT
+            echo "largest_contentful_paint=$LCP" >> $GITHUB_OUTPUT
+            echo "cumulative_layout_shift=$CLS" >> $GITHUB_OUTPUT
+
+            echo "Lighthouse Performance Results:"
+            echo "- Performance Score: ${PERFORMANCE_SCORE}%"
+            echo "- First Contentful Paint: $FCP"
+            echo "- Largest Contentful Paint: $LCP"
+            echo "- Cumulative Layout Shift: $CLS"
+          fi
+
+      - name: Stop application
+        if: always()
+        run: |
+          if [ -n "$APP_PID" ]; then
+            kill $APP_PID || true
+          fi
+
+      - name: Analyze bundle size
+        id: bundle-analysis
+        run: |
+          cd web
+
+          echo "Analyzing bundle size..."
+
+          # Check if .next directory exists
+          if [ -d ".next" ]; then
+            # Get bundle sizes
+            TOTAL_SIZE=$(du -sh .next/static 2>/dev/null | cut -f1 || echo "N/A")
+            JS_SIZE=$(find .next/static -name "*.js" -exec du -ch {} + 2>/dev/null | tail -1 | cut -f1 || echo "N/A")
+            CSS_SIZE=$(find .next/static -name "*.css" -exec du -ch {} + 2>/dev/null | tail -1 | cut -f1 || echo "N/A")
+
+            echo "total_bundle_size=$TOTAL_SIZE" >> $GITHUB_OUTPUT
+            echo "js_bundle_size=$JS_SIZE" >> $GITHUB_OUTPUT
+            echo "css_bundle_size=$CSS_SIZE" >> $GITHUB_OUTPUT
+
+            echo "Bundle Analysis:"
+            echo "- Total Static Size: $TOTAL_SIZE"
+            echo "- JavaScript Size: $JS_SIZE"
+            echo "- CSS Size: $CSS_SIZE"
+          fi
+
+      - name: Upload performance results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-results-${{ github.run_id }}
+          path: lighthouse-performance.json
+          retention-days: 30
+
+      - name: Generate performance summary
+        run: |
+          PERFORMANCE_SCORE="${{ steps.lighthouse-performance.outputs.performance_score || '0' }}"
+          FCP="${{ steps.lighthouse-performance.outputs.first_contentful_paint || 'N/A' }}"
+          LCP="${{ steps.lighthouse-performance.outputs.largest_contentful_paint || 'N/A' }}"
+          CLS="${{ steps.lighthouse-performance.outputs.cumulative_layout_shift || 'N/A' }}"
+          TOTAL_SIZE="${{ steps.bundle-analysis.outputs.total_bundle_size || 'N/A' }}"
+          JS_SIZE="${{ steps.bundle-analysis.outputs.js_bundle_size || 'N/A' }}"
+
+          echo "## ⚡ Performance Compliance Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Lighthouse Performance Metrics" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${PERFORMANCE_SCORE%.*}" -ge 90 ]; then
+            PERF_STATUS="✅ Excellent"
+          elif [ "${PERFORMANCE_SCORE%.*}" -ge 70 ]; then
+            PERF_STATUS="⚠️ Good"
+          else
+            PERF_STATUS="❌ Needs Improvement"
+          fi
+          echo "| Performance Score | ${PERFORMANCE_SCORE}% | $PERF_STATUS |" >> $GITHUB_STEP_SUMMARY
+          echo "| First Contentful Paint | $FCP | - |" >> $GITHUB_STEP_SUMMARY
+          echo "| Largest Contentful Paint | $LCP | - |" >> $GITHUB_STEP_SUMMARY
+          echo "| Cumulative Layout Shift | $CLS | - |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Bundle Size Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total Static Assets:** $TOTAL_SIZE" >> $GITHUB_STEP_SUMMARY
+          echo "- **JavaScript Bundle:** $JS_SIZE" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${PERFORMANCE_SCORE%.*}" -ge 90 ]; then
+            echo "✅ **Performance Status: EXCELLENT** - Application meets performance standards" >> $GITHUB_STEP_SUMMARY
+          elif [ "${PERFORMANCE_SCORE%.*}" -ge 70 ]; then
+            echo "⚠️ **Performance Status: GOOD** - Minor optimizations recommended" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Performance Status: NEEDS IMPROVEMENT** - Performance optimizations required" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  compliance-summary:
+    name: Compliance Summary
+    runs-on: ubuntu-latest
+    needs: [wcag-compliance, security-compliance, performance-compliance]
+    if: always()
+
+    steps:
+      - name: Generate comprehensive compliance report
+        run: |
+          echo "# 📋 Comprehensive Compliance Report" > compliance-summary.md
+          echo "" >> compliance-summary.md
+          echo "**Report Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> compliance-summary.md
+          echo "**Repository:** ${{ github.repository }}" >> compliance-summary.md
+          echo "**Commit:** ${{ github.sha }}" >> compliance-summary.md
+          echo "" >> compliance-summary.md
+
+          # WCAG Compliance Status
+          echo "## ♿ WCAG Accessibility Compliance" >> compliance-summary.md
+          if [ "${{ needs.wcag-compliance.result }}" = "success" ]; then
+            echo "**Status:** ✅ Completed" >> compliance-summary.md
+          else
+            echo "**Status:** ❌ Failed or Skipped" >> compliance-summary.md
+          fi
+          echo "" >> compliance-summary.md
+
+          # Security Compliance Status
+          echo "## 🔒 Security Compliance" >> compliance-summary.md
+          if [ "${{ needs.security-compliance.result }}" = "success" ]; then
+            echo "**Status:** ✅ Completed" >> compliance-summary.md
+          else
+            echo "**Status:** ❌ Failed or Skipped" >> compliance-summary.md
+          fi
+          echo "" >> compliance-summary.md
+
+          # Performance Compliance Status
+          echo "## ⚡ Performance Compliance" >> compliance-summary.md
+          if [ "${{ needs.performance-compliance.result }}" = "success" ]; then
+            echo "**Status:** ✅ Completed" >> compliance-summary.md
+          else
+            echo "**Status:** ❌ Failed or Skipped" >> compliance-summary.md
+          fi
+          echo "" >> compliance-summary.md
+
+          # Overall Compliance Status
+          echo "## 🎯 Overall Compliance Status" >> compliance-summary.md
+
+          PASSED_CHECKS=0
+          TOTAL_CHECKS=3
+
+          [ "${{ needs.wcag-compliance.result }}" = "success" ] && PASSED_CHECKS=$((PASSED_CHECKS + 1))
+          [ "${{ needs.security-compliance.result }}" = "success" ] && PASSED_CHECKS=$((PASSED_CHECKS + 1))
+          [ "${{ needs.performance-compliance.result }}" = "success" ] && PASSED_CHECKS=$((PASSED_CHECKS + 1))
+
+          COMPLIANCE_PERCENTAGE=$((PASSED_CHECKS * 100 / TOTAL_CHECKS))
+
+          if [ "$COMPLIANCE_PERCENTAGE" -eq 100 ]; then
+            echo "✅ **EXCELLENT** - All compliance checks passed ($PASSED_CHECKS/$TOTAL_CHECKS)" >> compliance-summary.md
+          elif [ "$COMPLIANCE_PERCENTAGE" -ge 67 ]; then
+            echo "⚠️ **GOOD** - Most compliance checks passed ($PASSED_CHECKS/$TOTAL_CHECKS)" >> compliance-summary.md
+          else
+            echo "❌ **NEEDS IMPROVEMENT** - Multiple compliance issues found ($PASSED_CHECKS/$TOTAL_CHECKS)" >> compliance-summary.md
+          fi
+
+          echo "" >> compliance-summary.md
+          echo "### Next Steps" >> compliance-summary.md
+          echo "1. Review detailed results in individual job summaries" >> compliance-summary.md
+          echo "2. Address any failing compliance checks" >> compliance-summary.md
+          echo "3. Implement recommended improvements" >> compliance-summary.md
+          echo "4. Re-run compliance checks to verify fixes" >> compliance-summary.md
+
+      - name: Upload comprehensive compliance report
+        uses: actions/upload-artifact@v4
+        with:
+          name: comprehensive-compliance-report-${{ github.run_id }}
+          path: compliance-summary.md
+          retention-days: 90
+
+      - name: Comment PR with compliance summary
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            let reportContent = '';
+            try {
+              reportContent = fs.readFileSync('compliance-summary.md', 'utf8');
+            } catch (error) {
+              reportContent = '❌ Compliance summary report not available';
+            }
+
+            const commentBody = `## 📋 Compliance Check Summary
+
+            ${reportContent}
+
+            ---
+            *Automatically generated by Compliance and Accessibility Checks workflow*`;
+
+            // Find existing comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.data.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('Compliance Check Summary')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: commentBody
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody
+              });
+            }
+
+      - name: Generate step summary
+        run: |
+          cat compliance-summary.md >> $GITHUB_STEP_SUMMARY
