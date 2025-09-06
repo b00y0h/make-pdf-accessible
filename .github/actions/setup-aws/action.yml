@@ -1,0 +1,143 @@
+name: 'Setup AWS Credentials'
+description: 'Configure AWS credentials using OIDC with standardized error handling and retry logic'
+inputs:
+  role_arn:
+    description: 'AWS IAM role ARN to assume'
+    required: true
+  aws_region:
+    description: 'AWS region'
+    required: true
+    default: 'us-east-1'
+  session_name:
+    description: 'Role session name'
+    required: false
+  service_name:
+    description: 'Service name for session naming'
+    required: true
+  max_retries:
+    description: 'Maximum number of retry attempts'
+    required: false
+    default: '3'
+  retry_delay:
+    description: 'Delay between retries in seconds'
+    required: false
+    default: '5'
+
+outputs:
+  aws_account_id:
+    description: 'AWS Account ID'
+    value: ${{ steps.configure.outputs.aws_account_id }}
+  aws_region:
+    description: 'AWS Region'
+    value: ${{ steps.configure.outputs.aws_region }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Generate session name
+      id: session
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.session_name }}" ]; then
+          SESSION_NAME="${{ inputs.session_name }}"
+        else
+          SESSION_NAME="GitHubActions-${{ inputs.service_name }}-${{ github.run_id }}"
+        fi
+        echo "name=$SESSION_NAME" >> $GITHUB_OUTPUT
+        echo "Generated session name: $SESSION_NAME"
+
+    - name: Configure AWS credentials with retry
+      id: configure
+      shell: bash
+      run: |
+        MAX_RETRIES=${{ inputs.max_retries }}
+        RETRY_DELAY=${{ inputs.retry_delay }}
+        ATTEMPT=1
+
+        while [ $ATTEMPT -le $MAX_RETRIES ]; do
+          echo "Attempt $ATTEMPT of $MAX_RETRIES: Configuring AWS credentials..."
+
+          if aws configure set region ${{ inputs.aws_region }} && \
+             aws sts assume-role-with-web-identity \
+               --role-arn ${{ inputs.role_arn }} \
+               --role-session-name ${{ steps.session.outputs.name }} \
+               --web-identity-token $ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+               --duration-seconds 3600 \
+               --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
+               --output text > /tmp/aws_credentials; then
+
+            # Parse credentials
+            AWS_ACCESS_KEY_ID=$(cut -f1 /tmp/aws_credentials)
+            AWS_SECRET_ACCESS_KEY=$(cut -f2 /tmp/aws_credentials)
+            AWS_SESSION_TOKEN=$(cut -f3 /tmp/aws_credentials)
+
+            # Set environment variables
+            echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> $GITHUB_ENV
+            echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> $GITHUB_ENV
+            echo "AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN" >> $GITHUB_ENV
+            echo "AWS_DEFAULT_REGION=${{ inputs.aws_region }}" >> $GITHUB_ENV
+
+            # Get account ID for verification
+            AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+            echo "aws_account_id=$AWS_ACCOUNT_ID" >> $GITHUB_OUTPUT
+            echo "aws_region=${{ inputs.aws_region }}" >> $GITHUB_OUTPUT
+
+            echo "✅ AWS credentials configured successfully"
+            echo "Account ID: $AWS_ACCOUNT_ID"
+            echo "Region: ${{ inputs.aws_region }}"
+            echo "Session: ${{ steps.session.outputs.name }}"
+
+            # Clean up temporary file
+            rm -f /tmp/aws_credentials
+            exit 0
+          else
+            echo "❌ Failed to configure AWS credentials (attempt $ATTEMPT)"
+
+            if [ $ATTEMPT -lt $MAX_RETRIES ]; then
+              echo "Retrying in $RETRY_DELAY seconds..."
+              sleep $RETRY_DELAY
+            fi
+
+            ATTEMPT=$((ATTEMPT + 1))
+          fi
+        done
+
+        echo "❌ Failed to configure AWS credentials after $MAX_RETRIES attempts"
+        exit 1
+
+    - name: Verify AWS access
+      shell: bash
+      run: |
+        echo "Verifying AWS access..."
+
+        # Test basic AWS CLI functionality
+        if ! aws sts get-caller-identity > /dev/null; then
+          echo "❌ AWS CLI verification failed"
+          exit 1
+        fi
+
+        # Test specific permissions based on service
+        case "${{ inputs.service_name }}" in
+          "infrastructure")
+            aws s3 ls > /dev/null || echo "⚠️ S3 access may be limited"
+            ;;
+          "lambda-functions"|"api")
+            aws lambda list-functions --max-items 1 > /dev/null || echo "⚠️ Lambda access may be limited"
+            ;;
+          "web")
+            aws s3 ls > /dev/null || echo "⚠️ S3 access may be limited"
+            aws cloudfront list-distributions --max-items 1 > /dev/null || echo "⚠️ CloudFront access may be limited"
+            ;;
+        esac
+
+        echo "✅ AWS access verified"
+
+    - name: Log AWS configuration
+      shell: bash
+      run: |
+        echo "AWS Configuration Summary:"
+        echo "- Account ID: ${{ steps.configure.outputs.aws_account_id }}"
+        echo "- Region: ${{ steps.configure.outputs.aws_region }}"
+        echo "- Service: ${{ inputs.service_name }}"
+        echo "- Session: ${{ steps.session.outputs.name }}"
+        echo "- Role ARN: ${{ inputs.role_arn }}"

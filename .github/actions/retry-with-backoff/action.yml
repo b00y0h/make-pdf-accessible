@@ -1,0 +1,193 @@
+name: 'Retry with Exponential Backoff'
+description: 'Execute commands with retry logic and exponential backoff for improved reliability'
+inputs:
+  command:
+    description: 'Command to execute with retry logic'
+    required: true
+  max_attempts:
+    description: 'Maximum number of attempts'
+    required: false
+    default: '3'
+  initial_delay:
+    description: 'Initial delay in seconds'
+    required: false
+    default: '2'
+  max_delay:
+    description: 'Maximum delay in seconds'
+    required: false
+    default: '60'
+  backoff_multiplier:
+    description: 'Backoff multiplier for exponential backoff'
+    required: false
+    default: '2'
+  timeout:
+    description: 'Timeout for each attempt in seconds'
+    required: false
+    default: '300'
+  success_condition:
+    description: 'Command or condition to check for success (optional)'
+    required: false
+  failure_condition:
+    description: 'Command or condition to check for failure (optional)'
+    required: false
+
+outputs:
+  success:
+    description: 'Whether the command succeeded'
+    value: ${{ steps.retry.outputs.success }}
+  attempts_made:
+    description: 'Number of attempts made'
+    value: ${{ steps.retry.outputs.attempts }}
+  total_time:
+    description: 'Total time taken in seconds'
+    value: ${{ steps.retry.outputs.total_time }}
+  last_exit_code:
+    description: 'Exit code of the last attempt'
+    value: ${{ steps.retry.outputs.exit_code }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Execute command with retry logic
+      id: retry
+      shell: bash
+      run: |
+        MAX_ATTEMPTS=${{ inputs.max_attempts }}
+        INITIAL_DELAY=${{ inputs.initial_delay }}
+        MAX_DELAY=${{ inputs.max_delay }}
+        BACKOFF_MULTIPLIER=${{ inputs.backoff_multiplier }}
+        TIMEOUT=${{ inputs.timeout }}
+        COMMAND="${{ inputs.command }}"
+        SUCCESS_CONDITION="${{ inputs.success_condition }}"
+        FAILURE_CONDITION="${{ inputs.failure_condition }}"
+
+        ATTEMPT=1
+        DELAY=$INITIAL_DELAY
+        START_TIME=$(date +%s)
+        SUCCESS=false
+        LAST_EXIT_CODE=0
+
+        echo "Starting retry execution with exponential backoff"
+        echo "Command: $COMMAND"
+        echo "Max attempts: $MAX_ATTEMPTS"
+        echo "Initial delay: ${INITIAL_DELAY}s"
+        echo "Max delay: ${MAX_DELAY}s"
+        echo "Backoff multiplier: $BACKOFF_MULTIPLIER"
+        echo "Timeout per attempt: ${TIMEOUT}s"
+
+        while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+          echo ""
+          echo "=== Attempt $ATTEMPT of $MAX_ATTEMPTS ==="
+          echo "$(date): Starting attempt $ATTEMPT"
+
+          # Execute command with timeout
+          ATTEMPT_START=$(date +%s)
+
+          if timeout $TIMEOUT bash -c "$COMMAND"; then
+            LAST_EXIT_CODE=0
+            echo "$(date): Command completed successfully on attempt $ATTEMPT"
+
+            # Check success condition if provided
+            if [ -n "$SUCCESS_CONDITION" ]; then
+              echo "Checking success condition: $SUCCESS_CONDITION"
+              if eval "$SUCCESS_CONDITION"; then
+                echo "✅ Success condition met"
+                SUCCESS=true
+                break
+              else
+                echo "⚠️ Command succeeded but success condition not met"
+                LAST_EXIT_CODE=1
+              fi
+            else
+              SUCCESS=true
+              break
+            fi
+          else
+            LAST_EXIT_CODE=$?
+            echo "❌ Command failed on attempt $ATTEMPT (exit code: $LAST_EXIT_CODE)"
+
+            # Check failure condition if provided
+            if [ -n "$FAILURE_CONDITION" ]; then
+              echo "Checking failure condition: $FAILURE_CONDITION"
+              if eval "$FAILURE_CONDITION"; then
+                echo "💥 Failure condition met - stopping retries"
+                break
+              fi
+            fi
+          fi
+
+          ATTEMPT_END=$(date +%s)
+          ATTEMPT_DURATION=$((ATTEMPT_END - ATTEMPT_START))
+          echo "Attempt $ATTEMPT took ${ATTEMPT_DURATION}s"
+
+          # If this wasn't the last attempt and we haven't succeeded, wait before retry
+          if [ $ATTEMPT -lt $MAX_ATTEMPTS ] && [ "$SUCCESS" = false ]; then
+            echo "Waiting ${DELAY}s before next attempt..."
+            sleep $DELAY
+
+            # Calculate next delay with exponential backoff
+            NEXT_DELAY=$((DELAY * BACKOFF_MULTIPLIER))
+            if [ $NEXT_DELAY -gt $MAX_DELAY ]; then
+              DELAY=$MAX_DELAY
+            else
+              DELAY=$NEXT_DELAY
+            fi
+          fi
+
+          ATTEMPT=$((ATTEMPT + 1))
+        done
+
+        END_TIME=$(date +%s)
+        TOTAL_TIME=$((END_TIME - START_TIME))
+
+        # Output results
+        echo "success=$SUCCESS" >> $GITHUB_OUTPUT
+        echo "attempts=$((ATTEMPT - 1))" >> $GITHUB_OUTPUT
+        echo "total_time=$TOTAL_TIME" >> $GITHUB_OUTPUT
+        echo "exit_code=$LAST_EXIT_CODE" >> $GITHUB_OUTPUT
+
+        echo ""
+        echo "=== Retry Execution Summary ==="
+        echo "Success: $SUCCESS"
+        echo "Attempts made: $((ATTEMPT - 1))"
+        echo "Total time: ${TOTAL_TIME}s"
+        echo "Last exit code: $LAST_EXIT_CODE"
+
+        if [ "$SUCCESS" = true ]; then
+          echo "✅ Command succeeded after $((ATTEMPT - 1)) attempt(s)"
+        else
+          echo "❌ Command failed after $((ATTEMPT - 1)) attempt(s)"
+          exit $LAST_EXIT_CODE
+        fi
+
+    - name: Log retry statistics
+      if: always()
+      shell: bash
+      run: |
+        echo "## 🔄 Retry Execution Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Command:** \`${{ inputs.command }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+
+        if [ "${{ steps.retry.outputs.success }}" = "true" ]; then
+          echo "| Status | ✅ Success |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "| Status | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "| Attempts Made | ${{ steps.retry.outputs.attempts }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Max Attempts | ${{ inputs.max_attempts }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Total Time | ${{ steps.retry.outputs.total_time }}s |" >> $GITHUB_STEP_SUMMARY
+        echo "| Last Exit Code | ${{ steps.retry.outputs.exit_code }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ "${{ steps.retry.outputs.success }}" = "false" ]; then
+          echo "### Troubleshooting" >> $GITHUB_STEP_SUMMARY
+          echo "The command failed after ${{ steps.retry.outputs.attempts }} attempts. Consider:" >> $GITHUB_STEP_SUMMARY
+          echo "- Increasing the timeout value" >> $GITHUB_STEP_SUMMARY
+          echo "- Increasing the maximum number of attempts" >> $GITHUB_STEP_SUMMARY
+          echo "- Checking if the failure is due to a permanent condition" >> $GITHUB_STEP_SUMMARY
+          echo "- Reviewing the command syntax and parameters" >> $GITHUB_STEP_SUMMARY
+        fi

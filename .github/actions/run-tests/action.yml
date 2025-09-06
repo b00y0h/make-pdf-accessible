@@ -1,0 +1,346 @@
+name: 'Run Tests with Coverage'
+description: 'Execute tests for Python or Node.js projects with coverage reporting and quality gates'
+inputs:
+  language:
+    description: 'Programming language (python or nodejs)'
+    required: true
+  working_directory:
+    description: 'Working directory for tests'
+    required: true
+  test_command:
+    description: 'Custom test command (optional)'
+    required: false
+  coverage_threshold:
+    description: 'Minimum coverage percentage required'
+    required: false
+    default: '80'
+  test_pattern:
+    description: 'Test file pattern'
+    required: false
+  install_dependencies:
+    description: 'Whether to install dependencies'
+    required: false
+    default: 'true'
+  requirements_file:
+    description: 'Requirements file for Python (default: requirements.txt)'
+    required: false
+    default: 'requirements.txt'
+  package_manager:
+    description: 'Package manager for Node.js (npm, yarn, pnpm)'
+    required: false
+    default: 'pnpm'
+
+outputs:
+  test_results:
+    description: 'Test results summary'
+    value: ${{ steps.test-summary.outputs.results }}
+  coverage_percentage:
+    description: 'Code coverage percentage'
+    value: ${{ steps.coverage.outputs.percentage }}
+  tests_passed:
+    description: 'Whether all tests passed'
+    value: ${{ steps.test-summary.outputs.passed }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Validate inputs
+      shell: bash
+      run: |
+        if [ "${{ inputs.language }}" != "python" ] && [ "${{ inputs.language }}" != "nodejs" ]; then
+          echo "❌ Unsupported language: ${{ inputs.language }}"
+          echo "Supported languages: python, nodejs"
+          exit 1
+        fi
+
+        if [ ! -d "${{ inputs.working_directory }}" ]; then
+          echo "❌ Working directory not found: ${{ inputs.working_directory }}"
+          exit 1
+        fi
+
+        echo "✅ Input validation passed"
+        echo "Language: ${{ inputs.language }}"
+        echo "Working directory: ${{ inputs.working_directory }}"
+
+    - name: Setup Python environment
+      if: inputs.language == 'python'
+      shell: bash
+      run: |
+        cd ${{ inputs.working_directory }}
+
+        echo "Setting up Python test environment..."
+
+        # Install test dependencies
+        if [ "${{ inputs.install_dependencies }}" == "true" ]; then
+          if [ -f "${{ inputs.requirements_file }}" ]; then
+            echo "Installing dependencies from ${{ inputs.requirements_file }}..."
+            pip install -r ${{ inputs.requirements_file }}
+          fi
+
+          # Install common test packages
+          pip install pytest pytest-cov pytest-asyncio pytest-xdist httpx
+        fi
+
+        # Create pytest configuration if it doesn't exist
+        if [ ! -f "pytest.ini" ] && [ ! -f "pyproject.toml" ]; then
+          cat > pytest.ini << EOF
+        [tool:pytest]
+        testpaths = tests
+        python_files = test_*.py *_test.py
+        python_classes = Test*
+        python_functions = test_*
+        addopts = -v --tb=short --strict-markers
+        markers =
+            unit: Unit tests
+            integration: Integration tests
+            slow: Slow running tests
+        EOF
+        fi
+
+    - name: Setup Node.js environment
+      if: inputs.language == 'nodejs'
+      shell: bash
+      run: |
+        cd ${{ inputs.working_directory }}
+
+        echo "Setting up Node.js test environment..."
+
+        if [ "${{ inputs.install_dependencies }}" == "true" ]; then
+          case "${{ inputs.package_manager }}" in
+            "npm")
+              npm ci
+              ;;
+            "yarn")
+              yarn install --frozen-lockfile
+              ;;
+            "pnpm")
+              pnpm install --frozen-lockfile
+              ;;
+            *)
+              echo "❌ Unsupported package manager: ${{ inputs.package_manager }}"
+              exit 1
+              ;;
+          esac
+        fi
+
+        # Ensure Jest configuration exists
+        if [ ! -f "jest.config.js" ] && [ ! -f "jest.config.json" ]; then
+          cat > jest.config.js << 'EOF'
+        module.exports = {
+          testEnvironment: 'node',
+          collectCoverage: true,
+          coverageDirectory: 'coverage',
+          coverageReporters: ['text', 'lcov', 'json', 'html'],
+          testMatch: ['**/__tests__/**/*.(js|jsx|ts|tsx)', '**/*.(test|spec).(js|jsx|ts|tsx)'],
+          collectCoverageFrom: [
+            '**/*.(js|jsx|ts|tsx)',
+            '!**/*.d.ts',
+            '!**/node_modules/**',
+            '!**/.next/**',
+            '!**/coverage/**'
+          ]
+        };
+        EOF
+        fi
+
+    - name: Run Python tests
+      if: inputs.language == 'python'
+      id: python-tests
+      shell: bash
+      run: |
+        cd ${{ inputs.working_directory }}
+
+        echo "Running Python tests..."
+
+        # Determine test command
+        if [ -n "${{ inputs.test_command }}" ]; then
+          TEST_CMD="${{ inputs.test_command }}"
+        else
+          TEST_PATTERN="${{ inputs.test_pattern }}"
+          if [ -z "$TEST_PATTERN" ]; then
+            TEST_PATTERN="tests/"
+          fi
+
+          TEST_CMD="pytest $TEST_PATTERN -v --tb=short --cov=. --cov-report=xml --cov-report=term-missing --cov-report=html --junitxml=test-results.xml --maxfail=10"
+        fi
+
+        echo "Executing: $TEST_CMD"
+
+        # Run tests with error handling
+        if $TEST_CMD; then
+          echo "tests_passed=true" >> $GITHUB_OUTPUT
+          echo "✅ All Python tests passed"
+        else
+          echo "tests_passed=false" >> $GITHUB_OUTPUT
+          echo "❌ Some Python tests failed"
+        fi
+
+        # Extract test statistics
+        if [ -f "test-results.xml" ]; then
+          TESTS=$(python -c "
+          import xml.etree.ElementTree as ET
+          try:
+              tree = ET.parse('test-results.xml')
+              root = tree.getroot()
+              tests = root.attrib.get('tests', '0')
+              failures = root.attrib.get('failures', '0')
+              errors = root.attrib.get('errors', '0')
+              skipped = root.attrib.get('skipped', '0')
+              print(f'tests={tests},failures={failures},errors={errors},skipped={skipped}')
+          except Exception as e:
+              print('tests=0,failures=0,errors=0,skipped=0')
+          ")
+          echo "test_stats=$TESTS" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Run Node.js tests
+      if: inputs.language == 'nodejs'
+      id: nodejs-tests
+      shell: bash
+      run: |
+        cd ${{ inputs.working_directory }}
+
+        echo "Running Node.js tests..."
+
+        # Determine test command
+        if [ -n "${{ inputs.test_command }}" ]; then
+          TEST_CMD="${{ inputs.test_command }}"
+        else
+          case "${{ inputs.package_manager }}" in
+            "npm")
+              TEST_CMD="npm test"
+              ;;
+            "yarn")
+              TEST_CMD="yarn test"
+              ;;
+            "pnpm")
+              TEST_CMD="pnpm test"
+              ;;
+          esac
+
+          # Add coverage and CI flags
+          TEST_CMD="$TEST_CMD --coverage --watchAll=false --passWithNoTests"
+        fi
+
+        echo "Executing: $TEST_CMD"
+
+        # Run tests with error handling
+        if $TEST_CMD; then
+          echo "tests_passed=true" >> $GITHUB_OUTPUT
+          echo "✅ All Node.js tests passed"
+        else
+          echo "tests_passed=false" >> $GITHUB_OUTPUT
+          echo "❌ Some Node.js tests failed"
+        fi
+
+    - name: Calculate coverage
+      id: coverage
+      shell: bash
+      run: |
+        cd ${{ inputs.working_directory }}
+
+        COVERAGE_PERCENT="0.0"
+
+        if [ "${{ inputs.language }}" == "python" ] && [ -f "coverage.xml" ]; then
+          COVERAGE_PERCENT=$(python -c "
+          import xml.etree.ElementTree as ET
+          try:
+              tree = ET.parse('coverage.xml')
+              root = tree.getroot()
+              coverage = float(root.attrib.get('line-rate', '0')) * 100
+              print(f'{coverage:.1f}')
+          except:
+              print('0.0')
+          ")
+        elif [ "${{ inputs.language }}" == "nodejs" ] && [ -f "coverage/coverage-summary.json" ]; then
+          COVERAGE_PERCENT=$(node -e "
+          try {
+            const fs = require('fs');
+            const coverage = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
+            const lines = coverage.total.lines.pct;
+            console.log(lines);
+          } catch (e) {
+            console.log('0.0');
+          }
+          ")
+        fi
+
+        echo "percentage=$COVERAGE_PERCENT" >> $GITHUB_OUTPUT
+        echo "Coverage: $COVERAGE_PERCENT%"
+
+        # Check coverage threshold
+        THRESHOLD=${{ inputs.coverage_threshold }}
+        if (( $(echo "$COVERAGE_PERCENT >= $THRESHOLD" | bc -l) )); then
+          echo "coverage_meets_threshold=true" >> $GITHUB_OUTPUT
+          echo "✅ Coverage meets threshold ($COVERAGE_PERCENT% >= $THRESHOLD%)"
+        else
+          echo "coverage_meets_threshold=false" >> $GITHUB_OUTPUT
+          echo "⚠️ Coverage below threshold ($COVERAGE_PERCENT% < $THRESHOLD%)"
+        fi
+
+    - name: Generate test summary
+      id: test-summary
+      shell: bash
+      run: |
+        cd ${{ inputs.working_directory }}
+
+        # Determine overall test status
+        PYTHON_PASSED="${{ steps.python-tests.outputs.tests_passed || 'true' }}"
+        NODEJS_PASSED="${{ steps.nodejs-tests.outputs.tests_passed || 'true' }}"
+        COVERAGE_OK="${{ steps.coverage.outputs.coverage_meets_threshold }}"
+
+        if [ "$PYTHON_PASSED" == "true" ] && [ "$NODEJS_PASSED" == "true" ] && [ "$COVERAGE_OK" == "true" ]; then
+          echo "passed=true" >> $GITHUB_OUTPUT
+          OVERALL_STATUS="✅ All tests passed with adequate coverage"
+        else
+          echo "passed=false" >> $GITHUB_OUTPUT
+          OVERALL_STATUS="❌ Tests failed or coverage insufficient"
+        fi
+
+        # Create results summary
+        COVERAGE="${{ steps.coverage.outputs.percentage }}"
+        THRESHOLD="${{ inputs.coverage_threshold }}"
+
+        if [ "${{ inputs.language }}" == "python" ]; then
+          TEST_STATS="${{ steps.python-tests.outputs.test_stats || 'tests=0,failures=0,errors=0,skipped=0' }}"
+          RESULTS="Python Tests: $PYTHON_PASSED | Coverage: ${COVERAGE}% (threshold: ${THRESHOLD}%) | Stats: $TEST_STATS"
+        else
+          RESULTS="Node.js Tests: $NODEJS_PASSED | Coverage: ${COVERAGE}% (threshold: ${THRESHOLD}%)"
+        fi
+
+        echo "results=$RESULTS" >> $GITHUB_OUTPUT
+        echo "Test Summary: $OVERALL_STATUS"
+
+    - name: Upload test artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-${{ inputs.language }}-${{ github.run_id }}
+        path: |
+          ${{ inputs.working_directory }}/test-results.xml
+          ${{ inputs.working_directory }}/coverage.xml
+          ${{ inputs.working_directory }}/coverage/
+          ${{ inputs.working_directory }}/htmlcov/
+        retention-days: 30
+
+    - name: Create test report
+      shell: bash
+      run: |
+        cd ${{ inputs.working_directory }}
+
+        echo "## 🧪 Test Results - ${{ inputs.language }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Language:** ${{ inputs.language }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Working Directory:** ${{ inputs.working_directory }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Coverage:** ${{ steps.coverage.outputs.percentage }}%" >> $GITHUB_STEP_SUMMARY
+        echo "**Threshold:** ${{ inputs.coverage_threshold }}%" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ "${{ steps.test-summary.outputs.passed }}" == "true" ]; then
+          echo "**Status:** ✅ All tests passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "**Status:** ❌ Tests failed or coverage insufficient" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Results:** ${{ steps.test-summary.outputs.results }}" >> $GITHUB_STEP_SUMMARY

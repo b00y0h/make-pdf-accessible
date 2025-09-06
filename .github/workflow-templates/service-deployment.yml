@@ -1,0 +1,519 @@
+name: 'Service Deployment Template'
+description: 'Reusable workflow template for deploying services with comprehensive testing and security'
+
+on:
+  workflow_call:
+    inputs:
+      service_name:
+        description: 'Name of the service being deployed'
+        required: true
+        type: string
+      service_type:
+        description: 'Type of service (lambda, web, api, infrastructure)'
+        required: true
+        type: string
+      language:
+        description: 'Programming language (python, nodejs, terraform)'
+        required: false
+        type: string
+        default: 'python'
+      working_directory:
+        description: 'Working directory for the service'
+        required: true
+        type: string
+      environment:
+        description: 'Deployment environment'
+        required: false
+        type: string
+        default: 'dev'
+      skip_tests:
+        description: 'Skip test execution'
+        required: false
+        type: boolean
+        default: false
+      skip_security_scan:
+        description: 'Skip security scanning'
+        required: false
+        type: boolean
+        default: false
+      health_check_endpoint:
+        description: 'Health check endpoint for validation'
+        required: false
+        type: string
+      lambda_function_name:
+        description: 'Lambda function name (for lambda services)'
+        required: false
+        type: string
+      coverage_threshold:
+        description: 'Minimum test coverage percentage'
+        required: false
+        type: string
+        default: '80'
+    secrets:
+      AWS_ROLE_ARN:
+        description: 'AWS IAM role ARN for deployment'
+        required: true
+      AWS_REGION:
+        description: 'AWS region'
+        required: true
+      DEPLOYMENT_WEBHOOK_URL:
+        description: 'Webhook URL for deployment notifications'
+        required: false
+
+    outputs:
+      deployment_status:
+        description: 'Deployment status'
+        value: ${{ jobs.deploy.outputs.status }}
+      deployment_url:
+        description: 'Deployment URL'
+        value: ${{ jobs.deploy.outputs.url }}
+      version:
+        description: 'Deployed version'
+        value: ${{ jobs.prepare.outputs.version }}
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+env:
+  SERVICE_NAME: ${{ inputs.service_name }}
+  SERVICE_TYPE: ${{ inputs.service_type }}
+  LANGUAGE: ${{ inputs.language }}
+  WORKING_DIR: ${{ inputs.working_directory }}
+  ENVIRONMENT: ${{ inputs.environment }}
+
+jobs:
+  prepare:
+    name: Prepare Deployment
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      should_deploy: ${{ steps.changes.outputs.should_deploy }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+          else
+            VERSION="main-$(git rev-parse --short ${{ github.sha }})-$(date +%Y%m%d-%H%M%S)"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Generated version: $VERSION"
+
+      - name: Detect changes
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+            echo "Manual deployment requested"
+          elif [ "${{ github.ref }}" == "refs/heads/main" ] && [ "${{ github.event_name }}" != "pull_request" ]; then
+            # Check for changes in the service directory
+            CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} 2>/dev/null || echo "")
+
+            if [ -z "$CHANGED_FILES" ] || echo "$CHANGED_FILES" | grep -q "^${{ inputs.working_directory }}/"; then
+              echo "should_deploy=true" >> $GITHUB_OUTPUT
+              echo "Changes detected in service directory"
+            else
+              echo "should_deploy=false" >> $GITHUB_OUTPUT
+              echo "No changes detected in service directory"
+            fi
+          else
+            echo "should_deploy=false" >> $GITHUB_OUTPUT
+            echo "Not deploying for this event/branch"
+          fi
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: needs.prepare.outputs.should_deploy == 'true' && !inputs.skip_security_scan
+    outputs:
+      scan_passed: ${{ steps.deps-scan.outputs.scan_passed && steps.code-scan.outputs.scan_passed }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup language environment
+        run: |
+          case "${{ inputs.language }}" in
+            "python")
+              python -m pip install --upgrade pip
+              ;;
+            "nodejs")
+              npm install -g pnpm
+              ;;
+          esac
+
+      - name: Run dependency security scan
+        id: deps-scan
+        uses: ./.github/actions/security-scan
+        with:
+          scan_type: 'dependencies'
+          language: ${{ inputs.language }}
+          working_directory: ${{ inputs.working_directory }}
+          fail_on_critical: true
+          fail_on_high: false
+
+      - name: Run code security scan
+        id: code-scan
+        uses: ./.github/actions/security-scan
+        with:
+          scan_type: 'code'
+          language: ${{ inputs.language }}
+          working_directory: ${{ inputs.working_directory }}
+          fail_on_critical: true
+          fail_on_high: false
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: [prepare, security-scan]
+    if: |
+      always() &&
+      needs.prepare.outputs.should_deploy == 'true' &&
+      !inputs.skip_tests &&
+      (needs.security-scan.result == 'success' || needs.security-scan.result == 'skipped')
+    outputs:
+      tests_passed: ${{ steps.run-tests.outputs.tests_passed }}
+      coverage: ${{ steps.run-tests.outputs.coverage_percentage }}
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_USER: testuser
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup language environment
+        run: |
+          case "${{ inputs.language }}" in
+            "python")
+              python -m pip install --upgrade pip
+              ;;
+            "nodejs")
+              npm install -g pnpm
+              ;;
+          esac
+
+      - name: Run tests with coverage
+        id: run-tests
+        uses: ./.github/actions/run-tests
+        with:
+          language: ${{ inputs.language }}
+          working_directory: ${{ inputs.working_directory }}
+          coverage_threshold: ${{ inputs.coverage_threshold }}
+
+  build:
+    name: Build and Package
+    runs-on: ubuntu-latest
+    needs: [prepare, test]
+    if: |
+      always() &&
+      needs.prepare.outputs.should_deploy == 'true' &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped')
+    outputs:
+      build_artifact: ${{ steps.build.outputs.artifact }}
+      package_location: ${{ steps.build.outputs.location }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup AWS credentials
+        uses: ./.github/actions/setup-aws
+        with:
+          role_arn: ${{ secrets.AWS_ROLE_ARN }}
+          aws_region: ${{ secrets.AWS_REGION }}
+          service_name: ${{ inputs.service_name }}
+
+      - name: Build service package
+        id: build
+        run: |
+          cd ${{ inputs.working_directory }}
+
+          case "${{ inputs.service_type }}" in
+            "lambda"|"api")
+              echo "Building Lambda deployment package..."
+
+              # Create deployment directory
+              mkdir -p deployment/
+
+              # Install dependencies
+              if [ "${{ inputs.language }}" == "python" ]; then
+                pip install -r requirements.txt -t deployment/
+                cp -r *.py deployment/
+
+                # Create Lambda handler if needed
+                if [ ! -f deployment/lambda_handler.py ]; then
+                  cat > deployment/lambda_handler.py << 'EOF'
+          from mangum import Mangum
+          from main import app
+          handler = Mangum(app, lifespan="off")
+          def lambda_handler(event, context):
+              return handler(event, context)
+          EOF
+                  pip install mangum -t deployment/
+                fi
+              fi
+
+              # Create package
+              cd deployment/
+              zip -r ../package-${{ needs.prepare.outputs.version }}.zip . -x "*.pyc" "*/__pycache__/*"
+              cd ..
+
+              echo "artifact=package-${{ needs.prepare.outputs.version }}.zip" >> $GITHUB_OUTPUT
+              ;;
+
+            "web")
+              echo "Building web application..."
+
+              if [ "${{ inputs.language }}" == "nodejs" ]; then
+                pnpm install --frozen-lockfile
+                pnpm build
+
+                # Create deployment package
+                mkdir -p deployment/
+                cp -r .next/static deployment/_next/
+                cp -r public/* deployment/ 2>/dev/null || true
+
+                tar -czf package-${{ needs.prepare.outputs.version }}.tar.gz -C deployment .
+                echo "artifact=package-${{ needs.prepare.outputs.version }}.tar.gz" >> $GITHUB_OUTPUT
+              fi
+              ;;
+
+            "infrastructure")
+              echo "Preparing Terraform package..."
+              tar -czf package-${{ needs.prepare.outputs.version }}.tar.gz *.tf
+              echo "artifact=package-${{ needs.prepare.outputs.version }}.tar.gz" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.service_name }}-build-${{ needs.prepare.outputs.version }}
+          path: ${{ inputs.working_directory }}/${{ steps.build.outputs.artifact }}
+          retention-days: 30
+
+  deploy:
+    name: Deploy Service
+    runs-on: ubuntu-latest
+    needs: [prepare, build]
+    if: |
+      always() &&
+      needs.prepare.outputs.should_deploy == 'true' &&
+      needs.build.result == 'success'
+    environment:
+      name: ${{ inputs.environment }}-${{ inputs.service_name }}
+    outputs:
+      status: ${{ steps.deployment.outputs.status }}
+      url: ${{ steps.deployment.outputs.url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup AWS credentials
+        uses: ./.github/actions/setup-aws
+        with:
+          role_arn: ${{ secrets.AWS_ROLE_ARN }}
+          aws_region: ${{ secrets.AWS_REGION }}
+          service_name: ${{ inputs.service_name }}
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.service_name }}-build-${{ needs.prepare.outputs.version }}
+          path: ./artifacts
+
+      - name: Deploy service
+        id: deployment
+        run: |
+          case "${{ inputs.service_type }}" in
+            "lambda"|"api")
+              echo "Deploying Lambda function..."
+
+              FUNCTION_NAME="pdf-accessibility-${{ inputs.environment }}-${{ inputs.service_name }}"
+
+              # Check if function exists
+              if aws lambda get-function --function-name "$FUNCTION_NAME" >/dev/null 2>&1; then
+                # Update function code
+                aws lambda update-function-code \
+                  --function-name "$FUNCTION_NAME" \
+                  --zip-file fileb://artifacts/package-${{ needs.prepare.outputs.version }}.zip
+
+                # Wait for update to complete
+                aws lambda wait function-updated --function-name "$FUNCTION_NAME"
+
+                # Publish new version
+                VERSION_RESULT=$(aws lambda publish-version \
+                  --function-name "$FUNCTION_NAME" \
+                  --description "Deployed from ${{ github.sha }}" \
+                  --output json)
+
+                VERSION_NUMBER=$(echo "$VERSION_RESULT" | jq -r '.Version')
+
+                # Update LIVE alias
+                aws lambda update-alias \
+                  --function-name "$FUNCTION_NAME" \
+                  --name LIVE \
+                  --function-version "$VERSION_NUMBER" || \
+                aws lambda create-alias \
+                  --function-name "$FUNCTION_NAME" \
+                  --name LIVE \
+                  --function-version "$VERSION_NUMBER"
+
+                echo "status=success" >> $GITHUB_OUTPUT
+                echo "url=https://console.aws.amazon.com/lambda/home#/functions/$FUNCTION_NAME" >> $GITHUB_OUTPUT
+              else
+                echo "Lambda function $FUNCTION_NAME does not exist"
+                echo "status=skipped" >> $GITHUB_OUTPUT
+              fi
+              ;;
+
+            "web")
+              echo "Deploying web application..."
+
+              # Extract build
+              cd artifacts
+              tar -xzf package-${{ needs.prepare.outputs.version }}.tar.gz
+
+              # Find S3 bucket
+              S3_BUCKET=$(aws s3api list-buckets --query "Buckets[?contains(Name, 'web-assets')].Name" --output text | head -1)
+
+              if [ -n "$S3_BUCKET" ]; then
+                # Deploy to S3
+                aws s3 sync . s3://$S3_BUCKET/ --delete
+
+                # Invalidate CloudFront
+                DISTRIBUTION_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?contains(Comment, 'PDF Accessibility')].Id" --output text | head -1)
+
+                if [ -n "$DISTRIBUTION_ID" ]; then
+                  aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*"
+
+                  CLOUDFRONT_DOMAIN=$(aws cloudfront get-distribution --id "$DISTRIBUTION_ID" --query 'Distribution.DomainName' --output text)
+                  echo "url=https://$CLOUDFRONT_DOMAIN" >> $GITHUB_OUTPUT
+                fi
+
+                echo "status=success" >> $GITHUB_OUTPUT
+              else
+                echo "S3 bucket not found"
+                echo "status=failed" >> $GITHUB_OUTPUT
+              fi
+              ;;
+
+            "infrastructure")
+              echo "Deploying infrastructure..."
+
+              cd artifacts
+              tar -xzf package-${{ needs.prepare.outputs.version }}.tar.gz
+
+              # Initialize and apply Terraform
+              terraform init
+              terraform plan -out=tfplan
+              terraform apply tfplan
+
+              echo "status=success" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+  health-check:
+    name: Health Check
+    runs-on: ubuntu-latest
+    needs: [prepare, deploy]
+    if: |
+      always() &&
+      needs.deploy.result == 'success' &&
+      (inputs.health_check_endpoint != '' || inputs.lambda_function_name != '')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup AWS credentials
+        if: inputs.service_type == 'lambda' || inputs.service_type == 'api'
+        uses: ./.github/actions/setup-aws
+        with:
+          role_arn: ${{ secrets.AWS_ROLE_ARN }}
+          aws_region: ${{ secrets.AWS_REGION }}
+          service_name: ${{ inputs.service_name }}
+
+      - name: Perform health check
+        uses: ./.github/actions/health-check
+        with:
+          service_type: ${{ inputs.service_type }}
+          service_name: ${{ inputs.service_name }}
+          health_endpoint: ${{ inputs.health_check_endpoint }}
+          lambda_function_name: ${{ inputs.lambda_function_name }}
+          max_retries: 5
+          retry_delay: 10
+
+  notify:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    needs: [prepare, deploy, health-check]
+    if: always() && secrets.DEPLOYMENT_WEBHOOK_URL != ''
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Notify deployment success
+        if: needs.deploy.result == 'success' && (needs.health-check.result == 'success' || needs.health-check.result == 'skipped')
+        uses: ./.github/actions/notify-deployment
+        with:
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          notification_type: 'success'
+          service_name: ${{ inputs.service_name }}
+          environment: ${{ inputs.environment }}
+          version: ${{ needs.prepare.outputs.version }}
+          commit_sha: ${{ github.sha }}
+          deployment_url: ${{ needs.deploy.outputs.url }}
+          workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Notify deployment failure
+        if: needs.deploy.result == 'failure' || needs.health-check.result == 'failure'
+        uses: ./.github/actions/notify-deployment
+        with:
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          notification_type: 'failure'
+          service_name: ${{ inputs.service_name }}
+          environment: ${{ inputs.environment }}
+          version: ${{ needs.prepare.outputs.version }}
+          commit_sha: ${{ github.sha }}
+          workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          error_details: |
+            Deployment failed for ${{ inputs.service_name }}
+            Deploy status: ${{ needs.deploy.result }}
+            Health check status: ${{ needs.health-check.result }}

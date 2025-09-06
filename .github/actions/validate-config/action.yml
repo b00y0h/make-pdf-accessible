@@ -1,0 +1,396 @@
+name: 'Validate Configuration'
+description: 'Validate configuration files and environment settings with comprehensive checks'
+inputs:
+  config_type:
+    description: 'Type of configuration to validate (terraform, docker, kubernetes, env)'
+    required: true
+  config_path:
+    description: 'Path to configuration files'
+    required: true
+  validation_rules:
+    description: 'Custom validation rules file (optional)'
+    required: false
+  environment:
+    description: 'Environment to validate against'
+    required: false
+    default: 'dev'
+  strict_mode:
+    description: 'Enable strict validation mode'
+    required: false
+    default: 'false'
+  schema_file:
+    description: 'Schema file for validation (optional)'
+    required: false
+
+outputs:
+  validation_status:
+    description: 'Validation status (passed, failed, warning)'
+    value: ${{ steps.validate.outputs.status }}
+  issues_found:
+    description: 'Number of issues found'
+    value: ${{ steps.validate.outputs.issues }}
+  warnings_count:
+    description: 'Number of warnings found'
+    value: ${{ steps.validate.outputs.warnings }}
+  errors_count:
+    description: 'Number of errors found'
+    value: ${{ steps.validate.outputs.errors }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Validate inputs
+      shell: bash
+      run: |
+        VALID_CONFIG_TYPES="terraform docker kubernetes env"
+        if ! echo "$VALID_CONFIG_TYPES" | grep -q "${{ inputs.config_type }}"; then
+          echo "❌ Invalid config type: ${{ inputs.config_type }}"
+          echo "Valid types: $VALID_CONFIG_TYPES"
+          exit 1
+        fi
+
+        if [ ! -e "${{ inputs.config_path }}" ]; then
+          echo "❌ Configuration path not found: ${{ inputs.config_path }}"
+          exit 1
+        fi
+
+        echo "✅ Input validation passed"
+        echo "Config type: ${{ inputs.config_type }}"
+        echo "Config path: ${{ inputs.config_path }}"
+        echo "Environment: ${{ inputs.environment }}"
+        echo "Strict mode: ${{ inputs.strict_mode }}"
+
+    - name: Install validation tools
+      shell: bash
+      run: |
+        echo "Installing validation tools for ${{ inputs.config_type }}..."
+
+        case "${{ inputs.config_type }}" in
+          "terraform")
+            # Install Terraform and validation tools
+            curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+            sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+            sudo apt-get update && sudo apt-get install terraform
+
+            # Install TFLint
+            curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+
+            # Install Checkov
+            pip install checkov
+            ;;
+          "docker")
+            # Install Hadolint
+            wget -O hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64
+            chmod +x hadolint
+            sudo mv hadolint /usr/local/bin/
+            ;;
+          "kubernetes")
+            # Install kubeval and kube-score
+            wget https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz
+            tar xf kubeval-linux-amd64.tar.gz
+            sudo mv kubeval /usr/local/bin/
+
+            wget https://github.com/zegl/kube-score/releases/latest/download/kube-score_linux_amd64.tar.gz
+            tar xf kube-score_linux_amd64.tar.gz
+            sudo mv kube-score /usr/local/bin/
+            ;;
+          "env")
+            # Install environment validation tools
+            pip install python-dotenv pydantic
+            ;;
+        esac
+
+        echo "✅ Validation tools installed"
+
+    - name: Run configuration validation
+      id: validate
+      shell: bash
+      run: |
+        ERRORS=0
+        WARNINGS=0
+        VALIDATION_STATUS="passed"
+
+        echo "Running validation for ${{ inputs.config_type }} configuration..."
+
+        case "${{ inputs.config_type }}" in
+          "terraform")
+            echo "=== Terraform Validation ==="
+
+            cd ${{ inputs.config_path }}
+
+            # Terraform format check
+            echo "Checking Terraform format..."
+            if ! terraform fmt -check -recursive; then
+              echo "❌ Terraform format check failed"
+              ERRORS=$((ERRORS + 1))
+            else
+              echo "✅ Terraform format check passed"
+            fi
+
+            # Terraform init and validate
+            echo "Initializing and validating Terraform..."
+            if terraform init -backend=false && terraform validate; then
+              echo "✅ Terraform validation passed"
+            else
+              echo "❌ Terraform validation failed"
+              ERRORS=$((ERRORS + 1))
+            fi
+
+            # TFLint validation
+            echo "Running TFLint..."
+            tflint --init
+            if tflint --format=json > tflint-results.json; then
+              TFLINT_ISSUES=$(jq '.issues | length' tflint-results.json 2>/dev/null || echo "0")
+              if [ "$TFLINT_ISSUES" -gt 0 ]; then
+                echo "⚠️ TFLint found $TFLINT_ISSUES issues"
+                WARNINGS=$((WARNINGS + TFLINT_ISSUES))
+              else
+                echo "✅ TFLint validation passed"
+              fi
+            else
+              echo "❌ TFLint validation failed"
+              ERRORS=$((ERRORS + 1))
+            fi
+
+            # Checkov security validation
+            echo "Running Checkov security scan..."
+            if checkov -d . --framework terraform --output json --output-file checkov-results.json --soft-fail; then
+              CHECKOV_FAILED=$(jq '.results.failed_checks | length' checkov-results.json 2>/dev/null || echo "0")
+              if [ "$CHECKOV_FAILED" -gt 0 ]; then
+                echo "⚠️ Checkov found $CHECKOV_FAILED security issues"
+                if [ "${{ inputs.strict_mode }}" = "true" ]; then
+                  ERRORS=$((ERRORS + CHECKOV_FAILED))
+                else
+                  WARNINGS=$((WARNINGS + CHECKOV_FAILED))
+                fi
+              else
+                echo "✅ Checkov security validation passed"
+              fi
+            else
+              echo "❌ Checkov validation failed"
+              ERRORS=$((ERRORS + 1))
+            fi
+            ;;
+
+          "docker")
+            echo "=== Docker Configuration Validation ==="
+
+            # Find Dockerfile(s)
+            DOCKERFILES=$(find ${{ inputs.config_path }} -name "Dockerfile*" -type f)
+
+            if [ -z "$DOCKERFILES" ]; then
+              echo "❌ No Dockerfiles found in ${{ inputs.config_path }}"
+              ERRORS=$((ERRORS + 1))
+            else
+              for dockerfile in $DOCKERFILES; do
+                echo "Validating $dockerfile..."
+
+                # Hadolint validation
+                if hadolint "$dockerfile" --format json > "hadolint-$(basename $dockerfile).json"; then
+                  HADOLINT_ISSUES=$(jq '. | length' "hadolint-$(basename $dockerfile).json" 2>/dev/null || echo "0")
+                  if [ "$HADOLINT_ISSUES" -gt 0 ]; then
+                    echo "⚠️ Hadolint found $HADOLINT_ISSUES issues in $dockerfile"
+                    WARNINGS=$((WARNINGS + HADOLINT_ISSUES))
+                  else
+                    echo "✅ Hadolint validation passed for $dockerfile"
+                  fi
+                else
+                  echo "❌ Hadolint validation failed for $dockerfile"
+                  ERRORS=$((ERRORS + 1))
+                fi
+
+                # Basic Dockerfile checks
+                if ! grep -q "^FROM" "$dockerfile"; then
+                  echo "❌ No FROM instruction found in $dockerfile"
+                  ERRORS=$((ERRORS + 1))
+                fi
+
+                if grep -q "^USER root" "$dockerfile" && [ "${{ inputs.strict_mode }}" = "true" ]; then
+                  echo "⚠️ Running as root user in $dockerfile (security concern)"
+                  WARNINGS=$((WARNINGS + 1))
+                fi
+              done
+            fi
+            ;;
+
+          "kubernetes")
+            echo "=== Kubernetes Configuration Validation ==="
+
+            # Find YAML files
+            YAML_FILES=$(find ${{ inputs.config_path }} -name "*.yaml" -o -name "*.yml" | grep -v ".github")
+
+            if [ -z "$YAML_FILES" ]; then
+              echo "❌ No YAML files found in ${{ inputs.config_path }}"
+              ERRORS=$((ERRORS + 1))
+            else
+              for yaml_file in $YAML_FILES; do
+                echo "Validating $yaml_file..."
+
+                # kubeval validation
+                if kubeval "$yaml_file"; then
+                  echo "✅ kubeval validation passed for $yaml_file"
+                else
+                  echo "❌ kubeval validation failed for $yaml_file"
+                  ERRORS=$((ERRORS + 1))
+                fi
+
+                # kube-score validation
+                if kube-score score "$yaml_file" --output-format json > "kube-score-$(basename $yaml_file).json"; then
+                  SCORE_WARNINGS=$(jq '[.[] | select(.grade != "GRADE_ALLOK")] | length' "kube-score-$(basename $yaml_file).json" 2>/dev/null || echo "0")
+                  if [ "$SCORE_WARNINGS" -gt 0 ]; then
+                    echo "⚠️ kube-score found $SCORE_WARNINGS recommendations for $yaml_file"
+                    WARNINGS=$((WARNINGS + SCORE_WARNINGS))
+                  else
+                    echo "✅ kube-score validation passed for $yaml_file"
+                  fi
+                else
+                  echo "❌ kube-score validation failed for $yaml_file"
+                  ERRORS=$((ERRORS + 1))
+                fi
+              done
+            fi
+            ;;
+
+          "env")
+            echo "=== Environment Configuration Validation ==="
+
+            # Find environment files
+            ENV_FILES=$(find ${{ inputs.config_path }} -name ".env*" -o -name "*.env" | head -10)
+
+            if [ -z "$ENV_FILES" ]; then
+              echo "❌ No environment files found in ${{ inputs.config_path }}"
+              ERRORS=$((ERRORS + 1))
+            else
+              for env_file in $ENV_FILES; do
+                echo "Validating $env_file..."
+
+                # Check for common issues
+                if grep -q "^[[:space:]]*$" "$env_file"; then
+                  echo "⚠️ Empty lines found in $env_file"
+                  WARNINGS=$((WARNINGS + 1))
+                fi
+
+                if grep -q "=" "$env_file" && ! grep -q "^[A-Z_][A-Z0-9_]*=" "$env_file"; then
+                  echo "⚠️ Non-standard variable names in $env_file"
+                  WARNINGS=$((WARNINGS + 1))
+                fi
+
+                # Check for potential secrets in plain text
+                if grep -iE "(password|secret|key|token).*=" "$env_file" | grep -v "PLACEHOLDER\|CHANGEME\|TODO"; then
+                  echo "⚠️ Potential secrets found in $env_file"
+                  if [ "${{ inputs.strict_mode }}" = "true" ]; then
+                    ERRORS=$((ERRORS + 1))
+                  else
+                    WARNINGS=$((WARNINGS + 1))
+                  fi
+                fi
+
+                echo "✅ Basic validation passed for $env_file"
+              done
+            fi
+            ;;
+        esac
+
+        # Custom validation rules
+        if [ -n "${{ inputs.validation_rules }}" ] && [ -f "${{ inputs.validation_rules }}" ]; then
+          echo "=== Custom Validation Rules ==="
+          echo "Running custom validation from ${{ inputs.validation_rules }}..."
+
+          if bash "${{ inputs.validation_rules }}"; then
+            echo "✅ Custom validation passed"
+          else
+            echo "❌ Custom validation failed"
+            ERRORS=$((ERRORS + 1))
+          fi
+        fi
+
+        # Schema validation
+        if [ -n "${{ inputs.schema_file }}" ] && [ -f "${{ inputs.schema_file }}" ]; then
+          echo "=== Schema Validation ==="
+          echo "Running schema validation with ${{ inputs.schema_file }}..."
+
+          # This would depend on the schema format (JSON Schema, etc.)
+          # Implementation would vary based on the schema type
+          echo "Schema validation not implemented for this config type"
+        fi
+
+        # Determine final status
+        TOTAL_ISSUES=$((ERRORS + WARNINGS))
+
+        if [ $ERRORS -gt 0 ]; then
+          VALIDATION_STATUS="failed"
+        elif [ $WARNINGS -gt 0 ]; then
+          VALIDATION_STATUS="warning"
+        else
+          VALIDATION_STATUS="passed"
+        fi
+
+        # Output results
+        echo "status=$VALIDATION_STATUS" >> $GITHUB_OUTPUT
+        echo "issues=$TOTAL_ISSUES" >> $GITHUB_OUTPUT
+        echo "warnings=$WARNINGS" >> $GITHUB_OUTPUT
+        echo "errors=$ERRORS" >> $GITHUB_OUTPUT
+
+        echo ""
+        echo "=== Validation Summary ==="
+        echo "Status: $VALIDATION_STATUS"
+        echo "Total issues: $TOTAL_ISSUES"
+        echo "Errors: $ERRORS"
+        echo "Warnings: $WARNINGS"
+
+        # Fail if there are errors
+        if [ $ERRORS -gt 0 ]; then
+          echo "❌ Configuration validation failed with $ERRORS error(s)"
+          exit 1
+        elif [ $WARNINGS -gt 0 ]; then
+          echo "⚠️ Configuration validation passed with $WARNINGS warning(s)"
+        else
+          echo "✅ Configuration validation passed"
+        fi
+
+    - name: Upload validation results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: config-validation-${{ inputs.config_type }}-${{ github.run_id }}
+        path: |
+          ${{ inputs.config_path }}/*-results.json
+          ${{ inputs.config_path }}/tflint-results.json
+          ${{ inputs.config_path }}/checkov-results.json
+          ${{ inputs.config_path }}/hadolint-*.json
+          ${{ inputs.config_path }}/kube-score-*.json
+        retention-days: 30
+
+    - name: Generate validation report
+      shell: bash
+      run: |
+        echo "## 🔍 Configuration Validation Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Configuration Type:** ${{ inputs.config_type }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Configuration Path:** ${{ inputs.config_path }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Environment:** ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Strict Mode:** ${{ inputs.strict_mode }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Results Summary" >> $GITHUB_STEP_SUMMARY
+        echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+        echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Errors | ${{ steps.validate.outputs.errors }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Warnings | ${{ steps.validate.outputs.warnings }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Total Issues | ${{ steps.validate.outputs.issues }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        case "${{ steps.validate.outputs.status }}" in
+          "passed")
+            echo "**Status:** ✅ Validation Passed" >> $GITHUB_STEP_SUMMARY
+            ;;
+          "warning")
+            echo "**Status:** ⚠️ Validation Passed with Warnings" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Review the warnings above to improve configuration quality." >> $GITHUB_STEP_SUMMARY
+            ;;
+          "failed")
+            echo "**Status:** ❌ Validation Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Fix the errors above before proceeding with deployment." >> $GITHUB_STEP_SUMMARY
+            ;;
+        esac

@@ -1,0 +1,389 @@
+name: 'Security Scan'
+description: 'Comprehensive security scanning for code, dependencies, and containers'
+inputs:
+  scan_type:
+    description: 'Type of scan (code, dependencies, container, infrastructure)'
+    required: true
+  language:
+    description: 'Programming language (python, nodejs, terraform)'
+    required: false
+  working_directory:
+    description: 'Working directory for scanning'
+    required: true
+  container_image:
+    description: 'Container image to scan (for container scans)'
+    required: false
+  severity_threshold:
+    description: 'Minimum severity to report (LOW, MEDIUM, HIGH, CRITICAL)'
+    required: false
+    default: 'MEDIUM'
+  fail_on_critical:
+    description: 'Fail the build on critical vulnerabilities'
+    required: false
+    default: 'true'
+  fail_on_high:
+    description: 'Fail the build on high severity vulnerabilities'
+    required: false
+    default: 'false'
+
+outputs:
+  scan_results:
+    description: 'Security scan results summary'
+    value: ${{ steps.summary.outputs.results }}
+  critical_count:
+    description: 'Number of critical vulnerabilities found'
+    value: ${{ steps.summary.outputs.critical }}
+  high_count:
+    description: 'Number of high severity vulnerabilities found'
+    value: ${{ steps.summary.outputs.high }}
+  medium_count:
+    description: 'Number of medium severity vulnerabilities found'
+    value: ${{ steps.summary.outputs.medium }}
+  scan_passed:
+    description: 'Whether the security scan passed'
+    value: ${{ steps.summary.outputs.passed }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Validate inputs
+      shell: bash
+      run: |
+        VALID_SCAN_TYPES="code dependencies container infrastructure"
+        if ! echo "$VALID_SCAN_TYPES" | grep -q "${{ inputs.scan_type }}"; then
+          echo "❌ Invalid scan type: ${{ inputs.scan_type }}"
+          echo "Valid types: $VALID_SCAN_TYPES"
+          exit 1
+        fi
+
+        if [ ! -d "${{ inputs.working_directory }}" ]; then
+          echo "❌ Working directory not found: ${{ inputs.working_directory }}"
+          exit 1
+        fi
+
+        echo "✅ Input validation passed"
+        echo "Scan type: ${{ inputs.scan_type }}"
+        echo "Working directory: ${{ inputs.working_directory }}"
+
+    - name: Install security tools
+      shell: bash
+      run: |
+        echo "Installing security scanning tools..."
+
+        # Install common tools
+        if ! command -v jq &> /dev/null; then
+          sudo apt-get update && sudo apt-get install -y jq
+        fi
+
+        # Install scan-specific tools
+        case "${{ inputs.scan_type }}" in
+          "code")
+            case "${{ inputs.language }}" in
+              "python")
+                pip install bandit safety
+                ;;
+              "nodejs")
+                npm install -g eslint-plugin-security
+                ;;
+            esac
+            ;;
+          "dependencies")
+            case "${{ inputs.language }}" in
+              "python")
+                pip install safety pip-audit
+                ;;
+            esac
+            ;;
+          "container"|"infrastructure")
+            # Install Trivy
+            curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+            ;;
+        esac
+
+        echo "✅ Security tools installed"
+
+    - name: Run code security scan
+      if: inputs.scan_type == 'code'
+      id: code-scan
+      shell: bash
+      run: |
+        cd ${{ inputs.working_directory }}
+
+        echo "Running code security scan for ${{ inputs.language }}..."
+
+        case "${{ inputs.language }}" in
+          "python")
+            echo "Running Bandit SAST scan..."
+            bandit -r . -f json -o bandit-results.json || echo "bandit_failed=true" >> $GITHUB_OUTPUT
+
+            if [ -f bandit-results.json ]; then
+              CRITICAL=$(jq '[.results[] | select(.issue_severity == "HIGH")] | length' bandit-results.json 2>/dev/null || echo "0")
+              HIGH=$(jq '[.results[] | select(.issue_severity == "MEDIUM")] | length' bandit-results.json 2>/dev/null || echo "0")
+              MEDIUM=$(jq '[.results[] | select(.issue_severity == "LOW")] | length' bandit-results.json 2>/dev/null || echo "0")
+              TOTAL=$(jq '.results | length' bandit-results.json 2>/dev/null || echo "0")
+
+              echo "code_critical=$CRITICAL" >> $GITHUB_OUTPUT
+              echo "code_high=$HIGH" >> $GITHUB_OUTPUT
+              echo "code_medium=$MEDIUM" >> $GITHUB_OUTPUT
+              echo "code_total=$TOTAL" >> $GITHUB_OUTPUT
+            fi
+            ;;
+          "nodejs")
+            echo "Running ESLint security scan..."
+
+            # Create security-focused ESLint config
+            cat > .eslintrc.security.js << 'EOF'
+            module.exports = {
+              plugins: ['security'],
+              rules: {
+                'security/detect-object-injection': 'error',
+                'security/detect-non-literal-regexp': 'error',
+                'security/detect-unsafe-regex': 'error',
+                'security/detect-buffer-noassert': 'error',
+                'security/detect-child-process': 'error',
+                'security/detect-disable-mustache-escape': 'error',
+                'security/detect-eval-with-expression': 'error',
+                'security/detect-no-csrf-before-method-override': 'error',
+                'security/detect-non-literal-fs-filename': 'error',
+                'security/detect-non-literal-require': 'error',
+                'security/detect-possible-timing-attacks': 'error',
+                'security/detect-pseudoRandomBytes': 'error'
+              }
+            };
+            EOF
+
+            npx eslint . --config .eslintrc.security.js --format json --output-file eslint-security.json || echo "eslint_failed=true" >> $GITHUB_OUTPUT
+
+            if [ -f eslint-security.json ]; then
+              ISSUES=$(jq '. | length' eslint-security.json 2>/dev/null || echo "0")
+              echo "code_total=$ISSUES" >> $GITHUB_OUTPUT
+              echo "code_critical=0" >> $GITHUB_OUTPUT
+              echo "code_high=$ISSUES" >> $GITHUB_OUTPUT
+              echo "code_medium=0" >> $GITHUB_OUTPUT
+            fi
+            ;;
+        esac
+
+    - name: Run dependency security scan
+      if: inputs.scan_type == 'dependencies'
+      id: deps-scan
+      shell: bash
+      run: |
+        cd ${{ inputs.working_directory }}
+
+        echo "Running dependency security scan for ${{ inputs.language }}..."
+
+        case "${{ inputs.language }}" in
+          "python")
+            echo "Running Safety scan..."
+            if [ -f requirements.txt ]; then
+              safety check -r requirements.txt --json --output safety-results.json || echo "safety_failed=true" >> $GITHUB_OUTPUT
+            fi
+
+            echo "Running pip-audit scan..."
+            if [ -f requirements.txt ]; then
+              pip-audit --requirement requirements.txt --format json --output pip-audit-results.json || echo "pip_audit_failed=true" >> $GITHUB_OUTPUT
+            fi
+
+            # Combine results
+            SAFETY_VULNS=0
+            PIP_AUDIT_VULNS=0
+
+            if [ -f safety-results.json ]; then
+              SAFETY_VULNS=$(jq '. | length' safety-results.json 2>/dev/null || echo "0")
+            fi
+
+            if [ -f pip-audit-results.json ]; then
+              PIP_AUDIT_VULNS=$(jq '. | length' pip-audit-results.json 2>/dev/null || echo "0")
+            fi
+
+            TOTAL_VULNS=$((SAFETY_VULNS + PIP_AUDIT_VULNS))
+
+            echo "deps_critical=$TOTAL_VULNS" >> $GITHUB_OUTPUT
+            echo "deps_high=0" >> $GITHUB_OUTPUT
+            echo "deps_medium=0" >> $GITHUB_OUTPUT
+            echo "deps_total=$TOTAL_VULNS" >> $GITHUB_OUTPUT
+            ;;
+          "nodejs")
+            echo "Running npm audit..."
+            npm audit --json > npm-audit-results.json || echo "npm_audit_failed=true" >> $GITHUB_OUTPUT
+
+            if [ -f npm-audit-results.json ]; then
+              CRITICAL=$(jq '.metadata.vulnerabilities.critical // 0' npm-audit-results.json 2>/dev/null || echo "0")
+              HIGH=$(jq '.metadata.vulnerabilities.high // 0' npm-audit-results.json 2>/dev/null || echo "0")
+              MEDIUM=$(jq '.metadata.vulnerabilities.moderate // 0' npm-audit-results.json 2>/dev/null || echo "0")
+              TOTAL=$((CRITICAL + HIGH + MEDIUM))
+
+              echo "deps_critical=$CRITICAL" >> $GITHUB_OUTPUT
+              echo "deps_high=$HIGH" >> $GITHUB_OUTPUT
+              echo "deps_medium=$MEDIUM" >> $GITHUB_OUTPUT
+              echo "deps_total=$TOTAL" >> $GITHUB_OUTPUT
+            fi
+            ;;
+        esac
+
+    - name: Run container security scan
+      if: inputs.scan_type == 'container'
+      id: container-scan
+      shell: bash
+      run: |
+        echo "Running container security scan on ${{ inputs.container_image }}..."
+
+        trivy image --format json --output trivy-container.json \
+          --severity CRITICAL,HIGH,MEDIUM,LOW \
+          "${{ inputs.container_image }}" || echo "trivy_failed=true" >> $GITHUB_OUTPUT
+
+        if [ -f trivy-container.json ]; then
+          CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' trivy-container.json 2>/dev/null || echo "0")
+          HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' trivy-container.json 2>/dev/null || echo "0")
+          MEDIUM=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "MEDIUM")] | length' trivy-container.json 2>/dev/null || echo "0")
+          LOW=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "LOW")] | length' trivy-container.json 2>/dev/null || echo "0")
+          TOTAL=$((CRITICAL + HIGH + MEDIUM + LOW))
+
+          echo "container_critical=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "container_high=$HIGH" >> $GITHUB_OUTPUT
+          echo "container_medium=$MEDIUM" >> $GITHUB_OUTPUT
+          echo "container_low=$LOW" >> $GITHUB_OUTPUT
+          echo "container_total=$TOTAL" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Run infrastructure security scan
+      if: inputs.scan_type == 'infrastructure'
+      id: infra-scan
+      shell: bash
+      run: |
+        cd ${{ inputs.working_directory }}
+
+        echo "Running infrastructure security scan..."
+
+        trivy config . --format json --output trivy-config.json \
+          --severity CRITICAL,HIGH,MEDIUM \
+          --exit-code 0 || echo "trivy_config_failed=true" >> $GITHUB_OUTPUT
+
+        if [ -f trivy-config.json ]; then
+          CRITICAL=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "CRITICAL")] | length' trivy-config.json 2>/dev/null || echo "0")
+          HIGH=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "HIGH")] | length' trivy-config.json 2>/dev/null || echo "0")
+          MEDIUM=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "MEDIUM")] | length' trivy-config.json 2>/dev/null || echo "0")
+          TOTAL=$((CRITICAL + HIGH + MEDIUM))
+
+          echo "infra_critical=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "infra_high=$HIGH" >> $GITHUB_OUTPUT
+          echo "infra_medium=$MEDIUM" >> $GITHUB_OUTPUT
+          echo "infra_total=$TOTAL" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Aggregate results and determine status
+      id: summary
+      shell: bash
+      run: |
+        # Aggregate results from all scan types
+        CRITICAL=0
+        HIGH=0
+        MEDIUM=0
+        TOTAL=0
+
+        # Add results from each scan type
+        case "${{ inputs.scan_type }}" in
+          "code")
+            CRITICAL="${{ steps.code-scan.outputs.code_critical || '0' }}"
+            HIGH="${{ steps.code-scan.outputs.code_high || '0' }}"
+            MEDIUM="${{ steps.code-scan.outputs.code_medium || '0' }}"
+            ;;
+          "dependencies")
+            CRITICAL="${{ steps.deps-scan.outputs.deps_critical || '0' }}"
+            HIGH="${{ steps.deps-scan.outputs.deps_high || '0' }}"
+            MEDIUM="${{ steps.deps-scan.outputs.deps_medium || '0' }}"
+            ;;
+          "container")
+            CRITICAL="${{ steps.container-scan.outputs.container_critical || '0' }}"
+            HIGH="${{ steps.container-scan.outputs.container_high || '0' }}"
+            MEDIUM="${{ steps.container-scan.outputs.container_medium || '0' }}"
+            ;;
+          "infrastructure")
+            CRITICAL="${{ steps.infra-scan.outputs.infra_critical || '0' }}"
+            HIGH="${{ steps.infra-scan.outputs.infra_high || '0' }}"
+            MEDIUM="${{ steps.infra-scan.outputs.infra_medium || '0' }}"
+            ;;
+        esac
+
+        TOTAL=$((CRITICAL + HIGH + MEDIUM))
+
+        echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+        echo "high=$HIGH" >> $GITHUB_OUTPUT
+        echo "medium=$MEDIUM" >> $GITHUB_OUTPUT
+        echo "total=$TOTAL" >> $GITHUB_OUTPUT
+
+        # Determine if scan passed based on thresholds
+        SCAN_PASSED="true"
+
+        if [ "${{ inputs.fail_on_critical }}" == "true" ] && [ "$CRITICAL" -gt 0 ]; then
+          SCAN_PASSED="false"
+          echo "❌ Scan failed: $CRITICAL critical vulnerabilities found"
+        fi
+
+        if [ "${{ inputs.fail_on_high }}" == "true" ] && [ "$HIGH" -gt 0 ]; then
+          SCAN_PASSED="false"
+          echo "❌ Scan failed: $HIGH high severity vulnerabilities found"
+        fi
+
+        echo "passed=$SCAN_PASSED" >> $GITHUB_OUTPUT
+
+        # Create results summary
+        RESULTS="${{ inputs.scan_type }} scan: Critical=$CRITICAL, High=$HIGH, Medium=$MEDIUM, Total=$TOTAL"
+        echo "results=$RESULTS" >> $GITHUB_OUTPUT
+
+        if [ "$SCAN_PASSED" == "true" ]; then
+          echo "✅ Security scan passed"
+        else
+          echo "❌ Security scan failed"
+        fi
+
+    - name: Upload scan results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-scan-${{ inputs.scan_type }}-${{ github.run_id }}
+        path: |
+          ${{ inputs.working_directory }}/*-results.json
+          ${{ inputs.working_directory }}/trivy-*.json
+        retention-days: 30
+
+    - name: Generate security report
+      shell: bash
+      run: |
+        echo "## 🔒 Security Scan Results - ${{ inputs.scan_type }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Scan Type:** ${{ inputs.scan_type }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Working Directory:** ${{ inputs.working_directory }}" >> $GITHUB_STEP_SUMMARY
+
+        if [ -n "${{ inputs.language }}" ]; then
+          echo "**Language:** ${{ inputs.language }}" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ -n "${{ inputs.container_image }}" ]; then
+          echo "**Container Image:** ${{ inputs.container_image }}" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Results" >> $GITHUB_STEP_SUMMARY
+        echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+        echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Critical | ${{ steps.summary.outputs.critical }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| High | ${{ steps.summary.outputs.high }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Medium | ${{ steps.summary.outputs.medium }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Total** | **${{ steps.summary.outputs.total }}** |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ "${{ steps.summary.outputs.passed }}" == "true" ]; then
+          echo "**Status:** ✅ Security scan passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "**Status:** ❌ Security scan failed" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.summary.outputs.critical }}" -gt 0 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🚨 **Critical vulnerabilities found!** Immediate action required." >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.summary.outputs.high }}" -gt 0 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **High severity vulnerabilities found!** Review recommended." >> $GITHUB_STEP_SUMMARY
+          fi
+        fi

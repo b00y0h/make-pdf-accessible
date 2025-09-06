@@ -1,0 +1,336 @@
+name: 'Health Check'
+description: 'Perform health checks on deployed services with retry logic and comprehensive validation'
+inputs:
+  service_type:
+    description: 'Type of service (lambda, web, api)'
+    required: true
+  service_name:
+    description: 'Name of the service'
+    required: true
+  health_endpoint:
+    description: 'Health check endpoint URL'
+    required: false
+  lambda_function_name:
+    description: 'Lambda function name (for lambda health checks)'
+    required: false
+  expected_status_code:
+    description: 'Expected HTTP status code'
+    required: false
+    default: '200'
+  timeout_seconds:
+    description: 'Timeout for each health check attempt'
+    required: false
+    default: '30'
+  max_retries:
+    description: 'Maximum number of retry attempts'
+    required: false
+    default: '5'
+  retry_delay:
+    description: 'Delay between retries in seconds'
+    required: false
+    default: '10'
+  custom_validation:
+    description: 'Custom validation script or command'
+    required: false
+
+outputs:
+  health_status:
+    description: 'Health check status (healthy, unhealthy, unknown)'
+    value: ${{ steps.health-check.outputs.status }}
+  response_time:
+    description: 'Average response time in milliseconds'
+    value: ${{ steps.health-check.outputs.response_time }}
+  attempts_made:
+    description: 'Number of attempts made'
+    value: ${{ steps.health-check.outputs.attempts }}
+  last_error:
+    description: 'Last error message if health check failed'
+    value: ${{ steps.health-check.outputs.error }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Validate inputs
+      shell: bash
+      run: |
+        VALID_SERVICE_TYPES="lambda web api"
+        if ! echo "$VALID_SERVICE_TYPES" | grep -q "${{ inputs.service_type }}"; then
+          echo "❌ Invalid service type: ${{ inputs.service_type }}"
+          echo "Valid types: $VALID_SERVICE_TYPES"
+          exit 1
+        fi
+
+        case "${{ inputs.service_type }}" in
+          "lambda")
+            if [ -z "${{ inputs.lambda_function_name }}" ]; then
+              echo "❌ Lambda function name is required for lambda health checks"
+              exit 1
+            fi
+            ;;
+          "web"|"api")
+            if [ -z "${{ inputs.health_endpoint }}" ]; then
+              echo "❌ Health endpoint is required for web/api health checks"
+              exit 1
+            fi
+            ;;
+        esac
+
+        echo "✅ Input validation passed"
+        echo "Service type: ${{ inputs.service_type }}"
+        echo "Service name: ${{ inputs.service_name }}"
+
+    - name: Perform health check
+      id: health-check
+      shell: bash
+      run: |
+        MAX_RETRIES=${{ inputs.max_retries }}
+        RETRY_DELAY=${{ inputs.retry_delay }}
+        TIMEOUT=${{ inputs.timeout_seconds }}
+        EXPECTED_STATUS=${{ inputs.expected_status_code }}
+
+        ATTEMPT=1
+        TOTAL_RESPONSE_TIME=0
+        HEALTH_STATUS="unknown"
+        LAST_ERROR=""
+
+        echo "Starting health check for ${{ inputs.service_name }}..."
+        echo "Max retries: $MAX_RETRIES, Timeout: ${TIMEOUT}s, Expected status: $EXPECTED_STATUS"
+
+        while [ $ATTEMPT -le $MAX_RETRIES ]; do
+          echo "Attempt $ATTEMPT of $MAX_RETRIES..."
+
+          case "${{ inputs.service_type }}" in
+            "lambda")
+              echo "Performing Lambda health check..."
+
+              # Create health check payload
+              HEALTH_PAYLOAD='{"httpMethod": "GET", "path": "/health", "headers": {}}'
+
+              # Measure response time
+              START_TIME=$(date +%s%3N)
+
+              # Invoke Lambda function
+              if INVOKE_RESULT=$(timeout $TIMEOUT aws lambda invoke \
+                --function-name "${{ inputs.lambda_function_name }}" \
+                --payload "$HEALTH_PAYLOAD" \
+                --output json \
+                response.json 2>&1); then
+
+                END_TIME=$(date +%s%3N)
+                RESPONSE_TIME=$((END_TIME - START_TIME))
+                TOTAL_RESPONSE_TIME=$((TOTAL_RESPONSE_TIME + RESPONSE_TIME))
+
+                # Check invocation status
+                STATUS_CODE=$(echo "$INVOKE_RESULT" | jq -r '.StatusCode // "000"')
+
+                if [ "$STATUS_CODE" = "200" ]; then
+                  # Check response content
+                  if [ -f response.json ]; then
+                    RESPONSE_BODY=$(cat response.json)
+
+                    # Try to parse as JSON and check for health indicators
+                    if echo "$RESPONSE_BODY" | jq . >/dev/null 2>&1; then
+                      RESPONSE_STATUS=$(echo "$RESPONSE_BODY" | jq -r '.statusCode // .status // "unknown"')
+
+                      if [ "$RESPONSE_STATUS" = "200" ] || echo "$RESPONSE_BODY" | grep -q '"status".*"healthy"'; then
+                        HEALTH_STATUS="healthy"
+                        echo "✅ Lambda health check passed (attempt $ATTEMPT)"
+                        break
+                      else
+                        LAST_ERROR="Lambda returned unhealthy status: $RESPONSE_STATUS"
+                        echo "❌ Lambda health check failed: $LAST_ERROR"
+                      fi
+                    else
+                      # Non-JSON response, consider it healthy if invocation succeeded
+                      HEALTH_STATUS="healthy"
+                      echo "✅ Lambda health check passed with non-JSON response (attempt $ATTEMPT)"
+                      break
+                    fi
+                  else
+                    HEALTH_STATUS="healthy"
+                    echo "✅ Lambda invocation successful (attempt $ATTEMPT)"
+                    break
+                  fi
+                else
+                  LAST_ERROR="Lambda invocation failed with status: $STATUS_CODE"
+                  echo "❌ Lambda invocation failed: $LAST_ERROR"
+                fi
+              else
+                LAST_ERROR="Lambda invocation timeout or error: $INVOKE_RESULT"
+                echo "❌ Lambda invocation error: $LAST_ERROR"
+              fi
+              ;;
+
+            "web"|"api")
+              echo "Performing HTTP health check on ${{ inputs.health_endpoint }}..."
+
+              # Measure response time
+              START_TIME=$(date +%s%3N)
+
+              # Perform HTTP request
+              if HTTP_RESPONSE=$(timeout $TIMEOUT curl -s -w "%{http_code}|%{time_total}" \
+                -o response_body.txt \
+                "${{ inputs.health_endpoint }}" 2>&1); then
+
+                END_TIME=$(date +%s%3N)
+
+                # Parse response
+                HTTP_CODE=$(echo "$HTTP_RESPONSE" | cut -d'|' -f1)
+                CURL_TIME=$(echo "$HTTP_RESPONSE" | cut -d'|' -f2)
+                RESPONSE_TIME=$(echo "$CURL_TIME * 1000" | bc | cut -d'.' -f1)
+                TOTAL_RESPONSE_TIME=$((TOTAL_RESPONSE_TIME + RESPONSE_TIME))
+
+                echo "HTTP Status: $HTTP_CODE, Response time: ${RESPONSE_TIME}ms"
+
+                if [ "$HTTP_CODE" = "$EXPECTED_STATUS" ]; then
+                  # Additional validation for response content
+                  if [ -f response_body.txt ]; then
+                    RESPONSE_BODY=$(cat response_body.txt)
+
+                    # Check for common health indicators
+                    if echo "$RESPONSE_BODY" | grep -qi "healthy\|ok\|success\|running"; then
+                      HEALTH_STATUS="healthy"
+                      echo "✅ HTTP health check passed with healthy response (attempt $ATTEMPT)"
+                      break
+                    elif echo "$RESPONSE_BODY" | grep -qi "unhealthy\|error\|failed\|down"; then
+                      LAST_ERROR="Service returned unhealthy status in response body"
+                      echo "❌ Service reported unhealthy status"
+                    else
+                      # Status code is correct, assume healthy
+                      HEALTH_STATUS="healthy"
+                      echo "✅ HTTP health check passed (attempt $ATTEMPT)"
+                      break
+                    fi
+                  else
+                    HEALTH_STATUS="healthy"
+                    echo "✅ HTTP health check passed (attempt $ATTEMPT)"
+                    break
+                  fi
+                else
+                  LAST_ERROR="HTTP request returned status $HTTP_CODE, expected $EXPECTED_STATUS"
+                  echo "❌ HTTP health check failed: $LAST_ERROR"
+                fi
+              else
+                LAST_ERROR="HTTP request timeout or connection error"
+                echo "❌ HTTP request failed: $LAST_ERROR"
+              fi
+              ;;
+          esac
+
+          # If we haven't succeeded and have more attempts, wait and retry
+          if [ $ATTEMPT -lt $MAX_RETRIES ] && [ "$HEALTH_STATUS" != "healthy" ]; then
+            echo "Waiting ${RETRY_DELAY}s before retry..."
+            sleep $RETRY_DELAY
+          fi
+
+          ATTEMPT=$((ATTEMPT + 1))
+        done
+
+        # Calculate average response time
+        if [ $ATTEMPT -gt 1 ]; then
+          AVG_RESPONSE_TIME=$((TOTAL_RESPONSE_TIME / (ATTEMPT - 1)))
+        else
+          AVG_RESPONSE_TIME=0
+        fi
+
+        # Set final status
+        if [ "$HEALTH_STATUS" != "healthy" ]; then
+          HEALTH_STATUS="unhealthy"
+        fi
+
+        # Output results
+        echo "status=$HEALTH_STATUS" >> $GITHUB_OUTPUT
+        echo "response_time=$AVG_RESPONSE_TIME" >> $GITHUB_OUTPUT
+        echo "attempts=$((ATTEMPT - 1))" >> $GITHUB_OUTPUT
+        echo "error=$LAST_ERROR" >> $GITHUB_OUTPUT
+
+        echo "Health check completed:"
+        echo "- Status: $HEALTH_STATUS"
+        echo "- Attempts: $((ATTEMPT - 1))"
+        echo "- Average response time: ${AVG_RESPONSE_TIME}ms"
+
+        if [ "$HEALTH_STATUS" = "unhealthy" ]; then
+          echo "- Last error: $LAST_ERROR"
+        fi
+
+    - name: Run custom validation
+      if: inputs.custom_validation != ''
+      id: custom-validation
+      shell: bash
+      run: |
+        echo "Running custom validation..."
+
+        # Execute custom validation command
+        if eval "${{ inputs.custom_validation }}"; then
+          echo "custom_validation_passed=true" >> $GITHUB_OUTPUT
+          echo "✅ Custom validation passed"
+        else
+          echo "custom_validation_passed=false" >> $GITHUB_OUTPUT
+          echo "❌ Custom validation failed"
+
+          # Update health status if custom validation failed
+          echo "status=unhealthy" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Generate health check report
+      shell: bash
+      run: |
+        HEALTH_STATUS="${{ steps.health-check.outputs.status }}"
+        RESPONSE_TIME="${{ steps.health-check.outputs.response_time }}"
+        ATTEMPTS="${{ steps.health-check.outputs.attempts }}"
+        LAST_ERROR="${{ steps.health-check.outputs.error }}"
+        CUSTOM_VALIDATION="${{ steps.custom-validation.outputs.custom_validation_passed }}"
+
+        echo "## 🏥 Health Check Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Service:** ${{ inputs.service_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Type:** ${{ inputs.service_type }}" >> $GITHUB_STEP_SUMMARY
+
+        case "${{ inputs.service_type }}" in
+          "lambda")
+            echo "**Function:** ${{ inputs.lambda_function_name }}" >> $GITHUB_STEP_SUMMARY
+            ;;
+          "web"|"api")
+            echo "**Endpoint:** ${{ inputs.health_endpoint }}" >> $GITHUB_STEP_SUMMARY
+            ;;
+        esac
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Results" >> $GITHUB_STEP_SUMMARY
+        echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+
+        if [ "$HEALTH_STATUS" = "healthy" ]; then
+          echo "| Status | ✅ Healthy |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "| Status | ❌ Unhealthy |" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "| Response Time | ${RESPONSE_TIME}ms |" >> $GITHUB_STEP_SUMMARY
+        echo "| Attempts | $ATTEMPTS |" >> $GITHUB_STEP_SUMMARY
+        echo "| Timeout | ${{ inputs.timeout_seconds }}s |" >> $GITHUB_STEP_SUMMARY
+
+        if [ -n "${{ inputs.custom_validation }}" ]; then
+          if [ "$CUSTOM_VALIDATION" = "true" ]; then
+            echo "| Custom Validation | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Custom Validation | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ "$HEALTH_STATUS" = "unhealthy" ] && [ -n "$LAST_ERROR" ]; then
+          echo "### Error Details" >> $GITHUB_STEP_SUMMARY
+          echo "```" >> $GITHUB_STEP_SUMMARY
+          echo "$LAST_ERROR" >> $GITHUB_STEP_SUMMARY
+          echo "```" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        # Fail the step if health check failed
+        if [ "$HEALTH_STATUS" = "unhealthy" ]; then
+          echo "❌ Health check failed for ${{ inputs.service_name }}"
+          exit 1
+        else
+          echo "✅ Health check passed for ${{ inputs.service_name }}"
+        fi
