@@ -1,0 +1,159 @@
+name: 'Setup Environment Configuration'
+description: 'Load and configure environment-specific settings for deployments'
+
+inputs:
+  environment:
+    description: 'Target environment (dev, staging, prod)'
+    required: true
+  config_path:
+    description: 'Path to environment configuration files'
+    required: false
+    default: '.github/environments'
+
+outputs:
+  require_approval:
+    description: 'Whether manual approval is required'
+    value: ${{ steps.config.outputs.require_approval }}
+  security_threshold:
+    description: 'Security scanning threshold'
+    value: ${{ steps.config.outputs.security_threshold }}
+  deployment_strategy:
+    description: 'Deployment strategy to use'
+    value: ${{ steps.config.outputs.deployment_strategy }}
+  resource_prefix:
+    description: 'AWS resource prefix for this environment'
+    value: ${{ steps.config.outputs.resource_prefix }}
+  allowed_branches:
+    description: 'Branches allowed to deploy to this environment'
+    value: ${{ steps.config.outputs.allowed_branches }}
+  notification_config:
+    description: 'Notification configuration as JSON'
+    value: ${{ steps.config.outputs.notification_config }}
+  testing_config:
+    description: 'Testing configuration as JSON'
+    value: ${{ steps.config.outputs.testing_config }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Validate environment input
+      shell: bash
+      run: |
+        if [[ ! "${{ inputs.environment }}" =~ ^(dev|staging|prod)$ ]]; then
+          echo "❌ Invalid environment: ${{ inputs.environment }}"
+          echo "Valid environments: dev, staging, prod"
+          exit 1
+        fi
+        echo "✅ Environment validated: ${{ inputs.environment }}"
+
+    - name: Load environment configuration
+      id: config
+      shell: bash
+      run: |
+        CONFIG_FILE="${{ inputs.config_path }}/${{ inputs.environment }}.yml"
+
+        if [ ! -f "$CONFIG_FILE" ]; then
+          echo "❌ Configuration file not found: $CONFIG_FILE"
+          exit 1
+        fi
+
+        echo "📋 Loading configuration from: $CONFIG_FILE"
+
+        # Install yq for YAML parsing if not available
+        if ! command -v yq &> /dev/null; then
+          echo "Installing yq..."
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+        fi
+
+        # Extract configuration values
+        REQUIRE_APPROVAL=$(yq eval '.settings.require_approval // false' "$CONFIG_FILE")
+        SECURITY_THRESHOLD=$(yq eval '.settings.security_threshold // "high"' "$CONFIG_FILE")
+        DEPLOYMENT_STRATEGY=$(yq eval '.deployment.deployment_strategy // "rolling"' "$CONFIG_FILE")
+        RESOURCE_PREFIX=$(yq eval '.aws.resource_prefix // "pdf-accessibility-dev"' "$CONFIG_FILE")
+
+        # Extract allowed branches as JSON array
+        ALLOWED_BRANCHES=$(yq eval '.settings.allowed_branches // ["main"]' "$CONFIG_FILE" -o=json)
+
+        # Extract notification configuration as JSON
+        NOTIFICATION_CONFIG=$(yq eval '.notifications // {}' "$CONFIG_FILE" -o=json)
+
+        # Extract testing configuration as JSON
+        TESTING_CONFIG=$(yq eval '.testing // {}' "$CONFIG_FILE" -o=json)
+
+        # Set outputs
+        echo "require_approval=$REQUIRE_APPROVAL" >> $GITHUB_OUTPUT
+        echo "security_threshold=$SECURITY_THRESHOLD" >> $GITHUB_OUTPUT
+        echo "deployment_strategy=$DEPLOYMENT_STRATEGY" >> $GITHUB_OUTPUT
+        echo "resource_prefix=$RESOURCE_PREFIX" >> $GITHUB_OUTPUT
+        echo "allowed_branches=$ALLOWED_BRANCHES" >> $GITHUB_OUTPUT
+        echo "notification_config=$NOTIFICATION_CONFIG" >> $GITHUB_OUTPUT
+        echo "testing_config=$TESTING_CONFIG" >> $GITHUB_OUTPUT
+
+        echo "✅ Configuration loaded successfully"
+        echo "  - Require Approval: $REQUIRE_APPROVAL"
+        echo "  - Security Threshold: $SECURITY_THRESHOLD"
+        echo "  - Deployment Strategy: $DEPLOYMENT_STRATEGY"
+        echo "  - Resource Prefix: $RESOURCE_PREFIX"
+
+    - name: Validate branch permissions
+      shell: bash
+      run: |
+        CURRENT_BRANCH="${{ github.ref_name }}"
+        ALLOWED_BRANCHES='${{ steps.config.outputs.allowed_branches }}'
+
+        echo "🔍 Validating branch permissions..."
+        echo "Current branch: $CURRENT_BRANCH"
+        echo "Allowed branches: $ALLOWED_BRANCHES"
+
+        # Check if current branch is allowed
+        BRANCH_ALLOWED=false
+
+        # Parse allowed branches JSON array
+        echo "$ALLOWED_BRANCHES" | jq -r '.[]' | while read -r pattern; do
+          if [[ "$CURRENT_BRANCH" == $pattern ]] || [[ "$CURRENT_BRANCH" =~ $pattern ]]; then
+            echo "✅ Branch '$CURRENT_BRANCH' matches pattern '$pattern'"
+            echo "BRANCH_ALLOWED=true" >> $GITHUB_ENV
+            exit 0
+          fi
+        done
+
+        # Check if branch was allowed
+        if [ "${BRANCH_ALLOWED:-false}" != "true" ]; then
+          # Additional check for exact matches and wildcards
+          if echo "$ALLOWED_BRANCHES" | jq -r '.[]' | grep -q "^$CURRENT_BRANCH$"; then
+            echo "✅ Branch '$CURRENT_BRANCH' is explicitly allowed"
+          elif echo "$ALLOWED_BRANCHES" | jq -r '.[]' | grep -q '\*'; then
+            # Check wildcard patterns
+            for pattern in $(echo "$ALLOWED_BRANCHES" | jq -r '.[]' | grep '\*'); do
+              # Convert wildcard pattern to regex
+              regex_pattern=$(echo "$pattern" | sed 's/\*/.*/')
+              if [[ "$CURRENT_BRANCH" =~ ^$regex_pattern$ ]]; then
+                echo "✅ Branch '$CURRENT_BRANCH' matches wildcard pattern '$pattern'"
+                exit 0
+              fi
+            done
+            echo "❌ Branch '$CURRENT_BRANCH' is not allowed to deploy to ${{ inputs.environment }}"
+            echo "Allowed patterns: $ALLOWED_BRANCHES"
+            exit 1
+          else
+            echo "❌ Branch '$CURRENT_BRANCH' is not allowed to deploy to ${{ inputs.environment }}"
+            echo "Allowed branches: $ALLOWED_BRANCHES"
+            exit 1
+          fi
+        fi
+
+    - name: Set environment variables
+      shell: bash
+      run: |
+        # Set environment variables for use in subsequent steps
+        echo "ENVIRONMENT=${{ inputs.environment }}" >> $GITHUB_ENV
+        echo "REQUIRE_APPROVAL=${{ steps.config.outputs.require_approval }}" >> $GITHUB_ENV
+        echo "SECURITY_THRESHOLD=${{ steps.config.outputs.security_threshold }}" >> $GITHUB_ENV
+        echo "DEPLOYMENT_STRATEGY=${{ steps.config.outputs.deployment_strategy }}" >> $GITHUB_ENV
+        echo "RESOURCE_PREFIX=${{ steps.config.outputs.resource_prefix }}" >> $GITHUB_ENV
+
+        # Set AWS-specific environment variables
+        echo "AWS_RESOURCE_PREFIX=${{ steps.config.outputs.resource_prefix }}" >> $GITHUB_ENV
+
+        echo "🔧 Environment variables configured for ${{ inputs.environment }}"

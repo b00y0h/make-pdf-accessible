@@ -29,6 +29,11 @@ on:
         required: false
         default: false
         type: boolean
+      emergency_deployment:
+        description: 'Emergency deployment (bypasses some checks for non-prod)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   id-token: write
@@ -39,6 +44,25 @@ env:
   ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
 
 jobs:
+  setup-environment:
+    name: Setup Environment Configuration
+    runs-on: ubuntu-latest
+    outputs:
+      require_approval: ${{ steps.env-config.outputs.require_approval }}
+      security_threshold: ${{ steps.env-config.outputs.security_threshold }}
+      deployment_strategy: ${{ steps.env-config.outputs.deployment_strategy }}
+      resource_prefix: ${{ steps.env-config.outputs.resource_prefix }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup environment configuration
+        id: env-config
+        uses: ./.github/actions/setup-environment
+        with:
+          environment: ${{ inputs.environment || 'dev' }}
+
   detect-changes:
     name: Detect Changed Services
     runs-on: ubuntu-latest

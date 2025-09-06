@@ -1,0 +1,148 @@
+# Production Environment Configuration
+name: production
+description: Production environment with strict approval gates and security controls
+
+# Environment-specific settings
+settings:
+  # Require manual approval for all production deployments
+  require_approval: true
+
+  # Strictest security scanning - block on any critical/high severity
+  security_threshold: 'critical'
+
+  # Run complete test suite
+  skip_e2e_tests: false
+
+  # Full validation deployment with all checks
+  quick_deploy: false
+
+  # Only allow deployment from main branch and release tags
+  allowed_branches:
+    - main
+  allowed_tags:
+    - 'v*'
+
+# AWS Configuration
+aws:
+  region: us-east-1
+  account_id: '${AWS_ACCOUNT_ID}'
+
+  # Production resource naming
+  resource_prefix: 'pdf-accessibility-prod'
+
+  # Production-optimized instance sizes
+  instance_sizes:
+    lambda_memory: 2048
+    rds_instance: 'db.r5.large'
+
+# Deployment Configuration
+deployment:
+  # Strict rate limiting - max 2 deployments per day
+  rate_limit: '2_per_day'
+
+  # Manual rollback only
+  auto_rollback: false
+
+  # Extended health check timeout
+  health_check_timeout: 120
+
+  # Always create backup
+  skip_backup: false
+
+  # Blue/green deployment with gradual traffic shift
+  deployment_strategy: 'blue_green_gradual'
+
+  # Deployment windows (UTC)
+  deployment_windows:
+    - '09:00-17:00' # Business hours only
+
+  # Maintenance windows for emergency deployments
+  maintenance_windows:
+    - '02:00-04:00' # Early morning maintenance window
+
+# Notification Configuration
+notifications:
+  # Notify on all events with high priority
+  on_success: true
+  on_failure: true
+  on_start: true
+  on_approval_required: true
+
+  # Use production alerts channel
+  slack_channel: '#prod-alerts'
+
+  # Additional notification channels
+  email_notifications: true
+  pagerduty_integration: true
+
+# Testing Configuration
+testing:
+  # Highest test coverage requirements
+  coverage_threshold: 90
+
+  # Run all tests including performance
+  skip_performance_tests: false
+
+  # Comprehensive accessibility testing
+  run_accessibility_tests: true
+
+  # Security testing
+  run_security_tests: true
+
+  # Sequential test execution for stability
+  parallel_tests: false
+
+  # Extended load testing
+  load_testing:
+    enabled: true
+    duration: '15m'
+    users: 200
+
+  # Smoke tests after deployment
+  smoke_tests:
+    enabled: true
+    timeout: '10m'
+
+# Approval Configuration
+approval:
+  # Require multiple approvals
+  required_reviewers: 2
+
+  # Specific approval teams
+  required_teams:
+    - 'platform-team'
+    - 'security-team'
+
+  # No auto-approval for any changes
+  auto_approve_hotfix: false
+
+  # Extended approval timeout
+  timeout: '24h'
+
+  # Require approval for rollbacks too
+  require_rollback_approval: true
+
+# Security Configuration
+security:
+  # Enhanced monitoring
+  enhanced_monitoring: true
+
+  # Security event alerting
+  security_alerts: true
+
+  # Compliance scanning
+  compliance_scanning: true
+
+  # Audit logging
+  audit_logging: true
+
+# Backup and Recovery
+backup:
+  # Pre-deployment backup
+  pre_deployment: true
+
+  # Post-deployment verification
+  post_deployment_verification: true
+
+  # Backup retention
+  retention_days: 30

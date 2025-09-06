@@ -1,0 +1,93 @@
+# Staging Environment Configuration
+name: staging
+description: Staging environment with automated testing and validation
+
+# Environment-specific settings
+settings:
+  # Require approval for staging deployments
+  require_approval: true
+
+  # Stricter security scanning - block on high severity
+  security_threshold: 'high'
+
+  # Run full test suite including E2E tests
+  skip_e2e_tests: false
+
+  # Full validation deployment
+  quick_deploy: false
+
+  # Only allow deployment from main and release branches
+  allowed_branches:
+    - main
+    - 'release/*'
+
+# AWS Configuration
+aws:
+  region: us-east-1
+  account_id: '${AWS_ACCOUNT_ID}'
+
+  # Staging-specific resource naming
+  resource_prefix: 'pdf-accessibility-staging'
+
+  # Production-like instance sizes for realistic testing
+  instance_sizes:
+    lambda_memory: 1024
+    rds_instance: 'db.t3.small'
+
+# Deployment Configuration
+deployment:
+  # Limit deployments to business hours
+  rate_limit: 'business_hours'
+
+  # Automatic rollback on failure
+  auto_rollback: true
+
+  # Standard health check timeout
+  health_check_timeout: 60
+
+  # Create backup before deployment
+  skip_backup: false
+
+  # Blue/green deployment strategy
+  deployment_strategy: 'blue_green'
+
+# Notification Configuration
+notifications:
+  # Notify on all deployment events
+  on_success: true
+  on_failure: true
+  on_start: true
+
+  # Use staging Slack channel
+  slack_channel: '#staging-deployments'
+
+# Testing Configuration
+testing:
+  # Higher test coverage requirements
+  coverage_threshold: 80
+
+  # Include performance tests
+  skip_performance_tests: false
+
+  # Run accessibility tests
+  run_accessibility_tests: true
+
+  # Parallel test execution
+  parallel_tests: true
+
+  # Load testing configuration
+  load_testing:
+    enabled: true
+    duration: '5m'
+    users: 50
+
+# Approval Configuration
+approval:
+  # Require approval from staging team
+  required_reviewers: 1
+
+  # Auto-approve for hotfixes
+  auto_approve_hotfix: true
+
+  # Approval timeout
+  timeout: '2h'

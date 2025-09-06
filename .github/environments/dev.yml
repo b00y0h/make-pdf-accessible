@@ -1,0 +1,72 @@
+# Development Environment Configuration
+name: development
+description: Development environment with relaxed approval requirements
+
+# Environment-specific settings
+settings:
+  # No manual approval required for dev deployments
+  require_approval: false
+
+  # Relaxed security scanning - allow medium severity issues
+  security_threshold: 'medium'
+
+  # Skip some time-consuming tests in dev
+  skip_e2e_tests: true
+
+  # Faster deployment with reduced validation
+  quick_deploy: true
+
+  # Allow deployment from feature branches
+  allowed_branches:
+    - main
+    - develop
+    - 'feature/*'
+    - 'hotfix/*'
+
+# AWS Configuration
+aws:
+  region: us-east-1
+  account_id: '${AWS_ACCOUNT_ID}'
+
+  # Development-specific resource naming
+  resource_prefix: 'pdf-accessibility-dev'
+
+  # Smaller instance sizes for cost optimization
+  instance_sizes:
+    lambda_memory: 512
+    rds_instance: 'db.t3.micro'
+
+# Deployment Configuration
+deployment:
+  # Allow multiple deployments per day
+  rate_limit: none
+
+  # Automatic rollback on failure
+  auto_rollback: true
+
+  # Shorter health check timeout
+  health_check_timeout: 30
+
+  # Skip backup creation for faster deployment
+  skip_backup: true
+
+# Notification Configuration
+notifications:
+  # Only notify on failures in dev
+  on_success: false
+  on_failure: true
+  on_start: false
+
+  # Use development Slack channel
+  slack_channel: '#dev-deployments'
+
+# Testing Configuration
+testing:
+  # Reduced test coverage requirements
+  coverage_threshold: 60
+
+  # Skip performance tests
+  skip_performance_tests: true
+
+  # Parallel test execution
+  parallel_tests: true

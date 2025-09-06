@@ -1,0 +1,201 @@
+name: 'Environment Deployment Gate'
+description: 'Enforce environment-specific approval and validation requirements'
+
+inputs:
+  environment:
+    description: 'Target environment (dev, staging, prod)'
+    required: true
+  require_approval:
+    description: 'Whether manual approval is required'
+    required: true
+  security_threshold:
+    description: 'Security scanning threshold'
+    required: true
+  deployment_type:
+    description: 'Type of deployment (infrastructure, api, web, lambda)'
+    required: true
+  security_results:
+    description: 'Security scan results as JSON'
+    required: false
+    default: '{}'
+
+outputs:
+  gate_passed:
+    description: 'Whether the deployment gate passed'
+    value: ${{ steps.gate-check.outputs.passed }}
+  approval_required:
+    description: 'Whether manual approval is still required'
+    value: ${{ steps.approval-check.outputs.required }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Environment gate validation
+      id: gate-check
+      shell: bash
+      run: |
+        echo "🚪 Validating deployment gate for ${{ inputs.environment }} environment"
+        echo "Deployment type: ${{ inputs.deployment_type }}"
+        echo "Security threshold: ${{ inputs.security_threshold }}"
+        echo "Approval required: ${{ inputs.require_approval }}"
+
+        GATE_PASSED=true
+
+        # Check security results if provided
+        if [ "${{ inputs.security_results }}" != "{}" ]; then
+          echo "🔒 Checking security scan results..."
+
+          SECURITY_RESULTS='${{ inputs.security_results }}'
+          THRESHOLD="${{ inputs.security_threshold }}"
+
+          # Extract vulnerability counts
+          CRITICAL=$(echo "$SECURITY_RESULTS" | jq -r '.critical // 0')
+          HIGH=$(echo "$SECURITY_RESULTS" | jq -r '.high // 0')
+          MEDIUM=$(echo "$SECURITY_RESULTS" | jq -r '.medium // 0')
+
+          echo "Security scan results:"
+          echo "  - Critical: $CRITICAL"
+          echo "  - High: $HIGH"
+          echo "  - Medium: $MEDIUM"
+
+          # Apply security threshold
+          case "$THRESHOLD" in
+            "critical")
+              if [ "$CRITICAL" -gt 0 ]; then
+                echo "❌ Critical vulnerabilities found - blocking deployment"
+                GATE_PASSED=false
+              fi
+              ;;
+            "high")
+              if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+                echo "❌ Critical or high severity vulnerabilities found - blocking deployment"
+                GATE_PASSED=false
+              fi
+              ;;
+            "medium")
+              if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 5 ]; then
+                echo "❌ Critical vulnerabilities or too many high severity issues - blocking deployment"
+                GATE_PASSED=false
+              fi
+              ;;
+          esac
+
+          if [ "$GATE_PASSED" = "true" ]; then
+            echo "✅ Security scan passed for $THRESHOLD threshold"
+          fi
+        fi
+
+        # Check deployment time windows for production
+        if [ "${{ inputs.environment }}" = "prod" ]; then
+          echo "🕐 Checking deployment time window for production..."
+
+          CURRENT_HOUR=$(date -u +%H)
+          CURRENT_DAY=$(date -u +%u)  # 1=Monday, 7=Sunday
+
+          # Business hours: 09:00-17:00 UTC, Monday-Friday
+          if [ "$CURRENT_DAY" -ge 1 ] && [ "$CURRENT_DAY" -le 5 ]; then
+            if [ "$CURRENT_HOUR" -ge 9 ] && [ "$CURRENT_HOUR" -lt 17 ]; then
+              echo "✅ Deployment within business hours window"
+            else
+              echo "⚠️ Deployment outside business hours - may require additional approval"
+              # Don't block, but flag for attention
+            fi
+          else
+            echo "⚠️ Weekend deployment - may require additional approval"
+          fi
+        fi
+
+        echo "passed=$GATE_PASSED" >> $GITHUB_OUTPUT
+
+        if [ "$GATE_PASSED" = "true" ]; then
+          echo "✅ Environment gate validation passed"
+        else
+          echo "❌ Environment gate validation failed"
+        fi
+
+    - name: Check approval requirements
+      id: approval-check
+      shell: bash
+      run: |
+        APPROVAL_REQUIRED="${{ inputs.require_approval }}"
+
+        # Override approval requirement based on conditions
+        if [ "${{ inputs.environment }}" = "prod" ]; then
+          # Production always requires approval
+          APPROVAL_REQUIRED=true
+          echo "🔒 Production deployment - manual approval required"
+        elif [ "${{ inputs.environment }}" = "staging" ]; then
+          # Staging requires approval for certain deployment types
+          if [ "${{ inputs.deployment_type }}" = "infrastructure" ]; then
+            APPROVAL_REQUIRED=true
+            echo "🔒 Infrastructure deployment to staging - manual approval required"
+          fi
+        fi
+
+        # Check for emergency deployment override
+        if [ "${{ github.event.inputs.emergency_deployment }}" = "true" ]; then
+          echo "🚨 Emergency deployment flag detected"
+          if [ "${{ inputs.environment }}" != "prod" ]; then
+            APPROVAL_REQUIRED=false
+            echo "⚡ Emergency deployment - skipping approval for non-production"
+          else
+            echo "🔒 Emergency deployment to production still requires approval"
+          fi
+        fi
+
+        echo "required=$APPROVAL_REQUIRED" >> $GITHUB_OUTPUT
+
+        if [ "$APPROVAL_REQUIRED" = "true" ]; then
+          echo "⏳ Manual approval required for this deployment"
+        else
+          echo "✅ No manual approval required"
+        fi
+
+    - name: Generate gate summary
+      shell: bash
+      run: |
+        echo "## 🚪 Environment Deployment Gate - ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Environment:** ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Deployment Type:** ${{ inputs.deployment_type }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Security Threshold:** ${{ inputs.security_threshold }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        # Gate status
+        if [ "${{ steps.gate-check.outputs.passed }}" = "true" ]; then
+          echo "**Gate Status:** ✅ Passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "**Gate Status:** ❌ Failed" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        # Approval status
+        if [ "${{ steps.approval-check.outputs.required }}" = "true" ]; then
+          echo "**Approval Status:** ⏳ Manual approval required" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "**Approval Status:** ✅ No approval required" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        # Environment-specific notes
+        case "${{ inputs.environment }}" in
+          "dev")
+            echo "**Development Environment Notes:**" >> $GITHUB_STEP_SUMMARY
+            echo "- Relaxed security requirements" >> $GITHUB_STEP_SUMMARY
+            echo "- No manual approval required" >> $GITHUB_STEP_SUMMARY
+            echo "- Fast deployment with minimal validation" >> $GITHUB_STEP_SUMMARY
+            ;;
+          "staging")
+            echo "**Staging Environment Notes:**" >> $GITHUB_STEP_SUMMARY
+            echo "- Production-like validation" >> $GITHUB_STEP_SUMMARY
+            echo "- Full test suite execution" >> $GITHUB_STEP_SUMMARY
+            echo "- Manual approval for infrastructure changes" >> $GITHUB_STEP_SUMMARY
+            ;;
+          "prod")
+            echo "**Production Environment Notes:**" >> $GITHUB_STEP_SUMMARY
+            echo "- Strictest security and validation requirements" >> $GITHUB_STEP_SUMMARY
+            echo "- Manual approval required for all deployments" >> $GITHUB_STEP_SUMMARY
+            echo "- Business hours deployment window preferred" >> $GITHUB_STEP_SUMMARY
+            echo "- Multiple reviewer approval required" >> $GITHUB_STEP_SUMMARY
+            ;;
+        esac

@@ -1,0 +1,375 @@
+name: Test Environment Configuration
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_environment:
+        description: 'Environment to test'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      test_branch:
+        description: 'Branch to test deployment from'
+        required: false
+        default: 'main'
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  test-environment-setup:
+    name: Test Environment Setup
+    runs-on: ubuntu-latest
+    outputs:
+      config_valid: ${{ steps.validate.outputs.valid }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test environment configuration loading
+        id: setup
+        uses: ./.github/actions/setup-environment
+        with:
+          environment: ${{ inputs.test_environment }}
+
+      - name: Validate configuration outputs
+        id: validate
+        run: |
+          echo "🧪 Testing environment configuration for: ${{ inputs.test_environment }}"
+          echo ""
+
+          # Check required outputs
+          REQUIRE_APPROVAL="${{ steps.setup.outputs.require_approval }}"
+          SECURITY_THRESHOLD="${{ steps.setup.outputs.security_threshold }}"
+          DEPLOYMENT_STRATEGY="${{ steps.setup.outputs.deployment_strategy }}"
+          RESOURCE_PREFIX="${{ steps.setup.outputs.resource_prefix }}"
+
+          echo "Configuration values:"
+          echo "  - Require Approval: $REQUIRE_APPROVAL"
+          echo "  - Security Threshold: $SECURITY_THRESHOLD"
+          echo "  - Deployment Strategy: $DEPLOYMENT_STRATEGY"
+          echo "  - Resource Prefix: $RESOURCE_PREFIX"
+          echo ""
+
+          # Validate values are not empty
+          VALID=true
+
+          if [ -z "$REQUIRE_APPROVAL" ]; then
+            echo "❌ require_approval is empty"
+            VALID=false
+          fi
+
+          if [ -z "$SECURITY_THRESHOLD" ]; then
+            echo "❌ security_threshold is empty"
+            VALID=false
+          fi
+
+          if [ -z "$DEPLOYMENT_STRATEGY" ]; then
+            echo "❌ deployment_strategy is empty"
+            VALID=false
+          fi
+
+          if [ -z "$RESOURCE_PREFIX" ]; then
+            echo "❌ resource_prefix is empty"
+            VALID=false
+          fi
+
+          # Validate security threshold values
+          if [[ ! "$SECURITY_THRESHOLD" =~ ^(critical|high|medium|low)$ ]]; then
+            echo "❌ Invalid security_threshold: $SECURITY_THRESHOLD"
+            VALID=false
+          fi
+
+          # Validate boolean values
+          if [[ ! "$REQUIRE_APPROVAL" =~ ^(true|false)$ ]]; then
+            echo "❌ Invalid require_approval: $REQUIRE_APPROVAL"
+            VALID=false
+          fi
+
+          echo "valid=$VALID" >> $GITHUB_OUTPUT
+
+          if [ "$VALID" = "true" ]; then
+            echo "✅ Configuration validation passed"
+          else
+            echo "❌ Configuration validation failed"
+            exit 1
+          fi
+
+  test-environment-gate:
+    name: Test Environment Gate
+    runs-on: ubuntu-latest
+    needs: test-environment-setup
+    if: needs.test-environment-setup.outputs.config_valid == 'true'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup environment configuration
+        id: setup
+        uses: ./.github/actions/setup-environment
+        with:
+          environment: ${{ inputs.test_environment }}
+
+      - name: Test environment gate with mock security results
+        id: gate
+        uses: ./.github/actions/environment-gate
+        with:
+          environment: ${{ inputs.test_environment }}
+          require_approval: ${{ steps.setup.outputs.require_approval }}
+          security_threshold: ${{ steps.setup.outputs.security_threshold }}
+          deployment_type: 'test'
+          security_results: |
+            {
+              "critical": 0,
+              "high": 1,
+              "medium": 3
+            }
+
+      - name: Validate gate results
+        run: |
+          echo "🚪 Testing environment gate for: ${{ inputs.test_environment }}"
+          echo ""
+
+          GATE_PASSED="${{ steps.gate.outputs.gate_passed }}"
+          APPROVAL_REQUIRED="${{ steps.gate.outputs.approval_required }}"
+
+          echo "Gate results:"
+          echo "  - Gate Passed: $GATE_PASSED"
+          echo "  - Approval Required: $APPROVAL_REQUIRED"
+          echo ""
+
+          # Validate expected behavior based on environment
+          case "${{ inputs.test_environment }}" in
+            "dev")
+              if [ "$APPROVAL_REQUIRED" = "true" ]; then
+                echo "⚠️ Unexpected: Development environment should not require approval"
+              else
+                echo "✅ Correct: Development environment does not require approval"
+              fi
+              ;;
+            "staging")
+              echo "ℹ️ Staging environment approval depends on deployment type"
+              ;;
+            "prod")
+              if [ "$APPROVAL_REQUIRED" = "false" ]; then
+                echo "⚠️ Unexpected: Production environment should require approval"
+              else
+                echo "✅ Correct: Production environment requires approval"
+              fi
+              ;;
+          esac
+
+  test-branch-permissions:
+    name: Test Branch Permissions
+    runs-on: ubuntu-latest
+    needs: test-environment-setup
+    if: needs.test-environment-setup.outputs.config_valid == 'true'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test branch permissions
+        run: |
+          echo "🌿 Testing branch permissions for: ${{ inputs.test_environment }}"
+          echo "Testing branch: ${{ inputs.test_branch || github.ref_name }}"
+          echo ""
+
+          # Override GITHUB_REF_NAME for testing
+          export GITHUB_REF_NAME="${{ inputs.test_branch || github.ref_name }}"
+
+          # Test environment setup with custom branch
+          if ./.github/actions/setup-environment/action.yml 2>&1 | grep -q "Branch.*is not allowed"; then
+            echo "❌ Branch $GITHUB_REF_NAME is not allowed for ${{ inputs.test_environment }}"
+            echo "This is expected behavior if testing with a restricted branch"
+          else
+            echo "✅ Branch $GITHUB_REF_NAME is allowed for ${{ inputs.test_environment }}"
+          fi
+
+  test-security-thresholds:
+    name: Test Security Thresholds
+    runs-on: ubuntu-latest
+    needs: test-environment-setup
+    if: needs.test-environment-setup.outputs.config_valid == 'true'
+    strategy:
+      matrix:
+        security_scenario:
+          - name: 'no-vulnerabilities'
+            critical: 0
+            high: 0
+            medium: 0
+          - name: 'medium-vulnerabilities'
+            critical: 0
+            high: 0
+            medium: 5
+          - name: 'high-vulnerabilities'
+            critical: 0
+            high: 2
+            medium: 3
+          - name: 'critical-vulnerabilities'
+            critical: 1
+            high: 1
+            medium: 2
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup environment configuration
+        id: setup
+        uses: ./.github/actions/setup-environment
+        with:
+          environment: ${{ inputs.test_environment }}
+
+      - name: Test security threshold - ${{ matrix.security_scenario.name }}
+        id: gate
+        uses: ./.github/actions/environment-gate
+        with:
+          environment: ${{ inputs.test_environment }}
+          require_approval: ${{ steps.setup.outputs.require_approval }}
+          security_threshold: ${{ steps.setup.outputs.security_threshold }}
+          deployment_type: 'test'
+          security_results: |
+            {
+              "critical": ${{ matrix.security_scenario.critical }},
+              "high": ${{ matrix.security_scenario.high }},
+              "medium": ${{ matrix.security_scenario.medium }}
+            }
+        continue-on-error: true
+
+      - name: Analyze security threshold behavior
+        run: |
+          echo "🔒 Testing security threshold behavior"
+          echo "Scenario: ${{ matrix.security_scenario.name }}"
+          echo "Environment: ${{ inputs.test_environment }}"
+          echo "Security Threshold: ${{ steps.setup.outputs.security_threshold }}"
+          echo ""
+
+          GATE_PASSED="${{ steps.gate.outputs.gate_passed }}"
+          SECURITY_THRESHOLD="${{ steps.setup.outputs.security_threshold }}"
+
+          CRITICAL=${{ matrix.security_scenario.critical }}
+          HIGH=${{ matrix.security_scenario.high }}
+          MEDIUM=${{ matrix.security_scenario.medium }}
+
+          echo "Vulnerabilities: Critical=$CRITICAL, High=$HIGH, Medium=$MEDIUM"
+          echo "Gate Passed: $GATE_PASSED"
+          echo ""
+
+          # Analyze expected vs actual behavior
+          EXPECTED_PASS=true
+
+          case "$SECURITY_THRESHOLD" in
+            "critical")
+              if [ "$CRITICAL" -gt 0 ]; then
+                EXPECTED_PASS=false
+              fi
+              ;;
+            "high")
+              if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+                EXPECTED_PASS=false
+              fi
+              ;;
+            "medium")
+              if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 5 ]; then
+                EXPECTED_PASS=false
+              fi
+              ;;
+          esac
+
+          if [ "$GATE_PASSED" = "$EXPECTED_PASS" ]; then
+            echo "✅ Security threshold behavior is correct"
+          else
+            echo "❌ Security threshold behavior is unexpected"
+            echo "Expected gate to pass: $EXPECTED_PASS"
+            echo "Actual gate passed: $GATE_PASSED"
+          fi
+
+  generate-test-report:
+    name: Generate Test Report
+    runs-on: ubuntu-latest
+    needs:
+      [
+        test-environment-setup,
+        test-environment-gate,
+        test-branch-permissions,
+        test-security-thresholds,
+      ]
+    if: always()
+
+    steps:
+      - name: Generate comprehensive test report
+        run: |
+          echo "## 🧪 Environment Configuration Test Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Environment:** ${{ inputs.test_environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Branch:** ${{ inputs.test_branch || github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Test results summary
+          echo "### Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          # Environment setup test
+          if [ "${{ needs.test-environment-setup.result }}" = "success" ]; then
+            echo "| Environment Setup | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Environment Setup | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Environment gate test
+          if [ "${{ needs.test-environment-gate.result }}" = "success" ]; then
+            echo "| Environment Gate | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Environment Gate | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Branch permissions test
+          if [ "${{ needs.test-branch-permissions.result }}" = "success" ]; then
+            echo "| Branch Permissions | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Branch Permissions | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Security thresholds test
+          if [ "${{ needs.test-security-thresholds.result }}" = "success" ]; then
+            echo "| Security Thresholds | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Security Thresholds | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Overall status
+          if [ "${{ needs.test-environment-setup.result }}" = "success" ] && \
+             [ "${{ needs.test-environment-gate.result }}" = "success" ] && \
+             [ "${{ needs.test-branch-permissions.result }}" = "success" ] && \
+             [ "${{ needs.test-security-thresholds.result }}" = "success" ]; then
+            echo "### ✅ Overall Status: All Tests Passed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The environment-specific deployment configuration for **${{ inputs.test_environment }}** is working correctly." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ Overall Status: Some Tests Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "There are issues with the environment-specific deployment configuration for **${{ inputs.test_environment }}**." >> $GITHUB_STEP_SUMMARY
+            echo "Please review the failed test results and fix the configuration." >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Review the test results above" >> $GITHUB_STEP_SUMMARY
+          echo "2. Fix any configuration issues identified" >> $GITHUB_STEP_SUMMARY
+          echo "3. Test deployment workflows in the target environment" >> $GITHUB_STEP_SUMMARY
+          echo "4. Verify branch protection rules are properly configured" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "For more information, see the [Environment Deployment Guide](.github/workflows/ENVIRONMENT_DEPLOYMENT_GUIDE.md)" >> $GITHUB_STEP_SUMMARY

@@ -36,6 +36,11 @@ on:
         required: false
         default: '10'
         type: string
+      emergency_deployment:
+        description: 'Emergency deployment (bypasses some checks for non-prod)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   id-token: write
@@ -48,6 +53,26 @@ env:
   AWS_REGION: us-east-1
 
 jobs:
+  setup-environment:
+    name: Setup Environment Configuration
+    runs-on: ubuntu-latest
+    outputs:
+      require_approval: ${{ steps.env-config.outputs.require_approval }}
+      security_threshold: ${{ steps.env-config.outputs.security_threshold }}
+      deployment_strategy: ${{ steps.env-config.outputs.deployment_strategy }}
+      resource_prefix: ${{ steps.env-config.outputs.resource_prefix }}
+      testing_config: ${{ steps.env-config.outputs.testing_config }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup environment configuration
+        id: env-config
+        uses: ./.github/actions/setup-environment
+        with:
+          environment: ${{ inputs.environment || 'dev' }}
+
   detect-changes:
     name: Detect API Changes
     runs-on: ubuntu-latest
@@ -645,16 +670,61 @@ jobs:
           path: ${{ env.API_WORKING_DIR }}/api-deployment-${{ needs.detect-changes.outputs.version }}.zip
           retention-days: 30
 
-  blue-green-deploy:
-    name: Blue/Green Deployment
+  environment-gate:
+    name: Environment Deployment Gate
     runs-on: ubuntu-latest
-    needs: [detect-changes, test, build-package]
+    needs:
+      [
+        setup-environment,
+        detect-changes,
+        test,
+        build-package,
+        dependency-security-scan,
+      ]
     if: |
       always() &&
       needs.detect-changes.outputs.should_deploy == 'true' &&
       needs.build-package.result == 'success'
+    outputs:
+      gate_passed: ${{ steps.gate.outputs.gate_passed }}
+      approval_required: ${{ steps.gate.outputs.approval_required }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare security results
+        id: security-results
+        run: |
+          # Combine security scan results
+          SECURITY_RESULTS='{
+            "critical": ${{ needs.dependency-security-scan.outputs.safety_vulnerabilities || 0 }},
+            "high": ${{ needs.dependency-security-scan.outputs.pip_audit_vulnerabilities || 0 }},
+            "medium": ${{ needs.dependency-security-scan.outputs.bandit_medium || 0 }}
+          }'
+          echo "results=$SECURITY_RESULTS" >> $GITHUB_OUTPUT
+
+      - name: Run environment gate
+        id: gate
+        uses: ./.github/actions/environment-gate
+        with:
+          environment: ${{ inputs.environment || 'dev' }}
+          require_approval: ${{ needs.setup-environment.outputs.require_approval }}
+          security_threshold: ${{ needs.setup-environment.outputs.security_threshold }}
+          deployment_type: 'api'
+          security_results: ${{ steps.security-results.outputs.results }}
+
+  blue-green-deploy:
+    name: Blue/Green Deployment
+    runs-on: ubuntu-latest
+    needs:
+      [setup-environment, detect-changes, test, build-package, environment-gate]
+    if: |
+      needs.environment-gate.outputs.gate_passed == 'true' &&
+      needs.detect-changes.outputs.should_deploy == 'true' &&
+      needs.build-package.result == 'success'
     environment:
-      name: ${{ inputs.environment || 'production' }}-api
+      name: ${{ inputs.environment || 'dev' }}-api
       url: ${{ steps.deployment-urls.outputs.api_url }}
     outputs:
       deployment_status: ${{ steps.traffic-switch.outputs.status }}
