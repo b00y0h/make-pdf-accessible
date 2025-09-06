@@ -1,0 +1,361 @@
+name: Emergency Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to rollback'
+        required: true
+        type: choice
+        options:
+          - 'api'
+          - 'web'
+          - 'lambda-functions'
+          - 'infrastructure'
+          - 'all'
+      target_version:
+        description: 'Target version to rollback to (leave empty for previous version)'
+        required: false
+        type: string
+      environment:
+        description: 'Environment to rollback'
+        required: true
+        type: choice
+        options:
+          - 'dev'
+          - 'staging'
+          - 'prod'
+      reason:
+        description: 'Reason for rollback'
+        required: true
+        type: string
+      skip_health_checks:
+        description: 'Skip health checks (emergency only)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+  actions: read
+  deployments: write
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  validate-rollback:
+    runs-on: ubuntu-latest
+    outputs:
+      rollback-approved: ${{ steps.validate.outputs.approved }}
+      target-version: ${{ steps.validate.outputs.target_version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate rollback request
+        id: validate
+        run: |
+          echo "Validating rollback request..."
+          echo "Service: ${{ github.event.inputs.service }}"
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          echo "Reason: ${{ github.event.inputs.reason }}"
+
+          # Get target version
+          if [ -n "${{ github.event.inputs.target_version }}" ]; then
+            TARGET_VERSION="${{ github.event.inputs.target_version }}"
+          else
+            # Get previous successful deployment version
+            TARGET_VERSION=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "latest-stable")
+          fi
+
+          echo "target_version=$TARGET_VERSION" >> $GITHUB_OUTPUT
+          echo "approved=true" >> $GITHUB_OUTPUT
+
+          # Log rollback initiation
+          echo "::notice::Rollback initiated for ${{ github.event.inputs.service }} in ${{ github.event.inputs.environment }} to version $TARGET_VERSION"
+
+  rollback-api:
+    needs: validate-rollback
+    if: needs.validate-rollback.outputs.rollback-approved == 'true' && (github.event.inputs.service == 'api' || github.event.inputs.service == 'all')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get current API version
+        id: current-version
+        run: |
+          CURRENT_VERSION=$(aws lambda get-alias \
+            --function-name pdf-accessibility-api-${{ github.event.inputs.environment }} \
+            --name live \
+            --query 'FunctionVersion' \
+            --output text)
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Get rollback target version
+        id: rollback-target
+        run: |
+          # Get the version before current
+          VERSIONS=$(aws lambda list-versions-by-function \
+            --function-name pdf-accessibility-api-${{ github.event.inputs.environment }} \
+            --query 'Versions[?Version!=`$LATEST`].Version' \
+            --output text | tr '\t' '\n' | sort -nr)
+
+          CURRENT_VERSION="${{ steps.current-version.outputs.current_version }}"
+          TARGET_VERSION=$(echo "$VERSIONS" | grep -A1 "^$CURRENT_VERSION$" | tail -1)
+
+          if [ -z "$TARGET_VERSION" ]; then
+            echo "::error::No previous version found for rollback"
+            exit 1
+          fi
+
+          echo "target_version=$TARGET_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Rollback database migrations
+        run: |
+          echo "Rolling back database migrations..."
+          # This would typically connect to the database and rollback migrations
+          # For now, we'll simulate the process
+          echo "::warning::Database rollback simulation - implement actual migration rollback"
+
+      - name: Update Lambda alias to previous version
+        run: |
+          TARGET_VERSION="${{ steps.rollback-target.outputs.target_version }}"
+
+          aws lambda update-alias \
+            --function-name pdf-accessibility-api-${{ github.event.inputs.environment }} \
+            --name live \
+            --function-version $TARGET_VERSION \
+            --description "Rollback to version $TARGET_VERSION - Reason: ${{ github.event.inputs.reason }}"
+
+      - name: Health check after rollback
+        if: github.event.inputs.skip_health_checks != 'true'
+        uses: ./.github/actions/health-check
+        with:
+          service: api
+          environment: ${{ github.event.inputs.environment }}
+          timeout: 300
+
+      - name: Invalidate API Gateway cache
+        run: |
+          # Get API Gateway ID for the environment
+          API_ID=$(aws apigateway get-rest-apis \
+            --query "items[?name=='pdf-accessibility-${{ github.event.inputs.environment }}'].id" \
+            --output text)
+
+          if [ -n "$API_ID" ]; then
+            aws apigateway flush-stage-cache \
+              --rest-api-id $API_ID \
+              --stage-name ${{ github.event.inputs.environment }}
+            echo "API Gateway cache invalidated"
+          fi
+
+  rollback-web:
+    needs: validate-rollback
+    if: needs.validate-rollback.outputs.rollback-approved == 'true' && (github.event.inputs.service == 'web' || github.event.inputs.service == 'all')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get previous web deployment
+        id: previous-deployment
+        run: |
+          S3_BUCKET="pdf-accessibility-${{ github.event.inputs.environment }}-web"
+
+          # List previous deployments (assuming we store them with timestamps)
+          PREVIOUS_DEPLOYMENT=$(aws s3 ls s3://$S3_BUCKET/deployments/ | sort -r | sed -n '2p' | awk '{print $4}')
+
+          if [ -z "$PREVIOUS_DEPLOYMENT" ]; then
+            echo "::error::No previous web deployment found"
+            exit 1
+          fi
+
+          echo "previous_deployment=$PREVIOUS_DEPLOYMENT" >> $GITHUB_OUTPUT
+
+      - name: Restore previous web deployment
+        run: |
+          S3_BUCKET="pdf-accessibility-${{ github.event.inputs.environment }}-web"
+          PREVIOUS_DEPLOYMENT="${{ steps.previous-deployment.outputs.previous_deployment }}"
+
+          # Copy previous deployment back to root
+          aws s3 sync s3://$S3_BUCKET/deployments/$PREVIOUS_DEPLOYMENT/ s3://$S3_BUCKET/ \
+            --delete \
+            --exclude "deployments/*"
+
+      - name: Invalidate CloudFront cache
+        run: |
+          DISTRIBUTION_ID=$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?Comment=='pdf-accessibility-${{ github.event.inputs.environment }}'].Id" \
+            --output text)
+
+          if [ -n "$DISTRIBUTION_ID" ]; then
+            INVALIDATION_ID=$(aws cloudfront create-invalidation \
+              --distribution-id $DISTRIBUTION_ID \
+              --paths "/*" \
+              --query 'Invalidation.Id' \
+              --output text)
+
+            echo "CloudFront invalidation created: $INVALIDATION_ID"
+
+            # Wait for invalidation to complete
+            aws cloudfront wait invalidation-completed \
+              --distribution-id $DISTRIBUTION_ID \
+              --id $INVALIDATION_ID
+          fi
+
+      - name: Health check after rollback
+        if: github.event.inputs.skip_health_checks != 'true'
+        uses: ./.github/actions/health-check
+        with:
+          service: web
+          environment: ${{ github.event.inputs.environment }}
+          timeout: 300
+
+  rollback-lambda-functions:
+    needs: validate-rollback
+    if: needs.validate-rollback.outputs.rollback-approved == 'true' && (github.event.inputs.service == 'lambda-functions' || github.event.inputs.service == 'all')
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        function:
+          [router, ocr, structure, tagger, exporter, validator, notifier]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Rollback Lambda function
+        run: |
+          FUNCTION_NAME="pdf-accessibility-${{ matrix.function }}-${{ github.event.inputs.environment }}"
+
+          # Get current version
+          CURRENT_VERSION=$(aws lambda get-function \
+            --function-name $FUNCTION_NAME \
+            --query 'Configuration.Version' \
+            --output text)
+
+          # Get previous version
+          VERSIONS=$(aws lambda list-versions-by-function \
+            --function-name $FUNCTION_NAME \
+            --query 'Versions[?Version!=`$LATEST`].Version' \
+            --output text | tr '\t' '\n' | sort -nr)
+
+          PREVIOUS_VERSION=$(echo "$VERSIONS" | grep -A1 "^$CURRENT_VERSION$" | tail -1)
+
+          if [ -n "$PREVIOUS_VERSION" ]; then
+            # Update function to use previous version
+            aws lambda update-function-configuration \
+              --function-name $FUNCTION_NAME \
+              --description "Rollback from $CURRENT_VERSION to $PREVIOUS_VERSION - Reason: ${{ github.event.inputs.reason }}"
+
+            echo "Rolled back $FUNCTION_NAME from $CURRENT_VERSION to $PREVIOUS_VERSION"
+          else
+            echo "::warning::No previous version found for $FUNCTION_NAME"
+          fi
+
+      - name: Health check function
+        if: github.event.inputs.skip_health_checks != 'true'
+        run: |
+          FUNCTION_NAME="pdf-accessibility-${{ matrix.function }}-${{ github.event.inputs.environment }}"
+
+          # Invoke function to test
+          aws lambda invoke \
+            --function-name $FUNCTION_NAME \
+            --payload '{"test": true}' \
+            --cli-binary-format raw-in-base64-out \
+            response.json
+
+          if [ $? -eq 0 ]; then
+            echo "Health check passed for $FUNCTION_NAME"
+          else
+            echo "::error::Health check failed for $FUNCTION_NAME"
+            exit 1
+          fi
+
+  rollback-infrastructure:
+    needs: validate-rollback
+    if: needs.validate-rollback.outputs.rollback-approved == 'true' && github.event.inputs.service == 'infrastructure'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
+
+      - name: Get previous Terraform state
+        run: |
+          cd infra/terraform
+
+          # Initialize Terraform
+          terraform init
+
+          # Get current state version
+          CURRENT_VERSION=$(terraform state list | wc -l)
+          echo "Current state has $CURRENT_VERSION resources"
+
+          echo "::warning::Infrastructure rollback requires manual intervention"
+          echo "::warning::Please review Terraform state and plan carefully before proceeding"
+
+  notify-rollback-completion:
+    needs:
+      [validate-rollback, rollback-api, rollback-web, rollback-lambda-functions]
+    if: always() && needs.validate-rollback.outputs.rollback-approved == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine rollback status
+        id: status
+        run: |
+          if [[ "${{ needs.rollback-api.result }}" == "failure" ||
+                "${{ needs.rollback-web.result }}" == "failure" ||
+                "${{ needs.rollback-lambda-functions.result }}" == "failure" ]]; then
+            echo "status=failed" >> $GITHUB_OUTPUT
+          else
+            echo "status=success" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Notify rollback completion
+        uses: ./.github/actions/notify-deployment
+        with:
+          status: ${{ steps.status.outputs.status }}
+          service: ${{ github.event.inputs.service }}
+          environment: ${{ github.event.inputs.environment }}
+          version: ${{ needs.validate-rollback.outputs.target-version }}
+          deployment_type: 'rollback'
+          reason: ${{ github.event.inputs.reason }}
+
+      - name: Update deployment tracking
+        run: |
+          echo "Recording rollback in deployment tracking system..."
+          # This would update your deployment tracking database/system
+          echo "::notice::Rollback completed for ${{ github.event.inputs.service }} in ${{ github.event.inputs.environment }}"

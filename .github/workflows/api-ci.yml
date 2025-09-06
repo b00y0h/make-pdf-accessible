@@ -1013,6 +1013,27 @@ jobs:
             echo "LIVE alias now points to Green version ${{ steps.deploy-green.outputs.green_version }}"
             echo "final_status=success" >> $GITHUB_OUTPUT
 
+      - name: Track deployment state
+        if: always()
+        uses: ./.github/actions/deployment-state
+        with:
+          action: track
+          service: api
+          environment: ${{ inputs.environment || 'dev' }}
+          version: ${{ needs.detect-changes.outputs.version }}
+          status: ${{ steps.traffic-switch.outputs.final_status == 'success' && steps.health-check-green.outputs.health_status == 'passed' && 'success' || 'failed' }}
+          health_status: ${{ steps.health-check-green.outputs.health_status || 'unknown' }}
+
+      - name: Trigger automatic rollback on failure
+        if: failure() || (steps.health-check-green.outputs.health_status == 'failed') || (steps.traffic-switch.outputs.final_status != 'success')
+        uses: ./.github/actions/auto-rollback
+        with:
+          service: api
+          environment: ${{ inputs.environment || 'dev' }}
+          health_check_failed: ${{ steps.health-check-green.outputs.health_status == 'failed' || steps.traffic-switch.outputs.final_status != 'success' }}
+          rollback_threshold: 2
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
           else
             echo "❌ Rolling back to Blue version due to performance issues..."
 

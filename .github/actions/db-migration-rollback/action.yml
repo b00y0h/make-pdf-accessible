@@ -1,0 +1,212 @@
+name: 'Database Migration Rollback'
+description: 'Coordinate database migration rollbacks during deployment rollbacks'
+
+inputs:
+  environment:
+    description: 'Environment to rollback migrations'
+    required: true
+  target_migration:
+    description: 'Target migration to rollback to (leave empty for auto-detect)'
+    required: false
+  dry_run:
+    description: 'Perform dry run without actual rollback'
+    required: false
+    default: 'false'
+  database_url:
+    description: 'Database connection URL'
+    required: true
+  backup_before_rollback:
+    description: 'Create backup before rollback'
+    required: false
+    default: 'true'
+
+outputs:
+  rollback_performed:
+    description: 'Whether rollback was performed'
+    value: ${{ steps.rollback.outputs.performed }}
+  target_migration:
+    description: 'Migration rolled back to'
+    value: ${{ steps.rollback.outputs.target_migration }}
+  backup_created:
+    description: 'Whether backup was created'
+    value: ${{ steps.backup.outputs.created }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Python environment
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        pip install alembic psycopg2-binary
+
+    - name: Get current migration state
+      id: current-state
+      shell: bash
+      run: |
+        cd services/api
+
+        # Get current migration version
+        CURRENT_MIGRATION=$(alembic current --verbose 2>/dev/null | grep "Current revision" | awk '{print $3}' || echo "none")
+        echo "current_migration=$CURRENT_MIGRATION" >> $GITHUB_OUTPUT
+
+        # Get migration history
+        alembic history --verbose > migration_history.txt
+        echo "Migration history saved"
+
+    - name: Determine target migration
+      id: target
+      shell: bash
+      run: |
+        cd services/api
+
+        if [ -n "${{ inputs.target_migration }}" ]; then
+          TARGET_MIGRATION="${{ inputs.target_migration }}"
+        else
+          # Auto-detect previous migration
+          CURRENT_MIGRATION="${{ steps.current-state.outputs.current_migration }}"
+
+          # Get the migration before current
+          TARGET_MIGRATION=$(alembic history --verbose | grep -B1 "$CURRENT_MIGRATION" | head -1 | awk '{print $1}' || echo "base")
+        fi
+
+        echo "target_migration=$TARGET_MIGRATION" >> $GITHUB_OUTPUT
+        echo "Target migration for rollback: $TARGET_MIGRATION"
+
+    - name: Create database backup
+      if: inputs.backup_before_rollback == 'true'
+      id: backup
+      shell: bash
+      run: |
+        BACKUP_NAME="rollback_backup_$(date +%Y%m%d_%H%M%S)"
+
+        # Extract database info from URL
+        DB_HOST=$(echo "${{ inputs.database_url }}" | sed -n 's/.*@\([^:]*\):.*/\1/p')
+        DB_PORT=$(echo "${{ inputs.database_url }}" | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
+        DB_NAME=$(echo "${{ inputs.database_url }}" | sed -n 's/.*\/\([^?]*\).*/\1/p')
+        DB_USER=$(echo "${{ inputs.database_url }}" | sed -n 's/.*\/\/\([^:]*\):.*/\1/p')
+
+        echo "Creating database backup: $BACKUP_NAME"
+
+        # Create backup (this is a simplified version - in production you'd use proper backup tools)
+        PGPASSWORD=$(echo "${{ inputs.database_url }}" | sed -n 's/.*:\([^@]*\)@.*/\1/p') \
+        pg_dump -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME \
+          --no-password --verbose \
+          --file="${BACKUP_NAME}.sql"
+
+        if [ $? -eq 0 ]; then
+          echo "created=true" >> $GITHUB_OUTPUT
+          echo "backup_file=${BACKUP_NAME}.sql" >> $GITHUB_OUTPUT
+          echo "::notice::Database backup created: ${BACKUP_NAME}.sql"
+        else
+          echo "created=false" >> $GITHUB_OUTPUT
+          echo "::error::Failed to create database backup"
+        fi
+
+    - name: Validate rollback safety
+      shell: bash
+      run: |
+        cd services/api
+
+        TARGET_MIGRATION="${{ steps.target.outputs.target_migration }}"
+        CURRENT_MIGRATION="${{ steps.current-state.outputs.current_migration }}"
+
+        echo "Validating rollback from $CURRENT_MIGRATION to $TARGET_MIGRATION"
+
+        # Check if target migration exists
+        if ! alembic history | grep -q "$TARGET_MIGRATION"; then
+          echo "::error::Target migration $TARGET_MIGRATION not found in history"
+          exit 1
+        fi
+
+        # Check for data loss warnings (this would be more sophisticated in practice)
+        echo "::warning::Please ensure this rollback won't cause data loss"
+        echo "::warning::Review migration files between $CURRENT_MIGRATION and $TARGET_MIGRATION"
+
+    - name: Perform migration rollback
+      if: inputs.dry_run != 'true'
+      id: rollback
+      shell: bash
+      env:
+        DATABASE_URL: ${{ inputs.database_url }}
+      run: |
+        cd services/api
+
+        TARGET_MIGRATION="${{ steps.target.outputs.target_migration }}"
+
+        echo "Rolling back migrations to: $TARGET_MIGRATION"
+
+        # Perform the rollback
+        if [ "$TARGET_MIGRATION" == "base" ]; then
+          alembic downgrade base
+        else
+          alembic downgrade $TARGET_MIGRATION
+        fi
+
+        if [ $? -eq 0 ]; then
+          echo "performed=true" >> $GITHUB_OUTPUT
+          echo "target_migration=$TARGET_MIGRATION" >> $GITHUB_OUTPUT
+          echo "::notice::Migration rollback completed successfully"
+        else
+          echo "performed=false" >> $GITHUB_OUTPUT
+          echo "::error::Migration rollback failed"
+          exit 1
+        fi
+
+    - name: Verify rollback
+      if: steps.rollback.outputs.performed == 'true'
+      shell: bash
+      env:
+        DATABASE_URL: ${{ inputs.database_url }}
+      run: |
+        cd services/api
+
+        # Verify current migration state
+        NEW_CURRENT=$(alembic current --verbose 2>/dev/null | grep "Current revision" | awk '{print $3}' || echo "none")
+        TARGET_MIGRATION="${{ steps.target.outputs.target_migration }}"
+
+        if [ "$NEW_CURRENT" == "$TARGET_MIGRATION" ] || [ "$TARGET_MIGRATION" == "base" ]; then
+          echo "::notice::Migration rollback verified successfully"
+          echo "::notice::Current migration: $NEW_CURRENT"
+        else
+          echo "::error::Migration rollback verification failed"
+          echo "::error::Expected: $TARGET_MIGRATION, Got: $NEW_CURRENT"
+          exit 1
+        fi
+
+    - name: Dry run simulation
+      if: inputs.dry_run == 'true'
+      shell: bash
+      run: |
+        cd services/api
+
+        TARGET_MIGRATION="${{ steps.target.outputs.target_migration }}"
+        CURRENT_MIGRATION="${{ steps.current-state.outputs.current_migration }}"
+
+        echo "=== DRY RUN: Migration Rollback Simulation ==="
+        echo "Current migration: $CURRENT_MIGRATION"
+        echo "Target migration: $TARGET_MIGRATION"
+        echo "Command that would be executed:"
+
+        if [ "$TARGET_MIGRATION" == "base" ]; then
+          echo "  alembic downgrade base"
+        else
+          echo "  alembic downgrade $TARGET_MIGRATION"
+        fi
+
+        echo "=== END DRY RUN ==="
+
+    - name: Log rollback summary
+      shell: bash
+      run: |
+        echo "=== Database Migration Rollback Summary ==="
+        echo "Environment: ${{ inputs.environment }}"
+        echo "Current Migration: ${{ steps.current-state.outputs.current_migration }}"
+        echo "Target Migration: ${{ steps.target.outputs.target_migration }}"
+        echo "Dry Run: ${{ inputs.dry_run }}"
+        echo "Backup Created: ${{ steps.backup.outputs.created || 'false' }}"
+        echo "Rollback Performed: ${{ steps.rollback.outputs.performed || 'false' }}"

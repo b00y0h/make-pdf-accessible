@@ -1,0 +1,222 @@
+name: 'Cache Invalidation'
+description: 'Invalidate various caches during rollback procedures'
+
+inputs:
+  environment:
+    description: 'Environment to invalidate caches for'
+    required: true
+  cache_types:
+    description: 'Comma-separated list of cache types: cloudfront,apigateway,redis,application'
+    required: false
+    default: 'cloudfront,apigateway,redis'
+  wait_for_completion:
+    description: 'Wait for cache invalidation to complete'
+    required: false
+    default: 'true'
+  aws_region:
+    description: 'AWS region'
+    required: false
+    default: 'us-east-1'
+
+outputs:
+  cloudfront_invalidation_id:
+    description: 'CloudFront invalidation ID'
+    value: ${{ steps.cloudfront.outputs.invalidation_id }}
+  redis_cleared:
+    description: 'Whether Redis cache was cleared'
+    value: ${{ steps.redis.outputs.cleared }}
+  apigateway_flushed:
+    description: 'Whether API Gateway cache was flushed'
+    value: ${{ steps.apigateway.outputs.flushed }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Parse cache types
+      id: parse
+      shell: bash
+      run: |
+        CACHE_TYPES="${{ inputs.cache_types }}"
+
+        echo "cloudfront=$(echo $CACHE_TYPES | grep -q cloudfront && echo true || echo false)" >> $GITHUB_OUTPUT
+        echo "apigateway=$(echo $CACHE_TYPES | grep -q apigateway && echo true || echo false)" >> $GITHUB_OUTPUT
+        echo "redis=$(echo $CACHE_TYPES | grep -q redis && echo true || echo false)" >> $GITHUB_OUTPUT
+        echo "application=$(echo $CACHE_TYPES | grep -q application && echo true || echo false)" >> $GITHUB_OUTPUT
+
+    - name: Invalidate CloudFront cache
+      if: steps.parse.outputs.cloudfront == 'true'
+      id: cloudfront
+      shell: bash
+      run: |
+        echo "Invalidating CloudFront cache for ${{ inputs.environment }}..."
+
+        # Get CloudFront distribution ID
+        DISTRIBUTION_ID=$(aws cloudfront list-distributions \
+          --query "DistributionList.Items[?Comment=='pdf-accessibility-${{ inputs.environment }}'].Id" \
+          --output text \
+          --region ${{ inputs.aws_region }})
+
+        if [ -n "$DISTRIBUTION_ID" ] && [ "$DISTRIBUTION_ID" != "None" ]; then
+          # Create invalidation
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id $DISTRIBUTION_ID \
+            --paths "/*" \
+            --query 'Invalidation.Id' \
+            --output text \
+            --region ${{ inputs.aws_region }})
+
+          echo "invalidation_id=$INVALIDATION_ID" >> $GITHUB_OUTPUT
+          echo "::notice::CloudFront invalidation created: $INVALIDATION_ID"
+
+          # Wait for completion if requested
+          if [ "${{ inputs.wait_for_completion }}" == "true" ]; then
+            echo "Waiting for CloudFront invalidation to complete..."
+            aws cloudfront wait invalidation-completed \
+              --distribution-id $DISTRIBUTION_ID \
+              --id $INVALIDATION_ID \
+              --region ${{ inputs.aws_region }}
+            echo "::notice::CloudFront invalidation completed"
+          fi
+        else
+          echo "::warning::No CloudFront distribution found for ${{ inputs.environment }}"
+          echo "invalidation_id=none" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Flush API Gateway cache
+      if: steps.parse.outputs.apigateway == 'true'
+      id: apigateway
+      shell: bash
+      run: |
+        echo "Flushing API Gateway cache for ${{ inputs.environment }}..."
+
+        # Get API Gateway ID
+        API_ID=$(aws apigateway get-rest-apis \
+          --query "items[?name=='pdf-accessibility-${{ inputs.environment }}'].id" \
+          --output text \
+          --region ${{ inputs.aws_region }})
+
+        if [ -n "$API_ID" ] && [ "$API_ID" != "None" ]; then
+          # Flush stage cache
+          aws apigateway flush-stage-cache \
+            --rest-api-id $API_ID \
+            --stage-name ${{ inputs.environment }} \
+            --region ${{ inputs.aws_region }}
+
+          echo "flushed=true" >> $GITHUB_OUTPUT
+          echo "::notice::API Gateway cache flushed for ${{ inputs.environment }}"
+        else
+          echo "::warning::No API Gateway found for ${{ inputs.environment }}"
+          echo "flushed=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Clear Redis cache
+      if: steps.parse.outputs.redis == 'true'
+      id: redis
+      shell: bash
+      run: |
+        echo "Clearing Redis cache for ${{ inputs.environment }}..."
+
+        # Get Redis cluster endpoint
+        REDIS_ENDPOINT=$(aws elasticache describe-cache-clusters \
+          --cache-cluster-id "pdf-accessibility-${{ inputs.environment }}-redis" \
+          --show-cache-node-info \
+          --query 'CacheClusters[0].CacheNodes[0].Endpoint.Address' \
+          --output text \
+          --region ${{ inputs.aws_region }} 2>/dev/null || echo "")
+
+        if [ -n "$REDIS_ENDPOINT" ] && [ "$REDIS_ENDPOINT" != "None" ]; then
+          # Install redis-cli if not available
+          if ! command -v redis-cli &> /dev/null; then
+            echo "Installing redis-cli..."
+            sudo apt-get update && sudo apt-get install -y redis-tools
+          fi
+
+          # Clear cache (use FLUSHDB to clear current database)
+          redis-cli -h $REDIS_ENDPOINT -p 6379 FLUSHDB
+
+          if [ $? -eq 0 ]; then
+            echo "cleared=true" >> $GITHUB_OUTPUT
+            echo "::notice::Redis cache cleared for ${{ inputs.environment }}"
+          else
+            echo "cleared=false" >> $GITHUB_OUTPUT
+            echo "::warning::Failed to clear Redis cache"
+          fi
+        else
+          echo "::warning::No Redis cluster found for ${{ inputs.environment }}"
+          echo "cleared=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Clear application-level caches
+      if: steps.parse.outputs.application == 'true'
+      shell: bash
+      run: |
+        echo "Clearing application-level caches for ${{ inputs.environment }}..."
+
+        # This would typically involve calling application endpoints to clear internal caches
+        # For now, we'll simulate this process
+
+        # Clear API service cache
+        API_ENDPOINT="https://api-${{ inputs.environment }}.pdf-accessibility.com"
+
+        # Call cache clear endpoint (if it exists)
+        curl -X POST "$API_ENDPOINT/admin/cache/clear" \
+          -H "Content-Type: application/json" \
+          -d '{"reason": "rollback_cache_invalidation"}' \
+          --fail --silent --show-error || echo "::warning::Failed to clear API cache via endpoint"
+
+        # Clear worker cache (if applicable)
+        echo "::notice::Application cache invalidation completed"
+
+    - name: Verify cache invalidation
+      shell: bash
+      run: |
+        echo "=== Cache Invalidation Summary ==="
+        echo "Environment: ${{ inputs.environment }}"
+        echo "Cache Types: ${{ inputs.cache_types }}"
+
+        if [ "${{ steps.parse.outputs.cloudfront }}" == "true" ]; then
+          echo "CloudFront: ${{ steps.cloudfront.outputs.invalidation_id || 'not found' }}"
+        fi
+
+        if [ "${{ steps.parse.outputs.apigateway }}" == "true" ]; then
+          echo "API Gateway: ${{ steps.apigateway.outputs.flushed || 'false' }}"
+        fi
+
+        if [ "${{ steps.parse.outputs.redis }}" == "true" ]; then
+          echo "Redis: ${{ steps.redis.outputs.cleared || 'false' }}"
+        fi
+
+        echo "=== End Cache Invalidation Summary ==="
+
+    - name: Test cache invalidation
+      if: inputs.wait_for_completion == 'true'
+      shell: bash
+      run: |
+        echo "Testing cache invalidation effectiveness..."
+
+        # Test web application (if CloudFront was invalidated)
+        if [ "${{ steps.parse.outputs.cloudfront }}" == "true" ]; then
+          WEB_URL="https://web-${{ inputs.environment }}.pdf-accessibility.com"
+
+          # Add cache-busting parameter and check response
+          RESPONSE=$(curl -s -w "%{http_code}" -o /dev/null "$WEB_URL?cache_bust=$(date +%s)")
+
+          if [ "$RESPONSE" == "200" ]; then
+            echo "::notice::Web application responding after cache invalidation"
+          else
+            echo "::warning::Web application returned $RESPONSE after cache invalidation"
+          fi
+        fi
+
+        # Test API (if API Gateway was flushed)
+        if [ "${{ steps.parse.outputs.apigateway }}" == "true" ]; then
+          API_URL="https://api-${{ inputs.environment }}.pdf-accessibility.com/health"
+
+          RESPONSE=$(curl -s -w "%{http_code}" -o /dev/null "$API_URL")
+
+          if [ "$RESPONSE" == "200" ]; then
+            echo "::notice::API responding after cache invalidation"
+          else
+            echo "::warning::API returned $RESPONSE after cache invalidation"
+          fi
+        fi

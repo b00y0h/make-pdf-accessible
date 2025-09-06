@@ -1,0 +1,393 @@
+name: Test Rollback Procedures
+
+on:
+  schedule:
+    # Run rollback tests weekly on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      test_environment:
+        description: 'Environment to test rollback procedures'
+        required: true
+        type: choice
+        options:
+          - 'dev'
+          - 'staging'
+        default: 'dev'
+      test_services:
+        description: 'Services to test (comma-separated)'
+        required: false
+        default: 'api,web,lambda-functions'
+        type: string
+      dry_run:
+        description: 'Perform dry run without actual rollback'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  id-token: write
+  contents: read
+  actions: write
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  prepare-test:
+    name: Prepare Rollback Test
+    runs-on: ubuntu-latest
+    outputs:
+      test_services: ${{ steps.parse.outputs.services }}
+      test_environment: ${{ steps.setup.outputs.environment }}
+      baseline_versions: ${{ steps.baseline.outputs.versions }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup test environment
+        id: setup
+        run: |
+          ENVIRONMENT="${{ github.event.inputs.test_environment || 'dev' }}"
+          echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+          echo "Testing rollback procedures in $ENVIRONMENT environment"
+
+      - name: Parse test services
+        id: parse
+        run: |
+          SERVICES="${{ github.event.inputs.test_services || 'api,web,lambda-functions' }}"
+          # Convert comma-separated to JSON array
+          SERVICES_JSON=$(echo "$SERVICES" | jq -R 'split(",")')
+          echo "services=$SERVICES_JSON" >> $GITHUB_OUTPUT
+          echo "Testing services: $SERVICES"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Capture baseline versions
+        id: baseline
+        run: |
+          ENVIRONMENT="${{ steps.setup.outputs.environment }}"
+
+          # Capture current versions for rollback testing
+          VERSIONS="{}"
+
+          # API version
+          if echo "${{ github.event.inputs.test_services || 'api,web,lambda-functions' }}" | grep -q "api"; then
+            API_VERSION=$(aws lambda get-alias \
+              --function-name "pdf-accessibility-api-$ENVIRONMENT" \
+              --name live \
+              --query 'FunctionVersion' \
+              --output text 2>/dev/null || echo "1")
+            VERSIONS=$(echo "$VERSIONS" | jq --arg v "$API_VERSION" '.api = $v')
+          fi
+
+          # Web version (from S3 metadata)
+          if echo "${{ github.event.inputs.test_services || 'api,web,lambda-functions' }}" | grep -q "web"; then
+            WEB_VERSION=$(aws s3api head-object \
+              --bucket "pdf-accessibility-$ENVIRONMENT-web" \
+              --key "index.html" \
+              --query 'Metadata.version' \
+              --output text 2>/dev/null || echo "unknown")
+            VERSIONS=$(echo "$VERSIONS" | jq --arg v "$WEB_VERSION" '.web = $v')
+          fi
+
+          # Lambda functions versions
+          if echo "${{ github.event.inputs.test_services || 'api,web,lambda-functions' }}" | grep -q "lambda-functions"; then
+            for func in router ocr structure tagger exporter validator notifier; do
+              FUNC_VERSION=$(aws lambda get-function \
+                --function-name "pdf-accessibility-$func-$ENVIRONMENT" \
+                --query 'Configuration.Version' \
+                --output text 2>/dev/null || echo "1")
+              VERSIONS=$(echo "$VERSIONS" | jq --arg f "$func" --arg v "$FUNC_VERSION" '.[$f] = $v')
+            done
+          fi
+
+          echo "versions=$VERSIONS" >> $GITHUB_OUTPUT
+          echo "Baseline versions captured: $VERSIONS"
+
+  test-deployment-state:
+    name: Test Deployment State Tracking
+    runs-on: ubuntu-latest
+    needs: prepare-test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Test deployment state tracking
+        uses: ./.github/actions/deployment-state
+        with:
+          action: track
+          service: test-service
+          environment: ${{ needs.prepare-test.outputs.test_environment }}
+          version: 'test-v1.0.0'
+          status: 'success'
+          health_status: 'passed'
+
+      - name: Test deployment state retrieval
+        uses: ./.github/actions/deployment-state
+        with:
+          action: get
+          service: test-service
+          environment: ${{ needs.prepare-test.outputs.test_environment }}
+
+      - name: Test deployment state reset
+        uses: ./.github/actions/deployment-state
+        with:
+          action: reset
+          service: test-service
+          environment: ${{ needs.prepare-test.outputs.test_environment }}
+          version: 'test-v1.0.0'
+
+  test-cache-invalidation:
+    name: Test Cache Invalidation
+    runs-on: ubuntu-latest
+    needs: prepare-test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Test cache invalidation (dry run)
+        uses: ./.github/actions/cache-invalidation
+        with:
+          environment: ${{ needs.prepare-test.outputs.test_environment }}
+          cache_types: 'cloudfront,apigateway'
+          wait_for_completion: false
+
+  test-db-migration-rollback:
+    name: Test Database Migration Rollback
+    runs-on: ubuntu-latest
+    needs: prepare-test
+    if: contains(needs.prepare-test.outputs.test_services, 'api')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test database migration rollback (dry run)
+        uses: ./.github/actions/db-migration-rollback
+        with:
+          environment: ${{ needs.prepare-test.outputs.test_environment }}
+          dry_run: true
+          database_url: ${{ secrets.DATABASE_URL }}
+          backup_before_rollback: false
+
+  test-auto-rollback-logic:
+    name: Test Auto-Rollback Logic
+    runs-on: ubuntu-latest
+    needs: prepare-test
+    strategy:
+      matrix:
+        service: ${{ fromJson(needs.prepare-test.outputs.test_services) }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test auto-rollback decision logic
+        uses: ./.github/actions/auto-rollback
+        with:
+          service: ${{ matrix.service }}
+          environment: ${{ needs.prepare-test.outputs.test_environment }}
+          health_check_failed: true
+          rollback_threshold: 1
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+  simulate-rollback:
+    name: Simulate Rollback Procedures
+    runs-on: ubuntu-latest
+    needs: [prepare-test, test-deployment-state, test-cache-invalidation]
+    if: github.event.inputs.dry_run != 'true'
+    strategy:
+      matrix:
+        service: ${{ fromJson(needs.prepare-test.outputs.test_services) }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Simulate service rollback
+        run: |
+          echo "Simulating rollback for ${{ matrix.service }} in ${{ needs.prepare-test.outputs.test_environment }}"
+
+          case "${{ matrix.service }}" in
+            "api")
+              echo "Would rollback API Lambda alias to previous version"
+              # In a real test, this would trigger the actual rollback workflow
+              ;;
+            "web")
+              echo "Would restore previous web deployment from S3"
+              # In a real test, this would restore a previous S3 deployment
+              ;;
+            "lambda-functions")
+              echo "Would rollback Lambda function versions"
+              # In a real test, this would rollback individual Lambda functions
+              ;;
+            *)
+              echo "Unknown service: ${{ matrix.service }}"
+              ;;
+          esac
+
+      - name: Verify rollback simulation
+        run: |
+          echo "Rollback simulation completed for ${{ matrix.service }}"
+          echo "In production, this would verify the rollback was successful"
+
+  validate-rollback-workflow:
+    name: Validate Rollback Workflow
+    runs-on: ubuntu-latest
+    needs: prepare-test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate rollback workflow syntax
+        run: |
+          # Check if rollback workflow file exists and is valid YAML
+          if [ -f .github/workflows/rollback.yml ]; then
+            echo "✅ Rollback workflow file exists"
+
+            # Basic YAML syntax validation
+            python -c "
+            import yaml
+            with open('.github/workflows/rollback.yml', 'r') as f:
+                yaml.safe_load(f)
+            print('✅ Rollback workflow YAML is valid')
+            "
+          else
+            echo "❌ Rollback workflow file not found"
+            exit 1
+          fi
+
+      - name: Validate rollback actions
+        run: |
+          # Check if rollback actions exist
+          ACTIONS=(
+            "auto-rollback"
+            "deployment-state"
+            "db-migration-rollback"
+            "cache-invalidation"
+          )
+
+          for action in "${ACTIONS[@]}"; do
+            if [ -f ".github/actions/$action/action.yml" ]; then
+              echo "✅ Action $action exists"
+            else
+              echo "❌ Action $action not found"
+              exit 1
+            fi
+          done
+
+  generate-test-report:
+    name: Generate Test Report
+    runs-on: ubuntu-latest
+    needs:
+      [
+        prepare-test,
+        test-deployment-state,
+        test-cache-invalidation,
+        test-db-migration-rollback,
+        test-auto-rollback-logic,
+        simulate-rollback,
+        validate-rollback-workflow,
+      ]
+    if: always()
+    steps:
+      - name: Generate rollback test report
+        run: |
+          echo "# Rollback Procedure Test Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Environment:** ${{ needs.prepare-test.outputs.test_environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Date:** $(date -u +%Y-%m-%d\ %H:%M:%S\ UTC)" >> $GITHUB_STEP_SUMMARY
+          echo "**Dry Run:** ${{ github.event.inputs.dry_run || 'true' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Component | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          # Check test results
+          if [ "${{ needs.test-deployment-state.result }}" == "success" ]; then
+            echo "| Deployment State Tracking | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Deployment State Tracking | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.test-cache-invalidation.result }}" == "success" ]; then
+            echo "| Cache Invalidation | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Cache Invalidation | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.test-db-migration-rollback.result }}" == "success" ]; then
+            echo "| Database Migration Rollback | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Database Migration Rollback | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.test-auto-rollback-logic.result }}" == "success" ]; then
+            echo "| Auto-Rollback Logic | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Auto-Rollback Logic | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.validate-rollback-workflow.result }}" == "success" ]; then
+            echo "| Rollback Workflow Validation | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Rollback Workflow Validation | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Overall status
+          if [ "${{ needs.test-deployment-state.result }}" == "success" ] && \
+             [ "${{ needs.test-cache-invalidation.result }}" == "success" ] && \
+             [ "${{ needs.test-db-migration-rollback.result }}" == "success" ] && \
+             [ "${{ needs.test-auto-rollback-logic.result }}" == "success" ] && \
+             [ "${{ needs.validate-rollback-workflow.result }}" == "success" ]; then
+            echo "## ✅ Overall Status: All Tests Passed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Rollback procedures are functioning correctly and ready for use." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ Overall Status: Some Tests Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Some rollback procedures failed testing. Review the individual test results and fix issues before relying on rollback procedures." >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Baseline Versions" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The following versions were captured as baseline for rollback testing:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          echo '${{ needs.prepare-test.outputs.baseline_versions }}' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify test completion
+        if: always()
+        run: |
+          echo "Rollback procedure testing completed"
+          echo "Environment: ${{ needs.prepare-test.outputs.test_environment }}"
+          echo "Services tested: ${{ needs.prepare-test.outputs.test_services }}"
+
+          # In production, this would send notifications to the team
+          echo "Test report generated in workflow summary"

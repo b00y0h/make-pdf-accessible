@@ -1,0 +1,167 @@
+name: 'Automatic Rollback'
+description: 'Automatically rollback deployment on health check failure'
+
+inputs:
+  service:
+    description: 'Service name to rollback'
+    required: true
+  environment:
+    description: 'Environment to rollback'
+    required: true
+  health_check_failed:
+    description: 'Whether health check failed'
+    required: true
+  rollback_threshold:
+    description: 'Number of failed health checks before rollback'
+    required: false
+    default: '3'
+  github_token:
+    description: 'GitHub token for triggering workflows'
+    required: true
+
+outputs:
+  rollback_triggered:
+    description: 'Whether rollback was triggered'
+    value: ${{ steps.rollback.outputs.triggered }}
+  rollback_version:
+    description: 'Version rolled back to'
+    value: ${{ steps.rollback.outputs.version }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Check rollback conditions
+      id: check
+      shell: bash
+      run: |
+        if [ "${{ inputs.health_check_failed }}" == "true" ]; then
+          echo "Health check failed, evaluating rollback conditions..."
+
+          # Get failure count from deployment state
+          FAILURE_COUNT=$(cat deployment-state.json 2>/dev/null | jq -r '.failure_count // 0')
+          FAILURE_COUNT=$((FAILURE_COUNT + 1))
+
+          echo "failure_count=$FAILURE_COUNT" >> $GITHUB_OUTPUT
+
+          if [ $FAILURE_COUNT -ge ${{ inputs.rollback_threshold }} ]; then
+            echo "should_rollback=true" >> $GITHUB_OUTPUT
+            echo "::warning::Health check failure threshold reached ($FAILURE_COUNT/${{ inputs.rollback_threshold }})"
+          else
+            echo "should_rollback=false" >> $GITHUB_OUTPUT
+            echo "::notice::Health check failed ($FAILURE_COUNT/${{ inputs.rollback_threshold }}), not yet at rollback threshold"
+          fi
+        else
+          echo "should_rollback=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Update deployment state
+      shell: bash
+      run: |
+        # Create or update deployment state file
+        cat > deployment-state.json << EOF
+        {
+          "service": "${{ inputs.service }}",
+          "environment": "${{ inputs.environment }}",
+          "last_health_check": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+          "health_check_status": "${{ inputs.health_check_failed == 'true' && 'failed' || 'passed' }}",
+          "failure_count": ${{ steps.check.outputs.failure_count || 0 }},
+          "rollback_threshold": ${{ inputs.rollback_threshold }}
+        }
+        EOF
+
+    - name: Get rollback target version
+      if: steps.check.outputs.should_rollback == 'true'
+      id: target
+      shell: bash
+      run: |
+        # Configure AWS CLI (assuming credentials are already set)
+        case "${{ inputs.service }}" in
+          "api")
+            FUNCTION_NAME="pdf-accessibility-api-${{ inputs.environment }}"
+            CURRENT_VERSION=$(aws lambda get-alias \
+              --function-name $FUNCTION_NAME \
+              --name live \
+              --query 'FunctionVersion' \
+              --output text 2>/dev/null || echo "1")
+
+            VERSIONS=$(aws lambda list-versions-by-function \
+              --function-name $FUNCTION_NAME \
+              --query 'Versions[?Version!=`$LATEST`].Version' \
+              --output text 2>/dev/null | tr '\t' '\n' | sort -nr)
+
+            TARGET_VERSION=$(echo "$VERSIONS" | grep -A1 "^$CURRENT_VERSION$" | tail -1)
+            ;;
+          "web")
+            # For web, we'll use a timestamp-based approach
+            TARGET_VERSION="previous-stable"
+            ;;
+          *)
+            TARGET_VERSION="previous-stable"
+            ;;
+        esac
+
+        echo "target_version=$TARGET_VERSION" >> $GITHUB_OUTPUT
+
+    - name: Trigger automatic rollback
+      if: steps.check.outputs.should_rollback == 'true'
+      id: rollback
+      shell: bash
+      run: |
+        echo "Triggering automatic rollback for ${{ inputs.service }} in ${{ inputs.environment }}"
+
+        # Trigger the rollback workflow
+        curl -X POST \
+          -H "Authorization: token ${{ inputs.github_token }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          "https://api.github.com/repos/${{ github.repository }}/actions/workflows/rollback.yml/dispatches" \
+          -d '{
+            "ref": "${{ github.ref }}",
+            "inputs": {
+              "service": "${{ inputs.service }}",
+              "environment": "${{ inputs.environment }}",
+              "target_version": "${{ steps.target.outputs.target_version }}",
+              "reason": "Automatic rollback due to health check failures",
+              "skip_health_checks": "false"
+            }
+          }'
+
+        if [ $? -eq 0 ]; then
+          echo "triggered=true" >> $GITHUB_OUTPUT
+          echo "version=${{ steps.target.outputs.target_version }}" >> $GITHUB_OUTPUT
+          echo "::notice::Automatic rollback triggered for ${{ inputs.service }}"
+        else
+          echo "triggered=false" >> $GITHUB_OUTPUT
+          echo "::error::Failed to trigger automatic rollback"
+        fi
+
+    - name: Reset failure count on successful rollback
+      if: steps.rollback.outputs.triggered == 'true'
+      shell: bash
+      run: |
+        # Reset failure count after successful rollback trigger
+        cat > deployment-state.json << EOF
+        {
+          "service": "${{ inputs.service }}",
+          "environment": "${{ inputs.environment }}",
+          "last_health_check": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+          "health_check_status": "rollback_triggered",
+          "failure_count": 0,
+          "rollback_threshold": ${{ inputs.rollback_threshold }},
+          "last_rollback": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+          "rollback_version": "${{ steps.target.outputs.target_version }}"
+        }
+        EOF
+
+    - name: Log rollback decision
+      shell: bash
+      run: |
+        if [ "${{ steps.check.outputs.should_rollback }}" == "true" ]; then
+          echo "::warning::Automatic rollback decision: ROLLBACK"
+          echo "::warning::Service: ${{ inputs.service }}"
+          echo "::warning::Environment: ${{ inputs.environment }}"
+          echo "::warning::Failure count: ${{ steps.check.outputs.failure_count }}"
+          echo "::warning::Threshold: ${{ inputs.rollback_threshold }}"
+        else
+          echo "::notice::Automatic rollback decision: CONTINUE"
+          echo "::notice::Failure count: ${{ steps.check.outputs.failure_count || 0 }}/${{ inputs.rollback_threshold }}"
+        fi
