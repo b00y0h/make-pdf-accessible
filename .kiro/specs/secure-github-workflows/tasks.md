@@ -56,7 +56,7 @@
   - Add security event alerting for unauthorized access attempts
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6_
 
-- [ ] 8. Create IAM documentation and secrets configuration guide
+- [x] 8. Create IAM documentation and secrets configuration guide
   - Document required IAM trust policies for OIDC integration
   - Create step-by-step guide for setting up GitHub OIDC provider
   - Document required GitHub Secrets and their purposes

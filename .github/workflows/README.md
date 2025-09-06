@@ -1,220 +1,341 @@
-# GitHub Actions Workflows
+# GitHub Actions CI/CD Documentation
 
-This directory contains secure CI/CD workflows for the Make PDF Accessible platform.
+This directory contains comprehensive documentation and configuration for secure GitHub Actions CI/CD workflows with AWS OIDC integration.
 
-## Workflows
+## 📋 Quick Start
+
+1. **Setup OIDC Integration**
+
+   ```bash
+   # Run the automated setup script
+   ./setup-oidc.sh --github-org your-org --github-repo your-repo --aws-account-id 123456789012
+   ```
+
+2. **Configure Secrets**
+   - Follow the [Secrets Configuration Guide](SECRETS.md)
+   - Use environment-specific templates from `templates/`
+
+3. **Test Setup**
+   ```bash
+   # Run the test workflow
+   gh workflow run test-oidc.yml
+   ```
+
+## 📚 Documentation
+
+### Core Documentation
+
+| Document                                              | Purpose                                 |
+| ----------------------------------------------------- | --------------------------------------- |
+| [IAM Setup Guide](IAM_SETUP.md)                       | Complete IAM configuration for OIDC     |
+| [Secrets Configuration](SECRETS.md)                   | GitHub Secrets setup and management     |
+| [Security Best Practices](SECURITY_BEST_PRACTICES.md) | Security guidelines and recommendations |
+| [Troubleshooting Guide](TROUBLESHOOTING.md)           | Common issues and solutions             |
+
+### Configuration Templates
+
+| Template                                                       | Environment | Purpose                              |
+| -------------------------------------------------------------- | ----------- | ------------------------------------ |
+| [development.env.template](templates/development.env.template) | Development | Dev environment configuration        |
+| [staging.env.template](templates/staging.env.template)         | Staging     | Staging environment configuration    |
+| [production.env.template](templates/production.env.template)   | Production  | Production environment configuration |
+
+### IAM Policies
+
+| Policy                                                                  | Purpose                             |
+| ----------------------------------------------------------------------- | ----------------------------------- |
+| [infrastructure-policy.json](policies/infrastructure-policy.json)       | Terraform infrastructure deployment |
+| [lambda-deployment-policy.json](policies/lambda-deployment-policy.json) | Lambda function deployment          |
+| [web-deployment-policy.json](policies/web-deployment-policy.json)       | Web application deployment          |
+| [api-deployment-policy.json](policies/api-deployment-policy.json)       | API deployment with blue/green      |
+
+## 🔧 Setup Scripts
+
+### Automated Setup
+
+```bash
+# Full setup with custom configuration
+./setup-oidc.sh \
+  --github-org your-organization \
+  --github-repo your-repository \
+  --aws-account-id 123456789012 \
+  --aws-region us-east-1
+```
+
+### Manual Setup
+
+If you prefer manual setup, follow these guides in order:
+
+1. [IAM Setup Guide](IAM_SETUP.md) - Create OIDC provider and IAM roles
+2. [Secrets Configuration](SECRETS.md) - Configure GitHub Secrets
+3. [Security Best Practices](SECURITY_BEST_PRACTICES.md) - Apply security configurations
+
+## 🏗️ Workflow Architecture
+
+```mermaid
+graph TB
+    subgraph "GitHub Repository"
+        PR[Pull Request]
+        MAIN[Main Branch]
+        TAG[Git Tags]
+    end
+
+    subgraph "GitHub Actions Workflows"
+        INFRA[infra-ci.yml]
+        LAMBDA[build-and-deploy-lambda.yml]
+        WEB[web-ci.yml]
+        API[api-ci.yml]
+    end
+
+    subgraph "AWS Infrastructure"
+        OIDC[OIDC Provider]
+        ECR[ECR Repositories]
+        LAMBDA_FUNCS[Lambda Functions]
+        S3[S3 Bucket]
+        CF[CloudFront]
+        APIGW[API Gateway]
+    end
+
+    PR --> INFRA
+    MAIN --> INFRA
+    TAG --> LAMBDA
+    MAIN --> WEB
+    MAIN --> API
+
+    INFRA --> OIDC
+    LAMBDA --> ECR
+    LAMBDA --> LAMBDA_FUNCS
+    WEB --> S3
+    WEB --> CF
+    API --> APIGW
+```
+
+## 🔐 Security Features
+
+- **OIDC Authentication**: No long-lived AWS credentials stored
+- **Least Privilege IAM**: Minimal permissions for each workflow
+- **Branch Protection**: Restrict deployments to specific branches
+- **Environment Gates**: Manual approval for production deployments
+- **Vulnerability Scanning**: Container and dependency scanning
+- **Audit Logging**: Comprehensive deployment logging
+
+## 🚀 Workflows
 
 ### Infrastructure CI (`infra-ci.yml`)
 
-Manages Terraform infrastructure deployment with security and approval controls.
+- Terraform validation and planning
+- Manual approval for production changes
+- State management with S3 backend
 
-**Triggers:**
+### Lambda Build & Deploy (`build-and-deploy-lambda.yml`)
 
-- Pull requests affecting `infra/terraform/**`
-- Pushes to `main` branch with infrastructure changes
-- Manual workflow dispatch
+- Multi-service container builds
+- Semantic versioning with git tags
+- ECR image management
+- Health check validation
 
-**Features:**
+### Web CI (`web-ci.yml`)
 
-- ✅ Terraform format and validation checks
-- 📋 Automated plan generation and PR comments
-- 🔒 OIDC authentication (no stored credentials)
-- ⚠️ Destructive change detection and warnings
-- 🛡️ Security scanning with Trivy
-- 🚀 Manual approval gate for production deployments
-- 📊 Deployment summaries and notifications
+- Next.js production builds
+- S3 static asset deployment
+- CloudFront cache invalidation
+- Build artifact management
 
-**Required Secrets:**
+### API CI (`api-ci.yml`)
 
-- `AWS_REGION`: AWS region (e.g., `us-east-1`)
-- `GITHUB_INFRASTRUCTURE_CI_ROLE_ARN`: IAM role ARN for infrastructure operations
+- Comprehensive testing (unit + integration)
+- Blue/green deployment strategy
+- Automatic rollback on failures
+- Health check validation
 
-**Environment Protection:**
-The workflow uses GitHub environment protection for the `production-infrastructure` environment. Configure this in your repository settings:
+## 📊 Monitoring & Notifications
 
-1. Go to Settings → Environments
-2. Create environment: `production-infrastructure`
-3. Enable "Required reviewers" and add appropriate team members
-4. Optionally set deployment branch rules to `main` only
+### Supported Notification Channels
 
-## Setup Instructions
+- Slack
+- Microsoft Teams
+- Discord
+- Email (via AWS SES)
 
-### 1. Deploy OIDC Infrastructure
+### Monitoring Integration
 
-First, deploy the OIDC provider and IAM roles using Terraform:
+- DataDog
+- New Relic
+- CloudWatch
+- Custom metrics
+
+## 🛠️ Environment Configuration
+
+### Development Environment
+
+- Relaxed approval requirements
+- Debug logging enabled
+- Branch deployments allowed
+- Automatic deployment on push
+
+### Staging Environment
+
+- Manual approval required
+- Load testing enabled
+- Blue/green deployment
+- Integration tests required
+
+### Production Environment
+
+- Strict approval gates
+- Enhanced security scanning
+- Automated backups
+- Compliance reporting
+
+## 📋 Prerequisites
+
+### Required Tools
+
+- AWS CLI (v2.0+)
+- GitHub CLI (v2.0+)
+- Terraform (v1.0+)
+- Docker (v20.0+)
+
+### AWS Permissions
+
+- IAM role creation and management
+- OIDC provider management
+- Service-specific permissions (Lambda, S3, etc.)
+
+### GitHub Permissions
+
+- Repository admin access
+- Secrets management
+- Actions workflow management
+
+## 🔍 Validation & Testing
+
+### Pre-deployment Validation
 
 ```bash
-cd infra/terraform
-terraform init
-terraform plan
-terraform apply
+# Validate Terraform configuration
+terraform validate
+
+# Check IAM policies
+aws iam simulate-principal-policy \
+  --policy-source-arn arn:aws:iam::ACCOUNT:role/GitHubActions-Infrastructure \
+  --action-names ec2:CreateVpc \
+  --resource-arns "*"
+
+# Test GitHub secrets
+gh secret list
 ```
 
-### 2. Configure GitHub Secrets
-
-Add the following secrets to your repository (`Settings > Secrets and variables > Actions`):
+### Post-deployment Testing
 
 ```bash
-# Get role ARNs from Terraform outputs
-terraform output github_actions_roles_summary
+# Test OIDC authentication
+gh workflow run test-oidc.yml
+
+# Validate deployments
+curl -f https://api.yourdomain.com/health
 ```
 
-Required secrets:
-
-- `AWS_REGION`
-- `GITHUB_INFRASTRUCTURE_CI_ROLE_ARN`
-
-### 3. Set Up Environment Protection
-
-1. Navigate to `Settings → Environments` in your GitHub repository
-2. Create a new environment named `production-infrastructure`
-3. Configure protection rules:
-   - ✅ Required reviewers (add DevOps team members)
-   - ✅ Restrict to `main` branch only
-   - ⏱️ Optional: Add deployment delay
-
-### 4. Test the Workflow
-
-Create a test PR with infrastructure changes:
-
-```bash
-# Make a small change to trigger the workflow
-echo "# Test change" >> infra/terraform/README.md
-git add .
-git commit -m "test: trigger infrastructure CI"
-git push origin feature-branch
-```
-
-The workflow will:
-
-1. Run format and validation checks
-2. Generate a Terraform plan
-3. Comment on the PR with results
-4. Run security scans
-
-## Workflow Behavior
-
-### Pull Requests
-
-- **Format Check**: Validates Terraform code formatting
-- **Validation**: Checks Terraform syntax and configuration
-- **Plan Generation**: Creates execution plan and posts summary to PR
-- **Security Scan**: Runs Trivy security analysis
-- **PR Comments**: Automated comments with plan results and warnings
-
-### Main Branch (Production)
-
-- **Manual Approval**: Requires approval from designated reviewers
-- **Terraform Apply**: Executes infrastructure changes
-- **Deployment Summary**: Generates summary with resource counts and URLs
-- **Notifications**: Success/failure notifications (extend with Slack/Teams)
-
-### Manual Dispatch
-
-- **Environment Selection**: Choose target environment (dev/staging/prod)
-- **Dry Run Option**: Plan-only mode for testing
-- **Artifact Reuse**: Can reuse previously generated plans
-
-## Security Features
-
-### OIDC Authentication
-
-- No long-lived AWS credentials stored in GitHub
-- Short-lived tokens with specific permissions
-- Branch and repository restrictions in trust policies
-
-### Least Privilege Access
-
-- Infrastructure CI role has minimal required permissions
-- Read-only access for planning operations
-- Full access only for apply operations on main branch
-
-### Security Scanning
-
-- Trivy scans for infrastructure security issues
-- Results uploaded to GitHub Security tab
-- Blocks deployment on critical vulnerabilities (configurable)
-
-### Approval Gates
-
-- Manual approval required for production changes
-- Environment protection rules enforce review process
-- Deployment branch restrictions prevent unauthorized changes
-
-## Troubleshooting
+## 🆘 Support & Troubleshooting
 
 ### Common Issues
 
-1. **"No identity-based policy allows the sts:AssumeRoleWithWebIdentity action"**
-   - Verify the role ARN in GitHub secrets
-   - Check that the repository name matches the OIDC trust policy
-   - Ensure the workflow is running on an allowed branch
+1. **OIDC Authentication Failures** - See [Troubleshooting Guide](TROUBLESHOOTING.md#oidc-authentication-issues)
+2. **Permission Denied Errors** - Check IAM policies and trust relationships
+3. **Terraform State Issues** - Verify S3 backend configuration
+4. **Container Build Failures** - Check Dockerfile and dependencies
 
-2. **"Access denied" during Terraform operations**
-   - Verify the IAM role has necessary permissions
-   - Check if resource naming matches policy patterns
-   - Ensure you're using the correct role for the operation
+### Getting Help
 
-3. **Plan generation fails**
-   - Check Terraform backend configuration
-   - Verify S3 bucket and DynamoDB table exist
-   - Ensure proper permissions for state management
+1. Check the [Troubleshooting Guide](TROUBLESHOOTING.md)
+2. Review workflow logs in GitHub Actions
+3. Validate configuration with provided scripts
+4. Contact the DevOps team for assistance
 
 ### Debug Mode
 
-Enable debug logging by adding these secrets:
+Enable debug logging by setting repository variables:
 
-- `ACTIONS_STEP_DEBUG`: `true`
-- `ACTIONS_RUNNER_DEBUG`: `true`
-
-## Extending the Workflow
-
-### Adding Notifications
-
-To add Slack or Teams notifications, extend the `notify-deployment` job:
-
-```yaml
-- name: Notify Slack
-  if: always()
-  uses: 8398a7/action-slack@v3
-  with:
-    status: ${{ job.status }}
-    webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+```bash
+gh variable set ACTIONS_STEP_DEBUG --body "true"
+gh variable set ACTIONS_RUNNER_DEBUG --body "true"
 ```
 
-### Custom Validation
+## 📝 Contributing
 
-Add custom validation steps in the `terraform-validate` job:
+### Adding New Workflows
 
-```yaml
-- name: Custom Policy Check
-  run: |
-    # Add your custom validation logic here
-    conftest verify --policy policy/ infra/terraform/
-```
+1. Follow the established patterns in existing workflows
+2. Use OIDC authentication for AWS access
+3. Implement proper error handling and notifications
+4. Add comprehensive testing and validation
+5. Update documentation
 
-### Multi-Environment Support
+### Updating IAM Policies
 
-Extend the workflow to support multiple environments by:
+1. Follow least privilege principles
+2. Test changes in development environment first
+3. Update policy files in `policies/` directory
+4. Document changes in commit messages
 
-1. Adding environment-specific variable files
-2. Using workspace or directory-based separation
-3. Implementing environment-specific approval rules
+### Security Considerations
 
-## Monitoring
+1. Never store long-lived credentials
+2. Use environment-specific secrets
+3. Implement proper approval gates
+4. Enable audit logging
+5. Regular security reviews
 
-Monitor workflow execution through:
+## 📈 Metrics & KPIs
 
-- GitHub Actions dashboard
-- CloudTrail logs for AWS API calls
-- CloudWatch metrics for deployment frequency and success rates
-- Security tab for vulnerability scan results
+### Deployment Metrics
 
-## Best Practices
+- Deployment frequency
+- Lead time for changes
+- Mean time to recovery
+- Change failure rate
 
-1. **Always test changes in PRs** before merging to main
-2. **Review Terraform plans carefully**, especially destructive changes
-3. **Keep approval groups small** but include key stakeholders
-4. **Monitor security scan results** and address issues promptly
-5. **Use semantic versioning** for infrastructure changes
-6. **Document significant changes** in commit messages and PR descriptions
+### Security Metrics
+
+- Failed authentication attempts
+- Policy violations
+- Vulnerability scan results
+- Incident response times
+
+### Performance Metrics
+
+- Build times
+- Test execution times
+- Deployment duration
+- Resource utilization
+
+## 🔄 Maintenance
+
+### Regular Tasks
+
+- [ ] Review and rotate secrets monthly
+- [ ] Update IAM policies quarterly
+- [ ] Audit workflow permissions
+- [ ] Update container base images
+- [ ] Review security scan results
+
+### Automated Maintenance
+
+- Secret rotation workflows
+- Dependency updates
+- Security scanning
+- Performance monitoring
+- Compliance reporting
+
+## 📚 Additional Resources
+
+- [AWS OIDC Documentation](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc.html)
+- [GitHub Actions Security](https://docs.github.com/en/actions/security-guides)
+- [Terraform Best Practices](https://www.terraform.io/docs/cloud/guides/recommended-practices/index.html)
+- [Container Security](https://docs.docker.com/engine/security/)
+
+---
+
+**Last Updated**: $(date)
+**Version**: 1.0.0
+**Maintainer**: DevOps Team
