@@ -1,0 +1,196 @@
+name: 'Security Event Monitor'
+description: 'Monitor and alert on security events during deployments'
+inputs:
+  webhook_url:
+    description: 'Slack or Teams webhook URL for security alerts'
+    required: true
+  aws_region:
+    description: 'AWS region for CloudTrail monitoring'
+    required: true
+    default: 'us-east-1'
+  monitoring_duration:
+    description: 'Duration to monitor in minutes'
+    required: false
+    default: '5'
+  service_name:
+    description: 'Name of the service being monitored'
+    required: true
+
+outputs:
+  security_events_detected:
+    description: 'Number of security events detected'
+    value: ${{ steps.monitor.outputs.events_count }}
+  security_status:
+    description: 'Security monitoring status (clean, warning, alert)'
+    value: ${{ steps.monitor.outputs.status }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install monitoring tools
+      shell: bash
+      run: |
+        # Install jq for JSON parsing if not available
+        if ! command -v jq &> /dev/null; then
+          sudo apt-get update && sudo apt-get install -y jq
+        fi
+
+    - name: Monitor security events
+      id: monitor
+      shell: bash
+      run: |
+        echo "Starting security monitoring for ${{ inputs.service_name }}..."
+
+        MONITORING_DURATION="${{ inputs.monitoring_duration }}"
+        START_TIME=$(date -u -d "$MONITORING_DURATION minutes ago" +"%Y-%m-%dT%H:%M:%SZ")
+        END_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+        echo "Monitoring period: $START_TIME to $END_TIME"
+
+        # Initialize counters
+        FAILED_LOGINS=0
+        UNAUTHORIZED_API_CALLS=0
+        SUSPICIOUS_ACTIVITIES=0
+        TOTAL_EVENTS=0
+
+        # Monitor CloudTrail for security events
+        echo "Checking CloudTrail events..."
+
+        # Check for failed authentication events
+        FAILED_AUTH_EVENTS=$(aws logs filter-log-events \
+          --log-group-name "/aws/cloudtrail" \
+          --start-time $(date -d "$START_TIME" +%s)000 \
+          --end-time $(date -d "$END_TIME" +%s)000 \
+          --filter-pattern '{ $.errorCode = "SigninFailure" || $.errorCode = "InvalidUserID.NotFound" || $.errorCode = "AccessDenied" }' \
+          --query 'events[].message' \
+          --output text 2>/dev/null || echo "")
+
+        if [ -n "$FAILED_AUTH_EVENTS" ]; then
+          FAILED_LOGINS=$(echo "$FAILED_AUTH_EVENTS" | wc -l)
+          echo "Found $FAILED_LOGINS failed authentication events"
+        fi
+
+        # Check for unauthorized API calls
+        UNAUTHORIZED_CALLS=$(aws logs filter-log-events \
+          --log-group-name "/aws/apigateway" \
+          --start-time $(date -d "$START_TIME" +%s)000 \
+          --end-time $(date -d "$END_TIME" +%s)000 \
+          --filter-pattern '{ $.status = 401 || $.status = 403 }' \
+          --query 'events[].message' \
+          --output text 2>/dev/null || echo "")
+
+        if [ -n "$UNAUTHORIZED_CALLS" ]; then
+          UNAUTHORIZED_API_CALLS=$(echo "$UNAUTHORIZED_CALLS" | wc -l)
+          echo "Found $UNAUTHORIZED_API_CALLS unauthorized API calls"
+        fi
+
+        # Check for suspicious Lambda invocation patterns
+        SUSPICIOUS_LAMBDA=$(aws logs filter-log-events \
+          --log-group-name "/aws/lambda/${{ inputs.service_name }}" \
+          --start-time $(date -d "$START_TIME" +%s)000 \
+          --end-time $(date -d "$END_TIME" +%s)000 \
+          --filter-pattern '{ $.level = "ERROR" && ($.message = "*unauthorized*" || $.message = "*forbidden*" || $.message = "*invalid*token*") }' \
+          --query 'events[].message' \
+          --output text 2>/dev/null || echo "")
+
+        if [ -n "$SUSPICIOUS_LAMBDA" ]; then
+          SUSPICIOUS_ACTIVITIES=$(echo "$SUSPICIOUS_LAMBDA" | wc -l)
+          echo "Found $SUSPICIOUS_ACTIVITIES suspicious Lambda activities"
+        fi
+
+        # Check for unusual deployment patterns
+        DEPLOYMENT_EVENTS=$(aws logs filter-log-events \
+          --log-group-name "/aws/cloudtrail" \
+          --start-time $(date -d "$START_TIME" +%s)000 \
+          --end-time $(date -d "$END_TIME" +%s)000 \
+          --filter-pattern '{ $.eventName = "UpdateFunctionCode" || $.eventName = "PublishVersion" || $.eventName = "UpdateAlias" }' \
+          --query 'events[?sourceIPAddress != `github-actions`].message' \
+          --output text 2>/dev/null || echo "")
+
+        UNUSUAL_DEPLOYMENTS=0
+        if [ -n "$DEPLOYMENT_EVENTS" ]; then
+          UNUSUAL_DEPLOYMENTS=$(echo "$DEPLOYMENT_EVENTS" | wc -l)
+          echo "Found $UNUSUAL_DEPLOYMENTS deployment events from non-GitHub sources"
+        fi
+
+        # Calculate total events
+        TOTAL_EVENTS=$((FAILED_LOGINS + UNAUTHORIZED_API_CALLS + SUSPICIOUS_ACTIVITIES + UNUSUAL_DEPLOYMENTS))
+
+        echo "events_count=$TOTAL_EVENTS" >> $GITHUB_OUTPUT
+        echo "failed_logins=$FAILED_LOGINS" >> $GITHUB_OUTPUT
+        echo "unauthorized_calls=$UNAUTHORIZED_API_CALLS" >> $GITHUB_OUTPUT
+        echo "suspicious_activities=$SUSPICIOUS_ACTIVITIES" >> $GITHUB_OUTPUT
+        echo "unusual_deployments=$UNUSUAL_DEPLOYMENTS" >> $GITHUB_OUTPUT
+
+        # Determine security status
+        if [ $TOTAL_EVENTS -eq 0 ]; then
+          echo "status=clean" >> $GITHUB_OUTPUT
+          echo "✅ No security events detected"
+        elif [ $TOTAL_EVENTS -le 5 ]; then
+          echo "status=warning" >> $GITHUB_OUTPUT
+          echo "⚠️ Minor security events detected ($TOTAL_EVENTS events)"
+        else
+          echo "status=alert" >> $GITHUB_OUTPUT
+          echo "🚨 Significant security events detected ($TOTAL_EVENTS events)"
+        fi
+
+        # Create detailed security report
+        cat > security_report.json << EOF
+        {
+          "monitoring_period": {
+            "start": "$START_TIME",
+            "end": "$END_TIME",
+            "duration_minutes": $MONITORING_DURATION
+          },
+          "service": "${{ inputs.service_name }}",
+          "events": {
+            "failed_logins": $FAILED_LOGINS,
+            "unauthorized_api_calls": $UNAUTHORIZED_API_CALLS,
+            "suspicious_activities": $SUSPICIOUS_ACTIVITIES,
+            "unusual_deployments": $UNUSUAL_DEPLOYMENTS,
+            "total": $TOTAL_EVENTS
+          },
+          "status": "$(cat $GITHUB_OUTPUT | grep "status=" | cut -d'=' -f2)",
+          "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        }
+        EOF
+
+        echo "Security monitoring report generated"
+
+    - name: Send security alert if needed
+      if: steps.monitor.outputs.status != 'clean'
+      uses: ./.github/actions/notify-deployment
+      with:
+        webhook_url: ${{ inputs.webhook_url }}
+        notification_type: 'security_alert'
+        service_name: ${{ inputs.service_name }}
+        environment: 'monitoring'
+        security_event: |
+          Security events detected during deployment monitoring:
+          - Failed logins: ${{ steps.monitor.outputs.failed_logins }}
+          - Unauthorized API calls: ${{ steps.monitor.outputs.unauthorized_calls }}
+          - Suspicious activities: ${{ steps.monitor.outputs.suspicious_activities }}
+          - Unusual deployments: ${{ steps.monitor.outputs.unusual_deployments }}
+          Total events: ${{ steps.monitor.outputs.events_count }}
+        workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        additional_context: |
+          {
+            "monitoring_duration": "${{ inputs.monitoring_duration }}",
+            "security_status": "${{ steps.monitor.outputs.status }}"
+          }
+
+    - name: Upload security report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-report-${{ inputs.service_name }}-${{ github.run_id }}
+        path: security_report.json
+        retention-days: 90
+
+    - name: Log security monitoring results
+      shell: bash
+      run: |
+        echo "Security monitoring completed for ${{ inputs.service_name }}"
+        echo "Status: ${{ steps.monitor.outputs.status }}"
+        echo "Events detected: ${{ steps.monitor.outputs.events_count }}"
+        echo "Report uploaded as artifact"

@@ -930,43 +930,247 @@ jobs:
 
           echo "Cleanup completed"
 
+  security-monitoring:
+    name: Security Monitoring
+    runs-on: ubuntu-latest
+    needs: [detect-changes, test, build-package, blue-green-deploy]
+    if: always() && needs.blue-green-deploy.result == 'success'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.GITHUB_API_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-APISecurity-${{ github.run_id }}
+
+      - name: Monitor API security events
+        if: secrets.DEPLOYMENT_WEBHOOK_URL != ''
+        uses: ./.github/actions/security-monitor
+        with:
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          aws_region: ${{ env.AWS_REGION }}
+          monitoring_duration: '10'
+          service_name: 'api'
+
   notify-deployment:
     name: Notify Deployment
     runs-on: ubuntu-latest
-    needs: [detect-changes, test, build-package, blue-green-deploy]
+    needs:
+      [
+        detect-changes,
+        test,
+        build-package,
+        blue-green-deploy,
+        security-monitoring,
+      ]
     if: always() && needs.detect-changes.outputs.should_deploy == 'true'
 
     steps:
-      - name: Notify success
-        if: needs.blue-green-deploy.result == 'success'
-        run: |
-          echo "✅ API Blue/Green deployment completed successfully"
-          echo "Version: ${{ needs.detect-changes.outputs.version }}"
-          echo "Blue Version: ${{ needs.blue-green-deploy.outputs.blue_version }}"
-          echo "Green Version: ${{ needs.blue-green-deploy.outputs.green_version }}"
-          echo "API URL: ${{ needs.blue-green-deploy.outputs.api_url }}"
-          echo "Test Results: ${{ needs.test.outputs.test_results }}"
-          echo "Coverage: ${{ needs.test.outputs.coverage_percentage }}%"
-          # Add Slack/Teams notification here if configured
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Notify failure
+      - name: Notify deployment start
+        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && github.event_name != 'pull_request'
+        uses: ./.github/actions/notify-deployment
+        with:
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          notification_type: 'start'
+          service_name: 'api'
+          environment: ${{ inputs.environment || 'dev' }}
+          version: ${{ needs.detect-changes.outputs.version }}
+          commit_sha: ${{ github.sha }}
+          workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          additional_context: |
+            {
+              "deployment_type": "api",
+              "deployment_strategy": "blue_green",
+              "trigger": "${{ github.event_name }}",
+              "traffic_shift_percentage": "${{ inputs.traffic_shift_percentage || '10' }}"
+            }
+
+      - name: Notify manual approval required
+        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && github.event_name == 'workflow_dispatch' && needs.blue-green-deploy.outputs.deployment_status == 'traffic_shifted'
+        uses: ./.github/actions/notify-deployment
+        with:
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          notification_type: 'approval_required'
+          service_name: 'api'
+          environment: ${{ inputs.environment || 'dev' }}
+          version: ${{ needs.detect-changes.outputs.version }}
+          commit_sha: ${{ github.sha }}
+          approval_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          additional_context: |
+            {
+              "deployment_type": "api",
+              "deployment_strategy": "blue_green",
+              "blue_version": "${{ needs.blue-green-deploy.outputs.blue_version }}",
+              "green_version": "${{ needs.blue-green-deploy.outputs.green_version }}",
+              "traffic_percentage": "${{ inputs.traffic_shift_percentage || '10' }}",
+              "requires_approval": true
+            }
+
+      - name: Notify deployment success
+        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && needs.blue-green-deploy.result == 'success'
+        uses: ./.github/actions/notify-deployment
+        with:
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          notification_type: 'success'
+          service_name: 'api'
+          environment: ${{ inputs.environment || 'dev' }}
+          version: ${{ needs.detect-changes.outputs.version }}
+          commit_sha: ${{ github.sha }}
+          deployment_url: ${{ needs.blue-green-deploy.outputs.api_url }}
+          workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          additional_context: |
+            {
+              "deployment_type": "api",
+              "deployment_strategy": "blue_green",
+              "blue_version": "${{ needs.blue-green-deploy.outputs.blue_version }}",
+              "green_version": "${{ needs.blue-green-deploy.outputs.green_version }}",
+              "deployment_status": "${{ needs.blue-green-deploy.outputs.deployment_status }}",
+              "test_results": "${{ needs.test.outputs.test_results }}",
+              "coverage_percentage": "${{ needs.test.outputs.coverage_percentage }}",
+              "security_status": "${{ needs.security-monitoring.outputs.security_status || 'not_monitored' }}"
+            }
+
+      - name: Notify deployment failure
         if: |
-          needs.test.result == 'failure' ||
-          needs.build-package.result == 'failure' ||
-          needs.blue-green-deploy.result == 'failure'
+          secrets.DEPLOYMENT_WEBHOOK_URL != '' && (
+            needs.test.result == 'failure' ||
+            needs.build-package.result == 'failure' ||
+            needs.blue-green-deploy.result == 'failure'
+          )
+        uses: ./.github/actions/notify-deployment
+        with:
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          notification_type: 'failure'
+          service_name: 'api'
+          environment: ${{ inputs.environment || 'dev' }}
+          version: ${{ needs.detect-changes.outputs.version }}
+          commit_sha: ${{ github.sha }}
+          workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          error_details: |
+            API Blue/Green deployment failed at the following stage:
+
+            ${{ needs.test.result == 'failure' && '❌ Testing Stage Failed' || '' }}
+            ${{ needs.test.result == 'failure' && format('- Test Results: {0}', needs.test.outputs.test_results) || '' }}
+            ${{ needs.test.result == 'failure' && format('- Coverage: {0}%', needs.test.outputs.coverage_percentage) || '' }}
+
+            ${{ needs.build-package.result == 'failure' && '❌ Package Build Stage Failed' || '' }}
+            ${{ needs.build-package.result == 'failure' && '- Lambda deployment package creation failed' || '' }}
+            ${{ needs.build-package.result == 'failure' && '- Check Python dependencies and packaging' || '' }}
+
+            ${{ needs.blue-green-deploy.result == 'failure' && '❌ Blue/Green Deployment Stage Failed' || '' }}
+            ${{ needs.blue-green-deploy.result == 'failure' && '- Health checks may have failed' || '' }}
+            ${{ needs.blue-green-deploy.result == 'failure' && '- Traffic switching was not completed' || '' }}
+            ${{ needs.blue-green-deploy.result == 'failure' && '- Blue version remains active' || '' }}
+
+            Automatic rollback has been initiated to maintain service availability.
+          additional_context: |
+            {
+              "deployment_type": "api",
+              "deployment_strategy": "blue_green",
+              "failure_stage": "${{ needs.test.result == 'failure' && 'testing' || needs.build-package.result == 'failure' && 'packaging' || needs.blue-green-deploy.result == 'failure' && 'deployment' || 'unknown' }}",
+              "rollback_status": "automatic",
+              "blue_version_active": true,
+              "manual_intervention_required": true
+            }
+
+      - name: Notify rollback events
+        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && needs.blue-green-deploy.result == 'failure'
+        uses: ./.github/actions/notify-deployment
+        with:
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          notification_type: 'rollback'
+          service_name: 'api'
+          environment: ${{ inputs.environment || 'dev' }}
+          version: ${{ needs.detect-changes.outputs.version }}
+          commit_sha: ${{ github.sha }}
+          deployment_url: ${{ needs.blue-green-deploy.outputs.api_url }}
+          workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          error_details: |
+            Blue/Green deployment rollback initiated for API service.
+
+            Rollback Details:
+            - Failed Green Version: ${{ needs.blue-green-deploy.outputs.green_version }}
+            - Active Blue Version: ${{ needs.blue-green-deploy.outputs.blue_version }}
+            - Traffic: 100% routed to Blue (stable) version
+            - Service Availability: Maintained throughout rollback
+
+            The failed Green version has been removed and traffic continues
+            to flow to the stable Blue version. No service interruption occurred.
+          additional_context: |
+            {
+              "deployment_type": "api",
+              "rollback_reason": "deployment_failure",
+              "rollback_method": "blue_green_automatic",
+              "service_availability": "maintained",
+              "failed_version": "${{ needs.blue-green-deploy.outputs.green_version }}",
+              "stable_version": "${{ needs.blue-green-deploy.outputs.blue_version }}"
+            }
+
+      - name: Notify security alerts
+        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && needs.security-monitoring.outputs.security_status == 'alert'
+        uses: ./.github/actions/notify-deployment
+        with:
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          notification_type: 'security_alert'
+          service_name: 'api'
+          environment: ${{ inputs.environment || 'dev' }}
+          version: ${{ needs.detect-changes.outputs.version }}
+          commit_sha: ${{ github.sha }}
+          deployment_url: ${{ needs.blue-green-deploy.outputs.api_url }}
+          workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          security_event: |
+            High-priority security events detected during API deployment:
+
+            Security Details:
+            - API Endpoint: ${{ needs.blue-green-deploy.outputs.api_url }}
+            - Security Status: ${{ needs.security-monitoring.outputs.security_status }}
+            - Events Detected: ${{ needs.security-monitoring.outputs.security_events_detected }}
+            - Blue Version: ${{ needs.blue-green-deploy.outputs.blue_version }}
+            - Green Version: ${{ needs.blue-green-deploy.outputs.green_version }}
+
+            Immediate security review required for both API versions.
+            Consider temporarily disabling the API until security review is complete.
+          additional_context: |
+            {
+              "deployment_type": "api",
+              "security_level": "critical",
+              "api_endpoint": "${{ needs.blue-green-deploy.outputs.api_url }}",
+              "blue_version": "${{ needs.blue-green-deploy.outputs.blue_version }}",
+              "green_version": "${{ needs.blue-green-deploy.outputs.green_version }}",
+              "immediate_action_required": true,
+              "recommended_action": "security_review"
+            }
+
+      - name: Log notification summary
         run: |
-          echo "❌ API deployment failed"
-          echo "Version: ${{ needs.detect-changes.outputs.version }}"
+          echo "## 📢 API Deployment Notifications" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ needs.detect-changes.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ inputs.environment || 'dev' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment Strategy:** Blue/Green" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment Status:** ${{ needs.blue-green-deploy.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Security Status:** ${{ needs.security-monitoring.outputs.security_status || 'not_monitored' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Notifications Sent:** ${{ secrets.DEPLOYMENT_WEBHOOK_URL != '' && 'Yes' || 'No (webhook not configured)' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-          if [ "${{ needs.test.result }}" = "failure" ]; then
-            echo "Failure reason: Test failures"
-            echo "Test Results: ${{ needs.test.outputs.test_results }}"
-          elif [ "${{ needs.build-package.result }}" = "failure" ]; then
-            echo "Failure reason: Package build failed"
-          elif [ "${{ needs.blue-green-deploy.result }}" = "failure" ]; then
-            echo "Failure reason: Blue/Green deployment failed"
+          if [ "${{ needs.blue-green-deploy.result }}" = "success" ]; then
+            echo "✅ **API Blue/Green deployment completed successfully**" >> $GITHUB_STEP_SUMMARY
+            echo "🔵 **Blue Version (Previous):** ${{ needs.blue-green-deploy.outputs.blue_version }}" >> $GITHUB_STEP_SUMMARY
+            echo "🟢 **Green Version (New):** ${{ needs.blue-green-deploy.outputs.green_version }}" >> $GITHUB_STEP_SUMMARY
+            echo "📊 **Test Coverage:** ${{ needs.test.outputs.coverage_percentage }}%" >> $GITHUB_STEP_SUMMARY
+            if [ -n "${{ needs.blue-green-deploy.outputs.api_url }}" ]; then
+              echo "🌐 **API URL:** ${{ needs.blue-green-deploy.outputs.api_url }}" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "❌ **API deployment failed**" >> $GITHUB_STEP_SUMMARY
+            echo "🔄 **Rollback Status:** Automatic rollback to Blue version" >> $GITHUB_STEP_SUMMARY
+            echo "📋 **Action Required:** Review deployment logs and address issues" >> $GITHUB_STEP_SUMMARY
           fi
-
-          echo "Check the workflow logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          # Add Slack/Teams notification here if configured
-          exit 1

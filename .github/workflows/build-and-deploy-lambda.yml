@@ -521,26 +521,148 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Workflow Run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
 
+  security-monitoring:
+    name: Security Monitoring
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-and-deploy]
+    if: always() && needs.build-and-deploy.result == 'success' && needs.detect-changes.outputs.services != '[]'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.GITHUB_LAMBDA_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-LambdaSecurity-${{ github.run_id }}
+
+      - name: Monitor Lambda security events
+        if: secrets.DEPLOYMENT_WEBHOOK_URL != ''
+        uses: ./.github/actions/security-monitor
+        with:
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          aws_region: ${{ env.AWS_REGION }}
+          monitoring_duration: '5'
+          service_name: 'lambda-functions'
+
   notify-deployment:
     name: Notify Deployment
     runs-on: ubuntu-latest
-    needs: [detect-changes, build-and-deploy]
+    needs: [detect-changes, build-and-deploy, security-monitoring]
     if: always() && needs.detect-changes.outputs.services != '[]'
 
     steps:
-      - name: Notify success
-        if: needs.build-and-deploy.result == 'success'
-        run: |
-          echo "✅ Lambda deployment completed successfully"
-          echo "Services deployed: ${{ join(fromJson(needs.detect-changes.outputs.services), ', ') }}"
-          echo "Version: ${{ needs.detect-changes.outputs.version }}"
-          # Add Slack/Teams notification here if configured
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Notify failure
-        if: needs.build-and-deploy.result == 'failure'
+      - name: Notify deployment start
+        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && github.event_name != 'pull_request'
+        uses: ./.github/actions/notify-deployment
+        with:
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          notification_type: 'start'
+          service_name: 'lambda-functions'
+          environment: ${{ inputs.environment || 'dev' }}
+          version: ${{ needs.detect-changes.outputs.version }}
+          commit_sha: ${{ github.sha }}
+          workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          additional_context: |
+            {
+              "deployment_type": "lambda",
+              "services": ${{ toJson(needs.detect-changes.outputs.services) }},
+              "trigger": "${{ github.event_name }}"
+            }
+
+      - name: Notify deployment success
+        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && needs.build-and-deploy.result == 'success'
+        uses: ./.github/actions/notify-deployment
+        with:
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          notification_type: 'success'
+          service_name: 'lambda-functions'
+          environment: ${{ inputs.environment || 'dev' }}
+          version: ${{ needs.detect-changes.outputs.version }}
+          commit_sha: ${{ github.sha }}
+          workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          additional_context: |
+            {
+              "deployment_type": "lambda",
+              "services_deployed": ${{ toJson(needs.detect-changes.outputs.services) }},
+              "services_count": ${{ fromJson(needs.detect-changes.outputs.services) | length }},
+              "security_status": "${{ needs.security-monitoring.outputs.security_status || 'not_monitored' }}"
+            }
+
+      - name: Notify deployment failure
+        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && needs.build-and-deploy.result == 'failure'
+        uses: ./.github/actions/notify-deployment
+        with:
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          notification_type: 'failure'
+          service_name: 'lambda-functions'
+          environment: ${{ inputs.environment || 'dev' }}
+          version: ${{ needs.detect-changes.outputs.version }}
+          commit_sha: ${{ github.sha }}
+          workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          error_details: |
+            Lambda function deployment failed for services: ${{ join(fromJson(needs.detect-changes.outputs.services), ', ') }}
+
+            Possible causes:
+            - Build failures during Docker image creation
+            - ECR push authentication issues
+            - Lambda function configuration errors
+            - Health check failures
+
+            Check individual service logs in the workflow for detailed error information.
+          additional_context: |
+            {
+              "deployment_type": "lambda",
+              "failed_services": ${{ toJson(needs.detect-changes.outputs.services) }},
+              "rollback_required": false,
+              "manual_intervention_required": true
+            }
+
+      - name: Notify security alerts
+        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && needs.security-monitoring.outputs.security_status == 'alert'
+        uses: ./.github/actions/notify-deployment
+        with:
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          notification_type: 'security_alert'
+          service_name: 'lambda-functions'
+          environment: ${{ inputs.environment || 'dev' }}
+          version: ${{ needs.detect-changes.outputs.version }}
+          commit_sha: ${{ github.sha }}
+          workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          security_event: |
+            Security events detected during Lambda function deployment:
+            - Services monitored: ${{ join(fromJson(needs.detect-changes.outputs.services), ', ') }}
+            - Security status: ${{ needs.security-monitoring.outputs.security_status }}
+            - Events detected: ${{ needs.security-monitoring.outputs.security_events_detected }}
+
+            Immediate review recommended for all deployed Lambda functions.
+          additional_context: |
+            {
+              "deployment_type": "lambda",
+              "security_level": "high",
+              "affected_services": ${{ toJson(needs.detect-changes.outputs.services) }},
+              "immediate_action_required": true
+            }
+
+      - name: Log notification summary
         run: |
-          echo "❌ Lambda deployment failed"
-          echo "Services: ${{ join(fromJson(needs.detect-changes.outputs.services), ', ') }}"
-          echo "Check the workflow logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          # Add Slack/Teams notification here if configured
-          exit 1
+          echo "## 📢 Lambda Deployment Notifications" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Services:** ${{ join(fromJson(needs.detect-changes.outputs.services), ', ') }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ needs.detect-changes.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment Status:** ${{ needs.build-and-deploy.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Security Status:** ${{ needs.security-monitoring.outputs.security_status || 'not_monitored' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Notifications Sent:** ${{ secrets.DEPLOYMENT_WEBHOOK_URL != '' && 'Yes' || 'No (webhook not configured)' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.build-and-deploy.result }}" = "success" ]; then
+            echo "✅ **All Lambda functions deployed successfully**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Lambda deployment failed**" >> $GITHUB_STEP_SUMMARY
+            echo "📋 **Action Required:** Review individual service logs and redeploy failed functions" >> $GITHUB_STEP_SUMMARY
+          fi

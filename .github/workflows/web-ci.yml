@@ -644,26 +644,186 @@ jobs:
           echo "Rollback functionality would be implemented here"
           echo "This could involve restoring from the backup or deploying a known good version"
 
+  security-monitoring:
+    name: Security Monitoring
+    runs-on: ubuntu-latest
+    needs: [detect-changes, test-and-build, deploy]
+    if: always() && needs.deploy.result == 'success'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.GITHUB_WEB_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: GitHubActions-WebSecurity-${{ github.run_id }}
+
+      - name: Monitor web security events
+        if: secrets.DEPLOYMENT_WEBHOOK_URL != ''
+        uses: ./.github/actions/security-monitor
+        with:
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          aws_region: ${{ secrets.AWS_REGION }}
+          monitoring_duration: '5'
+          service_name: 'web-application'
+
   notify-deployment:
     name: Notify Deployment
     runs-on: ubuntu-latest
-    needs: [detect-changes, test-and-build, deploy]
+    needs:
+      [detect-changes, test-and-build, deploy, rollback, security-monitoring]
     if: always() && needs.detect-changes.outputs.should_deploy == 'true'
 
     steps:
-      - name: Notify success
-        if: needs.deploy.result == 'success'
-        run: |
-          echo "✅ Web application deployment completed successfully"
-          echo "Version: ${{ needs.test-and-build.outputs.build_version }}"
-          echo "URL: ${{ needs.deploy.outputs.web_app_url }}"
-          # Add Slack/Teams notification here if configured
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Notify failure
-        if: needs.deploy.result == 'failure'
+      - name: Notify deployment start
+        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && github.event_name != 'pull_request'
+        uses: ./.github/actions/notify-deployment
+        with:
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          notification_type: 'start'
+          service_name: 'web-application'
+          environment: ${{ inputs.environment || 'production' }}
+          version: ${{ needs.test-and-build.outputs.build_version }}
+          commit_sha: ${{ github.sha }}
+          workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          additional_context: |
+            {
+              "deployment_type": "web",
+              "build_version": "${{ needs.test-and-build.outputs.build_version }}",
+              "trigger": "${{ github.event_name }}"
+            }
+
+      - name: Notify deployment success
+        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && needs.deploy.result == 'success'
+        uses: ./.github/actions/notify-deployment
+        with:
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          notification_type: 'success'
+          service_name: 'web-application'
+          environment: ${{ inputs.environment || 'production' }}
+          version: ${{ needs.test-and-build.outputs.build_version }}
+          commit_sha: ${{ github.sha }}
+          deployment_url: ${{ needs.deploy.outputs.web_app_url }}
+          workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          additional_context: |
+            {
+              "deployment_type": "web",
+              "cloudfront_domain": "${{ needs.deploy.outputs.cloudfront_domain }}",
+              "verification_status": "${{ needs.deploy.outputs.verification_status }}",
+              "security_status": "${{ needs.security-monitoring.outputs.security_status || 'not_monitored' }}"
+            }
+
+      - name: Notify deployment failure
+        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && needs.deploy.result == 'failure'
+        uses: ./.github/actions/notify-deployment
+        with:
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          notification_type: 'failure'
+          service_name: 'web-application'
+          environment: ${{ inputs.environment || 'production' }}
+          version: ${{ needs.test-and-build.outputs.build_version }}
+          commit_sha: ${{ github.sha }}
+          workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          error_details: |
+            Web application deployment failed during the following stages:
+            - Build and Test: ${{ needs.test-and-build.result }}
+            - S3 Deployment: ${{ needs.deploy.result }}
+
+            Common issues to check:
+            - Build compilation errors
+            - S3 bucket permissions
+            - CloudFront distribution configuration
+            - DNS/SSL certificate issues
+
+            Rollback status: ${{ needs.rollback.result || 'not_attempted' }}
+          additional_context: |
+            {
+              "deployment_type": "web",
+              "build_version": "${{ needs.test-and-build.outputs.build_version }}",
+              "rollback_attempted": "${{ needs.rollback.result != '' }}",
+              "manual_intervention_required": true
+            }
+
+      - name: Notify rollback initiated
+        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && needs.rollback.result != 'skipped' && needs.rollback.result != ''
+        uses: ./.github/actions/notify-deployment
+        with:
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          notification_type: 'rollback'
+          service_name: 'web-application'
+          environment: ${{ inputs.environment || 'production' }}
+          version: ${{ needs.test-and-build.outputs.build_version }}
+          commit_sha: ${{ github.sha }}
+          workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          error_details: |
+            Automatic rollback initiated due to deployment failure.
+
+            Rollback status: ${{ needs.rollback.result }}
+            Original deployment version: ${{ needs.test-and-build.outputs.build_version }}
+
+            The previous stable version has been restored.
+            Manual verification of the application is recommended.
+          additional_context: |
+            {
+              "deployment_type": "web",
+              "rollback_reason": "deployment_failure",
+              "rollback_status": "${{ needs.rollback.result }}",
+              "verification_required": true
+            }
+
+      - name: Notify security alerts
+        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && needs.security-monitoring.outputs.security_status == 'alert'
+        uses: ./.github/actions/notify-deployment
+        with:
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          notification_type: 'security_alert'
+          service_name: 'web-application'
+          environment: ${{ inputs.environment || 'production' }}
+          version: ${{ needs.test-and-build.outputs.build_version }}
+          commit_sha: ${{ github.sha }}
+          deployment_url: ${{ needs.deploy.outputs.web_app_url }}
+          workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          security_event: |
+            Security events detected during web application deployment:
+            - Application URL: ${{ needs.deploy.outputs.web_app_url }}
+            - Security status: ${{ needs.security-monitoring.outputs.security_status }}
+            - Events detected: ${{ needs.security-monitoring.outputs.security_events_detected }}
+
+            Immediate security review recommended for the deployed web application.
+          additional_context: |
+            {
+              "deployment_type": "web",
+              "security_level": "high",
+              "application_url": "${{ needs.deploy.outputs.web_app_url }}",
+              "immediate_action_required": true
+            }
+
+      - name: Log notification summary
         run: |
-          echo "❌ Web application deployment failed"
-          echo "Version: ${{ needs.test-and-build.outputs.build_version }}"
-          echo "Check the workflow logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          # Add Slack/Teams notification here if configured
-          exit 1
+          echo "## 📢 Web Deployment Notifications" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ needs.test-and-build.outputs.build_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ inputs.environment || 'production' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment Status:** ${{ needs.deploy.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Security Status:** ${{ needs.security-monitoring.outputs.security_status || 'not_monitored' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Notifications Sent:** ${{ secrets.DEPLOYMENT_WEBHOOK_URL != '' && 'Yes' || 'No (webhook not configured)' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.deploy.result }}" = "success" ]; then
+            echo "✅ **Web application deployed successfully**" >> $GITHUB_STEP_SUMMARY
+            if [ -n "${{ needs.deploy.outputs.web_app_url }}" ]; then
+              echo "🌐 **Application URL:** ${{ needs.deploy.outputs.web_app_url }}" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "❌ **Web application deployment failed**" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ needs.rollback.result }}" != "skipped" ] && [ -n "${{ needs.rollback.result }}" ]; then
+              echo "🔄 **Rollback Status:** ${{ needs.rollback.result }}" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "📋 **Action Required:** Review deployment logs and address issues" >> $GITHUB_STEP_SUMMARY
+          fi

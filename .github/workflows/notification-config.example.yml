@@ -1,0 +1,156 @@
+# Example Notification Configuration
+# Copy this file to your repository and customize the webhook URLs and settings
+
+name: Test Notifications
+on:
+  workflow_dispatch:
+    inputs:
+      notification_type:
+        description: 'Type of notification to test'
+        required: true
+        type: choice
+        options:
+          - start
+          - success
+          - failure
+          - approval_required
+          - rollback
+          - security_alert
+      service_name:
+        description: 'Service name for testing'
+        required: true
+        default: 'test-service'
+        type: string
+      environment:
+        description: 'Environment for testing'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+jobs:
+  test-notification:
+    name: Test Notification System
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test notification
+        uses: ./.github/actions/notify-deployment
+        with:
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          notification_type: ${{ inputs.notification_type }}
+          service_name: ${{ inputs.service_name }}
+          environment: ${{ inputs.environment }}
+          version: 'test-v1.0.0'
+          commit_sha: ${{ github.sha }}
+          deployment_url: 'https://example.com'
+          workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          error_details: ${{ inputs.notification_type == 'failure' && 'This is a test error message for demonstration purposes.' || '' }}
+          security_event: ${{ inputs.notification_type == 'security_alert' && 'Test security event: Unauthorized access attempt detected.' || '' }}
+          approval_url: ${{ inputs.notification_type == 'approval_required' && github.server_url || '' }}
+          additional_context: |
+            {
+              "test_mode": true,
+              "notification_test": "${{ inputs.notification_type }}",
+              "timestamp": "${{ github.event.head_commit.timestamp }}"
+            }
+
+      - name: Log test results
+        run: |
+          echo "## 🧪 Notification Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Type:** ${{ inputs.notification_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Service:** ${{ inputs.service_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Webhook Configured:** ${{ secrets.DEPLOYMENT_WEBHOOK_URL != '' && 'Yes' || 'No' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -n "${{ secrets.DEPLOYMENT_WEBHOOK_URL }}" ]; then
+            echo "✅ **Test notification sent successfully**" >> $GITHUB_STEP_SUMMARY
+            echo "Check your configured notification channel for the test message." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **No webhook URL configured**" >> $GITHUB_STEP_SUMMARY
+            echo "Add DEPLOYMENT_WEBHOOK_URL to your repository secrets to enable notifications." >> $GITHUB_STEP_SUMMARY
+          fi
+
+---
+
+# Required GitHub Secrets Configuration
+# Add these secrets to your repository: Settings > Secrets and variables > Actions
+
+# DEPLOYMENT_WEBHOOK_URL - Your Slack or Teams webhook URL
+# Examples:
+# Slack: https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX
+# Teams: https://outlook.office.com/webhook/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX@XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX/IncomingWebhook/XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+
+# AWS Configuration (for security monitoring)
+# AWS_ACCOUNT_ID - Your AWS account ID (12 digits)
+# AWS_REGION - Your primary AWS region (e.g., us-east-1)
+
+# IAM Role ARNs (for each workflow type)
+# GITHUB_INFRASTRUCTURE_CI_ROLE_ARN - Infrastructure deployment role
+# GITHUB_LAMBDA_DEPLOY_ROLE_ARN - Lambda function deployment role
+# GITHUB_WEB_DEPLOY_ROLE_ARN - Web application deployment role
+# GITHUB_API_DEPLOY_ROLE_ARN - API deployment role
+
+---
+
+# Slack Webhook Setup Instructions:
+# 1. Go to https://api.slack.com/apps
+# 2. Create a new app or select existing app
+# 3. Go to "Incoming Webhooks" and activate them
+# 4. Click "Add New Webhook to Workspace"
+# 5. Select the channel for notifications
+# 6. Copy the webhook URL to DEPLOYMENT_WEBHOOK_URL secret
+
+# Teams Webhook Setup Instructions:
+# 1. Go to your Teams channel
+# 2. Click the "..." menu next to the channel name
+# 3. Select "Connectors"
+# 4. Find "Incoming Webhook" and click "Configure"
+# 5. Provide a name and upload an image (optional)
+# 6. Copy the webhook URL to DEPLOYMENT_WEBHOOK_URL secret
+
+---
+
+# Example notification messages you'll receive:
+
+# 🚀 Deployment Started
+# Service: test-service
+# Environment: dev
+# Version: test-v1.0.0
+# Commit: abc123
+
+# ✅ Deployment Successful
+# Service: test-service
+# Environment: dev
+# Version: test-v1.0.0
+# URL: https://example.com
+# Security Status: clean
+
+# ❌ Deployment Failed
+# Service: test-service
+# Environment: dev
+# Error: This is a test error message for demonstration purposes.
+# Workflow: [View Logs](workflow-url)
+
+# ⏳ Manual Approval Required
+# Service: test-service
+# Environment: prod
+# Action Required: [Review and Approve](approval-url)
+
+# 🔄 Rollback Initiated
+# Service: test-service
+# Reason: deployment_failure
+# Status: Automatic rollback completed
+
+# 🚨 Security Alert
+# Service: test-service
+# Event: Test security event: Unauthorized access attempt detected.
+# Action Required: Immediate security review

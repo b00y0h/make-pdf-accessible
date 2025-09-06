@@ -1,0 +1,405 @@
+name: 'Notify Deployment Status'
+description: 'Send deployment notifications to Slack/Teams with comprehensive details'
+inputs:
+  webhook_url:
+    description: 'Slack or Teams webhook URL'
+    required: true
+  notification_type:
+    description: 'Type of notification (start, success, failure, approval_required, rollback, security_alert)'
+    required: true
+  service_name:
+    description: 'Name of the service being deployed'
+    required: true
+  environment:
+    description: 'Deployment environment'
+    required: true
+    default: 'production'
+  version:
+    description: 'Version being deployed'
+    required: false
+  commit_sha:
+    description: 'Git commit SHA'
+    required: false
+  deployment_url:
+    description: 'URL of the deployed application'
+    required: false
+  workflow_url:
+    description: 'URL to the GitHub Actions workflow run'
+    required: false
+  error_details:
+    description: 'Error details for failure notifications'
+    required: false
+  approval_url:
+    description: 'URL for manual approval'
+    required: false
+  security_event:
+    description: 'Security event details'
+    required: false
+  additional_context:
+    description: 'Additional context as JSON'
+    required: false
+    default: '{}'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Prepare notification payload
+      id: payload
+      shell: bash
+      run: |
+        # Set notification colors and icons based on type
+        case "${{ inputs.notification_type }}" in
+          "start")
+            COLOR="#36a64f"
+            ICON="🚀"
+            TITLE="Deployment Started"
+            ;;
+          "success")
+            COLOR="#36a64f"
+            ICON="✅"
+            TITLE="Deployment Successful"
+            ;;
+          "failure")
+            COLOR="#ff0000"
+            ICON="❌"
+            TITLE="Deployment Failed"
+            ;;
+          "approval_required")
+            COLOR="#ffaa00"
+            ICON="⏳"
+            TITLE="Manual Approval Required"
+            ;;
+          "rollback")
+            COLOR="#ff6600"
+            ICON="🔄"
+            TITLE="Rollback Initiated"
+            ;;
+          "security_alert")
+            COLOR="#ff0000"
+            ICON="🚨"
+            TITLE="Security Alert"
+            ;;
+          *)
+            COLOR="#36a64f"
+            ICON="ℹ️"
+            TITLE="Deployment Notification"
+            ;;
+        esac
+
+        echo "color=$COLOR" >> $GITHUB_OUTPUT
+        echo "icon=$ICON" >> $GITHUB_OUTPUT
+        echo "title=$TITLE" >> $GITHUB_OUTPUT
+
+        # Generate timestamp
+        TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+
+        # Parse additional context
+        ADDITIONAL_CONTEXT='${{ inputs.additional_context }}'
+        echo "additional_context=$ADDITIONAL_CONTEXT" >> $GITHUB_OUTPUT
+
+    - name: Send Slack notification
+      if: contains(inputs.webhook_url, 'hooks.slack.com')
+      shell: bash
+      run: |
+        # Create Slack payload
+        cat > slack_payload.json << EOF
+        {
+          "username": "GitHub Actions",
+          "icon_emoji": ":github:",
+          "attachments": [
+            {
+              "color": "${{ steps.payload.outputs.color }}",
+              "title": "${{ steps.payload.outputs.icon }} ${{ steps.payload.outputs.title }}",
+              "fields": [
+                {
+                  "title": "Service",
+                  "value": "${{ inputs.service_name }}",
+                  "short": true
+                },
+                {
+                  "title": "Environment",
+                  "value": "${{ inputs.environment }}",
+                  "short": true
+                }
+        EOF
+
+        # Add version if provided
+        if [ -n "${{ inputs.version }}" ]; then
+          cat >> slack_payload.json << EOF
+                ,{
+                  "title": "Version",
+                  "value": "${{ inputs.version }}",
+                  "short": true
+                }
+        EOF
+        fi
+
+        # Add commit SHA if provided
+        if [ -n "${{ inputs.commit_sha }}" ]; then
+          COMMIT_SHORT=$(echo "${{ inputs.commit_sha }}" | cut -c1-8)
+          cat >> slack_payload.json << EOF
+                ,{
+                  "title": "Commit",
+                  "value": "<https://github.com/${{ github.repository }}/commit/${{ inputs.commit_sha }}|$COMMIT_SHORT>",
+                  "short": true
+                }
+        EOF
+        fi
+
+        # Add deployment URL if provided
+        if [ -n "${{ inputs.deployment_url }}" ]; then
+          cat >> slack_payload.json << EOF
+                ,{
+                  "title": "Deployment URL",
+                  "value": "<${{ inputs.deployment_url }}|View Application>",
+                  "short": false
+                }
+        EOF
+        fi
+
+        # Add approval URL if provided
+        if [ -n "${{ inputs.approval_url }}" ]; then
+          cat >> slack_payload.json << EOF
+                ,{
+                  "title": "Action Required",
+                  "value": "<${{ inputs.approval_url }}|Review and Approve>",
+                  "short": false
+                }
+        EOF
+        fi
+
+        # Add error details if provided
+        if [ -n "${{ inputs.error_details }}" ]; then
+          ERROR_ESCAPED=$(echo "${{ inputs.error_details }}" | sed 's/"/\\"/g' | tr '\n' ' ')
+          cat >> slack_payload.json << EOF
+                ,{
+                  "title": "Error Details",
+                  "value": "\`\`\`$ERROR_ESCAPED\`\`\`",
+                  "short": false
+                }
+        EOF
+        fi
+
+        # Add security event details if provided
+        if [ -n "${{ inputs.security_event }}" ]; then
+          SECURITY_ESCAPED=$(echo "${{ inputs.security_event }}" | sed 's/"/\\"/g' | tr '\n' ' ')
+          cat >> slack_payload.json << EOF
+                ,{
+                  "title": "Security Event",
+                  "value": "\`\`\`$SECURITY_ESCAPED\`\`\`",
+                  "short": false
+                }
+        EOF
+        fi
+
+        # Add workflow URL if provided
+        if [ -n "${{ inputs.workflow_url }}" ]; then
+          cat >> slack_payload.json << EOF
+                ,{
+                  "title": "Workflow",
+                  "value": "<${{ inputs.workflow_url }}|View Logs>",
+                  "short": false
+                }
+        EOF
+        fi
+
+        # Close the JSON structure
+        cat >> slack_payload.json << EOF
+              ],
+              "footer": "GitHub Actions",
+              "ts": $(date +%s)
+            }
+          ]
+        }
+        EOF
+
+        # Send notification
+        curl -X POST -H 'Content-type: application/json' \
+          --data @slack_payload.json \
+          "${{ inputs.webhook_url }}"
+
+    - name: Send Teams notification
+      if: contains(inputs.webhook_url, 'outlook.office.com') || contains(inputs.webhook_url, 'webhook.office.com')
+      shell: bash
+      run: |
+        # Create Teams payload
+        cat > teams_payload.json << EOF
+        {
+          "@type": "MessageCard",
+          "@context": "http://schema.org/extensions",
+          "themeColor": "${{ steps.payload.outputs.color }}",
+          "summary": "${{ steps.payload.outputs.title }} - ${{ inputs.service_name }}",
+          "sections": [
+            {
+              "activityTitle": "${{ steps.payload.outputs.icon }} ${{ steps.payload.outputs.title }}",
+              "activitySubtitle": "${{ inputs.service_name }} - ${{ inputs.environment }}",
+              "facts": [
+                {
+                  "name": "Service",
+                  "value": "${{ inputs.service_name }}"
+                },
+                {
+                  "name": "Environment",
+                  "value": "${{ inputs.environment }}"
+                },
+                {
+                  "name": "Timestamp",
+                  "value": "${{ steps.payload.outputs.timestamp }}"
+                }
+        EOF
+
+        # Add version if provided
+        if [ -n "${{ inputs.version }}" ]; then
+          cat >> teams_payload.json << EOF
+                ,{
+                  "name": "Version",
+                  "value": "${{ inputs.version }}"
+                }
+        EOF
+        fi
+
+        # Add commit SHA if provided
+        if [ -n "${{ inputs.commit_sha }}" ]; then
+          COMMIT_SHORT=$(echo "${{ inputs.commit_sha }}" | cut -c1-8)
+          cat >> teams_payload.json << EOF
+                ,{
+                  "name": "Commit",
+                  "value": "$COMMIT_SHORT"
+                }
+        EOF
+        fi
+
+        # Close facts array and add error details if provided
+        cat >> teams_payload.json << EOF
+              ]
+        EOF
+
+        # Add error details if provided
+        if [ -n "${{ inputs.error_details }}" ]; then
+          ERROR_ESCAPED=$(echo "${{ inputs.error_details }}" | sed 's/"/\\"/g')
+          cat >> teams_payload.json << EOF
+              ,"text": "**Error Details:**\n\`\`\`$ERROR_ESCAPED\`\`\`"
+        EOF
+        fi
+
+        # Add security event details if provided
+        if [ -n "${{ inputs.security_event }}" ]; then
+          SECURITY_ESCAPED=$(echo "${{ inputs.security_event }}" | sed 's/"/\\"/g')
+          cat >> teams_payload.json << EOF
+              ,"text": "**Security Event:**\n\`\`\`$SECURITY_ESCAPED\`\`\`"
+        EOF
+        fi
+
+        # Close section and add potential actions
+        cat >> teams_payload.json << EOF
+            }
+          ]
+        EOF
+
+        # Add potential actions
+        ACTIONS_ADDED=false
+
+        if [ -n "${{ inputs.deployment_url }}" ]; then
+          if [ "$ACTIONS_ADDED" = false ]; then
+            cat >> teams_payload.json << EOF
+          ,"potentialAction": [
+        EOF
+            ACTIONS_ADDED=true
+          else
+            cat >> teams_payload.json << EOF
+            ,
+        EOF
+          fi
+
+          cat >> teams_payload.json << EOF
+            {
+              "@type": "OpenUri",
+              "name": "View Application",
+              "targets": [
+                {
+                  "os": "default",
+                  "uri": "${{ inputs.deployment_url }}"
+                }
+              ]
+            }
+        EOF
+        fi
+
+        if [ -n "${{ inputs.approval_url }}" ]; then
+          if [ "$ACTIONS_ADDED" = false ]; then
+            cat >> teams_payload.json << EOF
+          ,"potentialAction": [
+        EOF
+            ACTIONS_ADDED=true
+          else
+            cat >> teams_payload.json << EOF
+            ,
+        EOF
+          fi
+
+          cat >> teams_payload.json << EOF
+            {
+              "@type": "OpenUri",
+              "name": "Review and Approve",
+              "targets": [
+                {
+                  "os": "default",
+                  "uri": "${{ inputs.approval_url }}"
+                }
+              ]
+            }
+        EOF
+        fi
+
+        if [ -n "${{ inputs.workflow_url }}" ]; then
+          if [ "$ACTIONS_ADDED" = false ]; then
+            cat >> teams_payload.json << EOF
+          ,"potentialAction": [
+        EOF
+            ACTIONS_ADDED=true
+          else
+            cat >> teams_payload.json << EOF
+            ,
+        EOF
+          fi
+
+          cat >> teams_payload.json << EOF
+            {
+              "@type": "OpenUri",
+              "name": "View Workflow Logs",
+              "targets": [
+                {
+                  "os": "default",
+                  "uri": "${{ inputs.workflow_url }}"
+                }
+              ]
+            }
+        EOF
+        fi
+
+        # Close actions array if it was opened
+        if [ "$ACTIONS_ADDED" = true ]; then
+          cat >> teams_payload.json << EOF
+          ]
+        EOF
+        fi
+
+        # Close the JSON structure
+        cat >> teams_payload.json << EOF
+        }
+        EOF
+
+        # Send notification
+        curl -X POST -H 'Content-type: application/json' \
+          --data @teams_payload.json \
+          "${{ inputs.webhook_url }}"
+
+    - name: Log notification sent
+      shell: bash
+      run: |
+        echo "✅ Notification sent successfully"
+        echo "Type: ${{ inputs.notification_type }}"
+        echo "Service: ${{ inputs.service_name }}"
+        echo "Environment: ${{ inputs.environment }}"
+        echo "Timestamp: ${{ steps.payload.outputs.timestamp }}"
