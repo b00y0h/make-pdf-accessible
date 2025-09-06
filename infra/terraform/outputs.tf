@@ -109,6 +109,27 @@ output "api_gateway_custom_domain" {
   value       = var.certificate_arn != "" ? "https://api.${var.domain_name}" : null
 }
 
+# Lambda Function Outputs
+output "api_lambda_function_name" {
+  description = "Name of the API Lambda function"
+  value       = aws_lambda_function.api.function_name
+}
+
+output "api_lambda_function_arn" {
+  description = "ARN of the API Lambda function"
+  value       = aws_lambda_function.api.arn
+}
+
+output "api_lambda_function_url" {
+  description = "Lambda Function URL (if enabled)"
+  value       = var.use_lambda_function_url ? aws_lambda_function_url.api[0].function_url : null
+}
+
+output "webhook_secret_parameter_name" {
+  description = "Name of the SSM parameter storing webhook secret"
+  value       = aws_ssm_parameter.webhook_secret.name
+}
+
 # CloudFront Outputs
 output "cloudfront_distribution_id" {
   description = "ID of the CloudFront distribution"
@@ -243,16 +264,19 @@ output "kms_sqs_key_id" {
 output "environment_config" {
   description = "Environment configuration for applications"
   value = {
-    region               = var.aws_region
-    project_name         = var.project_name
-    environment          = var.environment
-    vpc_id               = aws_vpc.main.id
-    private_subnet_ids   = aws_subnet.private[*].id
-    api_gateway_url      = aws_apigatewayv2_api.main.api_endpoint
-    cognito_user_pool_id = aws_cognito_user_pool.main.id
-    cognito_client_id    = aws_cognito_user_pool_client.web_client.id
-    cognito_domain       = aws_cognito_user_pool_domain.main.domain
-    web_app_url          = var.domain_name != "" && var.certificate_arn != "" ? "https://${var.domain_name}" : "https://${aws_cloudfront_distribution.web.domain_name}"
+    region                  = var.aws_region
+    project_name           = var.project_name
+    environment            = var.environment
+    vpc_id                 = aws_vpc.main.id
+    private_subnet_ids     = aws_subnet.private[*].id
+    api_gateway_url        = aws_apigatewayv2_api.main.api_endpoint
+    api_lambda_function    = aws_lambda_function.api.function_name
+    cognito_user_pool_id   = aws_cognito_user_pool.main.id
+    cognito_client_id      = aws_cognito_user_pool_client.web_client.id
+    cognito_domain         = aws_cognito_user_pool_domain.main.domain
+    webhook_secret_param   = aws_ssm_parameter.webhook_secret.name
+    web_app_url           = var.domain_name != "" && var.certificate_arn != "" ? "https://${var.domain_name}" : "https://${aws_cloudfront_distribution.web.domain_name}"
+    lambda_function_url   = var.use_lambda_function_url ? aws_lambda_function_url.api[0].function_url : null
   }
   sensitive = false
 }

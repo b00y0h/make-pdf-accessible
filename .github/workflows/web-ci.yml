@@ -1,0 +1,536 @@
+name: Web Application CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/web-ci.yml'
+  pull_request:
+    paths:
+      - 'web/**'
+      - '.github/workflows/web-ci.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      skip_tests:
+        description: 'Skip test execution'
+        required: false
+        default: false
+        type: boolean
+      force_deploy:
+        description: 'Force deployment even if no changes detected'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+env:
+  NODE_VERSION: '18'
+  PNPM_VERSION: '8'
+  WEB_WORKING_DIR: 'web'
+
+jobs:
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      web_changed: ${{ steps.changes.outputs.web_changed }}
+      should_deploy: ${{ steps.deploy-decision.outputs.should_deploy }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect web application changes
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ "${{ inputs.force_deploy }}" == "true" ]; then
+              echo "web_changed=true" >> $GITHUB_OUTPUT
+              echo "Force deployment requested"
+            else
+              echo "web_changed=true" >> $GITHUB_OUTPUT
+              echo "Manual dispatch - assuming changes"
+            fi
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "web_changed=true" >> $GITHUB_OUTPUT
+            echo "Pull request - running tests and build validation"
+          else
+            # Check for changes in web directory or workflow
+            CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} 2>/dev/null || echo "")
+
+            if [ -z "$CHANGED_FILES" ]; then
+              # If we can't detect changes (e.g., first push), assume changes
+              echo "web_changed=true" >> $GITHUB_OUTPUT
+              echo "Cannot detect changes - assuming web changes"
+            elif echo "$CHANGED_FILES" | grep -q "^web/\|^\.github/workflows/web-ci\.yml"; then
+              echo "web_changed=true" >> $GITHUB_OUTPUT
+              echo "Web application changes detected"
+            else
+              echo "web_changed=false" >> $GITHUB_OUTPUT
+              echo "No web application changes detected"
+            fi
+          fi
+
+      - name: Determine deployment decision
+        id: deploy-decision
+        run: |
+          if [ "${{ steps.changes.outputs.web_changed }}" == "true" ] && [ "${{ github.ref }}" == "refs/heads/main" ] && [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+            echo "Will deploy to production"
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ steps.changes.outputs.web_changed }}" == "true" ]; then
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+            echo "Will deploy via manual dispatch"
+          else
+            echo "should_deploy=false" >> $GITHUB_OUTPUT
+            echo "Will not deploy"
+          fi
+
+  test-and-build:
+    name: Test and Build
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.web_changed == 'true'
+    outputs:
+      build_artifact: ${{ steps.upload-artifact.outputs.artifact-id }}
+      build_version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: |
+          cd ${{ env.WEB_WORKING_DIR }}
+          pnpm install --frozen-lockfile
+
+      - name: Run linting
+        run: |
+          cd ${{ env.WEB_WORKING_DIR }}
+          pnpm lint
+
+      - name: Run type checking
+        run: |
+          cd ${{ env.WEB_WORKING_DIR }}
+          pnpm run type-check || npx tsc --noEmit
+
+      - name: Run tests
+        if: inputs.skip_tests != true
+        run: |
+          cd ${{ env.WEB_WORKING_DIR }}
+          pnpm test --run --coverage
+
+      - name: Generate build version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+          else
+            VERSION="main-$(git rev-parse --short ${{ github.sha }})-$(date +%Y%m%d-%H%M%S)"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Generated version: $VERSION"
+
+      - name: Build application
+        env:
+          NODE_ENV: production
+          NEXT_TELEMETRY_DISABLED: 1
+        run: |
+          cd ${{ env.WEB_WORKING_DIR }}
+
+          # Set build-time environment variables
+          echo "NEXT_PUBLIC_BUILD_VERSION=${{ steps.version.outputs.version }}" >> .env.production
+          echo "NEXT_PUBLIC_BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> .env.production
+          echo "NEXT_PUBLIC_COMMIT_SHA=${{ github.sha }}" >> .env.production
+
+          # Build the application
+          pnpm build
+
+          # Verify build output
+          if [ ! -d ".next" ]; then
+            echo "Error: Build output directory not found"
+            exit 1
+          fi
+
+          # Create deployment package
+          mkdir -p ../build-output
+          cp -r .next/static ../build-output/
+          cp -r .next/standalone ../build-output/ 2>/dev/null || echo "No standalone output"
+          cp -r public ../build-output/ 2>/dev/null || echo "No public directory"
+
+          # Copy build manifest and other metadata
+          cp .next/build-manifest.json ../build-output/ 2>/dev/null || echo "No build manifest"
+
+          # Create deployment metadata
+          cat > ../build-output/deployment-info.json << EOF
+          {
+            "version": "${{ steps.version.outputs.version }}",
+            "buildTime": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "commitSha": "${{ github.sha }}",
+            "branch": "${{ github.ref_name }}",
+            "environment": "${{ inputs.environment || 'prod' }}",
+            "buildId": "${{ github.run_id }}"
+          }
+          EOF
+
+      - name: Upload build artifacts
+        id: upload-artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build-${{ steps.version.outputs.version }}
+          path: |
+            ${{ env.WEB_WORKING_DIR }}/.next/
+            build-output/
+          retention-days: 30
+          compression-level: 6
+
+      - name: Generate build summary
+        run: |
+          cd ${{ env.WEB_WORKING_DIR }}
+
+          echo "## 🏗️ Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Build Time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Node.js:** ${{ env.NODE_VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Build size analysis
+          if [ -d ".next" ]; then
+            BUILD_SIZE=$(du -sh .next | cut -f1)
+            echo "**Build Size:** $BUILD_SIZE" >> $GITHUB_STEP_SUMMARY
+
+            # Count files
+            STATIC_FILES=$(find .next/static -type f | wc -l 2>/dev/null || echo "0")
+            echo "**Static Files:** $STATIC_FILES" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Build completed successfully" >> $GITHUB_STEP_SUMMARY
+
+  deploy:
+    name: Deploy to S3 and CloudFront
+    runs-on: ubuntu-latest
+    needs: [detect-changes, test-and-build]
+    if: needs.detect-changes.outputs.should_deploy == 'true'
+    environment:
+      name: ${{ inputs.environment || 'production' }}-web
+      url: ${{ steps.deploy.outputs.web_app_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.GITHUB_WEB_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: GitHubActions-WebDeploy-${{ github.run_id }}
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: web-build-${{ needs.test-and-build.outputs.build_version }}
+          path: ./artifacts
+
+      - name: Get deployment configuration
+        id: config
+        run: |
+          # Get S3 bucket and CloudFront distribution from Terraform outputs
+          S3_BUCKET=$(aws s3api list-buckets --query "Buckets[?contains(Name, 'web-assets')].Name" --output text | head -1)
+
+          if [ -z "$S3_BUCKET" ]; then
+            echo "Error: Could not find web assets S3 bucket"
+            exit 1
+          fi
+
+          # Get CloudFront distribution ID
+          DISTRIBUTION_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?contains(Comment, 'PDF Accessibility Platform')].Id" --output text | head -1)
+
+          if [ -z "$DISTRIBUTION_ID" ]; then
+            echo "Error: Could not find CloudFront distribution"
+            exit 1
+          fi
+
+          echo "s3_bucket=$S3_BUCKET" >> $GITHUB_OUTPUT
+          echo "distribution_id=$DISTRIBUTION_ID" >> $GITHUB_OUTPUT
+          echo "Using S3 bucket: $S3_BUCKET"
+          echo "Using CloudFront distribution: $DISTRIBUTION_ID"
+
+      - name: Backup current deployment
+        id: backup
+        run: |
+          BACKUP_PREFIX="backups/$(date +%Y%m%d-%H%M%S)-${{ github.sha }}"
+
+          # Check if there are existing files to backup
+          if aws s3 ls s3://${{ steps.config.outputs.s3_bucket }}/ --recursive | grep -q .; then
+            echo "Creating backup of current deployment..."
+            aws s3 sync s3://${{ steps.config.outputs.s3_bucket }}/ s3://${{ steps.config.outputs.s3_bucket }}/$BACKUP_PREFIX/ \
+              --exclude "backups/*" \
+              --quiet
+            echo "backup_path=$BACKUP_PREFIX" >> $GITHUB_OUTPUT
+            echo "Backup created at: $BACKUP_PREFIX"
+          else
+            echo "No existing deployment to backup"
+            echo "backup_path=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Prepare deployment files
+        run: |
+          # Prepare the deployment directory
+          mkdir -p deployment
+
+          # Copy Next.js static files
+          if [ -d "artifacts/.next/static" ]; then
+            cp -r artifacts/.next/static deployment/_next/
+          fi
+
+          # Copy public files
+          if [ -d "artifacts/build-output/public" ]; then
+            cp -r artifacts/build-output/public/* deployment/
+          fi
+
+          # Copy standalone build if available
+          if [ -d "artifacts/build-output/standalone" ]; then
+            cp -r artifacts/build-output/standalone/* deployment/
+          fi
+
+          # Ensure we have an index.html
+          if [ ! -f "deployment/index.html" ]; then
+            # Create a basic index.html if none exists
+            cat > deployment/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <title>PDF Accessibility Platform</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+          </head>
+          <body>
+            <div id="__next"></div>
+            <script src="/_next/static/chunks/main.js"></script>
+          </body>
+          </html>
+          EOF
+          fi
+
+          # Copy deployment metadata
+          if [ -f "artifacts/build-output/deployment-info.json" ]; then
+            cp artifacts/build-output/deployment-info.json deployment/
+          fi
+
+      - name: Deploy to S3
+        id: s3-deploy
+        run: |
+          echo "Deploying to S3 bucket: ${{ steps.config.outputs.s3_bucket }}"
+
+          # Sync files with appropriate cache headers
+          aws s3 sync deployment/ s3://${{ steps.config.outputs.s3_bucket }}/ \
+            --delete \
+            --cache-control "public, max-age=31536000, immutable" \
+            --exclude "*.html" \
+            --exclude "deployment-info.json"
+
+          # Upload HTML files with shorter cache
+          aws s3 sync deployment/ s3://${{ steps.config.outputs.s3_bucket }}/ \
+            --cache-control "public, max-age=0, must-revalidate" \
+            --include "*.html" \
+            --include "deployment-info.json"
+
+          # Set specific metadata for key files
+          aws s3 cp deployment/index.html s3://${{ steps.config.outputs.s3_bucket }}/index.html \
+            --cache-control "public, max-age=0, must-revalidate" \
+            --content-type "text/html; charset=utf-8" \
+            --metadata "version=${{ needs.test-and-build.outputs.build_version }},build-id=${{ github.run_id }}"
+
+          echo "S3 deployment completed"
+
+      - name: Invalidate CloudFront cache
+        id: cloudfront-invalidate
+        run: |
+          echo "Creating CloudFront invalidation..."
+
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id ${{ steps.config.outputs.distribution_id }} \
+            --paths "/*" \
+            --query 'Invalidation.Id' \
+            --output text)
+
+          echo "invalidation_id=$INVALIDATION_ID" >> $GITHUB_OUTPUT
+          echo "CloudFront invalidation created: $INVALIDATION_ID"
+
+          # Wait for invalidation to complete (with timeout)
+          echo "Waiting for invalidation to complete..."
+          timeout 300 aws cloudfront wait invalidation-completed \
+            --distribution-id ${{ steps.config.outputs.distribution_id }} \
+            --id $INVALIDATION_ID || echo "Invalidation timeout - continuing"
+
+      - name: Get deployment URLs
+        id: deploy
+        run: |
+          # Get CloudFront domain
+          CLOUDFRONT_DOMAIN=$(aws cloudfront get-distribution \
+            --id ${{ steps.config.outputs.distribution_id }} \
+            --query 'Distribution.DomainName' \
+            --output text)
+
+          # Check if custom domain is configured
+          CUSTOM_DOMAIN=$(aws cloudfront get-distribution \
+            --id ${{ steps.config.outputs.distribution_id }} \
+            --query 'Distribution.DistributionConfig.Aliases.Items[0]' \
+            --output text 2>/dev/null || echo "None")
+
+          if [ "$CUSTOM_DOMAIN" != "None" ] && [ "$CUSTOM_DOMAIN" != "null" ]; then
+            WEB_APP_URL="https://$CUSTOM_DOMAIN"
+          else
+            WEB_APP_URL="https://$CLOUDFRONT_DOMAIN"
+          fi
+
+          echo "web_app_url=$WEB_APP_URL" >> $GITHUB_OUTPUT
+          echo "cloudfront_domain=$CLOUDFRONT_DOMAIN" >> $GITHUB_OUTPUT
+          echo "Web application URL: $WEB_APP_URL"
+
+      - name: Verify deployment
+        id: verify
+        run: |
+          echo "Verifying deployment..."
+
+          # Wait a moment for CloudFront to propagate
+          sleep 30
+
+          # Test the main page
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.deploy.outputs.web_app_url }}" || echo "000")
+
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "✅ Deployment verification successful (HTTP $HTTP_STATUS)"
+            echo "verification_status=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Deployment verification failed (HTTP $HTTP_STATUS)"
+            echo "verification_status=failed" >> $GITHUB_OUTPUT
+
+            # Try to get more details
+            echo "Attempting to get response details..."
+            curl -v "${{ steps.deploy.outputs.web_app_url }}" || true
+          fi
+
+          # Test a static asset
+          STATIC_URL="${{ steps.deploy.outputs.web_app_url }}/_next/static"
+          STATIC_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$STATIC_URL" || echo "000")
+          echo "Static assets status: $STATIC_STATUS"
+
+      - name: Generate deployment summary
+        run: |
+          echo "## 🚀 Web Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ inputs.environment || 'production' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ needs.test-and-build.outputs.build_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployed at:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**URLs:**" >> $GITHUB_STEP_SUMMARY
+          echo "- 🌐 Web App: ${{ steps.deploy.outputs.web_app_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- ☁️ CloudFront: https://${{ steps.deploy.outputs.cloudfront_domain }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Infrastructure:**" >> $GITHUB_STEP_SUMMARY
+          echo "- 📦 S3 Bucket: ${{ steps.config.outputs.s3_bucket }}" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔄 CloudFront Distribution: ${{ steps.config.outputs.distribution_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔄 Invalidation: ${{ steps.cloudfront-invalidate.outputs.invalidation_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.verify.outputs.verification_status }}" = "success" ]; then
+            echo "**Status:** ✅ Deployment successful and verified" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Status:** ⚠️ Deployment completed but verification failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -n "${{ steps.backup.outputs.backup_path }}" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Rollback:** Backup available at s3://${{ steps.config.outputs.s3_bucket }}/${{ steps.backup.outputs.backup_path }}" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    needs: [detect-changes, test-and-build, deploy]
+    if: failure() && needs.deploy.result == 'failure'
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.GITHUB_WEB_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: GitHubActions-WebRollback-${{ github.run_id }}
+
+      - name: Perform rollback
+        run: |
+          echo "⚠️ Deployment failed - attempting rollback"
+
+          # This is a placeholder for rollback logic
+          # In a real scenario, you would restore from the backup created in the deploy job
+          echo "Rollback functionality would be implemented here"
+          echo "This could involve restoring from the backup or deploying a known good version"
+
+  notify-deployment:
+    name: Notify Deployment
+    runs-on: ubuntu-latest
+    needs: [detect-changes, test-and-build, deploy]
+    if: always() && needs.detect-changes.outputs.should_deploy == 'true'
+
+    steps:
+      - name: Notify success
+        if: needs.deploy.result == 'success'
+        run: |
+          echo "✅ Web application deployment completed successfully"
+          echo "Version: ${{ needs.test-and-build.outputs.build_version }}"
+          echo "URL: ${{ needs.deploy.outputs.web_app_url }}"
+          # Add Slack/Teams notification here if configured
+
+      - name: Notify failure
+        if: needs.deploy.result == 'failure'
+        run: |
+          echo "❌ Web application deployment failed"
+          echo "Version: ${{ needs.test-and-build.outputs.build_version }}"
+          echo "Check the workflow logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          # Add Slack/Teams notification here if configured
+          exit 1

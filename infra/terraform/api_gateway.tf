@@ -79,65 +79,8 @@ resource "aws_cloudwatch_log_group" "api_gateway" {
   tags = local.common_tags
 }
 
-# Example API Routes (placeholders for Lambda integrations)
-resource "aws_apigatewayv2_route" "health" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "GET /health"
-  target    = "integrations/${aws_apigatewayv2_integration.health.id}"
-}
-
-resource "aws_apigatewayv2_route" "documents" {
-  api_id             = aws_apigatewayv2_api.main.id
-  route_key          = "GET /documents"
-  target             = "integrations/${aws_apigatewayv2_integration.documents.id}"
-  authorization_type = "JWT"
-  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
-}
-
-resource "aws_apigatewayv2_route" "documents_post" {
-  api_id             = aws_apigatewayv2_api.main.id
-  route_key          = "POST /documents"
-  target             = "integrations/${aws_apigatewayv2_integration.documents_post.id}"
-  authorization_type = "JWT"
-  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
-}
-
-resource "aws_apigatewayv2_route" "document_by_id" {
-  api_id             = aws_apigatewayv2_api.main.id
-  route_key          = "GET /documents/{documentId}"
-  target             = "integrations/${aws_apigatewayv2_integration.document_by_id.id}"
-  authorization_type = "JWT"
-  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
-}
-
-# HTTP proxy integrations (to be replaced with Lambda integrations)
-resource "aws_apigatewayv2_integration" "health" {
-  api_id             = aws_apigatewayv2_api.main.id
-  integration_type   = "HTTP_PROXY"
-  integration_method = "GET"
-  integration_uri    = "https://httpbin.org/status/200"
-}
-
-resource "aws_apigatewayv2_integration" "documents" {
-  api_id             = aws_apigatewayv2_api.main.id
-  integration_type   = "HTTP_PROXY"
-  integration_method = "GET"
-  integration_uri    = "https://httpbin.org/json"
-}
-
-resource "aws_apigatewayv2_integration" "documents_post" {
-  api_id             = aws_apigatewayv2_api.main.id
-  integration_type   = "HTTP_PROXY"
-  integration_method = "POST"
-  integration_uri    = "https://httpbin.org/post"
-}
-
-resource "aws_apigatewayv2_integration" "document_by_id" {
-  api_id             = aws_apigatewayv2_api.main.id
-  integration_type   = "HTTP_PROXY"
-  integration_method = "GET"
-  integration_uri    = "https://httpbin.org/json"
-}
+# API routes are now handled by Lambda function in lambda.tf
+# All routes are proxied to the Lambda function via the ANY /{proxy+} route
 
 # Custom Domain (optional)
 resource "aws_apigatewayv2_domain_name" "api" {

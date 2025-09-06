@@ -1,0 +1,884 @@
+name: API CI with Blue/Green Deployment
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/api/**'
+      - '.github/workflows/api-ci.yml'
+  pull_request:
+    paths:
+      - 'services/api/**'
+      - '.github/workflows/api-ci.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      skip_tests:
+        description: 'Skip test execution'
+        required: false
+        default: false
+        type: boolean
+      force_deploy:
+        description: 'Force deployment even if no changes detected'
+        required: false
+        default: false
+        type: boolean
+      traffic_shift_percentage:
+        description: 'Percentage of traffic to shift to new version (0-100)'
+        required: false
+        default: '10'
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+env:
+  PYTHON_VERSION: '3.9'
+  API_WORKING_DIR: 'services/api'
+  AWS_REGION: us-east-1
+
+jobs:
+  detect-changes:
+    name: Detect API Changes
+    runs-on: ubuntu-latest
+    outputs:
+      api_changed: ${{ steps.changes.outputs.api_changed }}
+      should_deploy: ${{ steps.deploy-decision.outputs.should_deploy }}
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect API changes
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ "${{ inputs.force_deploy }}" == "true" ]; then
+              echo "api_changed=true" >> $GITHUB_OUTPUT
+              echo "Force deployment requested"
+            else
+              echo "api_changed=true" >> $GITHUB_OUTPUT
+              echo "Manual dispatch - assuming changes"
+            fi
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "api_changed=true" >> $GITHUB_OUTPUT
+            echo "Pull request - running tests and validation"
+          else
+            # Check for changes in API directory or workflow
+            CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} 2>/dev/null || echo "")
+
+            if [ -z "$CHANGED_FILES" ]; then
+              # If we can't detect changes (e.g., first push), assume changes
+              echo "api_changed=true" >> $GITHUB_OUTPUT
+              echo "Cannot detect changes - assuming API changes"
+            elif echo "$CHANGED_FILES" | grep -q "^services/api/\|^\.github/workflows/api-ci\.yml"; then
+              echo "api_changed=true" >> $GITHUB_OUTPUT
+              echo "API changes detected"
+            else
+              echo "api_changed=false" >> $GITHUB_OUTPUT
+              echo "No API changes detected"
+            fi
+          fi
+
+      - name: Generate version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+          else
+            VERSION="main-$(git rev-parse --short ${{ github.sha }})-$(date +%Y%m%d-%H%M%S)"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Generated version: $VERSION"
+
+      - name: Determine deployment decision
+        id: deploy-decision
+        run: |
+          if [ "${{ steps.changes.outputs.api_changed }}" == "true" ] && [ "${{ github.ref }}" == "refs/heads/main" ] && [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+            echo "Will deploy to production"
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ steps.changes.outputs.api_changed }}" == "true" ]; then
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+            echo "Will deploy via manual dispatch"
+          else
+            echo "should_deploy=false" >> $GITHUB_OUTPUT
+            echo "Will not deploy"
+          fi
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.api_changed == 'true' && inputs.skip_tests != true
+    outputs:
+      test_results: ${{ steps.test-summary.outputs.results }}
+      coverage_percentage: ${{ steps.coverage.outputs.percentage }}
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_USER: testuser
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          cd ${{ env.API_WORKING_DIR }}
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio httpx
+
+      - name: Set up test environment
+        run: |
+          cd ${{ env.API_WORKING_DIR }}
+
+          # Create test environment file
+          cat > .env.test << EOF
+          DATABASE_URL=postgresql://testuser:testpass@localhost:5432/testdb
+          REDIS_URL=redis://localhost:6379/0
+          ENVIRONMENT=test
+          LOG_LEVEL=DEBUG
+          EOF
+
+      - name: Run linting
+        run: |
+          cd ${{ env.API_WORKING_DIR }}
+          pip install ruff black mypy
+
+          echo "Running Black formatter check..."
+          black --check --diff .
+
+          echo "Running Ruff linter..."
+          ruff check .
+
+          echo "Running MyPy type checking..."
+          mypy . --ignore-missing-imports || true
+
+      - name: Run unit tests
+        id: unit-tests
+        run: |
+          cd ${{ env.API_WORKING_DIR }}
+
+          echo "Running unit tests..."
+          pytest tests/unit/ -v --tb=short --cov=. --cov-report=xml --cov-report=term-missing \
+            --junitxml=unit-test-results.xml || echo "unit_tests_failed=true" >> $GITHUB_OUTPUT
+
+      - name: Run integration tests
+        id: integration-tests
+        env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          cd ${{ env.API_WORKING_DIR }}
+
+          echo "Running integration tests..."
+          pytest tests/integration/ -v --tb=short \
+            --junitxml=integration-test-results.xml || echo "integration_tests_failed=true" >> $GITHUB_OUTPUT
+
+      - name: Run API endpoint tests
+        id: api-tests
+        env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          cd ${{ env.API_WORKING_DIR }}
+
+          echo "Running API endpoint tests..."
+          pytest tests/api/ -v --tb=short \
+            --junitxml=api-test-results.xml || echo "api_tests_failed=true" >> $GITHUB_OUTPUT
+
+      - name: Calculate test coverage
+        id: coverage
+        run: |
+          cd ${{ env.API_WORKING_DIR }}
+
+          if [ -f coverage.xml ]; then
+            # Extract coverage percentage from XML
+            COVERAGE=$(python -c "
+            import xml.etree.ElementTree as ET
+            tree = ET.parse('coverage.xml')
+            root = tree.getroot()
+            coverage = root.attrib.get('line-rate', '0')
+            print(f'{float(coverage) * 100:.1f}')
+            " 2>/dev/null || echo "0.0")
+
+            echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
+            echo "Test coverage: $COVERAGE%"
+          else
+            echo "percentage=0.0" >> $GITHUB_OUTPUT
+            echo "No coverage report found"
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-results-${{ needs.detect-changes.outputs.version }}
+          path: |
+            ${{ env.API_WORKING_DIR }}/*test-results.xml
+            ${{ env.API_WORKING_DIR }}/coverage.xml
+          retention-days: 30
+
+      - name: Generate test summary
+        id: test-summary
+        run: |
+          cd ${{ env.API_WORKING_DIR }}
+
+          UNIT_STATUS="✅ Passed"
+          INTEGRATION_STATUS="✅ Passed"
+          API_STATUS="✅ Passed"
+
+          if [ "${{ steps.unit-tests.outputs.unit_tests_failed }}" == "true" ]; then
+            UNIT_STATUS="❌ Failed"
+          fi
+
+          if [ "${{ steps.integration-tests.outputs.integration_tests_failed }}" == "true" ]; then
+            INTEGRATION_STATUS="❌ Failed"
+          fi
+
+          if [ "${{ steps.api-tests.outputs.api_tests_failed }}" == "true" ]; then
+            API_STATUS="❌ Failed"
+          fi
+
+          RESULTS="Unit Tests: $UNIT_STATUS | Integration Tests: $INTEGRATION_STATUS | API Tests: $API_STATUS"
+          echo "results=$RESULTS" >> $GITHUB_OUTPUT
+
+          echo "## 🧪 Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Unit Tests:** $UNIT_STATUS" >> $GITHUB_STEP_SUMMARY
+          echo "**Integration Tests:** $INTEGRATION_STATUS" >> $GITHUB_STEP_SUMMARY
+          echo "**API Tests:** $API_STATUS" >> $GITHUB_STEP_SUMMARY
+          echo "**Coverage:** ${{ steps.coverage.outputs.percentage }}%" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Fail the job if any tests failed
+          if [ "${{ steps.unit-tests.outputs.unit_tests_failed }}" == "true" ] || \
+             [ "${{ steps.integration-tests.outputs.integration_tests_failed }}" == "true" ] || \
+             [ "${{ steps.api-tests.outputs.api_tests_failed }}" == "true" ]; then
+            echo "❌ Some tests failed - blocking deployment" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "✅ All tests passed - ready for deployment" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  build-package:
+    name: Build Lambda Package
+    runs-on: ubuntu-latest
+    needs: [detect-changes, test]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.should_deploy == 'true' &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped')
+    outputs:
+      package_s3_key: ${{ steps.upload-package.outputs.s3_key }}
+      package_version: ${{ steps.package.outputs.version }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.GITHUB_API_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-APIDeploy-Build-${{ github.run_id }}
+
+      - name: Create Lambda deployment package
+        id: package
+        run: |
+          cd ${{ env.API_WORKING_DIR }}
+
+          # Create deployment directory
+          mkdir -p deployment/
+
+          # Install dependencies
+          pip install -r requirements.txt -t deployment/
+
+          # Copy application code
+          cp -r *.py deployment/
+          cp -r packages/ deployment/ 2>/dev/null || echo "No packages directory"
+
+          # Create Lambda handler wrapper if it doesn't exist
+          if [ ! -f deployment/lambda_handler.py ]; then
+            cat > deployment/lambda_handler.py << 'EOF'
+          import json
+          from mangum import Mangum
+          from main import app
+
+          # Create the Mangum handler
+          handler = Mangum(app, lifespan="off")
+
+          def lambda_handler(event, context):
+              """AWS Lambda handler function"""
+              return handler(event, context)
+          EOF
+          fi
+
+          # Install mangum for Lambda integration
+          pip install mangum -t deployment/
+
+          # Create deployment package
+          cd deployment/
+          zip -r ../api-deployment-${{ needs.detect-changes.outputs.version }}.zip . -x "*.pyc" "*/__pycache__/*"
+          cd ..
+
+          PACKAGE_SIZE=$(du -h api-deployment-${{ needs.detect-changes.outputs.version }}.zip | cut -f1)
+          echo "version=${{ needs.detect-changes.outputs.version }}" >> $GITHUB_OUTPUT
+          echo "size=$PACKAGE_SIZE" >> $GITHUB_OUTPUT
+          echo "Package created: api-deployment-${{ needs.detect-changes.outputs.version }}.zip ($PACKAGE_SIZE)"
+
+      - name: Upload package to S3
+        id: upload-package
+        run: |
+          cd ${{ env.API_WORKING_DIR }}
+
+          # Get deployment bucket
+          DEPLOYMENT_BUCKET=$(aws s3api list-buckets --query "Buckets[?contains(Name, 'deployment')].Name" --output text | head -1)
+
+          if [ -z "$DEPLOYMENT_BUCKET" ]; then
+            echo "Error: Could not find deployment S3 bucket"
+            exit 1
+          fi
+
+          S3_KEY="api-packages/api-deployment-${{ needs.detect-changes.outputs.version }}.zip"
+
+          # Upload package
+          aws s3 cp api-deployment-${{ needs.detect-changes.outputs.version }}.zip s3://$DEPLOYMENT_BUCKET/$S3_KEY
+
+          echo "s3_key=$S3_KEY" >> $GITHUB_OUTPUT
+          echo "bucket=$DEPLOYMENT_BUCKET" >> $GITHUB_OUTPUT
+          echo "Package uploaded to s3://$DEPLOYMENT_BUCKET/$S3_KEY"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-deployment-package-${{ needs.detect-changes.outputs.version }}
+          path: ${{ env.API_WORKING_DIR }}/api-deployment-${{ needs.detect-changes.outputs.version }}.zip
+          retention-days: 30
+
+  blue-green-deploy:
+    name: Blue/Green Deployment
+    runs-on: ubuntu-latest
+    needs: [detect-changes, test, build-package]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.should_deploy == 'true' &&
+      needs.build-package.result == 'success'
+    environment:
+      name: ${{ inputs.environment || 'production' }}-api
+      url: ${{ steps.deployment-urls.outputs.api_url }}
+    outputs:
+      deployment_status: ${{ steps.traffic-switch.outputs.status }}
+      blue_version: ${{ steps.get-current.outputs.blue_version }}
+      green_version: ${{ steps.deploy-green.outputs.green_version }}
+      api_url: ${{ steps.deployment-urls.outputs.api_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.GITHUB_API_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-APIDeploy-BlueGreen-${{ github.run_id }}
+
+      - name: Get Lambda function configuration
+        id: lambda-config
+        run: |
+          FUNCTION_NAME="pdf-accessibility-${{ inputs.environment || 'prod' }}-api"
+          echo "function_name=$FUNCTION_NAME" >> $GITHUB_OUTPUT
+          echo "Lambda function: $FUNCTION_NAME"
+
+      - name: Check if Lambda function exists
+        id: check-function
+        run: |
+          if aws lambda get-function --function-name ${{ steps.lambda-config.outputs.function_name }} >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Lambda function exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Lambda function does not exist - deployment will be skipped"
+            exit 1
+          fi
+
+      - name: Get current deployment state (Blue)
+        id: get-current
+        run: |
+          # Get current LIVE alias version (Blue)
+          BLUE_VERSION=$(aws lambda get-alias \
+            --function-name ${{ steps.lambda-config.outputs.function_name }} \
+            --name LIVE \
+            --query 'FunctionVersion' \
+            --output text 2>/dev/null || echo "1")
+
+          echo "blue_version=$BLUE_VERSION" >> $GITHUB_OUTPUT
+          echo "Current LIVE version (Blue): $BLUE_VERSION"
+
+          # Get current STAGING alias version if it exists
+          STAGING_VERSION=$(aws lambda get-alias \
+            --function-name ${{ steps.lambda-config.outputs.function_name }} \
+            --name STAGING \
+            --query 'FunctionVersion' \
+            --output text 2>/dev/null || echo "")
+
+          echo "staging_version=$STAGING_VERSION" >> $GITHUB_OUTPUT
+          echo "Current STAGING version: ${STAGING_VERSION:-'None'}"
+
+      - name: Deploy new version (Green)
+        id: deploy-green
+        run: |
+          # Update function code with new package
+          S3_BUCKET=$(echo "${{ needs.build-package.outputs.package_s3_key }}" | cut -d'/' -f1)
+          S3_KEY="${{ needs.build-package.outputs.package_s3_key }}"
+
+          # Get the deployment bucket name
+          DEPLOYMENT_BUCKET=$(aws s3api list-buckets --query "Buckets[?contains(Name, 'deployment')].Name" --output text | head -1)
+
+          echo "Updating function code from s3://$DEPLOYMENT_BUCKET/$S3_KEY"
+
+          aws lambda update-function-code \
+            --function-name ${{ steps.lambda-config.outputs.function_name }} \
+            --s3-bucket "$DEPLOYMENT_BUCKET" \
+            --s3-key "$S3_KEY" \
+            --output json > update_result.json
+
+          # Wait for update to complete
+          echo "Waiting for function update to complete..."
+          aws lambda wait function-updated \
+            --function-name ${{ steps.lambda-config.outputs.function_name }}
+
+          # Publish new version
+          echo "Publishing new version..."
+          PUBLISH_RESULT=$(aws lambda publish-version \
+            --function-name ${{ steps.lambda-config.outputs.function_name }} \
+            --description "API deployment from commit ${{ github.sha }} - Blue/Green deployment" \
+            --output json)
+
+          GREEN_VERSION=$(echo "$PUBLISH_RESULT" | jq -r '.Version')
+          GREEN_ARN=$(echo "$PUBLISH_RESULT" | jq -r '.FunctionArn')
+
+          echo "green_version=$GREEN_VERSION" >> $GITHUB_OUTPUT
+          echo "green_arn=$GREEN_ARN" >> $GITHUB_OUTPUT
+          echo "New version (Green) deployed: $GREEN_VERSION"
+
+      - name: Update STAGING alias to Green version
+        id: update-staging
+        run: |
+          # Update or create STAGING alias to point to Green version
+          if aws lambda get-alias --function-name ${{ steps.lambda-config.outputs.function_name }} --name STAGING >/dev/null 2>&1; then
+            echo "Updating existing STAGING alias to Green version..."
+            aws lambda update-alias \
+              --function-name ${{ steps.lambda-config.outputs.function_name }} \
+              --name STAGING \
+              --function-version ${{ steps.deploy-green.outputs.green_version }} \
+              --description "Green version for testing - ${{ github.sha }}"
+          else
+            echo "Creating new STAGING alias for Green version..."
+            aws lambda create-alias \
+              --function-name ${{ steps.lambda-config.outputs.function_name }} \
+              --name STAGING \
+              --function-version ${{ steps.deploy-green.outputs.green_version }} \
+              --description "Green version for testing - ${{ github.sha }}"
+          fi
+
+          echo "STAGING alias updated to Green version ${{ steps.deploy-green.outputs.green_version }}"
+
+      - name: Run health checks on Green version
+        id: health-check-green
+        run: |
+          echo "Running health checks on Green version (STAGING)..."
+
+          # Health check payload
+          HEALTH_PAYLOAD='{"httpMethod": "GET", "path": "/health", "headers": {"Host": "api.example.com"}}'
+
+          # Run multiple health checks
+          SUCCESS_COUNT=0
+          TOTAL_CHECKS=5
+
+          for i in $(seq 1 $TOTAL_CHECKS); do
+            echo "Health check attempt $i/$TOTAL_CHECKS..."
+
+            INVOKE_RESULT=$(aws lambda invoke \
+              --function-name ${{ steps.lambda-config.outputs.function_name }}:STAGING \
+              --payload "$HEALTH_PAYLOAD" \
+              --output json \
+              response_$i.json)
+
+            STATUS_CODE=$(echo "$INVOKE_RESULT" | jq -r '.StatusCode')
+
+            if [ "$STATUS_CODE" = "200" ]; then
+              # Check response content
+              if [ -f response_$i.json ]; then
+                RESPONSE_BODY=$(cat response_$i.json)
+
+                # Parse response and check for healthy status
+                if echo "$RESPONSE_BODY" | jq -e '.statusCode == 200' >/dev/null 2>&1 || \
+                   echo "$RESPONSE_BODY" | grep -q '"status".*"healthy"'; then
+                  SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+                  echo "✅ Health check $i passed"
+                else
+                  echo "❌ Health check $i failed - unexpected response: $RESPONSE_BODY"
+                fi
+              else
+                echo "❌ Health check $i failed - no response file"
+              fi
+            else
+              echo "❌ Health check $i failed - status code: $STATUS_CODE"
+            fi
+
+            # Wait between checks
+            if [ $i -lt $TOTAL_CHECKS ]; then
+              sleep 10
+            fi
+          done
+
+          echo "Health check results: $SUCCESS_COUNT/$TOTAL_CHECKS passed"
+
+          # Require at least 80% success rate
+          MIN_SUCCESS=$((TOTAL_CHECKS * 80 / 100))
+
+          if [ $SUCCESS_COUNT -ge $MIN_SUCCESS ]; then
+            echo "health_status=passed" >> $GITHUB_OUTPUT
+            echo "✅ Health checks passed ($SUCCESS_COUNT/$TOTAL_CHECKS)"
+          else
+            echo "health_status=failed" >> $GITHUB_OUTPUT
+            echo "❌ Health checks failed ($SUCCESS_COUNT/$TOTAL_CHECKS) - minimum required: $MIN_SUCCESS"
+            exit 1
+          fi
+
+      - name: Gradual traffic shifting
+        id: traffic-switch
+        if: steps.health-check-green.outputs.health_status == 'passed'
+        run: |
+          echo "Starting gradual traffic shift from Blue to Green..."
+
+          TRAFFIC_PERCENTAGE="${{ inputs.traffic_shift_percentage || '10' }}"
+
+          # Validate traffic percentage
+          if ! [[ "$TRAFFIC_PERCENTAGE" =~ ^[0-9]+$ ]] || [ "$TRAFFIC_PERCENTAGE" -lt 0 ] || [ "$TRAFFIC_PERCENTAGE" -gt 100 ]; then
+            echo "Invalid traffic percentage: $TRAFFIC_PERCENTAGE. Using default 10%"
+            TRAFFIC_PERCENTAGE=10
+          fi
+
+          echo "Shifting $TRAFFIC_PERCENTAGE% of traffic to Green version..."
+
+          # Calculate weights for weighted routing
+          GREEN_WEIGHT=$(echo "scale=2; $TRAFFIC_PERCENTAGE / 100" | bc)
+          BLUE_WEIGHT=$(echo "scale=2; (100 - $TRAFFIC_PERCENTAGE) / 100" | bc)
+
+          # Update LIVE alias with weighted routing
+          aws lambda update-alias \
+            --function-name ${{ steps.lambda-config.outputs.function_name }} \
+            --name LIVE \
+            --function-version ${{ steps.get-current.outputs.blue_version }} \
+            --routing-config "AdditionalVersionWeights={\"${{ steps.deploy-green.outputs.green_version }}\":$GREEN_WEIGHT}" \
+            --description "Blue/Green deployment - $TRAFFIC_PERCENTAGE% traffic to Green (${{ steps.deploy-green.outputs.green_version }})"
+
+          echo "Traffic routing updated:"
+          echo "- Blue version ${{ steps.get-current.outputs.blue_version }}: $((100 - TRAFFIC_PERCENTAGE))%"
+          echo "- Green version ${{ steps.deploy-green.outputs.green_version }}: $TRAFFIC_PERCENTAGE%"
+
+          echo "status=traffic_shifted" >> $GITHUB_OUTPUT
+          echo "blue_weight=$BLUE_WEIGHT" >> $GITHUB_OUTPUT
+          echo "green_weight=$GREEN_WEIGHT" >> $GITHUB_OUTPUT
+
+      - name: Monitor Green version performance
+        id: monitor-green
+        if: steps.traffic-switch.outputs.status == 'traffic_shifted'
+        run: |
+          echo "Monitoring Green version performance for 2 minutes..."
+
+          # Monitor for 2 minutes with health checks every 30 seconds
+          MONITORING_DURATION=120
+          CHECK_INTERVAL=30
+          CHECKS_COUNT=$((MONITORING_DURATION / CHECK_INTERVAL))
+
+          SUCCESS_COUNT=0
+
+          for i in $(seq 1 $CHECKS_COUNT); do
+            echo "Performance check $i/$CHECKS_COUNT..."
+
+            # Health check on LIVE alias (mixed traffic)
+            HEALTH_PAYLOAD='{"httpMethod": "GET", "path": "/health", "headers": {"Host": "api.example.com"}}'
+
+            INVOKE_RESULT=$(aws lambda invoke \
+              --function-name ${{ steps.lambda-config.outputs.function_name }}:LIVE \
+              --payload "$HEALTH_PAYLOAD" \
+              --output json \
+              monitor_response_$i.json)
+
+            STATUS_CODE=$(echo "$INVOKE_RESULT" | jq -r '.StatusCode')
+
+            if [ "$STATUS_CODE" = "200" ]; then
+              SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+              echo "✅ Performance check $i passed"
+            else
+              echo "❌ Performance check $i failed - status code: $STATUS_CODE"
+            fi
+
+            # Wait between checks
+            if [ $i -lt $CHECKS_COUNT ]; then
+              sleep $CHECK_INTERVAL
+            fi
+          done
+
+          echo "Performance monitoring results: $SUCCESS_COUNT/$CHECKS_COUNT passed"
+
+          # Require 100% success for production traffic switch
+          if [ $SUCCESS_COUNT -eq $CHECKS_COUNT ]; then
+            echo "performance_status=passed" >> $GITHUB_OUTPUT
+            echo "✅ Green version performance is stable"
+          else
+            echo "performance_status=failed" >> $GITHUB_OUTPUT
+            echo "❌ Green version performance issues detected"
+            exit 1
+          fi
+
+      - name: Complete traffic switch or rollback
+        id: complete-switch
+        if: always()
+        run: |
+          if [ "${{ steps.monitor-green.outputs.performance_status }}" = "passed" ]; then
+            echo "✅ Completing traffic switch to Green version..."
+
+            # Switch 100% traffic to Green version
+            aws lambda update-alias \
+              --function-name ${{ steps.lambda-config.outputs.function_name }} \
+              --name LIVE \
+              --function-version ${{ steps.deploy-green.outputs.green_version }} \
+              --description "Blue/Green deployment completed - 100% traffic to Green (${{ steps.deploy-green.outputs.green_version }})"
+
+            echo "🎉 Blue/Green deployment completed successfully!"
+            echo "LIVE alias now points to Green version ${{ steps.deploy-green.outputs.green_version }}"
+            echo "final_status=success" >> $GITHUB_OUTPUT
+
+          else
+            echo "❌ Rolling back to Blue version due to performance issues..."
+
+            # Rollback to Blue version (remove weighted routing)
+            aws lambda update-alias \
+              --function-name ${{ steps.lambda-config.outputs.function_name }} \
+              --name LIVE \
+              --function-version ${{ steps.get-current.outputs.blue_version }} \
+              --description "Rollback to Blue version ${{ steps.get-current.outputs.blue_version }} due to Green version issues"
+
+            echo "🔄 Rollback completed - LIVE alias restored to Blue version ${{ steps.get-current.outputs.blue_version }}"
+            echo "final_status=rollback" >> $GITHUB_OUTPUT
+
+            # Clean up failed Green version
+            echo "Cleaning up failed Green version..."
+            aws lambda delete-function \
+              --function-name ${{ steps.lambda-config.outputs.function_name }}:${{ steps.deploy-green.outputs.green_version }} || true
+
+            exit 1
+          fi
+
+      - name: Get deployment URLs
+        id: deployment-urls
+        run: |
+          # Get API Gateway URL from Lambda function tags or environment
+          API_URL=$(aws lambda get-function \
+            --function-name ${{ steps.lambda-config.outputs.function_name }} \
+            --query 'Tags.ApiGatewayUrl' \
+            --output text 2>/dev/null || echo "")
+
+          if [ -z "$API_URL" ] || [ "$API_URL" = "None" ]; then
+            # Fallback: construct URL from API Gateway
+            API_ID=$(aws apigateway get-rest-apis \
+              --query "items[?contains(name, 'pdf-accessibility')].id" \
+              --output text | head -1)
+
+            if [ -n "$API_ID" ] && [ "$API_ID" != "None" ]; then
+              API_URL="https://$API_ID.execute-api.${{ env.AWS_REGION }}.amazonaws.com/prod"
+            else
+              API_URL="https://api.example.com"
+            fi
+          fi
+
+          echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+          echo "API URL: $API_URL"
+
+      - name: Generate deployment summary
+        if: always()
+        run: |
+          echo "## 🚀 Blue/Green API Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ inputs.environment || 'production' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ needs.detect-changes.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployed at:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment Details:**" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔵 Blue Version: ${{ steps.get-current.outputs.blue_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- 🟢 Green Version: ${{ steps.deploy-green.outputs.green_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- 🌐 API URL: ${{ steps.deployment-urls.outputs.api_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.complete-switch.outputs.final_status }}" = "success" ]; then
+            echo "**Status:** ✅ Deployment successful - 100% traffic on Green version" >> $GITHUB_STEP_SUMMARY
+            echo "**Traffic:** 100% → Green version ${{ steps.deploy-green.outputs.green_version }}" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.complete-switch.outputs.final_status }}" = "rollback" ]; then
+            echo "**Status:** 🔄 Deployment rolled back due to performance issues" >> $GITHUB_STEP_SUMMARY
+            echo "**Traffic:** 100% → Blue version ${{ steps.get-current.outputs.blue_version }} (rollback)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Status:** ❌ Deployment failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Health Checks:** ${{ steps.health-check-green.outputs.health_status || 'Not run' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Performance Monitoring:** ${{ steps.monitor-green.outputs.performance_status || 'Not run' }}" >> $GITHUB_STEP_SUMMARY
+
+  cleanup:
+    name: Cleanup Old Versions
+    runs-on: ubuntu-latest
+    needs: [detect-changes, blue-green-deploy]
+    if: |
+      always() &&
+      needs.blue-green-deploy.outputs.deployment_status == 'success' &&
+      needs.blue-green-deploy.result == 'success'
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.GITHUB_API_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-APIDeploy-Cleanup-${{ github.run_id }}
+
+      - name: Clean up old Lambda versions
+        run: |
+          FUNCTION_NAME="pdf-accessibility-${{ inputs.environment || 'prod' }}-api"
+
+          echo "Cleaning up old Lambda versions for $FUNCTION_NAME..."
+
+          # Get all versions except $LATEST
+          VERSIONS=$(aws lambda list-versions-by-function \
+            --function-name $FUNCTION_NAME \
+            --query 'Versions[?Version != `$LATEST`].Version' \
+            --output text)
+
+          # Keep the latest 5 versions plus current LIVE and STAGING
+          LIVE_VERSION=$(aws lambda get-alias \
+            --function-name $FUNCTION_NAME \
+            --name LIVE \
+            --query 'FunctionVersion' \
+            --output text 2>/dev/null || echo "")
+
+          STAGING_VERSION=$(aws lambda get-alias \
+            --function-name $FUNCTION_NAME \
+            --name STAGING \
+            --query 'FunctionVersion' \
+            --output text 2>/dev/null || echo "")
+
+          # Sort versions numerically and keep only the oldest ones for deletion
+          VERSIONS_TO_DELETE=$(echo "$VERSIONS" | tr ' ' '\n' | sort -n | head -n -5)
+
+          for version in $VERSIONS_TO_DELETE; do
+            # Don't delete versions that are currently in use
+            if [ "$version" != "$LIVE_VERSION" ] && [ "$version" != "$STAGING_VERSION" ]; then
+              echo "Deleting old version: $version"
+              aws lambda delete-function \
+                --function-name $FUNCTION_NAME:$version || echo "Failed to delete version $version"
+            else
+              echo "Skipping version $version (currently in use)"
+            fi
+          done
+
+          echo "Cleanup completed"
+
+  notify-deployment:
+    name: Notify Deployment
+    runs-on: ubuntu-latest
+    needs: [detect-changes, test, build-package, blue-green-deploy]
+    if: always() && needs.detect-changes.outputs.should_deploy == 'true'
+
+    steps:
+      - name: Notify success
+        if: needs.blue-green-deploy.result == 'success'
+        run: |
+          echo "✅ API Blue/Green deployment completed successfully"
+          echo "Version: ${{ needs.detect-changes.outputs.version }}"
+          echo "Blue Version: ${{ needs.blue-green-deploy.outputs.blue_version }}"
+          echo "Green Version: ${{ needs.blue-green-deploy.outputs.green_version }}"
+          echo "API URL: ${{ needs.blue-green-deploy.outputs.api_url }}"
+          echo "Test Results: ${{ needs.test.outputs.test_results }}"
+          echo "Coverage: ${{ needs.test.outputs.coverage_percentage }}%"
+          # Add Slack/Teams notification here if configured
+
+      - name: Notify failure
+        if: |
+          needs.test.result == 'failure' ||
+          needs.build-package.result == 'failure' ||
+          needs.blue-green-deploy.result == 'failure'
+        run: |
+          echo "❌ API deployment failed"
+          echo "Version: ${{ needs.detect-changes.outputs.version }}"
+
+          if [ "${{ needs.test.result }}" = "failure" ]; then
+            echo "Failure reason: Test failures"
+            echo "Test Results: ${{ needs.test.outputs.test_results }}"
+          elif [ "${{ needs.build-package.result }}" = "failure" ]; then
+            echo "Failure reason: Package build failed"
+          elif [ "${{ needs.blue-green-deploy.result }}" = "failure" ]; then
+            echo "Failure reason: Blue/Green deployment failed"
+          fi
+
+          echo "Check the workflow logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          # Add Slack/Teams notification here if configured
+          exit 1

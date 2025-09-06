@@ -90,3 +90,19 @@ variable "log_retention_days" {
   type        = number
   default     = 30
 }
+
+variable "log_level" {
+  description = "Application log level"
+  type        = string
+  default     = "INFO"
+  validation {
+    condition     = contains(["DEBUG", "INFO", "WARN", "ERROR"], var.log_level)
+    error_message = "Log level must be one of: DEBUG, INFO, WARN, ERROR."
+  }
+}
+
+variable "use_lambda_function_url" {
+  description = "Use Lambda Function URL instead of API Gateway"
+  type        = bool
+  default     = false
+}

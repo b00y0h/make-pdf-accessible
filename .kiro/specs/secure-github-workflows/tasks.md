@@ -21,7 +21,7 @@
   - Add health check validation for deployed functions
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
 
-- [ ] 4. Create web application CI workflow (web-ci.yml)
+- [x] 4. Create web application CI workflow (web-ci.yml)
   - Implement Next.js build process with production optimizations
   - Add S3 deployment with proper file permissions and metadata
   - Configure CloudFront cache invalidation
@@ -29,7 +29,7 @@
   - Add deployment verification checks
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
-- [ ] 5. Implement API CI workflow with blue/green deployment (api-ci.yml)
+- [x] 5. Implement API CI workflow with blue/green deployment (api-ci.yml)
   - Create comprehensive test suite execution (unit and integration tests)
   - Implement Lambda package creation and deployment
   - Configure blue/green deployment using Lambda aliases
