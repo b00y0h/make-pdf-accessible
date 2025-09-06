@@ -14,7 +14,10 @@
       "Bash(docker run:*)",
       "Bash(make lint:*)",
       "Bash(./venv/bin/ruff check . --fix)",
-      "Bash(docker-compose:*)"
+      "Bash(docker-compose:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(npx tsc:*)",
+      "Bash(pnpm install)"
     ],
     "deny": [],
     "ask": []
