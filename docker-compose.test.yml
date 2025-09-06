@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  api-test:
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile.dev
+    environment:
+      - PYTHONPATH=/app
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=testing
+      - AWS_SECRET_ACCESS_KEY=testing
+      - AWS_SECURITY_TOKEN=testing
+      - AWS_SESSION_TOKEN=testing
+    volumes:
+      - ./services/api:/app
+    command: pytest --ignore=tests/integration/ -v

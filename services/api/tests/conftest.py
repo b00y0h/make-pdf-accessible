@@ -1,14 +1,11 @@
 import os
-import pytest
-from typing import AsyncGenerator, Generator
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import boto3
-from fastapi.testclient import TestClient
-from moto import mock_dynamodb, mock_s3, mock_sqs
-
-from app.config import settings
+import pytest
 from app.main import app
+from fastapi.testclient import TestClient
+from moto import mock_aws
 
 
 # Test settings
@@ -50,53 +47,40 @@ def aws_credentials():
 
 
 @pytest.fixture
-def dynamodb_mock(aws_credentials):
-    """Mock DynamoDB"""
-    with mock_dynamodb():
+def aws_mock(aws_credentials):
+    """Mock AWS services"""
+    with mock_aws():
+        # Create DynamoDB tables
         dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
-        
-        # Create documents table
+
         documents_table = dynamodb.create_table(
             TableName="test-documents",
             KeySchema=[{"AttributeName": "docId", "KeyType": "HASH"}],
             AttributeDefinitions=[{"AttributeName": "docId", "AttributeType": "S"}],
             BillingMode="PAY_PER_REQUEST"
         )
-        
-        # Create jobs table
+
         jobs_table = dynamodb.create_table(
             TableName="test-jobs",
             KeySchema=[{"AttributeName": "jobId", "KeyType": "HASH"}],
             AttributeDefinitions=[{"AttributeName": "jobId", "AttributeType": "S"}],
             BillingMode="PAY_PER_REQUEST"
         )
-        
-        yield dynamodb
 
-
-@pytest.fixture
-def s3_mock(aws_credentials):
-    """Mock S3"""
-    with mock_s3():
+        # Create S3 buckets
         s3 = boto3.client("s3", region_name="us-east-1")
-        
-        # Create test buckets
         s3.create_bucket(Bucket="test-originals")
         s3.create_bucket(Bucket="test-derivatives")
-        
-        yield s3
 
-
-@pytest.fixture
-def sqs_mock(aws_credentials):
-    """Mock SQS"""
-    with mock_sqs():
+        # Create SQS queues
         sqs = boto3.client("sqs", region_name="us-east-1")
-        
-        # Create test queues
         sqs.create_queue(QueueName="test-ingest")
-        
-        yield sqs
+
+        yield {
+            "dynamodb": dynamodb,
+            "s3": s3,
+            "sqs": sqs
+        }
 
 
 @pytest.fixture
@@ -104,7 +88,7 @@ def mock_user():
     """Mock authenticated user"""
     from app.auth import User
     from app.models import UserRole
-    
+
     return User(
         sub="test-user-123",
         username="testuser",
@@ -119,7 +103,7 @@ def mock_admin_user():
     """Mock admin user"""
     from app.auth import User
     from app.models import UserRole
-    
+
     return User(
         sub="admin-user-123",
         username="admin",
@@ -141,20 +125,20 @@ def mock_powertools():
     with patch("app.main.logger") as mock_logger, \
          patch("app.main.tracer") as mock_tracer, \
          patch("app.main.metrics") as mock_metrics:
-        
+
         mock_logger.info = Mock()
         mock_logger.error = Mock()
         mock_logger.warning = Mock()
         mock_logger.exception = Mock()
         mock_logger.set_correlation_id = Mock()
         mock_logger.inject_lambda_context = lambda x: lambda f: f
-        
+
         mock_tracer.capture_method = lambda f: f
         mock_tracer.capture_lambda_handler = lambda f: f
-        
+
         mock_metrics.add_metric = Mock()
         mock_metrics.log_metrics = lambda f: f
-        
+
         yield {
             "logger": mock_logger,
             "tracer": mock_tracer,
@@ -167,7 +151,7 @@ def sample_document_data():
     """Sample document data for testing"""
     return {
         "docId": "test-doc-123",
-        "userId": "test-user-123", 
+        "userId": "test-user-123",
         "status": "pending",
         "filename": "test.pdf",
         "createdAt": "2023-01-01T00:00:00",

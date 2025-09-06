@@ -1,10 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
 from aws_lambda_powertools import Logger, Metrics, Tracer
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from ..auth import User, require_roles
 from ..models import ReportsSummaryResponse, UserRole
 from ..services import AWSServiceError, reports_service
-
 
 logger = Logger()
 tracer = Tracer()
@@ -24,12 +23,12 @@ async def get_summary_report(
     current_user: User = Depends(require_roles([UserRole.ADMIN]))
 ) -> ReportsSummaryResponse:
     """Get summary report with statistics"""
-    
+
     try:
         report = await reports_service.get_summary_report()
-        
+
         metrics.add_metric(name="ReportRequests", unit="Count", value=1)
-        
+
         logger.info(
             "Summary report generated",
             extra={
@@ -38,9 +37,9 @@ async def get_summary_report(
                 "success_rate": report.success_rate
             }
         )
-        
+
         return report
-        
+
     except AWSServiceError as e:
         logger.error(f"Failed to generate summary report: {e}")
         raise HTTPException(

@@ -7,7 +7,14 @@
       "Bash(do cp services/api/Dockerfile services/functions/$service/)",
       "Bash(done)",
       "Bash(find:*)",
-      "Bash(terraform -chdir=infra/terraform apply -auto-approve)"
+      "Bash(terraform -chdir=infra/terraform apply -auto-approve)",
+      "Bash(make test:*)",
+      "Bash(pip install:*)",
+      "Bash(docker build:*)",
+      "Bash(docker run:*)",
+      "Bash(make lint:*)",
+      "Bash(./venv/bin/ruff check . --fix)",
+      "Bash(docker-compose:*)"
     ],
     "deny": [],
     "ask": []

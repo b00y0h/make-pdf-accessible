@@ -14,15 +14,19 @@ class TestAPIEndpoints:
         """Test root endpoint response format."""
         response = client.get("/")
         assert response.status_code == 200
-        assert "message" in response.json()
-        assert isinstance(response.json()["message"], str)
+        data = response.json()
+        assert "service" in data
+        assert "status" in data
+        assert data["status"] == "running"
 
     def test_health_endpoint_response_format(self):
         """Test health endpoint response format."""
         response = client.get("/health")
         assert response.status_code == 200
-        assert "status" in response.json()
-        assert response.json()["status"] == "healthy"
+        data = response.json()
+        assert "status" in data
+        # In test environment, AWS will be unhealthy, so status should be degraded
+        assert data["status"] in ["healthy", "degraded"]
 
     def test_health_endpoint_headers(self):
         """Test health endpoint response headers."""

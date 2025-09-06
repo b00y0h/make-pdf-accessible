@@ -1,9 +1,9 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_serializer, field_validator
 
 
 class DocumentStatus(str, Enum):
@@ -19,7 +19,7 @@ class DocumentStatus(str, Enum):
 class DocumentType(str, Enum):
     """Supported document types"""
     PDF = "pdf"
-    HTML = "html" 
+    HTML = "html"
     JSON = "json"
     CSV_ZIP = "csvzip"
 
@@ -37,8 +37,9 @@ class DocumentUploadRequest(BaseModel):
     metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Additional metadata")
     priority: bool = Field(False, description="High priority processing")
     webhook_url: Optional[str] = Field(None, description="Callback webhook URL")
-    
-    @validator('source_url')
+
+    @field_validator('source_url')
+    @classmethod
     def validate_url(cls, v):
         if v and not (v.startswith('http://') or v.startswith('https://')):
             raise ValueError('source_url must be a valid HTTP/HTTPS URL')
@@ -57,12 +58,14 @@ class DocumentResponse(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Document metadata")
     error_message: Optional[str] = Field(None, description="Error message if failed")
     artifacts: Dict[str, str] = Field(default_factory=dict, description="Available artifacts")
-    
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat(),
-            UUID: lambda v: str(v)
-        }
+
+    @field_serializer('doc_id')
+    def serialize_doc_id(self, value: UUID) -> str:
+        return str(value)
+
+    @field_serializer('created_at', 'updated_at', 'completed_at')
+    def serialize_datetime(self, value: Optional[datetime]) -> Optional[str]:
+        return value.isoformat() if value else None
 
 
 class DocumentListResponse(BaseModel):
@@ -85,11 +88,10 @@ class DownloadResponse(BaseModel):
     expires_at: datetime = Field(..., description="URL expiration timestamp")
     content_type: str = Field(..., description="MIME content type")
     filename: str = Field(..., description="Suggested filename")
-    
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
+
+    @field_serializer('expires_at')
+    def serialize_datetime(self, value: datetime) -> str:
+        return value.isoformat()
 
 
 class WebhookPayload(BaseModel):
@@ -99,12 +101,14 @@ class WebhookPayload(BaseModel):
     status: DocumentStatus = Field(..., description="Document status")
     timestamp: datetime = Field(..., description="Event timestamp")
     data: Dict[str, Any] = Field(default_factory=dict, description="Additional event data")
-    
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat(),
-            UUID: lambda v: str(v)
-        }
+
+    @field_serializer('doc_id')
+    def serialize_doc_id(self, value: UUID) -> str:
+        return str(value)
+
+    @field_serializer('timestamp')
+    def serialize_datetime(self, value: datetime) -> str:
+        return value.isoformat()
 
 
 class WebhookRequest(BaseModel):
@@ -120,11 +124,6 @@ class ReportsSummaryResponse(BaseModel):
     weekly_stats: List[Dict[str, Any]] = Field(..., description="Weekly statistics")
     average_processing_time: float = Field(..., description="Average processing time in seconds")
     success_rate: float = Field(..., description="Success rate percentage")
-    
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
 
 
 class ErrorResponse(BaseModel):
@@ -134,11 +133,10 @@ class ErrorResponse(BaseModel):
     details: Optional[Dict[str, Any]] = Field(None, description="Additional error details")
     timestamp: datetime = Field(default_factory=datetime.utcnow, description="Error timestamp")
     request_id: Optional[str] = Field(None, description="Request ID for tracing")
-    
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
+
+    @field_serializer('timestamp')
+    def serialize_datetime(self, value: datetime) -> str:
+        return value.isoformat()
 
 
 class HealthResponse(BaseModel):
@@ -147,18 +145,17 @@ class HealthResponse(BaseModel):
     version: str = Field(..., description="API version")
     timestamp: datetime = Field(default_factory=datetime.utcnow, description="Health check timestamp")
     dependencies: Dict[str, str] = Field(default_factory=dict, description="Dependency status")
-    
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
+
+    @field_serializer('timestamp')
+    def serialize_datetime(self, value: datetime) -> str:
+        return value.isoformat()
 
 
 class PaginationParams(BaseModel):
     """Pagination parameters"""
     page: int = Field(1, ge=1, description="Page number")
     per_page: int = Field(10, ge=1, le=100, description="Items per page")
-    
+
     @property
     def offset(self) -> int:
         return (self.page - 1) * self.per_page

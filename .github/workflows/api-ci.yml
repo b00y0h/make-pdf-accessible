@@ -208,8 +208,24 @@ jobs:
           cd ${{ env.API_WORKING_DIR }}
 
           echo "Running unit tests..."
-          pytest tests/unit/ -v --tb=short --cov=. --cov-report=xml --cov-report=term-missing \
-            --junitxml=unit-test-results.xml || echo "unit_tests_failed=true" >> $GITHUB_OUTPUT
+          pytest tests/unit/ -v --tb=short --cov=app --cov-report=xml --cov-report=term-missing \
+            --cov-report=html --cov-fail-under=80 --junitxml=unit-test-results.xml \
+            --maxfail=10 --durations=10 || echo "unit_tests_failed=true" >> $GITHUB_OUTPUT
+
+          # Generate coverage badge data
+          if [ -f coverage.xml ]; then
+            COVERAGE_PERCENT=$(python -c "
+            import xml.etree.ElementTree as ET
+            try:
+                tree = ET.parse('coverage.xml')
+                root = tree.getroot()
+                coverage = float(root.attrib.get('line-rate', '0')) * 100
+                print(f'{coverage:.1f}')
+            except:
+                print('0.0')
+            ")
+            echo "unit_coverage=$COVERAGE_PERCENT" >> $GITHUB_OUTPUT
+          fi
 
       - name: Run integration tests
         id: integration-tests
@@ -220,8 +236,25 @@ jobs:
           cd ${{ env.API_WORKING_DIR }}
 
           echo "Running integration tests..."
-          pytest tests/integration/ -v --tb=short \
+          pytest tests/integration/ -v --tb=short --maxfail=5 --durations=10 \
             --junitxml=integration-test-results.xml || echo "integration_tests_failed=true" >> $GITHUB_OUTPUT
+
+          # Count integration test results
+          if [ -f integration-test-results.xml ]; then
+            INTEGRATION_TESTS=$(python -c "
+            import xml.etree.ElementTree as ET
+            try:
+                tree = ET.parse('integration-test-results.xml')
+                root = tree.getroot()
+                tests = root.attrib.get('tests', '0')
+                failures = root.attrib.get('failures', '0')
+                errors = root.attrib.get('errors', '0')
+                print(f'tests={tests},failures={failures},errors={errors}')
+            except:
+                print('tests=0,failures=0,errors=0')
+            ")
+            echo "integration_results=$INTEGRATION_TESTS" >> $GITHUB_OUTPUT
+          fi
 
       - name: Run API endpoint tests
         id: api-tests
@@ -232,8 +265,25 @@ jobs:
           cd ${{ env.API_WORKING_DIR }}
 
           echo "Running API endpoint tests..."
-          pytest tests/api/ -v --tb=short \
+          pytest tests/api/ -v --tb=short --maxfail=5 --durations=10 \
             --junitxml=api-test-results.xml || echo "api_tests_failed=true" >> $GITHUB_OUTPUT
+
+          # Count API test results
+          if [ -f api-test-results.xml ]; then
+            API_TESTS=$(python -c "
+            import xml.etree.ElementTree as ET
+            try:
+                tree = ET.parse('api-test-results.xml')
+                root = tree.getroot()
+                tests = root.attrib.get('tests', '0')
+                failures = root.attrib.get('failures', '0')
+                errors = root.attrib.get('errors', '0')
+                print(f'tests={tests},failures={failures},errors={errors}')
+            except:
+                print('tests=0,failures=0,errors=0')
+            ")
+            echo "api_results=$API_TESTS" >> $GITHUB_OUTPUT
+          fi
 
       - name: Calculate test coverage
         id: coverage
@@ -257,7 +307,7 @@ jobs:
             echo "No coverage report found"
           fi
 
-      - name: Upload test results
+      - name: Upload test results and coverage
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -265,7 +315,17 @@ jobs:
           path: |
             ${{ env.API_WORKING_DIR }}/*test-results.xml
             ${{ env.API_WORKING_DIR }}/coverage.xml
+            ${{ env.API_WORKING_DIR }}/htmlcov/
           retention-days: 30
+
+      - name: Publish test results
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: API Test Results
+          path: '${{ env.API_WORKING_DIR }}/*test-results.xml'
+          reporter: java-junit
+          fail-on-error: false
 
       - name: Generate test summary
         id: test-summary
@@ -275,38 +335,66 @@ jobs:
           UNIT_STATUS="✅ Passed"
           INTEGRATION_STATUS="✅ Passed"
           API_STATUS="✅ Passed"
+          OVERALL_STATUS="✅ All tests passed"
+
+          # Parse test results
+          UNIT_COVERAGE="${{ steps.unit-tests.outputs.unit_coverage || '0.0' }}"
+          INTEGRATION_RESULTS="${{ steps.integration-tests.outputs.integration_results || 'tests=0,failures=0,errors=0' }}"
+          API_RESULTS="${{ steps.api-tests.outputs.api_results || 'tests=0,failures=0,errors=0' }}"
 
           if [ "${{ steps.unit-tests.outputs.unit_tests_failed }}" == "true" ]; then
             UNIT_STATUS="❌ Failed"
+            OVERALL_STATUS="❌ Tests failed"
           fi
 
           if [ "${{ steps.integration-tests.outputs.integration_tests_failed }}" == "true" ]; then
             INTEGRATION_STATUS="❌ Failed"
+            OVERALL_STATUS="❌ Tests failed"
           fi
 
           if [ "${{ steps.api-tests.outputs.api_tests_failed }}" == "true" ]; then
             API_STATUS="❌ Failed"
+            OVERALL_STATUS="❌ Tests failed"
           fi
 
           RESULTS="Unit Tests: $UNIT_STATUS | Integration Tests: $INTEGRATION_STATUS | API Tests: $API_STATUS"
           echo "results=$RESULTS" >> $GITHUB_OUTPUT
 
-          echo "## 🧪 Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## 🧪 API Test Results Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Unit Tests:** $UNIT_STATUS" >> $GITHUB_STEP_SUMMARY
-          echo "**Integration Tests:** $INTEGRATION_STATUS" >> $GITHUB_STEP_SUMMARY
-          echo "**API Tests:** $API_STATUS" >> $GITHUB_STEP_SUMMARY
-          echo "**Coverage:** ${{ steps.coverage.outputs.percentage }}%" >> $GITHUB_STEP_SUMMARY
+          echo "### Test Suites" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status | Coverage/Results |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|------------------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Unit Tests | $UNIT_STATUS | ${UNIT_COVERAGE}% coverage |" >> $GITHUB_STEP_SUMMARY
+          echo "| Integration Tests | $INTEGRATION_STATUS | $INTEGRATION_RESULTS |" >> $GITHUB_STEP_SUMMARY
+          echo "| API Tests | $API_STATUS | $API_RESULTS |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Quality Metrics" >> $GITHUB_STEP_SUMMARY
+          echo "- **Code Coverage:** ${UNIT_COVERAGE}%" >> $GITHUB_STEP_SUMMARY
+          echo "- **Coverage Threshold:** 80%" >> $GITHUB_STEP_SUMMARY
+
+          # Coverage status
+          COVERAGE_FLOAT=$(echo "$UNIT_COVERAGE" | bc -l 2>/dev/null || echo "0")
+          if (( $(echo "$COVERAGE_FLOAT >= 80" | bc -l) )); then
+            echo "- **Coverage Status:** ✅ Meets threshold" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Coverage Status:** ⚠️ Below threshold" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Overall Status" >> $GITHUB_STEP_SUMMARY
+          echo "$OVERALL_STATUS" >> $GITHUB_STEP_SUMMARY
 
           # Fail the job if any tests failed
           if [ "${{ steps.unit-tests.outputs.unit_tests_failed }}" == "true" ] || \
              [ "${{ steps.integration-tests.outputs.integration_tests_failed }}" == "true" ] || \
              [ "${{ steps.api-tests.outputs.api_tests_failed }}" == "true" ]; then
-            echo "❌ Some tests failed - blocking deployment" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Deployment blocked due to test failures**" >> $GITHUB_STEP_SUMMARY
             exit 1
           else
-            echo "✅ All tests passed - ready for deployment" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **Ready for deployment**" >> $GITHUB_STEP_SUMMARY
           fi
 
   build-package:

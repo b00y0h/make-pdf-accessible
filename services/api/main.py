@@ -1,7 +1,5 @@
 # Lambda entry point
-from app.main import lambda_handler
-
 # For backwards compatibility
-from app.main import app
+from app.main import app, lambda_handler
 
 __all__ = ["lambda_handler", "app"]

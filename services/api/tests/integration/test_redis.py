@@ -1,7 +1,8 @@
 """Integration tests for Redis connectivity."""
 
-import pytest
 import os
+
+import pytest
 import redis
 from redis.exceptions import ConnectionError
 

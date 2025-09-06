@@ -331,6 +331,161 @@ jobs:
           RESOURCE_COUNT=$(terraform state list | wc -l)
           echo "- 📦 Total Resources: $RESOURCE_COUNT" >> $GITHUB_STEP_SUMMARY
 
+  terraform-test:
+    name: Terraform Testing
+    runs-on: ubuntu-latest
+    needs: terraform-validate
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    outputs:
+      test_results: ${{ steps.test-summary.outputs.results }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Install testing tools
+        run: |
+          # Install terraform testing tools
+          curl -L "https://github.com/terraform-linters/tflint/releases/latest/download/tflint_linux_amd64.zip" -o tflint.zip
+          unzip tflint.zip
+          sudo mv tflint /usr/local/bin/
+
+          # Install checkov for additional security scanning
+          pip install checkov
+
+      - name: Run TFLint
+        id: tflint
+        run: |
+          cd ${{ env.TF_WORKING_DIR }}
+
+          echo "Running TFLint..."
+          tflint --init
+          tflint --format=json > tflint-results.json || echo "tflint_failed=true" >> $GITHUB_OUTPUT
+
+          # Generate human-readable report
+          tflint --format=compact > tflint-report.txt || true
+
+          # Count issues
+          if [ -f tflint-results.json ]; then
+            ISSUES=$(jq '.issues | length' tflint-results.json 2>/dev/null || echo "0")
+            echo "tflint_issues=$ISSUES" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Checkov Security Scan
+        id: checkov
+        run: |
+          cd ${{ env.TF_WORKING_DIR }}
+
+          echo "Running Checkov security scan..."
+          checkov -d . --framework terraform --output json --output-file checkov-results.json \
+            --soft-fail || echo "checkov_failed=true" >> $GITHUB_OUTPUT
+
+          # Generate summary report
+          checkov -d . --framework terraform --compact --quiet > checkov-report.txt || true
+
+          # Count failed checks
+          if [ -f checkov-results.json ]; then
+            FAILED_CHECKS=$(jq '.results.failed_checks | length' checkov-results.json 2>/dev/null || echo "0")
+            PASSED_CHECKS=$(jq '.results.passed_checks | length' checkov-results.json 2>/dev/null || echo "0")
+            echo "checkov_failed_checks=$FAILED_CHECKS" >> $GITHUB_OUTPUT
+            echo "checkov_passed_checks=$PASSED_CHECKS" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Terraform Configuration Tests
+        id: config-tests
+        run: |
+          cd ${{ env.TF_WORKING_DIR }}
+
+          echo "Running Terraform configuration tests..."
+
+          # Test 1: Check for required providers
+          echo "Checking required providers..."
+          if ! grep -q "required_providers" *.tf; then
+            echo "❌ No required_providers block found"
+            echo "config_tests_failed=true" >> $GITHUB_OUTPUT
+          fi
+
+          # Test 2: Check for version constraints
+          echo "Checking version constraints..."
+          if ! grep -q "required_version" *.tf; then
+            echo "⚠️ No Terraform version constraint found"
+          fi
+
+          # Test 3: Check for backend configuration
+          echo "Checking backend configuration..."
+          if ! grep -q "backend" *.tf; then
+            echo "⚠️ No backend configuration found"
+          fi
+
+          # Test 4: Check for resource naming conventions
+          echo "Checking resource naming conventions..."
+          INVALID_NAMES=$(grep -E "resource \"[^\"]*\" \"[^a-z0-9_-]*\"" *.tf | wc -l || echo "0")
+          if [ "$INVALID_NAMES" -gt 0 ]; then
+            echo "⚠️ Found $INVALID_NAMES resources with non-standard names"
+          fi
+
+          # Test 5: Check for hardcoded values
+          echo "Checking for hardcoded sensitive values..."
+          HARDCODED_SECRETS=$(grep -iE "(password|secret|key).*=.*\"[^$]" *.tf | grep -v "var\." | wc -l || echo "0")
+          if [ "$HARDCODED_SECRETS" -gt 0 ]; then
+            echo "❌ Found $HARDCODED_SECRETS potential hardcoded secrets"
+            echo "config_tests_failed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-test-results-${{ github.run_id }}
+          path: |
+            ${{ env.TF_WORKING_DIR }}/tflint-results.json
+            ${{ env.TF_WORKING_DIR }}/tflint-report.txt
+            ${{ env.TF_WORKING_DIR }}/checkov-results.json
+            ${{ env.TF_WORKING_DIR }}/checkov-report.txt
+          retention-days: 30
+
+      - name: Generate test summary
+        id: test-summary
+        run: |
+          cd ${{ env.TF_WORKING_DIR }}
+
+          TFLINT_STATUS="✅ Passed"
+          CHECKOV_STATUS="✅ Passed"
+          CONFIG_STATUS="✅ Passed"
+
+          TFLINT_ISSUES="${{ steps.tflint.outputs.tflint_issues || '0' }}"
+          CHECKOV_FAILED="${{ steps.checkov.outputs.checkov_failed_checks || '0' }}"
+          CHECKOV_PASSED="${{ steps.checkov.outputs.checkov_passed_checks || '0' }}"
+
+          if [ "${{ steps.tflint.outputs.tflint_failed }}" == "true" ] || [ "$TFLINT_ISSUES" -gt 0 ]; then
+            TFLINT_STATUS="❌ Failed ($TFLINT_ISSUES issues)"
+          fi
+
+          if [ "${{ steps.checkov.outputs.checkov_failed }}" == "true" ] || [ "$CHECKOV_FAILED" -gt 0 ]; then
+            CHECKOV_STATUS="⚠️ Issues found ($CHECKOV_FAILED failed, $CHECKOV_PASSED passed)"
+          fi
+
+          if [ "${{ steps.config-tests.outputs.config_tests_failed }}" == "true" ]; then
+            CONFIG_STATUS="❌ Failed"
+          fi
+
+          RESULTS="TFLint: $TFLINT_STATUS | Checkov: $CHECKOV_STATUS | Config: $CONFIG_STATUS"
+          echo "results=$RESULTS" >> $GITHUB_OUTPUT
+
+          echo "## 🧪 Terraform Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status | Details |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| TFLint | $TFLINT_STATUS | Code quality and best practices |" >> $GITHUB_STEP_SUMMARY
+          echo "| Checkov | $CHECKOV_STATUS | Security and compliance |" >> $GITHUB_STEP_SUMMARY
+          echo "| Configuration | $CONFIG_STATUS | Terraform configuration validation |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
@@ -349,6 +504,23 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
 
+      - name: Run Trivy with JSON output for summary
+        id: trivy-json
+        run: |
+          docker run --rm -v "$PWD:/workspace" aquasec/trivy config /workspace/infra/terraform \
+            --format json --output /workspace/trivy-results.json || echo "trivy_failed=true" >> $GITHUB_OUTPUT
+
+          if [ -f trivy-results.json ]; then
+            # Count vulnerabilities by severity
+            HIGH=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "HIGH")] | length' trivy-results.json 2>/dev/null || echo "0")
+            MEDIUM=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "MEDIUM")] | length' trivy-results.json 2>/dev/null || echo "0")
+            LOW=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "LOW")] | length' trivy-results.json 2>/dev/null || echo "0")
+
+            echo "trivy_high=$HIGH" >> $GITHUB_OUTPUT
+            echo "trivy_medium=$MEDIUM" >> $GITHUB_OUTPUT
+            echo "trivy_low=$LOW" >> $GITHUB_OUTPUT
+          fi
+
       - name: Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@v3
         if: always()
@@ -357,10 +529,27 @@ jobs:
 
       - name: Generate Security Summary
         run: |
+          HIGH="${{ steps.trivy-json.outputs.trivy_high || '0' }}"
+          MEDIUM="${{ steps.trivy-json.outputs.trivy_medium || '0' }}"
+          LOW="${{ steps.trivy-json.outputs.trivy_low || '0' }}"
+
           echo "## 🔒 Security Scan Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Trivy security scan completed for Terraform configuration." >> $GITHUB_STEP_SUMMARY
-          echo "Check the Security tab for detailed results." >> $GITHUB_STEP_SUMMARY
+          echo "### Trivy Infrastructure Scan" >> $GITHUB_STEP_SUMMARY
+          echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| High | $HIGH |" >> $GITHUB_STEP_SUMMARY
+          echo "| Medium | $MEDIUM |" >> $GITHUB_STEP_SUMMARY
+          echo "| Low | $LOW |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$HIGH" -gt 0 ]; then
+            echo "⚠️ **High severity issues found!** Review the Security tab for details." >> $GITHUB_STEP_SUMMARY
+          elif [ "$MEDIUM" -gt 0 ]; then
+            echo "⚠️ **Medium severity issues found.** Consider reviewing the Security tab." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ **No high or medium severity issues found.**" >> $GITHUB_STEP_SUMMARY
+          fi
 
   notify-deployment:
     name: Notify Deployment

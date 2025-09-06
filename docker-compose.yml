@@ -3,18 +3,20 @@ services:
   api:
     build:
       context: ./services/api
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     ports:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql://postgres:password@postgres:5432/app_db
       - REDIS_URL=redis://redis:6379
+      - PYTHONPATH=/app
     depends_on:
       - postgres
       - redis
     volumes:
-      - ./services/api:/app
-      - ./packages/schemas:/app/packages/schemas
+      - ./services/api/app:/app/app
+      - ./services/api/tests:/app/tests
+      - ./services/api/main.py:/app/main.py
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   # Worker Service

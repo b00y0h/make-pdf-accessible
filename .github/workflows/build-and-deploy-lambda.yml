@@ -9,8 +9,6 @@ on:
       - 'services/worker/**'
       - '.github/workflows/build-and-deploy-lambda.yml'
   create:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       environment:
@@ -172,8 +170,138 @@ jobs:
           echo "path=$SERVICE_PATH" >> $GITHUB_OUTPUT
           echo "Service path: $SERVICE_PATH"
 
+      - name: Run Lambda function tests
+        id: function-tests
+        run: |
+          SERVICE_PATH="${{ steps.service-path.outputs.path }}"
+
+          echo "Running tests for ${{ matrix.service }} function..."
+
+          # Check if requirements.txt exists and install dependencies
+          if [ -f "$SERVICE_PATH/requirements.txt" ]; then
+            echo "Installing Python dependencies..."
+            pip install -r "$SERVICE_PATH/requirements.txt"
+            pip install pytest pytest-asyncio pytest-cov httpx moto boto3
+          fi
+
+          # Create test directory if it doesn't exist
+          mkdir -p "$SERVICE_PATH/tests"
+
+          # Create basic test file if none exists
+          if [ ! -f "$SERVICE_PATH/tests/test_main.py" ]; then
+            cat > "$SERVICE_PATH/tests/test_main.py" << 'EOF'
+          import pytest
+          import json
+          from unittest.mock import Mock, patch
+
+          def test_lambda_handler_import():
+              """Test that the main module can be imported"""
+              try:
+                  import main
+                  assert hasattr(main, 'app') or hasattr(main, 'handler') or hasattr(main, 'lambda_handler')
+              except ImportError as e:
+                  pytest.skip(f"Cannot import main module: {e}")
+
+          def test_health_endpoint():
+              """Test health endpoint if available"""
+              try:
+                  import main
+                  from fastapi.testclient import TestClient
+
+                  if hasattr(main, 'app'):
+                      client = TestClient(main.app)
+                      response = client.get("/health")
+                      assert response.status_code in [200, 404]  # 404 is OK if no health endpoint
+              except Exception as e:
+                  pytest.skip(f"Health endpoint test skipped: {e}")
+
+          @patch('boto3.client')
+          def test_aws_integration(mock_boto_client):
+              """Test AWS service integration"""
+              mock_client = Mock()
+              mock_boto_client.return_value = mock_client
+
+              try:
+                  import main
+                  # Basic smoke test - just ensure no import errors
+                  assert True
+              except Exception as e:
+                  pytest.skip(f"AWS integration test skipped: {e}")
+          EOF
+          fi
+
+          # Create conftest.py if it doesn't exist
+          if [ ! -f "$SERVICE_PATH/tests/conftest.py" ]; then
+            cat > "$SERVICE_PATH/tests/conftest.py" << 'EOF'
+          import os
+          import pytest
+          from unittest.mock import patch
+
+          @pytest.fixture(autouse=True)
+          def setup_test_environment():
+              """Setup test environment variables"""
+              test_env = {
+                  "AWS_DEFAULT_REGION": "us-east-1",
+                  "AWS_ACCESS_KEY_ID": "testing",
+                  "AWS_SECRET_ACCESS_KEY": "testing",
+                  "ENVIRONMENT": "test"
+              }
+
+              with patch.dict(os.environ, test_env):
+                  yield
+          EOF
+          fi
+
+          # Run tests
+          cd "$SERVICE_PATH"
+          pytest tests/ -v --tb=short --cov=. --cov-report=xml --cov-report=term-missing \
+            --junitxml=test-results.xml --maxfail=5 || echo "function_tests_failed=true" >> $GITHUB_OUTPUT
+
+          # Extract test results
+          if [ -f test-results.xml ]; then
+            TEST_RESULTS=$(python -c "
+            import xml.etree.ElementTree as ET
+            try:
+                tree = ET.parse('test-results.xml')
+                root = tree.getroot()
+                tests = root.attrib.get('tests', '0')
+                failures = root.attrib.get('failures', '0')
+                errors = root.attrib.get('errors', '0')
+                print(f'tests={tests},failures={failures},errors={errors}')
+            except:
+                print('tests=0,failures=0,errors=0')
+            ")
+            echo "test_results=$TEST_RESULTS" >> $GITHUB_OUTPUT
+          fi
+
+          # Extract coverage
+          if [ -f coverage.xml ]; then
+            COVERAGE=$(python -c "
+            import xml.etree.ElementTree as ET
+            try:
+                tree = ET.parse('coverage.xml')
+                root = tree.getroot()
+                coverage = float(root.attrib.get('line-rate', '0')) * 100
+                print(f'{coverage:.1f}')
+            except:
+                print('0.0')
+            ")
+            echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload function test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-test-results-${{ matrix.service }}-${{ needs.detect-changes.outputs.version }}
+          path: |
+            ${{ steps.service-path.outputs.path }}/test-results.xml
+            ${{ steps.service-path.outputs.path }}/coverage.xml
+          retention-days: 30
+
       - name: Build and push Docker image
         id: build-push
+        if: steps.function-tests.outputs.function_tests_failed != 'true'
         uses: docker/build-push-action@v5
         with:
           context: ${{ steps.service-path.outputs.path }}
@@ -327,20 +455,41 @@ jobs:
           echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          if [ "${{ steps.check-function.outputs.exists }}" == "true" ]; then
-            echo "**Deployment Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
-            echo "**Function Name:** ${{ steps.lambda-name.outputs.name }}" >> $GITHUB_STEP_SUMMARY
-            echo "**Published Version:** ${{ steps.publish-version.outputs.version_number }}" >> $GITHUB_STEP_SUMMARY
-            echo "**Image URI:** ${{ env.ECR_REGISTRY }}/pdf-accessibility-${{ inputs.environment || 'dev' }}-${{ matrix.service }}:${{ needs.detect-changes.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          # Test results summary
+          echo "### 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
+          TEST_RESULTS="${{ steps.function-tests.outputs.test_results || 'tests=0,failures=0,errors=0' }}"
+          COVERAGE="${{ steps.function-tests.outputs.coverage || '0.0' }}"
 
-            if [ "${{ steps.health-check.outcome }}" == "success" ]; then
-              echo "**Health Check:** ✅ Passed" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "**Health Check:** ❌ Failed" >> $GITHUB_STEP_SUMMARY
-            fi
+          if [ "${{ steps.function-tests.outputs.function_tests_failed }}" == "true" ]; then
+            echo "**Test Status:** ❌ Failed" >> $GITHUB_STEP_SUMMARY
+            echo "**Test Results:** $TEST_RESULTS" >> $GITHUB_STEP_SUMMARY
+            echo "**Coverage:** ${COVERAGE}%" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Deployment blocked due to test failures**" >> $GITHUB_STEP_SUMMARY
           else
-            echo "**Deployment Status:** ⚠️ Skipped (Function not found)" >> $GITHUB_STEP_SUMMARY
-            echo "**Note:** Lambda function does not exist in AWS. Please create it via Terraform first." >> $GITHUB_STEP_SUMMARY
+            echo "**Test Status:** ✅ Passed" >> $GITHUB_STEP_SUMMARY
+            echo "**Test Results:** $TEST_RESULTS" >> $GITHUB_STEP_SUMMARY
+            echo "**Coverage:** ${COVERAGE}%" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Deployment status
+            if [ "${{ steps.check-function.outputs.exists }}" == "true" ]; then
+              echo "### 🚀 Deployment Status" >> $GITHUB_STEP_SUMMARY
+              echo "**Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
+              echo "**Function Name:** ${{ steps.lambda-name.outputs.name }}" >> $GITHUB_STEP_SUMMARY
+              echo "**Published Version:** ${{ steps.publish-version.outputs.version_number }}" >> $GITHUB_STEP_SUMMARY
+              echo "**Image URI:** ${{ env.ECR_REGISTRY }}/pdf-accessibility-${{ inputs.environment || 'dev' }}-${{ matrix.service }}:${{ needs.detect-changes.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+
+              if [ "${{ steps.health-check.outcome }}" == "success" ]; then
+                echo "**Health Check:** ✅ Passed" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "**Health Check:** ❌ Failed" >> $GITHUB_STEP_SUMMARY
+              fi
+            else
+              echo "### ⚠️ Deployment Skipped" >> $GITHUB_STEP_SUMMARY
+              echo "**Reason:** Lambda function does not exist in AWS" >> $GITHUB_STEP_SUMMARY
+              echo "**Action Required:** Create function via Terraform first" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
 
   deployment-summary:

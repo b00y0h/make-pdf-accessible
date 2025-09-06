@@ -152,11 +152,72 @@ jobs:
           cd ${{ env.WEB_WORKING_DIR }}
           pnpm run type-check || npx tsc --noEmit
 
-      - name: Run tests
+      - name: Run unit tests
         if: inputs.skip_tests != true
+        id: unit-tests
         run: |
           cd ${{ env.WEB_WORKING_DIR }}
-          pnpm test --run --coverage
+
+          echo "Running Jest unit tests..."
+          pnpm test --run --coverage --coverageReporters=text --coverageReporters=lcov \
+            --coverageReporters=json --coverageThreshold='{"global":{"branches":70,"functions":70,"lines":70,"statements":70}}' \
+            --maxWorkers=2 --passWithNoTests || echo "unit_tests_failed=true" >> $GITHUB_OUTPUT
+
+          # Extract coverage percentage
+          if [ -f coverage/coverage-summary.json ]; then
+            COVERAGE=$(node -e "
+            const fs = require('fs');
+            try {
+              const coverage = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
+              const lines = coverage.total.lines.pct;
+              console.log(lines);
+            } catch (e) {
+              console.log('0');
+            }
+            ")
+            echo "unit_coverage=$COVERAGE" >> $GITHUB_OUTPUT
+          else
+            echo "unit_coverage=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run component tests
+        if: inputs.skip_tests != true
+        id: component-tests
+        run: |
+          cd ${{ env.WEB_WORKING_DIR }}
+
+          echo "Running component tests..."
+          # Run tests specifically for components
+          pnpm test --run --testPathPattern="components|__tests__" --passWithNoTests \
+            --verbose || echo "component_tests_failed=true" >> $GITHUB_OUTPUT
+
+      - name: Run integration tests
+        if: inputs.skip_tests != true
+        id: integration-tests
+        run: |
+          cd ${{ env.WEB_WORKING_DIR }}
+
+          echo "Running integration tests..."
+          # Run tests for pages and API routes
+          pnpm test --run --testPathPattern="pages|api|integration" --passWithNoTests \
+            --verbose || echo "integration_tests_failed=true" >> $GITHUB_OUTPUT
+
+      - name: Run accessibility tests
+        if: inputs.skip_tests != true
+        id: a11y-tests
+        run: |
+          cd ${{ env.WEB_WORKING_DIR }}
+
+          echo "Running accessibility tests..."
+          # Install axe-core for accessibility testing if not present
+          if ! pnpm list @axe-core/react >/dev/null 2>&1; then
+            echo "Installing accessibility testing dependencies..."
+            pnpm add -D @axe-core/react jest-axe
+          fi
+
+          # Run accessibility-specific tests
+          pnpm test --run --testPathPattern="a11y|accessibility" --passWithNoTests \
+            --verbose || echo "a11y_tests_failed=true" >> $GITHUB_OUTPUT
 
       - name: Generate build version
         id: version
@@ -211,6 +272,16 @@ jobs:
           }
           EOF
 
+      - name: Upload test results and coverage
+        if: always() && inputs.skip_tests != true
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-test-results-${{ steps.version.outputs.version }}
+          path: |
+            ${{ env.WEB_WORKING_DIR }}/coverage/
+            ${{ env.WEB_WORKING_DIR }}/test-results.xml
+          retention-days: 30
+
       - name: Upload build artifacts
         id: upload-artifact
         uses: actions/upload-artifact@v4
@@ -222,11 +293,11 @@ jobs:
           retention-days: 30
           compression-level: 6
 
-      - name: Generate build summary
+      - name: Generate test and build summary
         run: |
           cd ${{ env.WEB_WORKING_DIR }}
 
-          echo "## 🏗️ Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## 🏗️ Web Application Test & Build Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "**Build Time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
@@ -234,7 +305,52 @@ jobs:
           echo "**Node.js:** ${{ env.NODE_VERSION }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
+          # Test results summary
+          if [ "${{ inputs.skip_tests }}" != "true" ]; then
+            echo "### 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
+            echo "| Test Suite | Status | Coverage |" >> $GITHUB_STEP_SUMMARY
+            echo "|------------|--------|----------|" >> $GITHUB_STEP_SUMMARY
+
+            UNIT_STATUS="✅ Passed"
+            COMPONENT_STATUS="✅ Passed"
+            INTEGRATION_STATUS="✅ Passed"
+            A11Y_STATUS="✅ Passed"
+
+            if [ "${{ steps.unit-tests.outputs.unit_tests_failed }}" == "true" ]; then
+              UNIT_STATUS="❌ Failed"
+            fi
+            if [ "${{ steps.component-tests.outputs.component_tests_failed }}" == "true" ]; then
+              COMPONENT_STATUS="❌ Failed"
+            fi
+            if [ "${{ steps.integration-tests.outputs.integration_tests_failed }}" == "true" ]; then
+              INTEGRATION_STATUS="❌ Failed"
+            fi
+            if [ "${{ steps.a11y-tests.outputs.a11y_tests_failed }}" == "true" ]; then
+              A11Y_STATUS="❌ Failed"
+            fi
+
+            UNIT_COVERAGE="${{ steps.unit-tests.outputs.unit_coverage || '0' }}"
+
+            echo "| Unit Tests | $UNIT_STATUS | ${UNIT_COVERAGE}% |" >> $GITHUB_STEP_SUMMARY
+            echo "| Component Tests | $COMPONENT_STATUS | - |" >> $GITHUB_STEP_SUMMARY
+            echo "| Integration Tests | $INTEGRATION_STATUS | - |" >> $GITHUB_STEP_SUMMARY
+            echo "| Accessibility Tests | $A11Y_STATUS | - |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Overall test status
+            if [ "${{ steps.unit-tests.outputs.unit_tests_failed }}" == "true" ] || \
+               [ "${{ steps.component-tests.outputs.component_tests_failed }}" == "true" ] || \
+               [ "${{ steps.integration-tests.outputs.integration_tests_failed }}" == "true" ] || \
+               [ "${{ steps.a11y-tests.outputs.a11y_tests_failed }}" == "true" ]; then
+              echo "**Test Status:** ❌ Some tests failed" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "**Test Status:** ✅ All tests passed" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
           # Build size analysis
+          echo "### 📦 Build Analysis" >> $GITHUB_STEP_SUMMARY
           if [ -d ".next" ]; then
             BUILD_SIZE=$(du -sh .next | cut -f1)
             echo "**Build Size:** $BUILD_SIZE" >> $GITHUB_STEP_SUMMARY
@@ -242,10 +358,27 @@ jobs:
             # Count files
             STATIC_FILES=$(find .next/static -type f | wc -l 2>/dev/null || echo "0")
             echo "**Static Files:** $STATIC_FILES" >> $GITHUB_STEP_SUMMARY
+
+            # Check for build warnings
+            if [ -f ".next/build-manifest.json" ]; then
+              echo "**Build Status:** ✅ Successful" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Build completed successfully" >> $GITHUB_STEP_SUMMARY
+
+          # Fail if tests failed
+          if [ "${{ inputs.skip_tests }}" != "true" ]; then
+            if [ "${{ steps.unit-tests.outputs.unit_tests_failed }}" == "true" ] || \
+               [ "${{ steps.component-tests.outputs.component_tests_failed }}" == "true" ] || \
+               [ "${{ steps.integration-tests.outputs.integration_tests_failed }}" == "true" ] || \
+               [ "${{ steps.a11y-tests.outputs.a11y_tests_failed }}" == "true" ]; then
+              echo "❌ **Deployment blocked due to test failures**" >> $GITHUB_STEP_SUMMARY
+              exit 1
+            fi
+          fi
+
+          echo "✅ **Ready for deployment**" >> $GITHUB_STEP_SUMMARY
 
   deploy:
     name: Deploy to S3 and CloudFront
