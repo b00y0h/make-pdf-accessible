@@ -1,0 +1,338 @@
+{
+  "Comment": "PDF Accessibility Processing Workflow",
+  "StartAt": "OCRProcessing",
+  "States": {
+    "OCRProcessing": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${OCRFunctionArn}",
+        "Payload": {
+          "docId.$": "$.docId",
+          "s3Key.$": "$.s3Key",
+          "userId.$": "$.userId",
+          "priority.$": "$.priority"
+        }
+      },
+      "ResultPath": "$.ocrResult",
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        },
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleOCRFailure",
+          "ResultPath": "$.error"
+        }
+      ],
+      "TimeoutSeconds": 900,
+      "Next": "StructureProcessing"
+    },
+
+    "StructureProcessing": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${StructureFunctionArn}",
+        "Payload": {
+          "docId.$": "$.docId",
+          "textractS3Key.$": "$.ocrResult.Payload.textractS3Key",
+          "originalS3Key.$": "$.s3Key",
+          "userId.$": "$.userId"
+        }
+      },
+      "ResultPath": "$.structureResult",
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleStructureFailure",
+          "ResultPath": "$.error"
+        }
+      ],
+      "TimeoutSeconds": 600,
+      "Next": "AltTextProcessing"
+    },
+
+    "AltTextProcessing": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${AltTextFunctionArn}",
+        "Payload": {
+          "docId.$": "$.docId",
+          "documentJsonS3Key.$": "$.structureResult.Payload.documentJsonS3Key",
+          "originalS3Key.$": "$.s3Key",
+          "userId.$": "$.userId"
+        }
+      },
+      "ResultPath": "$.altTextResult",
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleAltTextFailure",
+          "ResultPath": "$.error"
+        }
+      ],
+      "TimeoutSeconds": 600,
+      "Next": "TagPDFProcessing"
+    },
+
+    "TagPDFProcessing": {
+      "Type": "Task", 
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${TagPDFFunctionArn}",
+        "Payload": {
+          "docId.$": "$.docId",
+          "originalS3Key.$": "$.s3Key",
+          "documentJsonS3Key.$": "$.structureResult.Payload.documentJsonS3Key",
+          "altTextJsonS3Key.$": "$.altTextResult.Payload.altTextJsonS3Key",
+          "userId.$": "$.userId"
+        }
+      },
+      "ResultPath": "$.taggedResult",
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleTagFailure",
+          "ResultPath": "$.error"
+        }
+      ],
+      "TimeoutSeconds": 300,
+      "Next": "ExportsProcessing"
+    },
+
+    "ExportsProcessing": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke", 
+      "Parameters": {
+        "FunctionName": "${ExportsFunctionArn}",
+        "Payload": {
+          "docId.$": "$.docId",
+          "taggedPdfS3Key.$": "$.taggedResult.Payload.taggedPdfS3Key",
+          "documentJsonS3Key.$": "$.structureResult.Payload.documentJsonS3Key",
+          "altTextJsonS3Key.$": "$.altTextResult.Payload.altTextJsonS3Key",
+          "userId.$": "$.userId"
+        }
+      },
+      "ResultPath": "$.exportsResult",
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleExportsFailure",
+          "ResultPath": "$.error"
+        }
+      ],
+      "TimeoutSeconds": 600,
+      "Next": "ValidationProcessing"
+    },
+
+    "ValidationProcessing": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${ValidateFunctionArn}",
+        "Payload": {
+          "docId.$": "$.docId",
+          "taggedPdfS3Key.$": "$.taggedResult.Payload.taggedPdfS3Key",
+          "htmlS3Key.$": "$.exportsResult.Payload.htmlS3Key",
+          "userId.$": "$.userId"
+        }
+      },
+      "ResultPath": "$.validationResult",
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleValidationFailure", 
+          "ResultPath": "$.error"
+        }
+      ],
+      "TimeoutSeconds": 300,
+      "Next": "NotifyCompletion"
+    },
+
+    "NotifyCompletion": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${NotifyFunctionArn}",
+        "Payload": {
+          "docId.$": "$.docId",
+          "status": "completed",
+          "userId.$": "$.userId",
+          "results": {
+            "taggedPdfS3Key.$": "$.taggedResult.Payload.taggedPdfS3Key",
+            "htmlS3Key.$": "$.exportsResult.Payload.htmlS3Key",
+            "epubS3Key.$": "$.exportsResult.Payload.epubS3Key",
+            "csvZipS3Key.$": "$.exportsResult.Payload.csvZipS3Key",
+            "validationScore.$": "$.validationResult.Payload.validationScore",
+            "validationIssues.$": "$.validationResult.Payload.validationIssues"
+          }
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "TimeoutSeconds": 60,
+      "End": true
+    },
+
+    "HandleOCRFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${NotifyFunctionArn}",
+        "Payload": {
+          "docId.$": "$.docId",
+          "status": "failed",
+          "step": "ocr",
+          "error.$": "$.error",
+          "userId.$": "$.userId"
+        }
+      },
+      "TimeoutSeconds": 60,
+      "End": true
+    },
+
+    "HandleStructureFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${NotifyFunctionArn}",
+        "Payload": {
+          "docId.$": "$.docId",
+          "status": "failed",
+          "step": "structure",
+          "error.$": "$.error",
+          "userId.$": "$.userId"
+        }
+      },
+      "TimeoutSeconds": 60,
+      "End": true
+    },
+
+    "HandleAltTextFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${NotifyFunctionArn}",
+        "Payload": {
+          "docId.$": "$.docId",
+          "status": "failed",
+          "step": "alt-text",
+          "error.$": "$.error",
+          "userId.$": "$.userId"
+        }
+      },
+      "TimeoutSeconds": 60,
+      "End": true
+    },
+
+    "HandleTagFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${NotifyFunctionArn}",
+        "Payload": {
+          "docId.$": "$.docId",
+          "status": "failed",
+          "step": "tag-pdf",
+          "error.$": "$.error",
+          "userId.$": "$.userId"
+        }
+      },
+      "TimeoutSeconds": 60,
+      "End": true
+    },
+
+    "HandleExportsFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${NotifyFunctionArn}",
+        "Payload": {
+          "docId.$": "$.docId",
+          "status": "failed",
+          "step": "exports",
+          "error.$": "$.error",
+          "userId.$": "$.userId"
+        }
+      },
+      "TimeoutSeconds": 60,
+      "End": true
+    },
+
+    "HandleValidationFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${NotifyFunctionArn}",
+        "Payload": {
+          "docId.$": "$.docId",
+          "status": "failed",
+          "step": "validation",
+          "error.$": "$.error",
+          "userId.$": "$.userId"
+        }
+      },
+      "TimeoutSeconds": 60,
+      "End": true
+    }
+  }
+}

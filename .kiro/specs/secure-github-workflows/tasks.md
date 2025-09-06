@@ -72,7 +72,7 @@
   - Implement compliance checks for WCAG and security standards
   - _Requirements: 5.1, 5.4_
 
-- [ ] 10. Create workflow templates and reusable actions
+- [-] 10. Create workflow templates and reusable actions
   - Extract common workflow steps into reusable composite actions
   - Create workflow templates for consistent deployment patterns
   - Implement shared configuration validation steps

@@ -1,0 +1,215 @@
+{
+  "doc_id": "test-doc-123",
+  "title": "Sample Accessibility Report",
+  "total_pages": 3,
+  "elements": [
+    {
+      "id": "heading-1",
+      "type": "heading",
+      "page_number": 1,
+      "text": "Executive Summary",
+      "level": 1,
+      "confidence": 0.95,
+      "bounding_box": {
+        "left": 0.1,
+        "top": 0.1,
+        "width": 0.8,
+        "height": 0.05
+      }
+    },
+    {
+      "id": "paragraph-1",
+      "type": "paragraph",
+      "page_number": 1,
+      "text": "This document provides an overview of accessibility compliance measures implemented in our digital products. The following sections detail our approach to meeting WCAG 2.1 AA standards.",
+      "confidence": 0.92,
+      "bounding_box": {
+        "left": 0.1,
+        "top": 0.2,
+        "width": 0.8,
+        "height": 0.15
+      }
+    },
+    {
+      "id": "heading-2",
+      "type": "heading",
+      "page_number": 1,
+      "text": "Key Findings",
+      "level": 2,
+      "confidence": 0.94,
+      "bounding_box": {
+        "left": 0.1,
+        "top": 0.4,
+        "width": 0.6,
+        "height": 0.04
+      }
+    },
+    {
+      "id": "list-1",
+      "type": "list",
+      "page_number": 1,
+      "ordered": false,
+      "confidence": 0.90,
+      "bounding_box": {
+        "left": 0.1,
+        "top": 0.5,
+        "width": 0.8,
+        "height": 0.3
+      },
+      "children": [
+        {
+          "id": "list-item-1",
+          "type": "list_item",
+          "page_number": 1,
+          "text": "All images now include descriptive alt text",
+          "marker": "•",
+          "confidence": 0.88
+        },
+        {
+          "id": "list-item-2", 
+          "type": "list_item",
+          "page_number": 1,
+          "text": "Proper heading hierarchy has been established",
+          "marker": "•",
+          "confidence": 0.90
+        },
+        {
+          "id": "list-item-3",
+          "type": "list_item",
+          "page_number": 1,
+          "text": "Color contrast ratios meet AA standards",
+          "marker": "•",
+          "confidence": 0.89
+        }
+      ]
+    },
+    {
+      "id": "figure-1",
+      "type": "figure",
+      "page_number": 2,
+      "text": "[Chart showing accessibility compliance scores]",
+      "alt_text": "Bar chart displaying accessibility compliance scores across different product areas. Web products show 94% compliance, mobile apps show 87% compliance, and desktop applications show 91% compliance.",
+      "caption": "Figure 1: Accessibility Compliance Scores by Product Category",
+      "confidence": 0.85,
+      "bounding_box": {
+        "left": 0.2,
+        "top": 0.2,
+        "width": 0.6,
+        "height": 0.4
+      }
+    },
+    {
+      "id": "table-1",
+      "type": "table",
+      "page_number": 2,
+      "text": "Compliance Matrix",
+      "rows": 4,
+      "columns": 3,
+      "confidence": 0.93,
+      "bounding_box": {
+        "left": 0.1,
+        "top": 0.7,
+        "width": 0.8,
+        "height": 0.25
+      },
+      "cells": [
+        {"row": 0, "col": 0, "text": "Criteria", "header": true},
+        {"row": 0, "col": 1, "text": "Current Status", "header": true},
+        {"row": 0, "col": 2, "text": "Target", "header": true},
+        {"row": 1, "col": 0, "text": "Perceivable"},
+        {"row": 1, "col": 1, "text": "92%"},
+        {"row": 1, "col": 2, "text": "95%"},
+        {"row": 2, "col": 0, "text": "Operable"},
+        {"row": 2, "col": 1, "text": "89%"},
+        {"row": 2, "col": 2, "text": "95%"},
+        {"row": 3, "col": 0, "text": "Understandable"},
+        {"row": 3, "col": 1, "text": "94%"},
+        {"row": 3, "col": 2, "text": "95%"}
+      ]
+    },
+    {
+      "id": "heading-3",
+      "type": "heading", 
+      "page_number": 3,
+      "text": "Recommendations",
+      "level": 2,
+      "confidence": 0.96,
+      "bounding_box": {
+        "left": 0.1,
+        "top": 0.1,
+        "width": 0.7,
+        "height": 0.04
+      }
+    },
+    {
+      "id": "paragraph-2",
+      "type": "paragraph",
+      "page_number": 3,
+      "text": "Based on our analysis, we recommend implementing the following improvements to achieve full WCAG 2.1 AA compliance:",
+      "confidence": 0.91,
+      "bounding_box": {
+        "left": 0.1,
+        "top": 0.2,
+        "width": 0.8,
+        "height": 0.1
+      }
+    },
+    {
+      "id": "list-2",
+      "type": "list",
+      "page_number": 3,
+      "ordered": true,
+      "confidence": 0.88,
+      "bounding_box": {
+        "left": 0.1,
+        "top": 0.35,
+        "width": 0.8,
+        "height": 0.4
+      },
+      "children": [
+        {
+          "id": "list-item-4",
+          "type": "list_item",
+          "page_number": 3,
+          "text": "Enhance keyboard navigation for complex interactive elements",
+          "marker": "1.",
+          "confidence": 0.87
+        },
+        {
+          "id": "list-item-5",
+          "type": "list_item", 
+          "page_number": 3,
+          "text": "Add ARIA landmarks for better screen reader navigation",
+          "marker": "2.",
+          "confidence": 0.89
+        },
+        {
+          "id": "list-item-6",
+          "type": "list_item",
+          "page_number": 3,
+          "text": "Implement focus indicators for all interactive elements",
+          "marker": "3.",
+          "confidence": 0.86
+        }
+      ]
+    }
+  ],
+  "reading_order": [
+    "heading-1",
+    "paragraph-1", 
+    "heading-2",
+    "list-1",
+    "figure-1",
+    "table-1",
+    "heading-3",
+    "paragraph-2",
+    "list-2"
+  ],
+  "metadata": {
+    "analysis_method": "bedrock_claude",
+    "textract_available": true,
+    "total_pages": 3,
+    "language": "en",
+    "created_at": "2024-03-15T10:30:00Z"
+  }
+}
