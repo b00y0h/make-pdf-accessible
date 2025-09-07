@@ -38,6 +38,7 @@ init:
 	./venv/bin/pip install -r requirements-dev.txt
 	@echo "📦 Installing Node.js dependencies..."
 	pnpm install
+	pnpm add -g concurrently
 	@echo "🔨 Building Docker services..."
 	docker-compose build
 	@echo "🪝 Installing pre-commit hooks..."
@@ -109,7 +110,7 @@ dev:
 # Start public web app only
 dev-web:
 	@echo "🌐 Starting public web app..."
-	pnpm --filter=web dev
+	pnpm --filter=pdf-accessibility-web dev --port 3000
 	@echo "✅ Web app running on http://localhost:3000"
 
 # Start admin dashboard only
@@ -121,9 +122,9 @@ dev-dashboard:
 # Start both frontend apps
 dev-frontend:
 	@echo "🎨 Starting both frontend applications..."
-	concurrently -p "[{name}]" -n "web,dashboard" -c "cyan,magenta" \
-		"pnpm --filter=web dev" \
-		"pnpm --filter=accesspdf-dashboard dev"
+	npx concurrently -p "[{name}]" -n "web,dashboard" -c "cyan,magenta" \
+		"pnpm --filter=pdf-accessibility-web dev --port 3000" \
+		"pnpm --filter=accesspdf-dashboard dev --port 3001"
 
 # Start everything (backend + frontend)
 dev-full:
@@ -132,9 +133,9 @@ dev-full:
 	docker-compose up -d
 	@sleep 3
 	@echo "📋 Frontend applications..."
-	concurrently -p "[{name}]" -n "web,dashboard" -c "cyan,magenta" \
-		"pnpm --filter=web dev" \
-		"pnpm --filter=accesspdf-dashboard dev"
+	npx concurrently -p "[{name}]" -n "web,dashboard" -c "cyan,magenta" \
+		"pnpm --filter=pdf-accessibility-web dev --port 3000" \
+		"pnpm --filter=accesspdf-dashboard dev --port 3001"
 
 # Stop all development services
 dev-stop:

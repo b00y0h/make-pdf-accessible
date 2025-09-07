@@ -22,7 +22,9 @@
       "Bash(pnpm --filter=accesspdf-dashboard remove next-themes)",
       "Bash(pnpm:*)",
       "Bash(make:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []
