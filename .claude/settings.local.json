@@ -17,7 +17,11 @@
       "Bash(docker-compose:*)",
       "Bash(npm run type-check:*)",
       "Bash(npx tsc:*)",
-      "Bash(pnpm install)"
+      "Bash(pnpm install)",
+      "Bash(pkill:*)",
+      "Bash(pnpm --filter=accesspdf-dashboard remove next-themes)",
+      "Bash(pnpm:*)",
+      "Bash(make:*)"
     ],
     "deny": [],
     "ask": []

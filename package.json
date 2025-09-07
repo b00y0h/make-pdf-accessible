@@ -5,6 +5,10 @@
   "description": "Monorepo for PDF accessibility tools and services",
   "scripts": {
     "dev": "docker-compose up -d",
+    "dev:web": "pnpm --filter=web dev",
+    "dev:dashboard": "pnpm --filter=accesspdf-dashboard dev",
+    "dev:frontend": "concurrently \"pnpm dev:web\" \"pnpm dev:dashboard\"",
+    "dev:full": "pnpm dev && pnpm dev:frontend",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
@@ -15,6 +19,7 @@
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^6.4.1",
     "@typescript-eslint/parser": "^6.4.1",
+    "concurrently": "^8.2.2",
     "eslint": "^8.47.0",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-prettier": "^5.0.0",

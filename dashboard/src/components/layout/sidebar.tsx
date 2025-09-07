@@ -1,9 +1,9 @@
-'use client'
+'use client';
 
-import React from 'react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { cn } from '@/lib/utils'
+import React from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
   Upload,
@@ -14,8 +14,8 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const sidebarItems = [
   {
@@ -25,43 +25,43 @@ const sidebarItems = [
   },
   {
     title: 'Upload',
-    href: '/dashboard/upload',
+    href: '/upload',
     icon: Upload,
   },
   {
     title: 'Processing Queue',
-    href: '/dashboard/queue',
+    href: '/queue',
     icon: Clock,
   },
   {
     title: 'Documents',
-    href: '/dashboard/documents',
+    href: '/documents',
     icon: FileText,
   },
   {
     title: 'Alt Text Review',
-    href: '/dashboard/alt-text',
+    href: '/alt-text',
     icon: ImageIcon,
   },
   {
     title: 'Reports',
-    href: '/dashboard/reports',
+    href: '/reports',
     icon: BarChart3,
   },
   {
     title: 'Settings',
-    href: '/dashboard/settings',
+    href: '/settings',
     icon: Settings,
   },
-]
+];
 
 interface SidebarProps {
-  isCollapsed: boolean
-  onToggle: () => void
+  isCollapsed: boolean;
+  onToggle: () => void;
 }
 
 export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
-  const pathname = usePathname()
+  const pathname = usePathname();
 
   return (
     <div
@@ -78,16 +78,14 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
             <span className="text-lg font-semibold">AccessPDF</span>
           </div>
         )}
-        {isCollapsed && (
-          <div className="mx-auto h-8 w-8 rounded bg-primary" />
-        )}
+        {isCollapsed && <div className="mx-auto h-8 w-8 rounded bg-primary" />}
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 space-y-2 p-4">
         {sidebarItems.map((item) => {
-          const Icon = item.icon
-          const isActive = pathname === item.href
+          const Icon = item.icon;
+          const isActive = pathname === item.href;
 
           return (
             <Link key={item.href} href={item.href}>
@@ -102,7 +100,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                 {!isCollapsed && <span>{item.title}</span>}
               </div>
             </Link>
-          )
+          );
         })}
       </nav>
 
@@ -120,5 +118,5 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         )}
       </Button>
     </div>
-  )
+  );
 }

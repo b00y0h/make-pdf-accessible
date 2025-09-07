@@ -1,16 +1,34 @@
-.PHONY: init test build deploy clean lint format help
+.PHONY: init test test-dev build deploy clean lint format help dev dev-web dev-dashboard dev-frontend dev-full dev-stop dev-status dev-logs
 
 # Default target
 help:
-	@echo "Available targets:"
-	@echo "  init     - Initialize development environment"
-	@echo "  test     - Run all tests"
-	@echo "  build    - Build all services"
-	@echo "  deploy   - Deploy to production"
-	@echo "  lint     - Run linters"
-	@echo "  format   - Format code"
-	@echo "  clean    - Clean build artifacts"
-	@echo "  dev      - Start development environment"
+	@echo "🚀 AccessPDF Development Commands:"
+	@echo ""
+	@echo "📋 Setup & Maintenance:"
+	@echo "  init          - Initialize development environment"
+	@echo "  clean         - Clean build artifacts"
+	@echo ""
+	@echo "🏗️  Development:"
+	@echo "  dev           - Start backend services (Docker)"
+	@echo "  dev-web       - Start public web app (port 3000)"
+	@echo "  dev-dashboard - Start admin dashboard (port 3001)"
+	@echo "  dev-frontend  - Start both frontend apps"
+	@echo "  dev-full      - Start everything (backend + frontend)"
+	@echo "  dev-stop      - Stop all development services"
+	@echo "  dev-status    - Show development environment status"
+	@echo "  dev-logs      - Follow logs from all services"
+	@echo ""
+	@echo "🔨 Build & Test:"
+	@echo "  build         - Build all services"
+	@echo "  test          - Run all tests"
+	@echo "  test-dev      - Run development tests only"
+	@echo ""
+	@echo "✨ Code Quality:"
+	@echo "  lint          - Run linters"
+	@echo "  format        - Format code"
+	@echo ""
+	@echo "🚀 Deployment:"
+	@echo "  deploy        - Deploy to production"
 
 # Initialize development environment
 init:
@@ -82,14 +100,65 @@ clean:
 	pnpm store prune
 	@echo "✅ Cleanup complete!"
 
-# Start development environment
+# Start backend services only
 dev:
-	@echo "🏃 Starting development environment..."
+	@echo "🏃 Starting backend services..."
 	docker-compose up -d
-	@echo "✅ Development environment running!"
+	@echo "✅ Backend services running on http://localhost:8080"
 
-# Stop development environment
+# Start public web app only
+dev-web:
+	@echo "🌐 Starting public web app..."
+	pnpm --filter=web dev
+	@echo "✅ Web app running on http://localhost:3000"
+
+# Start admin dashboard only
+dev-dashboard:
+	@echo "📊 Starting admin dashboard..."
+	pnpm --filter=accesspdf-dashboard dev
+	@echo "✅ Dashboard running on http://localhost:3001"
+
+# Start both frontend apps
+dev-frontend:
+	@echo "🎨 Starting both frontend applications..."
+	concurrently -p "[{name}]" -n "web,dashboard" -c "cyan,magenta" \
+		"pnpm --filter=web dev" \
+		"pnpm --filter=accesspdf-dashboard dev"
+
+# Start everything (backend + frontend)
+dev-full:
+	@echo "🚀 Starting full development stack..."
+	@echo "📋 Backend services..."
+	docker-compose up -d
+	@sleep 3
+	@echo "📋 Frontend applications..."
+	concurrently -p "[{name}]" -n "web,dashboard" -c "cyan,magenta" \
+		"pnpm --filter=web dev" \
+		"pnpm --filter=accesspdf-dashboard dev"
+
+# Stop all development services
 dev-stop:
-	@echo "⏹️  Stopping development environment..."
+	@echo "⏹️  Stopping all development services..."
+	@echo "🔻 Stopping frontend processes..."
+	-@pkill -f "next dev" || true
+	@echo "🔻 Stopping backend services..."
 	docker-compose down
-	@echo "✅ Development environment stopped!"
+	@echo "✅ All development services stopped!"
+
+# Quick status check
+dev-status:
+	@echo "📊 Development Environment Status:"
+	@echo ""
+	@echo "🐳 Docker Services:"
+	@docker-compose ps
+	@echo ""
+	@echo "🌐 Port Usage:"
+	@echo "  Port 3000: $$(lsof -ti:3000 > /dev/null && echo "✅ In Use (Web App)" || echo "❌ Free")"
+	@echo "  Port 3001: $$(lsof -ti:3001 > /dev/null && echo "✅ In Use (Dashboard)" || echo "❌ Free")"
+	@echo "  Port 8080: $$(lsof -ti:8080 > /dev/null && echo "✅ In Use (API)" || echo "❌ Free")"
+
+# Follow logs from all services
+dev-logs:
+	@echo "📋 Following logs from all services..."
+	@echo "💡 Press Ctrl+C to stop"
+	docker-compose logs -f
