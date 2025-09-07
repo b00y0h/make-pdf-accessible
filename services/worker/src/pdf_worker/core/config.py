@@ -81,6 +81,17 @@ class WorkerConfig:
         default_factory=lambda: int(os.getenv("IDEMPOTENCY_TTL_SECONDS", "3600"))
     )
     
+    # Authentication Configuration
+    cognito_user_pool_id: Optional[str] = field(
+        default_factory=lambda: os.getenv("COGNITO_USER_POOL_ID")
+    )
+    cognito_client_id: Optional[str] = field(
+        default_factory=lambda: os.getenv("COGNITO_CLIENT_ID")
+    )
+    cognito_region: Optional[str] = field(
+        default_factory=lambda: os.getenv("COGNITO_REGION", os.getenv("AWS_REGION", "us-east-1"))
+    )
+    
     # Environment
     environment: str = field(
         default_factory=lambda: os.getenv("ENVIRONMENT", "dev")

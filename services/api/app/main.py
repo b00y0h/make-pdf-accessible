@@ -11,7 +11,7 @@ from mangum import Mangum
 
 from .config import settings
 from .models import ErrorResponse, HealthResponse
-from .routes import documents, reports, webhooks
+from .routes import auth, documents, reports, webhooks
 from .services import AWSServiceError
 
 # Initialize Powertools
@@ -53,6 +53,10 @@ app = FastAPI(
         {
             "name": "reports",
             "description": "Analytics and reporting endpoints"
+        },
+        {
+            "name": "auth",
+            "description": "Authentication and user profile endpoints"
         }
     ]
 )
@@ -210,6 +214,7 @@ async def root() -> Dict[str, str]:
 
 
 # Include routers
+app.include_router(auth.router)
 app.include_router(documents.router)
 app.include_router(webhooks.router)
 app.include_router(reports.router)

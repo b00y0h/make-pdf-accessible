@@ -142,3 +142,25 @@ variable "use_lambda_function_url" {
   type        = bool
   default     = false
 }
+
+# OAuth Configuration
+variable "google_oauth_client_id" {
+  description = "Google OAuth2 Client ID for Cognito OIDC integration"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "google_oauth_client_secret" {
+  description = "Google OAuth2 Client Secret for Cognito OIDC integration"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "jwt_secret_key" {
+  description = "JWT secret key for API authentication (will generate random if not provided)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

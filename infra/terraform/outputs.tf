@@ -308,3 +308,50 @@ output "resource_names" {
     }
   }
 }
+
+# Cognito Outputs
+output "cognito_user_pool_id" {
+  description = "ID of the Cognito User Pool"
+  value       = aws_cognito_user_pool.main.id
+}
+
+output "cognito_user_pool_arn" {
+  description = "ARN of the Cognito User Pool"
+  value       = aws_cognito_user_pool.main.arn
+}
+
+output "cognito_user_pool_endpoint" {
+  description = "Endpoint URL of the Cognito User Pool"
+  value       = aws_cognito_user_pool.main.endpoint
+}
+
+output "cognito_app_client_id" {
+  description = "ID of the Cognito User Pool App Client"
+  value       = aws_cognito_user_pool_client.web_client.id
+}
+
+output "cognito_domain" {
+  description = "Domain name of the Cognito User Pool Domain"
+  value       = aws_cognito_user_pool_domain.main.domain
+}
+
+output "cognito_hosted_ui_url" {
+  description = "URL for Cognito Hosted UI"
+  value       = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${data.aws_region.current.name}.amazoncognito.com"
+}
+
+output "cognito_identity_pool_id" {
+  description = "ID of the Cognito Identity Pool"
+  value       = aws_cognito_identity_pool.main.id
+}
+
+# Authentication URLs
+output "auth_urls" {
+  description = "Authentication-related URLs for frontend configuration"
+  value = {
+    login_url = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${data.aws_region.current.name}.amazoncognito.com/login?client_id=${aws_cognito_user_pool_client.web_client.id}&response_type=code&scope=email+openid+profile+aws.cognito.signin.user.admin&redirect_uri="
+    logout_url = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${data.aws_region.current.name}.amazoncognito.com/logout?client_id=${aws_cognito_user_pool_client.web_client.id}&logout_uri="
+    token_url = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${data.aws_region.current.name}.amazoncognito.com/oauth2/token"
+    jwks_url = "https://cognito-idp.${data.aws_region.current.name}.amazonaws.com/${aws_cognito_user_pool.main.id}/.well-known/jwks.json"
+  }
+}

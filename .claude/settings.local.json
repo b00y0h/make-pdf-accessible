@@ -21,7 +21,8 @@
       "Bash(pkill:*)",
       "Bash(pnpm --filter=accesspdf-dashboard remove next-themes)",
       "Bash(pnpm:*)",
-      "Bash(make:*)"
+      "Bash(make:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

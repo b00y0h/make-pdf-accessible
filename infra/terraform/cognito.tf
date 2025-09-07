@@ -1,3 +1,16 @@
+# Google OAuth Client Secrets from Secrets Manager
+data "aws_secretsmanager_secret" "google_oauth" {
+  name = "${var.environment}/accesspdf/google-oauth"
+}
+
+data "aws_secretsmanager_secret_version" "google_oauth" {
+  secret_id = data.aws_secretsmanager_secret.google_oauth.id
+}
+
+locals {
+  google_oauth_secrets = jsondecode(data.aws_secretsmanager_secret_version.google_oauth.secret_string)
+}
+
 # Cognito User Pool
 resource "aws_cognito_user_pool" "main" {
   name = "${local.name_prefix}-user-pool"
@@ -15,6 +28,55 @@ resource "aws_cognito_user_pool" "main" {
   username_attributes = ["email"]
 
   auto_verified_attributes = ["email"]
+
+  # Schema attributes for OAuth claims
+  schema {
+    attribute_data_type = "String"
+    name                = "email"
+    required            = true
+    mutable             = false
+    
+    string_attribute_constraints {
+      max_length = "2048"
+      min_length = "0"
+    }
+  }
+
+  schema {
+    attribute_data_type = "String"
+    name                = "given_name"
+    required            = false
+    mutable             = true
+    
+    string_attribute_constraints {
+      max_length = "2048"
+      min_length = "0"
+    }
+  }
+
+  schema {
+    attribute_data_type = "String"
+    name                = "family_name"
+    required            = false
+    mutable             = true
+    
+    string_attribute_constraints {
+      max_length = "2048"
+      min_length = "0"
+    }
+  }
+
+  schema {
+    attribute_data_type = "String"
+    name                = "picture"
+    required            = false
+    mutable             = true
+    
+    string_attribute_constraints {
+      max_length = "2048"
+      min_length = "0"
+    }
+  }
 
   # Account recovery
   account_recovery_setting {
@@ -40,12 +102,10 @@ resource "aws_cognito_user_pool" "main" {
     email_sending_account = "COGNITO_DEFAULT"
   }
 
-  # Schema attributes (using Cognito defaults to avoid modification conflicts)
-
   # Verification message templates
   verification_message_template {
     default_email_option = "CONFIRM_WITH_CODE"
-    email_subject        = "Your PDF Accessibility Platform verification code"
+    email_subject        = "Your AccessPDF verification code"
     email_message        = "Your verification code is {####}"
   }
 
@@ -56,6 +116,48 @@ resource "aws_cognito_user_pool" "main" {
   lifecycle {
     create_before_destroy = true
   }
+}
+
+# Google Identity Provider
+resource "aws_cognito_identity_provider" "google" {
+  user_pool_id  = aws_cognito_user_pool.main.id
+  provider_name = "Google"
+  provider_type = "Google"
+
+  provider_details = {
+    client_id        = local.google_oauth_secrets.client_id
+    client_secret    = local.google_oauth_secrets.client_secret
+    authorize_scopes = "email openid profile"
+  }
+
+  attribute_mapping = {
+    email         = "email"
+    given_name    = "given_name"
+    family_name   = "family_name"
+    picture       = "picture"
+    username      = "sub"
+  }
+
+  lifecycle {
+    ignore_changes = [
+      provider_details["client_secret"]
+    ]
+  }
+}
+
+# User Groups for Role-Based Access
+resource "aws_cognito_user_group" "admin" {
+  name         = "admin"
+  user_pool_id = aws_cognito_user_pool.main.id
+  description  = "Admin users with full access to all features"
+  precedence   = 1
+}
+
+resource "aws_cognito_user_group" "viewer" {
+  name         = "viewer"
+  user_pool_id = aws_cognito_user_pool.main.id
+  description  = "Viewer users with read-only access"
+  precedence   = 2
 }
 
 # Cognito User Pool Domain
@@ -71,18 +173,20 @@ resource "aws_cognito_user_pool_client" "web_client" {
 
   callback_urls = [
     "http://localhost:3000/auth/callback",
+    "http://localhost:3001/auth/callback",
     var.domain_name != "" ? "https://${var.domain_name}/auth/callback" : "https://example.com/auth/callback"
   ]
   logout_urls = [
-    "http://localhost:3000",
-    var.domain_name != "" ? "https://${var.domain_name}" : "https://example.com"
+    "http://localhost:3000/login",
+    "http://localhost:3001/login",
+    var.domain_name != "" ? "https://${var.domain_name}/login" : "https://example.com/login"
   ]
 
   allowed_oauth_flows_user_pool_client = true
   allowed_oauth_flows                  = ["code"]
-  allowed_oauth_scopes                 = ["openid", "email", "profile"]
+  allowed_oauth_scopes                 = ["openid", "email", "profile", "aws.cognito.signin.user.admin"]
 
-  supported_identity_providers = ["COGNITO"]
+  supported_identity_providers = ["COGNITO", "Google"]
 
   # Token validity
   access_token_validity  = 1  # 1 hour
@@ -108,13 +212,14 @@ resource "aws_cognito_user_pool_client" "web_client" {
     "email",
     "email_verified",
     "given_name",
-    "family_name"
+    "family_name",
+    "picture"
   ]
 
   write_attributes = [
-    "email",
     "given_name",
-    "family_name"
+    "family_name",
+    "picture"
   ]
 }
 
