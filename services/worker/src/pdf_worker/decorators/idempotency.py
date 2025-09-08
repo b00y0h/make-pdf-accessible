@@ -1,16 +1,18 @@
 """Idempotency decorator for ensuring operations execute only once."""
 
-import json
-import hashlib
 import functools
-from typing import Any, Callable, Dict, Optional, TypeVar, Union, cast
+import hashlib
+import json
+from collections.abc import Callable
 from datetime import datetime, timedelta
+from typing import Any, TypeVar, cast
+
 from aws_lambda_powertools import Logger, Tracer
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
+from pdf_worker.aws.dynamodb import DynamoDBRepository
 from pdf_worker.core.config import config
 from pdf_worker.core.exceptions import IdempotencyError, WorkerConfigError
-from pdf_worker.aws.dynamodb import DynamoDBRepository
 
 logger = Logger()
 tracer = Tracer()
@@ -20,8 +22,8 @@ F = TypeVar('F', bound=Callable[..., Any])
 
 class IdempotencyStore:
     """Store for managing idempotency records."""
-    
-    def __init__(self, table_name: Optional[str] = None, ttl_seconds: int = 3600) -> None:
+
+    def __init__(self, table_name: str | None = None, ttl_seconds: int = 3600) -> None:
         """Initialize idempotency store.
         
         Args:
@@ -30,19 +32,19 @@ class IdempotencyStore:
         """
         self.table_name = table_name or config.idempotency_table
         self.ttl_seconds = ttl_seconds
-        
+
         if not self.table_name:
             raise WorkerConfigError("Idempotency table not configured")
-        
+
         self._repository = DynamoDBRepository(
             table_name=self.table_name,
             primary_key='idempotency_key'
         )
-        
+
         logger.debug(f"Initialized idempotency store with table: {self.table_name}")
-    
+
     @tracer.capture_method
-    def get_record(self, idempotency_key: str) -> Optional[Dict[str, Any]]:
+    def get_record(self, idempotency_key: str) -> dict[str, Any] | None:
         """Get existing idempotency record.
         
         Args:
@@ -53,7 +55,7 @@ class IdempotencyStore:
         """
         try:
             record = self._repository.get_item(idempotency_key)
-            
+
             if record:
                 # Check if record is expired
                 expiry_time = datetime.fromisoformat(record['expires_at'])
@@ -61,17 +63,17 @@ class IdempotencyStore:
                     # Record expired, delete it
                     self._repository.delete_item(idempotency_key)
                     return None
-                
+
                 return record
-            
+
             return None
-            
+
         except Exception as e:
             logger.warning(f"Failed to get idempotency record: {e}")
             return None
-    
+
     @tracer.capture_method
-    def save_inprogress(self, idempotency_key: str, request_data: Dict[str, Any]) -> None:
+    def save_inprogress(self, idempotency_key: str, request_data: dict[str, Any]) -> None:
         """Save in-progress idempotency record.
         
         Args:
@@ -80,7 +82,7 @@ class IdempotencyStore:
         """
         try:
             expiry_time = datetime.utcnow() + timedelta(seconds=self.ttl_seconds)
-            
+
             record = {
                 'idempotency_key': idempotency_key,
                 'status': 'INPROGRESS',
@@ -88,15 +90,15 @@ class IdempotencyStore:
                 'expires_at': expiry_time.isoformat(),
                 'created_at': datetime.utcnow().isoformat()
             }
-            
+
             # Use condition to prevent overwriting existing records
             self._repository.put_item(
                 item=record,
                 condition_expression='attribute_not_exists(idempotency_key)'
             )
-            
+
             logger.debug(f"Saved INPROGRESS record for key: {idempotency_key}")
-            
+
         except Exception as e:
             if 'ConditionalCheckFailedException' in str(e):
                 raise IdempotencyError(
@@ -104,12 +106,12 @@ class IdempotencyStore:
                     key=idempotency_key
                 )
             raise IdempotencyError(f"Failed to save idempotency record: {e}")
-    
+
     @tracer.capture_method
     def save_success(
-        self, 
-        idempotency_key: str, 
-        response_data: Dict[str, Any]
+        self,
+        idempotency_key: str,
+        response_data: dict[str, Any]
     ) -> None:
         """Save successful operation result.
         
@@ -128,12 +130,12 @@ class IdempotencyStore:
                     ':completed': datetime.utcnow().isoformat()
                 }
             )
-            
+
             logger.debug(f"Saved COMPLETED record for key: {idempotency_key}")
-            
+
         except Exception as e:
             logger.warning(f"Failed to save success record: {e}")
-    
+
     @tracer.capture_method
     def delete_record(self, idempotency_key: str) -> None:
         """Delete idempotency record (used for cleanup on error).
@@ -144,18 +146,18 @@ class IdempotencyStore:
         try:
             self._repository.delete_item(idempotency_key)
             logger.debug(f"Deleted idempotency record for key: {idempotency_key}")
-            
+
         except Exception as e:
             logger.warning(f"Failed to delete idempotency record: {e}")
 
 
 class IdempotencyConfig:
     """Configuration for idempotency behavior."""
-    
+
     def __init__(
         self,
         event_key_jmespath: str = "docId",
-        payload_validation_jmespath: Optional[str] = None,
+        payload_validation_jmespath: str | None = None,
         raise_on_no_idempotency_key: bool = True,
         expires_after_seconds: int = 3600,
         use_local_cache: bool = False
@@ -177,7 +179,7 @@ class IdempotencyConfig:
 
 
 def generate_idempotency_key(
-    event: Dict[str, Any],
+    event: dict[str, Any],
     context: LambdaContext,
     config: IdempotencyConfig
 ) -> str:
@@ -198,7 +200,7 @@ def generate_idempotency_key(
         # Extract base key from event using simple key path
         key_parts = config.event_key_jmespath.split('.')
         base_key = event
-        
+
         for part in key_parts:
             if isinstance(base_key, dict) and part in base_key:
                 base_key = base_key[part]
@@ -207,43 +209,43 @@ def generate_idempotency_key(
                     raise IdempotencyError(f"Idempotency key not found: {config.event_key_jmespath}")
                 base_key = "unknown"
                 break
-        
+
         # Create hash components
         hash_data = {
             'function_name': context.function_name,
             'key': str(base_key)
         }
-        
+
         # Add payload validation if configured
         if config.payload_validation_jmespath:
             validation_parts = config.payload_validation_jmespath.split('.')
             validation_data = event
-            
+
             for part in validation_parts:
                 if isinstance(validation_data, dict) and part in validation_data:
                     validation_data = validation_data[part]
                 else:
                     validation_data = None
                     break
-            
+
             if validation_data:
                 hash_data['payload_hash'] = hashlib.md5(
                     json.dumps(validation_data, sort_keys=True).encode()
                 ).hexdigest()
-        
+
         # Generate hash
         content = json.dumps(hash_data, sort_keys=True)
         key_hash = hashlib.sha256(content.encode()).hexdigest()
-        
+
         return f"{context.function_name}#{key_hash}"
-        
+
     except Exception as e:
         raise IdempotencyError(f"Failed to generate idempotency key: {e}")
 
 
 def idempotent(
-    config: Optional[IdempotencyConfig] = None,
-    persistence_store: Optional[IdempotencyStore] = None
+    config: IdempotencyConfig | None = None,
+    persistence_store: IdempotencyStore | None = None
 ) -> Callable[[F], F]:
     """Decorator to make Lambda functions idempotent.
     
@@ -262,79 +264,79 @@ def idempotent(
     # Use default config if none provided
     if config is None:
         config = IdempotencyConfig()
-    
+
     # Use default store if none provided
     if persistence_store is None:
         persistence_store = IdempotencyStore(
             ttl_seconds=config.expires_after_seconds
         )
-    
+
     def decorator(func: F) -> F:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Extract event and context from args
             if len(args) < 2:
                 raise IdempotencyError("Lambda function must have event and context parameters")
-            
+
             event = args[0]
             context = args[1]
-            
+
             if not isinstance(event, dict):
                 raise IdempotencyError("Event must be a dictionary")
-            
+
             try:
                 # Generate idempotency key
                 idempotency_key = generate_idempotency_key(event, context, config)
-                
+
                 logger.debug(f"Processing with idempotency key: {idempotency_key}")
-                
+
                 # Check for existing record
                 existing_record = persistence_store.get_record(idempotency_key)
-                
+
                 if existing_record:
                     if existing_record['status'] == 'COMPLETED':
                         logger.info("Returning cached result for idempotent operation")
                         return existing_record['response_data']
-                    
+
                     elif existing_record['status'] == 'INPROGRESS':
                         raise IdempotencyError(
                             f"Operation already in progress: {idempotency_key}",
                             key=idempotency_key
                         )
-                
+
                 # Save in-progress record
                 persistence_store.save_inprogress(
                     idempotency_key=idempotency_key,
                     request_data=event
                 )
-                
+
                 try:
                     # Execute original function
                     result = func(*args, **kwargs)
-                    
+
                     # Save successful result
                     persistence_store.save_success(
                         idempotency_key=idempotency_key,
                         response_data=result
                     )
-                    
+
                     logger.info("Successfully completed idempotent operation")
                     return result
-                    
+
                 except Exception as e:
                     # Clean up in-progress record on error
                     persistence_store.delete_record(idempotency_key)
                     raise e
-                
+
             except IdempotencyError:
                 raise
             except Exception as e:
                 logger.error(f"Idempotency handling failed: {e}")
                 # Fall back to executing function without idempotency
                 return func(*args, **kwargs)
-        
+
         return cast(F, wrapper)
-    
+
     return decorator
 
 

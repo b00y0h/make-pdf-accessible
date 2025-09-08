@@ -1,13 +1,13 @@
 """S3 client utilities with comprehensive error handling and type hints."""
 
 import json
-from typing import Optional, Dict, Any, BinaryIO, Union, List, Tuple
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+from typing import Any
+
 import boto3
-from botocore.exceptions import ClientError, NoCredentialsError
 from aws_lambda_powertools import Logger, Tracer
-from aws_lambda_powertools.metrics import MetricUnit
+from botocore.exceptions import ClientError, NoCredentialsError
 
 from pdf_worker.core.config import config
 from pdf_worker.core.exceptions import S3Error, WorkerConfigError
@@ -18,8 +18,8 @@ tracer = Tracer()
 
 class S3Client:
     """Enhanced S3 client with PDF accessibility processing optimizations."""
-    
-    def __init__(self, region_name: Optional[str] = None) -> None:
+
+    def __init__(self, region_name: str | None = None) -> None:
         """Initialize S3 client.
         
         Args:
@@ -30,18 +30,18 @@ class S3Client:
             self._resource = boto3.resource('s3', region_name=region_name or config.aws_region)
         except NoCredentialsError as e:
             raise WorkerConfigError(f"AWS credentials not configured: {e}")
-        
+
         logger.info(f"Initialized S3 client for region: {region_name or config.aws_region}")
-    
+
     @tracer.capture_method
     def upload_file(
         self,
-        file_path: Union[str, Path],
+        file_path: str | Path,
         bucket: str,
         key: str,
-        content_type: Optional[str] = None,
-        metadata: Optional[Dict[str, str]] = None,
-        tags: Optional[Dict[str, str]] = None
+        content_type: str | None = None,
+        metadata: dict[str, str] | None = None,
+        tags: dict[str, str] | None = None
     ) -> str:
         """Upload a file to S3 with enhanced metadata.
         
@@ -61,48 +61,48 @@ class S3Client:
         """
         try:
             extra_args = {}
-            
+
             if content_type:
                 extra_args['ContentType'] = content_type
-                
+
             if metadata:
                 extra_args['Metadata'] = metadata
-                
+
             # Add default metadata
             default_metadata = {
                 'uploaded_by': 'pdf-accessibility-worker',
                 'upload_timestamp': datetime.utcnow().isoformat()
             }
             extra_args.setdefault('Metadata', {}).update(default_metadata)
-            
+
             self._client.upload_file(str(file_path), bucket, key, ExtraArgs=extra_args)
-            
+
             # Apply tags if provided
             if tags:
                 self._apply_tags(bucket, key, tags)
-            
+
             s3_uri = f"s3://{bucket}/{key}"
             logger.info(f"Successfully uploaded {file_path} to {s3_uri}")
-            
+
             return s3_uri
-            
+
         except ClientError as e:
             error_code = e.response.get('Error', {}).get('Code', 'Unknown')
             raise S3Error(
-                f"Failed to upload file to S3: {error_code}", 
-                bucket=bucket, 
+                f"Failed to upload file to S3: {error_code}",
+                bucket=bucket,
                 key=key
             ) from e
-    
+
     @tracer.capture_method
     def upload_bytes(
         self,
         data: bytes,
         bucket: str,
         key: str,
-        content_type: Optional[str] = None,
-        metadata: Optional[Dict[str, str]] = None,
-        tags: Optional[Dict[str, str]] = None
+        content_type: str | None = None,
+        metadata: dict[str, str] | None = None,
+        tags: dict[str, str] | None = None
     ) -> str:
         """Upload bytes data to S3.
         
@@ -119,13 +119,13 @@ class S3Client:
         """
         try:
             extra_args = {}
-            
+
             if content_type:
                 extra_args['ContentType'] = content_type
-                
+
             if metadata:
                 extra_args['Metadata'] = metadata
-            
+
             # Add default metadata
             default_metadata = {
                 'uploaded_by': 'pdf-accessibility-worker',
@@ -133,23 +133,23 @@ class S3Client:
                 'content_length': str(len(data))
             }
             extra_args.setdefault('Metadata', {}).update(default_metadata)
-            
+
             self._client.put_object(
                 Bucket=bucket,
                 Key=key,
                 Body=data,
                 **extra_args
             )
-            
+
             # Apply tags if provided
             if tags:
                 self._apply_tags(bucket, key, tags)
-            
+
             s3_uri = f"s3://{bucket}/{key}"
             logger.info(f"Successfully uploaded {len(data)} bytes to {s3_uri}")
-            
+
             return s3_uri
-            
+
         except ClientError as e:
             error_code = e.response.get('Error', {}).get('Code', 'Unknown')
             raise S3Error(
@@ -157,16 +157,16 @@ class S3Client:
                 bucket=bucket,
                 key=key
             ) from e
-    
+
     @tracer.capture_method
     def upload_json(
         self,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         bucket: str,
         key: str,
         indent: int = 2,
-        metadata: Optional[Dict[str, str]] = None,
-        tags: Optional[Dict[str, str]] = None
+        metadata: dict[str, str] | None = None,
+        tags: dict[str, str] | None = None
     ) -> str:
         """Upload JSON data to S3.
         
@@ -182,7 +182,7 @@ class S3Client:
             S3 URI of the uploaded object
         """
         json_bytes = json.dumps(data, indent=indent, ensure_ascii=False).encode('utf-8')
-        
+
         # Add JSON-specific metadata
         json_metadata = {
             'data_type': 'json',
@@ -190,7 +190,7 @@ class S3Client:
         }
         if metadata:
             json_metadata.update(metadata)
-        
+
         return self.upload_bytes(
             data=json_bytes,
             bucket=bucket,
@@ -199,13 +199,13 @@ class S3Client:
             metadata=json_metadata,
             tags=tags
         )
-    
+
     @tracer.capture_method
     def download_file(
         self,
         bucket: str,
         key: str,
-        local_path: Union[str, Path]
+        local_path: str | Path
     ) -> Path:
         """Download S3 object to local file.
         
@@ -223,23 +223,23 @@ class S3Client:
         try:
             local_file = Path(local_path)
             local_file.parent.mkdir(parents=True, exist_ok=True)
-            
+
             self._client.download_file(bucket, key, str(local_file))
-            
+
             logger.info(f"Successfully downloaded s3://{bucket}/{key} to {local_file}")
             return local_file
-            
+
         except ClientError as e:
             error_code = e.response.get('Error', {}).get('Code', 'Unknown')
             if error_code == 'NoSuchKey':
                 raise S3Error(f"Object not found: s3://{bucket}/{key}", bucket=bucket, key=key)
-            
+
             raise S3Error(
                 f"Failed to download from S3: {error_code}",
                 bucket=bucket,
                 key=key
             ) from e
-    
+
     @tracer.capture_method
     def download_bytes(self, bucket: str, key: str) -> bytes:
         """Download S3 object as bytes.
@@ -257,23 +257,23 @@ class S3Client:
         try:
             response = self._client.get_object(Bucket=bucket, Key=key)
             content = response['Body'].read()
-            
+
             logger.info(f"Successfully downloaded {len(content)} bytes from s3://{bucket}/{key}")
             return content
-            
+
         except ClientError as e:
             error_code = e.response.get('Error', {}).get('Code', 'Unknown')
             if error_code == 'NoSuchKey':
                 raise S3Error(f"Object not found: s3://{bucket}/{key}", bucket=bucket, key=key)
-            
+
             raise S3Error(
                 f"Failed to download from S3: {error_code}",
                 bucket=bucket,
                 key=key
             ) from e
-    
+
     @tracer.capture_method
-    def download_json(self, bucket: str, key: str) -> Dict[str, Any]:
+    def download_json(self, bucket: str, key: str) -> dict[str, Any]:
         """Download and parse JSON object from S3.
         
         Args:
@@ -289,14 +289,14 @@ class S3Client:
         try:
             content = self.download_bytes(bucket, key)
             return json.loads(content.decode('utf-8'))
-            
+
         except json.JSONDecodeError as e:
             raise S3Error(
                 f"Failed to parse JSON from S3 object: {e}",
                 bucket=bucket,
                 key=key
             ) from e
-    
+
     @tracer.capture_method
     def object_exists(self, bucket: str, key: str) -> bool:
         """Check if S3 object exists.
@@ -319,9 +319,9 @@ class S3Client:
                 bucket=bucket,
                 key=key
             ) from e
-    
+
     @tracer.capture_method
-    def get_object_metadata(self, bucket: str, key: str) -> Dict[str, Any]:
+    def get_object_metadata(self, bucket: str, key: str) -> dict[str, Any]:
         """Get S3 object metadata.
         
         Args:
@@ -336,7 +336,7 @@ class S3Client:
         """
         try:
             response = self._client.head_object(Bucket=bucket, Key=key)
-            
+
             return {
                 'size': response.get('ContentLength', 0),
                 'last_modified': response.get('LastModified'),
@@ -345,18 +345,18 @@ class S3Client:
                 'metadata': response.get('Metadata', {}),
                 'storage_class': response.get('StorageClass', 'STANDARD')
             }
-            
+
         except ClientError as e:
             error_code = e.response.get('Error', {}).get('Code', 'Unknown')
             if error_code == '404':
                 raise S3Error(f"Object not found: s3://{bucket}/{key}", bucket=bucket, key=key)
-            
+
             raise S3Error(
                 f"Failed to get object metadata: {error_code}",
                 bucket=bucket,
                 key=key
             ) from e
-    
+
     @tracer.capture_method
     def copy_object(
         self,
@@ -364,7 +364,7 @@ class S3Client:
         source_key: str,
         dest_bucket: str,
         dest_key: str,
-        metadata: Optional[Dict[str, str]] = None
+        metadata: dict[str, str] | None = None
     ) -> str:
         """Copy S3 object to another location.
         
@@ -381,27 +381,27 @@ class S3Client:
         try:
             copy_source = {'Bucket': source_bucket, 'Key': source_key}
             extra_args = {}
-            
+
             if metadata:
                 extra_args['Metadata'] = metadata
                 extra_args['MetadataDirective'] = 'REPLACE'
-            
+
             self._client.copy_object(
                 CopySource=copy_source,
                 Bucket=dest_bucket,
                 Key=dest_key,
                 **extra_args
             )
-            
+
             dest_uri = f"s3://{dest_bucket}/{dest_key}"
             logger.info(f"Successfully copied s3://{source_bucket}/{source_key} to {dest_uri}")
-            
+
             return dest_uri
-            
+
         except ClientError as e:
             error_code = e.response.get('Error', {}).get('Code', 'Unknown')
             raise S3Error(f"Failed to copy S3 object: {error_code}") from e
-    
+
     @tracer.capture_method
     def delete_object(self, bucket: str, key: str) -> None:
         """Delete S3 object.
@@ -413,7 +413,7 @@ class S3Client:
         try:
             self._client.delete_object(Bucket=bucket, Key=key)
             logger.info(f"Successfully deleted s3://{bucket}/{key}")
-            
+
         except ClientError as e:
             error_code = e.response.get('Error', {}).get('Code', 'Unknown')
             # Don't raise error if object doesn't exist
@@ -423,14 +423,14 @@ class S3Client:
                     bucket=bucket,
                     key=key
                 ) from e
-    
+
     @tracer.capture_method
     def list_objects(
         self,
         bucket: str,
         prefix: str = "",
         max_keys: int = 1000
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """List objects in S3 bucket with prefix.
         
         Args:
@@ -447,7 +447,7 @@ class S3Client:
                 Prefix=prefix,
                 MaxKeys=max_keys
             )
-            
+
             objects = []
             for obj in response.get('Contents', []):
                 objects.append({
@@ -457,10 +457,10 @@ class S3Client:
                     'etag': obj['ETag'].strip('"'),
                     'storage_class': obj.get('StorageClass', 'STANDARD')
                 })
-            
+
             logger.info(f"Listed {len(objects)} objects from s3://{bucket}/{prefix}")
             return objects
-            
+
         except ClientError as e:
             error_code = e.response.get('Error', {}).get('Code', 'Unknown')
             raise S3Error(
@@ -468,8 +468,8 @@ class S3Client:
                 bucket=bucket,
                 key=prefix
             ) from e
-    
-    def _apply_tags(self, bucket: str, key: str, tags: Dict[str, str]) -> None:
+
+    def _apply_tags(self, bucket: str, key: str, tags: dict[str, str]) -> None:
         """Apply tags to S3 object."""
         try:
             tag_set = [{'Key': k, 'Value': v} for k, v in tags.items()]
@@ -479,11 +479,11 @@ class S3Client:
                 Tagging={'TagSet': tag_set}
             )
             logger.debug(f"Applied {len(tags)} tags to s3://{bucket}/{key}")
-            
+
         except ClientError as e:
             # Log warning but don't fail the operation
             logger.warning(f"Failed to apply tags to s3://{bucket}/{key}: {e}")
-    
+
     def generate_presigned_url(
         self,
         bucket: str,
@@ -510,6 +510,6 @@ class S3Client:
             )
             logger.debug(f"Generated presigned URL for s3://{bucket}/{key}")
             return url
-            
+
         except ClientError as e:
             raise S3Error(f"Failed to generate presigned URL: {e}") from e

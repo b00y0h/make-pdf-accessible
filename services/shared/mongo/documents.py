@@ -1,22 +1,22 @@
 """Document repository for MongoDB with specialized document operations."""
 
 import logging
-from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
+from typing import List, Optional
+
 from pymongo import ASCENDING, DESCENDING
 
 from .repository import BaseRepository
-from .connection import get_mongo_connection
 
 logger = logging.getLogger(__name__)
 
 
 class DocumentRepository(BaseRepository):
     """Repository for document operations with MongoDB."""
-    
+
     def __init__(self):
         super().__init__('documents')
-    
+
     def create_document(self, doc_data: dict) -> dict:
         """Create a new document with validation."""
         try:
@@ -25,7 +25,7 @@ class DocumentRepository(BaseRepository):
             for field in required_fields:
                 if field not in doc_data:
                     raise ValueError(f"Missing required field: {field}")
-            
+
             # Set default values
             now = datetime.utcnow()
             doc_data.setdefault('createdAt', now)
@@ -35,17 +35,17 @@ class DocumentRepository(BaseRepository):
             doc_data.setdefault('scores', {})
             doc_data.setdefault('issues', [])
             doc_data.setdefault('ai', {})
-            
+
             return self.create(doc_data)
-            
+
         except Exception as e:
             logger.error(f"Error creating document: {e}")
             raise
-    
+
     def get_document(self, doc_id: str) -> Optional[dict]:
         """Get document by docId."""
         return self.find_one({'docId': doc_id}, hint={'docId': 1})
-    
+
     def get_documents_by_owner(
         self,
         owner_id: str,
@@ -59,17 +59,17 @@ class DocumentRepository(BaseRepository):
         try:
             # Build filter
             filter_doc = {'ownerId': owner_id}
-            
+
             if status_filter:
                 filter_doc['status'] = {'$in': status_filter}
-            
+
             # Build sort
             sort_direction = DESCENDING if sort_order == 'desc' else ASCENDING
             sort = [(sort_by, sort_direction)]
-            
+
             # Use appropriate index hint
             hint = {'ownerId': 1, 'createdAt': -1}
-            
+
             return self.paginate(
                 filter_doc=filter_doc,
                 page=page,
@@ -77,7 +77,7 @@ class DocumentRepository(BaseRepository):
                 sort=sort,
                 hint=hint
             )
-            
+
         except Exception as e:
             logger.error(f"Error getting documents for owner {owner_id}: {e}")
             return {
@@ -89,7 +89,7 @@ class DocumentRepository(BaseRepository):
                 'has_next': False,
                 'has_prev': False
             }
-    
+
     def get_documents_by_status(
         self,
         status: str,
@@ -99,7 +99,7 @@ class DocumentRepository(BaseRepository):
         """Get documents by status, optionally prioritizing high-priority documents."""
         try:
             filter_doc = {'status': status}
-            
+
             # Build sort order
             if sort_by_priority:
                 sort = [('metadata.priority', DESCENDING), ('createdAt', ASCENDING)]
@@ -107,18 +107,18 @@ class DocumentRepository(BaseRepository):
             else:
                 sort = [('updatedAt', DESCENDING)]
                 hint = {'status': 1, 'updatedAt': -1}
-            
+
             return self.find(
                 filter_doc=filter_doc,
                 sort=sort,
                 limit=limit,
                 hint=hint
             )
-            
+
         except Exception as e:
             logger.error(f"Error getting documents by status {status}: {e}")
             return []
-    
+
     def update_document_status(
         self,
         doc_id: str,
@@ -135,28 +135,28 @@ class DocumentRepository(BaseRepository):
                     'updatedAt': datetime.utcnow()
                 }
             }
-            
+
             if error_message is not None:
                 update_doc['$set']['errorMessage'] = error_message
-            
+
             if completed_at is not None:
                 update_doc['$set']['completedAt'] = completed_at
             elif status == 'completed':
                 update_doc['$set']['completedAt'] = datetime.utcnow()
-            
+
             if additional_data:
                 update_doc['$set'].update(additional_data)
-            
+
             return self.update_by_id(
                 doc_id=doc_id,
                 update=update_doc,
                 hint={'docId': 1}
             )
-            
+
         except Exception as e:
             logger.error(f"Error updating document status for {doc_id}: {e}")
             return False
-    
+
     def update_artifacts(self, doc_id: str, artifacts: dict) -> bool:
         """Update document artifacts."""
         try:
@@ -166,17 +166,17 @@ class DocumentRepository(BaseRepository):
                     'updatedAt': datetime.utcnow()
                 }
             }
-            
+
             return self.update_by_id(
                 doc_id=doc_id,
                 update=update_doc,
                 hint={'docId': 1}
             )
-            
+
         except Exception as e:
             logger.error(f"Error updating artifacts for document {doc_id}: {e}")
             return False
-    
+
     def update_scores(self, doc_id: str, scores: dict) -> bool:
         """Update document accessibility scores."""
         try:
@@ -186,17 +186,17 @@ class DocumentRepository(BaseRepository):
                     'updatedAt': datetime.utcnow()
                 }
             }
-            
+
             return self.update_by_id(
                 doc_id=doc_id,
                 update=update_doc,
                 hint={'docId': 1}
             )
-            
+
         except Exception as e:
             logger.error(f"Error updating scores for document {doc_id}: {e}")
             return False
-    
+
     def update_issues(self, doc_id: str, issues: List[dict]) -> bool:
         """Update document accessibility issues."""
         try:
@@ -206,17 +206,17 @@ class DocumentRepository(BaseRepository):
                     'updatedAt': datetime.utcnow()
                 }
             }
-            
+
             return self.update_by_id(
                 doc_id=doc_id,
                 update=update_doc,
                 hint={'docId': 1}
             )
-            
+
         except Exception as e:
             logger.error(f"Error updating issues for document {doc_id}: {e}")
             return False
-    
+
     def update_ai_manifest(self, doc_id: str, ai_data: dict) -> bool:
         """Update AI processing manifest."""
         try:
@@ -226,17 +226,17 @@ class DocumentRepository(BaseRepository):
                     'updatedAt': datetime.utcnow()
                 }
             }
-            
+
             return self.update_by_id(
                 doc_id=doc_id,
                 update=update_doc,
                 hint={'docId': 1}
             )
-            
+
         except Exception as e:
             logger.error(f"Error updating AI manifest for document {doc_id}: {e}")
             return False
-    
+
     def search_documents(
         self,
         owner_id: str,
@@ -250,11 +250,11 @@ class DocumentRepository(BaseRepository):
                 'ownerId': owner_id,
                 '$text': {'$search': search_term}
             }
-            
+
             # Sort by text score relevance
             sort = [('score', {'$meta': 'textScore'})]
             projection = {'score': {'$meta': 'textScore'}}
-            
+
             return self.paginate(
                 filter_doc=filter_doc,
                 page=page,
@@ -262,7 +262,7 @@ class DocumentRepository(BaseRepository):
                 sort=sort,
                 projection=projection
             )
-            
+
         except Exception as e:
             logger.error(f"Error searching documents for owner {owner_id}: {e}")
             return {
@@ -274,7 +274,7 @@ class DocumentRepository(BaseRepository):
                 'has_next': False,
                 'has_prev': False
             }
-    
+
     def get_processing_summary(self) -> dict:
         """Get processing summary statistics."""
         try:
@@ -308,9 +308,9 @@ class DocumentRepository(BaseRepository):
                     }
                 }
             ]
-            
+
             results = self.aggregate(pipeline)
-            
+
             if not results:
                 return {
                     'total_documents': 0,
@@ -321,14 +321,14 @@ class DocumentRepository(BaseRepository):
                     'completion_rate': 0,
                     'avg_processing_time_hours': 0
                 }
-            
+
             result = results[0]
             status_counts = {item['status']: item['count'] for item in result['documents_by_status']}
-            
+
             total = result['total_documents']
             completed = status_counts.get('completed', 0)
             completion_rate = completed / total if total > 0 else 0
-            
+
             return {
                 'total_documents': total,
                 'completed_documents': completed,
@@ -338,7 +338,7 @@ class DocumentRepository(BaseRepository):
                 'completion_rate': completion_rate,
                 'avg_processing_time_hours': (result['avg_processing_time'] or 0) / 3600
             }
-            
+
         except Exception as e:
             logger.error(f"Error getting processing summary: {e}")
             return {
@@ -350,12 +350,12 @@ class DocumentRepository(BaseRepository):
                 'completion_rate': 0,
                 'avg_processing_time_hours': 0
             }
-    
+
     def get_weekly_stats(self, weeks: int = 4) -> List[dict]:
         """Get weekly processing statistics."""
         try:
             start_date = datetime.utcnow() - timedelta(weeks=weeks)
-            
+
             pipeline = [
                 {
                     '$match': {
@@ -385,9 +385,9 @@ class DocumentRepository(BaseRepository):
                     '$sort': {'_id.year': 1, '_id.week': 1}
                 }
             ]
-            
+
             results = self.aggregate(pipeline)
-            
+
             return [
                 {
                     'week': f"{result['_id']['year']}-W{result['_id']['week']:02d}",
@@ -398,34 +398,34 @@ class DocumentRepository(BaseRepository):
                 }
                 for result in results
             ]
-            
+
         except Exception as e:
             logger.error(f"Error getting weekly stats: {e}")
             return []
-    
+
     def cleanup_old_documents(self, days: int = 90) -> int:
         """Clean up documents older than specified days (completed or failed only)."""
         try:
             cutoff_date = datetime.utcnow() - timedelta(days=days)
-            
+
             filter_doc = {
                 'createdAt': {'$lt': cutoff_date},
                 'status': {'$in': ['completed', 'failed']}
             }
-            
+
             # Count documents to be deleted
             count = self.count(filter_doc)
-            
+
             if count > 0:
                 # Delete old documents
                 result = self.collection.delete_many(filter_doc)
                 deleted_count = result.deleted_count
-                
+
                 logger.info(f"Cleaned up {deleted_count} old documents")
                 return deleted_count
-            
+
             return 0
-            
+
         except Exception as e:
             logger.error(f"Error cleaning up old documents: {e}")
             return 0

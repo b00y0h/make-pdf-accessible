@@ -1,160 +1,181 @@
 'use client'
 
 import React, { useState, useCallback } from 'react'
-import { useDropzone } from 'react-dropzone'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
-import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
-  Upload as UploadIcon,
-  File,
-  X,
   CheckCircle,
   AlertCircle,
-  FileText,
   Clock,
+  Settings,
+  ArrowRight,
+  Upload as UploadIcon
 } from 'lucide-react'
-import { formatBytes } from '@/lib/utils'
+import { FileUpload, FileUploadFile, useFileUpload } from '@/components/FileUpload'
+import { useS3Upload } from '@/hooks/useS3Upload'
+import toast from 'react-hot-toast'
 
-interface UploadFile {
-  id: string
-  file: File
-  progress: number
-  status: 'uploading' | 'processing' | 'completed' | 'error'
-  error?: string
+interface UploadSettings {
+  priority: boolean
+  webhookUrl: string
+  metadata: Record<string, any>
 }
 
 export default function UploadPage() {
-  const [uploadedFiles, setUploadedFiles] = useState<UploadFile[]>([])
-  const [isUploading, setIsUploading] = useState(false)
+  const router = useRouter()
+  const { files, updateFile, removeFile, addFiles, clearAll } = useFileUpload()
+  const { uploadToS3, uploadMultiple, isUploading } = useS3Upload()
+  
+  const [settings, setSettings] = useState<UploadSettings>({
+    priority: false,
+    webhookUrl: '',
+    metadata: {}
+  })
+  const [showSettings, setShowSettings] = useState(false)
+  const [metadataText, setMetadataText] = useState('')
+  
+  // Handle files selected from dropzone
+  const handleFilesSelected = useCallback((newFiles: FileUploadFile[]) => {
+    addFiles(newFiles)
+  }, [addFiles])
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    const newFiles: UploadFile[] = acceptedFiles.map(file => ({
-      id: Math.random().toString(36).substring(7),
-      file,
-      progress: 0,
-      status: 'uploading' as const,
-    }))
-
-    setUploadedFiles(prev => [...prev, ...newFiles])
-    setIsUploading(true)
-
-    // Simulate file upload and processing
-    newFiles.forEach(uploadFile => {
-      simulateUpload(uploadFile)
-    })
-  }, [])
-
-  const simulateUpload = (uploadFile: UploadFile) => {
-    const interval = setInterval(() => {
-      setUploadedFiles(prev =>
-        prev.map(file => {
-          if (file.id === uploadFile.id) {
-            if (file.progress < 100) {
-              return { ...file, progress: Math.min(file.progress + 10, 100) }
-            } else if (file.status === 'uploading') {
-              return { ...file, status: 'processing' }
-            } else if (file.status === 'processing') {
-              // Randomly complete or error for demo
-              const success = Math.random() > 0.2
-              return {
-                ...file,
-                status: success ? 'completed' : 'error',
-                error: success ? undefined : 'Processing failed: Invalid PDF format',
-              }
-            }
-          }
-          return file
-        })
-      )
-    }, 500)
-
-    // Clean up interval after completion
-    setTimeout(() => {
-      clearInterval(interval)
-      setIsUploading(false)
-    }, 6000)
-  }
-
-  const removeFile = (id: string) => {
-    setUploadedFiles(prev => prev.filter(file => file.id !== id))
-  }
-
-  const { getRootProps, getInputProps, isDragActive, isDragAccept, isDragReject } =
-    useDropzone({
-      onDrop,
-      accept: {
-        'application/pdf': ['.pdf'],
-      },
-      maxSize: 50 * 1024 * 1024, // 50MB
-    })
-
-  const getDropzoneClass = () => {
-    let baseClass = 'border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer'
+  // Start upload process
+  const handleUpload = useCallback(async () => {
+    const filesToUpload = files.filter(f => f.status === 'idle')
     
-    if (isDragAccept) {
-      return `${baseClass} border-green-500 bg-green-50 dark:bg-green-900/20`
+    if (filesToUpload.length === 0) {
+      toast.error('No files ready for upload')
+      return
     }
-    if (isDragReject) {
-      return `${baseClass} border-red-500 bg-red-50 dark:bg-red-900/20`
-    }
-    if (isDragActive) {
-      return `${baseClass} border-blue-500 bg-blue-50 dark:bg-blue-900/20`
-    }
-    return `${baseClass} border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600`
-  }
 
-  const getStatusIcon = (status: UploadFile['status']) => {
-    switch (status) {
-      case 'uploading':
-      case 'processing':
-        return <Clock className="h-4 w-4 text-yellow-500" />
-      case 'completed':
-        return <CheckCircle className="h-4 w-4 text-green-500" />
-      case 'error':
-        return <AlertCircle className="h-4 w-4 text-red-500" />
+    // Parse metadata
+    let parsedMetadata = settings.metadata
+    if (metadataText.trim()) {
+      try {
+        parsedMetadata = { ...parsedMetadata, ...JSON.parse(metadataText) }
+      } catch (e) {
+        toast.error('Invalid metadata JSON format')
+        return
+      }
     }
-  }
 
-  const getStatusBadge = (status: UploadFile['status']) => {
-    switch (status) {
-      case 'uploading':
-        return <Badge variant="warning">Uploading</Badge>
-      case 'processing':
-        return <Badge variant="warning">Processing</Badge>
-      case 'completed':
-        return <Badge variant="success">Completed</Badge>
-      case 'error':
-        return <Badge variant="error">Error</Badge>
+    try {
+      // Upload files sequentially to avoid overwhelming the server
+      for (const file of filesToUpload) {
+        updateFile(file.id, { status: 'uploading', progress: 0 })
+
+        try {
+          const result = await uploadToS3(file, {
+            onProgress: (progress) => {
+              updateFile(file.id, { 
+                status: 'uploading', 
+                progress: progress.percentage 
+              })
+            },
+            onSuccess: (result) => {
+              updateFile(file.id, { 
+                status: 'success', 
+                progress: 100,
+                docId: result.docId
+              })
+              toast.success(`${file.name} uploaded successfully!`)
+            },
+            onError: (error) => {
+              updateFile(file.id, { 
+                status: 'error', 
+                error: error.message 
+              })
+              toast.error(`Failed to upload ${file.name}: ${error.message}`)
+            }
+          })
+        } catch (error) {
+          console.error(`Upload failed for ${file.name}:`, error)
+        }
+      }
+
+      // Show success message for completed uploads
+      const successCount = files.filter(f => f.status === 'success').length
+      if (successCount > 0) {
+        toast.success(`Successfully uploaded ${successCount} file${successCount > 1 ? 's' : ''}!`)
+      }
+
+    } catch (error) {
+      console.error('Upload process failed:', error)
+      toast.error('Upload process failed')
     }
-  }
+  }, [files, uploadToS3, updateFile, settings, metadataText])
 
-  const completedCount = uploadedFiles.filter(f => f.status === 'completed').length
-  const errorCount = uploadedFiles.filter(f => f.status === 'error').length
-  const processingCount = uploadedFiles.filter(f => 
-    f.status === 'uploading' || f.status === 'processing'
-  ).length
+  // Navigate to document detail
+  const handleViewDocument = useCallback((docId: string) => {
+    router.push(`/documents/${docId}`)
+  }, [router])
+
+  // Stats
+  const completedCount = files.filter(f => f.status === 'success').length
+  const errorCount = files.filter(f => f.status === 'error').length  
+  const uploadingCount = files.filter(f => f.status === 'uploading').length
+  const readyCount = files.filter(f => f.status === 'idle').length
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Upload Documents</h1>
-        <p className="text-muted-foreground">
-          Upload PDF documents to make them accessible
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Upload Documents</h1>
+          <p className="text-muted-foreground">
+            Upload PDF documents to make them accessible
+          </p>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowSettings(!showSettings)}
+            className="flex items-center gap-2"
+          >
+            <Settings className="h-4 w-4" />
+            Settings
+          </Button>
+          
+          {readyCount > 0 && (
+            <Button
+              onClick={handleUpload}
+              disabled={isUploading || readyCount === 0}
+              className="flex items-center gap-2"
+            >
+              <UploadIcon className="h-4 w-4" />
+              Upload {readyCount} File{readyCount !== 1 ? 's' : ''}
+              {isUploading && <Clock className="h-4 w-4 animate-spin" />}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
-      {uploadedFiles.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-3">
+      {files.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Processing</CardTitle>
+              <CardTitle className="text-sm font-medium">Ready</CardTitle>
+              <UploadIcon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{readyCount}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Uploading</CardTitle>
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{processingCount}</div>
+              <div className="text-2xl font-bold">{uploadingCount}</div>
             </CardContent>
           </Card>
 
@@ -180,105 +201,113 @@ export default function UploadPage() {
         </div>
       )}
 
-      {/* Upload Area */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Upload PDFs</CardTitle>
-          <CardDescription>
-            Drag and drop PDF files here, or click to select files. Max file size: 50MB
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div {...getRootProps()} className={getDropzoneClass()}>
-            <input {...getInputProps()} />
-            <div className="flex flex-col items-center gap-4">
-              <div className="p-4 rounded-full bg-gray-100 dark:bg-gray-800">
-                <UploadIcon className="h-8 w-8 text-gray-600 dark:text-gray-400" />
-              </div>
-              <div className="text-center">
-                {isDragActive ? (
-                  <p className="text-lg font-medium">
-                    {isDragAccept
-                      ? 'Drop the PDF files here...'
-                      : 'Only PDF files are accepted'}
-                  </p>
-                ) : (
-                  <div>
-                    <p className="text-lg font-medium">Drop PDF files here or click to browse</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Supported formats: PDF (max 50MB each)
-                    </p>
-                  </div>
-                )}
-              </div>
-              <Button variant="outline">
-                Select Files
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* File List */}
-      {uploadedFiles.length > 0 && (
+      {/* Upload Settings */}
+      {showSettings && (
         <Card>
           <CardHeader>
-            <CardTitle>Upload Progress</CardTitle>
+            <CardTitle>Upload Settings</CardTitle>
             <CardDescription>
-              Track the progress of your uploaded files
+              Configure advanced upload options
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {uploadedFiles.map(uploadFile => (
-                <div key={uploadFile.id} className="flex items-center gap-4 p-4 border rounded-lg">
-                  <FileText className="h-8 w-8 text-blue-500 flex-shrink-0" />
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="font-medium truncate">{uploadFile.file.name}</p>
-                      <div className="flex items-center gap-2">
-                        {getStatusIcon(uploadFile.status)}
-                        {getStatusBadge(uploadFile.status)}
+          <CardContent className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="priority"
+                checked={settings.priority}
+                onCheckedChange={(checked) => 
+                  setSettings(prev => ({ ...prev, priority: checked }))
+                }
+              />
+              <Label htmlFor="priority">Priority processing</Label>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="webhook">Webhook URL (optional)</Label>
+              <Input
+                id="webhook"
+                type="url"
+                placeholder="https://your-site.com/webhook"
+                value={settings.webhookUrl}
+                onChange={(e) => 
+                  setSettings(prev => ({ ...prev, webhookUrl: e.target.value }))
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="metadata">Additional Metadata (JSON)</Label>
+              <Textarea
+                id="metadata"
+                placeholder='{"project": "test", "department": "legal"}'
+                value={metadataText}
+                onChange={(e) => setMetadataText(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* File Upload Area */}
+      <FileUpload
+        onFilesSelected={handleFilesSelected}
+        maxFiles={10}
+        maxSize={50 * 1024 * 1024} // 50MB
+        accept={{
+          'application/pdf': ['.pdf']
+        }}
+        showFileList={true}
+      />
+
+      {/* Success Actions */}
+      {completedCount > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Upload Complete!</CardTitle>
+            <CardDescription>
+              Your documents are now being processed for accessibility
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-2">
+              {files
+                .filter(f => f.status === 'success' && f.docId)
+                .map(file => (
+                  <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                      <div>
+                        <p className="font-medium">{file.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Document ID: {file.docId?.slice(0, 8)}...
+                        </p>
                       </div>
                     </div>
-                    
-                    <div className="text-sm text-muted-foreground mb-2">
-                      {formatBytes(uploadFile.file.size)}
-                    </div>
-                    
-                    {uploadFile.status !== 'error' && (
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <span>
-                            {uploadFile.status === 'uploading'
-                              ? 'Uploading...'
-                              : uploadFile.status === 'processing'
-                              ? 'Processing...'
-                              : 'Complete'}
-                          </span>
-                          <span>{uploadFile.progress}%</span>
-                        </div>
-                        <Progress value={uploadFile.progress} className="h-2" />
-                      </div>
-                    )}
-                    
-                    {uploadFile.error && (
-                      <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                        {uploadFile.error}
-                      </p>
-                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleViewDocument(file.docId!)}
+                      className="flex items-center gap-2"
+                    >
+                      View Details
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
                   </div>
-                  
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeFile(uploadFile.id)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
+                ))
+              }
+            </div>
+
+            <div className="flex justify-between">
+              <Button 
+                variant="outline" 
+                onClick={clearAll}
+              >
+                Clear All
+              </Button>
+              <Button onClick={() => router.push('/queue')}>
+                View All Documents
+              </Button>
             </div>
           </CardContent>
         </Card>

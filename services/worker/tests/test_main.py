@@ -1,8 +1,8 @@
-import pytest
-import json
-from unittest.mock import Mock, patch, AsyncMock
-import sys
 import os
+import sys
+from unittest.mock import Mock, patch
+
+import pytest
 
 # Add the parent directory to the path so we can import main
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

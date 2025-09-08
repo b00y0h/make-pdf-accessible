@@ -1,16 +1,16 @@
 """Custom exceptions for PDF worker package."""
 
-from typing import Optional, Any, Dict
+from typing import Any
 
 
 class WorkerError(Exception):
     """Base exception for PDF worker errors."""
-    
+
     def __init__(
-        self, 
-        message: str, 
-        error_code: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None
+        self,
+        message: str,
+        error_code: str | None = None,
+        details: dict[str, Any] | None = None
     ) -> None:
         """Initialize worker error.
         
@@ -23,8 +23,8 @@ class WorkerError(Exception):
         self.message = message
         self.error_code = error_code or "WORKER_ERROR"
         self.details = details or {}
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert exception to dictionary format."""
         return {
             "error_code": self.error_code,
@@ -35,10 +35,10 @@ class WorkerError(Exception):
 
 class WorkerConfigError(WorkerError):
     """Configuration-related errors."""
-    
-    def __init__(self, message: str, missing_config: Optional[str] = None) -> None:
+
+    def __init__(self, message: str, missing_config: str | None = None) -> None:
         super().__init__(
-            message, 
+            message,
             error_code="CONFIG_ERROR",
             details={"missing_config": missing_config} if missing_config else None
         )
@@ -46,28 +46,28 @@ class WorkerConfigError(WorkerError):
 
 class S3Error(WorkerError):
     """S3-related errors."""
-    
+
     def __init__(
-        self, 
-        message: str, 
-        bucket: Optional[str] = None, 
-        key: Optional[str] = None
+        self,
+        message: str,
+        bucket: str | None = None,
+        key: str | None = None
     ) -> None:
         super().__init__(
             message,
-            error_code="S3_ERROR", 
+            error_code="S3_ERROR",
             details={"bucket": bucket, "key": key}
         )
 
 
 class DynamoDBError(WorkerError):
     """DynamoDB-related errors."""
-    
+
     def __init__(
-        self, 
-        message: str, 
-        table: Optional[str] = None,
-        operation: Optional[str] = None
+        self,
+        message: str,
+        table: str | None = None,
+        operation: str | None = None
     ) -> None:
         super().__init__(
             message,
@@ -78,12 +78,12 @@ class DynamoDBError(WorkerError):
 
 class SQSError(WorkerError):
     """SQS-related errors."""
-    
+
     def __init__(
-        self, 
-        message: str, 
-        queue_url: Optional[str] = None,
-        message_id: Optional[str] = None
+        self,
+        message: str,
+        queue_url: str | None = None,
+        message_id: str | None = None
     ) -> None:
         super().__init__(
             message,
@@ -94,12 +94,12 @@ class SQSError(WorkerError):
 
 class TextractError(WorkerError):
     """Textract-related errors."""
-    
+
     def __init__(
-        self, 
-        message: str, 
-        job_id: Optional[str] = None,
-        job_status: Optional[str] = None
+        self,
+        message: str,
+        job_id: str | None = None,
+        job_status: str | None = None
     ) -> None:
         super().__init__(
             message,
@@ -110,12 +110,12 @@ class TextractError(WorkerError):
 
 class BedrockError(WorkerError):
     """Bedrock-related errors."""
-    
+
     def __init__(
-        self, 
-        message: str, 
-        model_id: Optional[str] = None,
-        request_id: Optional[str] = None
+        self,
+        message: str,
+        model_id: str | None = None,
+        request_id: str | None = None
     ) -> None:
         super().__init__(
             message,
@@ -126,12 +126,12 @@ class BedrockError(WorkerError):
 
 class PDFProcessingError(WorkerError):
     """PDF processing-related errors."""
-    
+
     def __init__(
-        self, 
-        message: str, 
-        doc_id: Optional[str] = None,
-        operation: Optional[str] = None
+        self,
+        message: str,
+        doc_id: str | None = None,
+        operation: str | None = None
     ) -> None:
         super().__init__(
             message,
@@ -142,11 +142,11 @@ class PDFProcessingError(WorkerError):
 
 class IdempotencyError(WorkerError):
     """Idempotency-related errors."""
-    
+
     def __init__(
-        self, 
-        message: str, 
-        key: Optional[str] = None
+        self,
+        message: str,
+        key: str | None = None
     ) -> None:
         super().__init__(
             message,
@@ -157,12 +157,12 @@ class IdempotencyError(WorkerError):
 
 class ValidationError(WorkerError):
     """Data validation errors."""
-    
+
     def __init__(
-        self, 
-        message: str, 
-        field: Optional[str] = None,
-        value: Optional[Any] = None
+        self,
+        message: str,
+        field: str | None = None,
+        value: Any | None = None
     ) -> None:
         super().__init__(
             message,

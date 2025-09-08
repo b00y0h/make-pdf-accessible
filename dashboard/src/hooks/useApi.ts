@@ -104,6 +104,92 @@ export function useUpdateAltText() {
   })
 }
 
+// Alt-text review hooks
+export function useDocumentAltText(docId: string, statusFilter?: string) {
+  const apiService = useApiService()
+  
+  return useQuery({
+    queryKey: ['alt-text', docId, statusFilter],
+    queryFn: () => apiService!.getDocumentAltText(docId, statusFilter),
+    enabled: !!docId && !!apiService,
+    staleTime: 30 * 1000,
+  })
+}
+
+export function useEditFigureAltText() {
+  const apiService = useApiService()
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: ({ docId, figureId, text, comment }: { 
+      docId: string; 
+      figureId: string; 
+      text: string; 
+      comment?: string 
+    }) => apiService!.editFigureAltText(docId, figureId, text, comment),
+    onSuccess: (_, variables) => {
+      // Invalidate alt-text queries for this document
+      queryClient.invalidateQueries({ 
+        queryKey: ['alt-text', variables.docId]
+      })
+    },
+  })
+}
+
+export function useUpdateFigureStatus() {
+  const apiService = useApiService()
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: ({ docId, figureIds, status, comment }: { 
+      docId: string; 
+      figureIds: string[]; 
+      status: string; 
+      comment?: string 
+    }) => apiService!.updateFigureStatus(docId, figureIds, status, comment),
+    onSuccess: (_, variables) => {
+      // Invalidate alt-text queries for this document
+      queryClient.invalidateQueries({ 
+        queryKey: ['alt-text', variables.docId]
+      })
+    },
+  })
+}
+
+export function useFigureHistory(docId: string, figureId: string) {
+  const apiService = useApiService()
+  
+  return useQuery({
+    queryKey: ['alt-text-history', docId, figureId],
+    queryFn: () => apiService!.getFigureHistory(docId, figureId),
+    enabled: !!docId && !!figureId && !!apiService,
+    staleTime: 60 * 1000, // History doesn't change often
+  })
+}
+
+export function useRevertFigureToVersion() {
+  const apiService = useApiService()
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: ({ docId, figureId, version }: { 
+      docId: string; 
+      figureId: string; 
+      version: number 
+    }) => apiService!.revertFigureToVersion(docId, figureId, version),
+    onSuccess: (_, variables) => {
+      // Invalidate alt-text queries for this document
+      queryClient.invalidateQueries({ 
+        queryKey: ['alt-text', variables.docId]
+      })
+      // Also invalidate history for this figure
+      queryClient.invalidateQueries({ 
+        queryKey: ['alt-text-history', variables.docId, variables.figureId]
+      })
+    },
+  })
+}
+
 // Reports hooks
 export function useReportsSummary() {
   const apiService = useApiService()
@@ -125,5 +211,49 @@ export function useUserProfile() {
     queryFn: () => apiService!.getUserProfile(),
     enabled: !!apiService,
     staleTime: 5 * 60 * 1000, // 5 minutes
+  })
+}
+
+// CSV Export hook
+export function useExportCSV() {
+  const apiService = useApiService()
+  
+  return useMutation({
+    mutationFn: (params?: {
+      start_date?: string
+      end_date?: string
+      owner_filter?: string
+      status_filter?: string
+    }) => apiService!.exportDocumentsCSV(params),
+    onSuccess: (blob, variables) => {
+      // Create download link
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      
+      // Generate filename with filters
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')
+      let filename = `documents_export_${timestamp}`
+      
+      if (variables?.start_date) {
+        filename += `_from_${variables.start_date.replace(/-/g, '')}`
+      }
+      if (variables?.end_date) {
+        filename += `_to_${variables.end_date.replace(/-/g, '')}`
+      }
+      if (variables?.status_filter) {
+        filename += `_status_${variables.status_filter}`
+      }
+      
+      filename += '.csv'
+      link.download = filename
+      
+      document.body.appendChild(link)
+      link.click()
+      
+      // Cleanup
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    },
   })
 }

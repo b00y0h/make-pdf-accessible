@@ -16,12 +16,15 @@ from fastapi import (
 from ..auth import User, get_current_user, require_roles
 from ..config import settings
 from ..models import (
+    DocumentCreateRequest,
     DocumentListResponse,
     DocumentResponse,
     DocumentStatus,
     DocumentType,
     DownloadResponse,
     PaginationParams,
+    PreSignedUploadRequest,
+    PreSignedUploadResponse,
     UserRole,
 )
 from ..services import AWSServiceError, document_service
@@ -31,6 +34,130 @@ tracer = Tracer()
 metrics = Metrics()
 
 router = APIRouter(prefix="/documents", tags=["documents"])
+
+
+@router.post(
+    "/upload/presigned",
+    response_model=PreSignedUploadResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Get pre-signed upload URL",
+    description="Generate a pre-signed S3 upload URL for direct client-side file upload with progress tracking."
+)
+@tracer.capture_method
+async def get_presigned_upload_url(
+    request: PreSignedUploadRequest,
+    current_user: User = Depends(get_current_user)
+) -> PreSignedUploadResponse:
+    """Get pre-signed S3 upload URL for direct client upload"""
+
+    # Validate file size
+    if request.file_size > settings.max_file_size:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File size exceeds maximum allowed size of {settings.max_file_size} bytes"
+        )
+
+    # Validate file extension
+    filename_lower = request.filename.lower()
+    file_extension = f".{filename_lower.split('.')[-1]}"
+    if file_extension not in settings.allowed_file_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File type not allowed. Supported types: {settings.allowed_file_types}"
+        )
+
+    try:
+        # Generate pre-signed upload URL
+        upload_response = await document_service.generate_presigned_upload_url(
+            user_id=current_user.sub,
+            filename=request.filename,
+            content_type=request.content_type,
+            file_size=request.file_size
+        )
+
+        metrics.add_metric(name="PreSignedUploadRequests", unit="Count", value=1)
+
+        logger.info(
+            "Pre-signed upload URL generated",
+            extra={
+                "doc_id": str(upload_response.doc_id),
+                "user_id": current_user.sub,
+                "filename": request.filename,
+                "file_size": request.file_size
+            }
+        )
+
+        return upload_response
+
+    except AWSServiceError as e:
+        logger.error(f"Failed to generate pre-signed upload URL: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate upload URL"
+        )
+
+
+@router.post(
+    "/create",
+    response_model=DocumentResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create document after successful upload",
+    description="Create document record and enqueue for processing after successful S3 upload."
+)
+@tracer.capture_method
+async def create_document_after_upload(
+    request: DocumentCreateRequest,
+    current_user: User = Depends(get_current_user)
+) -> DocumentResponse:
+    """Create document record and enqueue for processing after S3 upload"""
+
+    # Validate webhook URL if provided
+    if request.webhook_url:
+        if not (request.webhook_url.startswith('http://') or request.webhook_url.startswith('https://')):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="webhook_url must be a valid HTTP/HTTPS URL"
+            )
+
+    try:
+        # Create document record and enqueue for processing
+        document = await document_service.create_document_from_s3(
+            doc_id=str(request.doc_id),
+            user_id=current_user.sub,
+            s3_key=request.s3_key,
+            source=request.source,
+            metadata=request.metadata,
+            priority=request.priority,
+            webhook_url=request.webhook_url
+        )
+
+        metrics.add_metric(name="DocumentsCreated", unit="Count", value=1)
+        metrics.add_metric(name="PriorityDocuments", unit="Count", value=1 if request.priority else 0)
+
+        logger.info(
+            "Document created and enqueued for processing",
+            extra={
+                "doc_id": str(request.doc_id),
+                "user_id": current_user.sub,
+                "s3_key": request.s3_key,
+                "source": request.source,
+                "priority": request.priority
+            }
+        )
+
+        return document
+
+    except AWSServiceError as e:
+        logger.error(f"Failed to create document: {e}")
+        if "not found" in str(e).lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Uploaded file not found in S3"
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create document record"
+        )
 
 
 @router.post(

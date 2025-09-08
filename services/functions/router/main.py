@@ -8,26 +8,25 @@ Features: Idempotency (dedupe by docId), structured logs, X-Ray tracing.
 
 import json
 import os
-from typing import Dict, Any
+from typing import Any, Dict
 
-from aws_lambda_powertools import Logger, Tracer, Metrics
+from aws_lambda_powertools import Logger, Metrics, Tracer
 from aws_lambda_powertools.logging import correlation_paths
-from aws_lambda_powertools.utilities.typing import LambdaContext
 from aws_lambda_powertools.utilities.data_classes import SQSEvent, event_source
-from pydantic import ValidationError
-
+from aws_lambda_powertools.utilities.typing import LambdaContext
 from models import (
-    IngestMessage, 
-    DocumentRecord, 
-    JobRecord, 
-    ProcessMessage,
+    DocumentRecord,
     DocumentSource,
     DocumentStatus,
+    IngestMessage,
+    JobRecord,
+    JobStatus,
     JobStep,
-    JobStatus
+    ProcessMessage,
 )
-from services import RouterService, AWSServiceError
+from pydantic import ValidationError
 
+from services import AWSServiceError, RouterService
 
 # Initialize Powertools
 logger = Logger(service="pdf-router")
@@ -63,7 +62,7 @@ async def process_document(ingest_message: IngestMessage) -> Dict[str, Any]:
     """
     doc_id = ingest_message.doc_id
     logger.info(f"Processing document {doc_id}", extra={"doc_id": doc_id})
-    
+
     processing_start = tracer.provider.get_start_time()
     result = {
         "doc_id": doc_id,
@@ -71,7 +70,7 @@ async def process_document(ingest_message: IngestMessage) -> Dict[str, Any]:
         "actions_performed": [],
         "error": None
     }
-    
+
     try:
         # 1. Idempotency check - skip if document already exists
         if router_service.check_document_exists(doc_id):
@@ -80,12 +79,12 @@ async def process_document(ingest_message: IngestMessage) -> Dict[str, Any]:
             metrics.add_metric(name="DocumentsSkipped", unit="Count", value=1)
             logger.info(f"Document {doc_id} already exists, skipping processing")
             return result
-        
+
         result["actions_performed"].append("idempotency_check_passed")
-        
+
         # 2. Store original file to pdf-originals bucket
         s3_key_original = None
-        
+
         if ingest_message.source == DocumentSource.UPLOAD:
             # Copy from temp/uploaded location to originals
             s3_key_original = router_service.copy_uploaded_file(
@@ -94,7 +93,7 @@ async def process_document(ingest_message: IngestMessage) -> Dict[str, Any]:
                 filename=ingest_message.filename
             )
             result["actions_performed"].append("file_copied_to_originals")
-            
+
         elif ingest_message.source == DocumentSource.URL:
             # Download from URL and store
             s3_key_original = await router_service.download_and_store_from_url(
@@ -103,7 +102,7 @@ async def process_document(ingest_message: IngestMessage) -> Dict[str, Any]:
                 filename=ingest_message.filename
             )
             result["actions_performed"].append("file_downloaded_from_url")
-        
+
         # 3. Create document record
         document_record = DocumentRecord(
             doc_id=doc_id,
@@ -116,10 +115,10 @@ async def process_document(ingest_message: IngestMessage) -> Dict[str, Any]:
             webhook_url=ingest_message.webhook_url,
             metadata=ingest_message.metadata or {}
         )
-        
+
         router_service.save_document_record(document_record)
         result["actions_performed"].append("document_record_saved")
-        
+
         # 4. Create OCR job record
         ocr_job = JobRecord(
             doc_id=doc_id,
@@ -133,10 +132,10 @@ async def process_document(ingest_message: IngestMessage) -> Dict[str, Any]:
                 "source": ingest_message.source.value
             }
         )
-        
+
         router_service.create_job_record(ocr_job)
         result["actions_performed"].append("ocr_job_created")
-        
+
         # 5. Enqueue to process queue
         process_message = ProcessMessage(
             job_id=ocr_job.job_id,
@@ -145,22 +144,22 @@ async def process_document(ingest_message: IngestMessage) -> Dict[str, Any]:
             priority=ingest_message.priority,
             input_data=ocr_job.input_data
         )
-        
+
         router_service.enqueue_process_message(process_message)
         result["actions_performed"].append("process_message_enqueued")
-        
+
         # Add processing metrics
         processing_time = tracer.provider.get_elapsed_time_ms(processing_start)
         result["processing_time_ms"] = processing_time
         result["job_id"] = ocr_job.job_id
         result["s3_key_original"] = s3_key_original
-        
+
         metrics.add_metric(name="DocumentsProcessed", unit="Count", value=1)
         metrics.add_metric(name="ProcessingTime", unit="Milliseconds", value=processing_time)
-        
+
         if ingest_message.priority:
             metrics.add_metric(name="PriorityDocumentsProcessed", unit="Count", value=1)
-        
+
         logger.info(
             f"Successfully processed document {doc_id}",
             extra={
@@ -170,9 +169,9 @@ async def process_document(ingest_message: IngestMessage) -> Dict[str, Any]:
                 "actions": result["actions_performed"]
             }
         )
-        
+
         return result
-        
+
     except ValidationError as e:
         error_msg = f"Validation error for document {doc_id}: {e}"
         logger.error(error_msg, extra={"doc_id": doc_id, "validation_errors": e.errors()})
@@ -180,15 +179,15 @@ async def process_document(ingest_message: IngestMessage) -> Dict[str, Any]:
         result["error"] = error_msg
         metrics.add_metric(name="ValidationErrors", unit="Count", value=1)
         return result
-        
+
     except AWSServiceError as e:
         error_msg = f"AWS service error for document {doc_id}: {e}"
         logger.error(error_msg, extra={"doc_id": doc_id})
-        result["status"] = "failed" 
+        result["status"] = "failed"
         result["error"] = error_msg
         metrics.add_metric(name="AWSServiceErrors", unit="Count", value=1)
         return result
-        
+
     except Exception as e:
         error_msg = f"Unexpected error for document {doc_id}: {e}"
         logger.exception(error_msg, extra={"doc_id": doc_id})
@@ -210,27 +209,27 @@ def lambda_handler(event: SQSEvent, context: LambdaContext) -> Dict[str, Any]:
     and enqueues to process-queue.
     """
     logger.info(f"Processing {len(event.records)} messages from ingest queue")
-    
+
     results = {
         "processed": 0,
-        "skipped": 0, 
+        "skipped": 0,
         "failed": 0,
         "results": []
     }
-    
+
     for record in event.records:
         try:
             # Parse SQS message
             message_body = json.loads(record.body)
             logger.debug(f"Processing message: {message_body}")
-            
+
             # Validate and create ingest message
             ingest_message = IngestMessage.model_validate(message_body)
-            
+
             # Process the document
             result = await process_document(ingest_message)
             results["results"].append(result)
-            
+
             # Update counters
             if result["status"] == "success":
                 results["processed"] += 1
@@ -238,7 +237,7 @@ def lambda_handler(event: SQSEvent, context: LambdaContext) -> Dict[str, Any]:
                 results["skipped"] += 1
             else:
                 results["failed"] += 1
-                
+
         except Exception as e:
             error_msg = f"Failed to process SQS record: {e}"
             logger.exception(error_msg)
@@ -249,10 +248,10 @@ def lambda_handler(event: SQSEvent, context: LambdaContext) -> Dict[str, Any]:
                 "message_id": record.message_id
             })
             metrics.add_metric(name="RecordProcessingErrors", unit="Count", value=1)
-    
+
     # Log final results
     logger.info(
-        f"Batch processing complete",
+        "Batch processing complete",
         extra={
             "total_records": len(event.records),
             "processed": results["processed"],
@@ -260,11 +259,11 @@ def lambda_handler(event: SQSEvent, context: LambdaContext) -> Dict[str, Any]:
             "failed": results["failed"]
         }
     )
-    
+
     # Add batch metrics
     metrics.add_metric(name="BatchesProcessed", unit="Count", value=1)
     metrics.add_metric(name="RecordsPerBatch", unit="Count", value=len(event.records))
-    
+
     return results
 
 
@@ -287,13 +286,13 @@ if __name__ == "__main__":
             }
         ]
     }
-    
+
     # Mock context
     class MockContext:
         def __init__(self):
             self.function_name = "test-router"
             self.function_version = "1"
             self.aws_request_id = "test-request-id"
-    
+
     result = lambda_handler(test_event, MockContext())
     print(json.dumps(result, indent=2))

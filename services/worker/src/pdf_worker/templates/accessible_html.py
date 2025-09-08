@@ -1,24 +1,33 @@
 """HTML template rendering for accessible document exports."""
 
-from typing import Dict, Any, List, Optional
-from jinja2 import Environment, BaseLoader, Template
-from aws_lambda_powertools import Logger
+from typing import Any
 
-from pdf_worker.models.document import DocumentStructure, DocumentElement, ElementType, Heading, TableElement, Figure, ListElement
+from aws_lambda_powertools import Logger
+from jinja2 import BaseLoader, Environment
+
+from pdf_worker.models.document import (
+    DocumentElement,
+    DocumentStructure,
+    ElementType,
+    Figure,
+    Heading,
+    ListElement,
+    TableElement,
+)
 
 logger = Logger()
 
 
 class AccessibleHTMLRenderer:
     """Renderer for creating accessible HTML from document structure."""
-    
+
     def __init__(self):
         """Initialize the HTML renderer."""
         self.env = Environment(loader=BaseLoader())
         self.env.filters['safe_id'] = self._safe_id_filter
-    
+
     def render_document(
-        self, 
+        self,
         document: DocumentStructure,
         include_styles: bool = True,
         include_skip_links: bool = True
@@ -34,7 +43,7 @@ class AccessibleHTMLRenderer:
             Complete HTML document string
         """
         template = self.env.from_string(self._get_main_template())
-        
+
         # Prepare template context
         context = {
             'document': document,
@@ -45,9 +54,9 @@ class AccessibleHTMLRenderer:
             'toc_headings': self._build_toc(document),
             'styles': self._get_css_styles() if include_styles else ""
         }
-        
+
         return template.render(**context)
-    
+
     def render_element(self, element: DocumentElement) -> str:
         """Render individual document element to HTML.
         
@@ -58,7 +67,7 @@ class AccessibleHTMLRenderer:
             HTML string for the element
         """
         element_type = element.type
-        
+
         if element_type == ElementType.HEADING:
             return self._render_heading(element)
         elif element_type == ElementType.PARAGRAPH:
@@ -73,27 +82,27 @@ class AccessibleHTMLRenderer:
             return self._render_figure(element)
         else:
             return self._render_generic(element)
-    
+
     def _render_heading(self, heading: DocumentElement) -> str:
         """Render heading element."""
         if not isinstance(heading, Heading):
             level = 2  # Default fallback
         else:
             level = heading.level.value
-        
+
         tag = f"h{level}"
         text = self._escape_html(heading.text)
-        
+
         return f'<{tag} id="{heading.id}">{text}</{tag}>\n'
-    
+
     def _render_paragraph(self, paragraph: DocumentElement) -> str:
         """Render paragraph element."""
         text = self._escape_html(paragraph.text)
         if not text.strip():
             return ""
-        
+
         return f'<p id="{paragraph.id}">{text}</p>\n'
-    
+
     def _render_list(self, list_element: DocumentElement) -> str:
         """Render list element."""
         if not isinstance(list_element, ListElement):
@@ -106,59 +115,59 @@ class AccessibleHTMLRenderer:
             else:
                 tag = "ul"
                 start_attr = ""
-        
+
         html_parts = [f'<{tag} id="{list_element.id}"{start_attr}>\n']
-        
+
         # Render child list items
         for child in list_element.children:
             if child.type == ElementType.LIST_ITEM:
                 html_parts.append(self._render_list_item(child))
-        
+
         html_parts.append(f'</{tag}>\n')
         return "".join(html_parts)
-    
+
     def _render_list_item(self, list_item: DocumentElement) -> str:
         """Render list item element."""
         text = self._escape_html(list_item.text)
-        
+
         # Render nested elements
         nested_content = ""
         for child in list_item.children:
             nested_content += self.render_element(child)
-        
+
         content = text
         if nested_content:
             content += f"\n{nested_content}"
-        
+
         return f'<li id="{list_item.id}">{content}</li>\n'
-    
+
     def _render_table(self, table: DocumentElement) -> str:
         """Render table element."""
         if not isinstance(table, TableElement):
             return self._render_generic(table)
-        
+
         html_parts = []
-        
+
         # Table wrapper for accessibility
-        html_parts.append(f'<div class="table-container">\n')
-        
+        html_parts.append('<div class="table-container">\n')
+
         # Table start with caption
         html_parts.append(f'<table id="{table.id}"')
         if table.summary:
             html_parts.append(f' aria-describedby="{table.id}-summary"')
         html_parts.append('>\n')
-        
+
         # Caption
         if table.caption:
             html_parts.append(f'<caption>{self._escape_html(table.caption)}</caption>\n')
-        
+
         # Summary (for screen readers)
         if table.summary:
             html_parts.append(f'<div id="{table.id}-summary" class="sr-only">{self._escape_html(table.summary)}</div>\n')
-        
+
         # Table body (simplified - would need more complex logic for actual cell rendering)
         html_parts.append('<tbody>\n')
-        
+
         # Render table cells (grouped by rows)
         cells_by_row = {}
         for child in table.children:
@@ -167,7 +176,7 @@ class AccessibleHTMLRenderer:
                 if row not in cells_by_row:
                     cells_by_row[row] = []
                 cells_by_row[row].append(child)
-        
+
         for row_idx in sorted(cells_by_row.keys()):
             html_parts.append('<tr>\n')
             cells = sorted(cells_by_row[row_idx], key=lambda c: c.column_index)
@@ -176,24 +185,24 @@ class AccessibleHTMLRenderer:
                 scope_attr = f' scope="{cell.scope}"' if getattr(cell, 'scope', None) else ""
                 rowspan_attr = f' rowspan="{cell.row_span}"' if getattr(cell, 'row_span', 1) > 1 else ""
                 colspan_attr = f' colspan="{cell.column_span}"' if getattr(cell, 'column_span', 1) > 1 else ""
-                
+
                 html_parts.append(f'<{cell_tag} id="{cell.id}"{scope_attr}{rowspan_attr}{colspan_attr}>')
                 html_parts.append(self._escape_html(cell.text))
                 html_parts.append(f'</{cell_tag}>\n')
             html_parts.append('</tr>\n')
-        
+
         html_parts.append('</tbody>\n</table>\n</div>\n')
         return "".join(html_parts)
-    
+
     def _render_figure(self, figure: DocumentElement) -> str:
         """Render figure element."""
         if not isinstance(figure, Figure):
             return self._render_generic(figure)
-        
+
         html_parts = []
-        
+
         html_parts.append(f'<figure id="{figure.id}" class="document-figure">\n')
-        
+
         # Image or placeholder
         if figure.image_url:
             alt_text = figure.alt_text or ""
@@ -204,33 +213,33 @@ class AccessibleHTMLRenderer:
             html_parts.append(f'<div class="figure-placeholder" role="img" aria-label="{self._escape_html(alt_text)}">')
             html_parts.append(f'<span class="figure-text">{self._escape_html(alt_text)}</span>')
             html_parts.append('</div>\n')
-        
+
         # Caption
         if figure.caption:
             html_parts.append(f'<figcaption>{self._escape_html(figure.caption)}</figcaption>\n')
-        
+
         # Long description
         if figure.long_description:
             html_parts.append(f'<div class="long-description" id="{figure.id}-desc">')
-            html_parts.append(f'<h4>Description:</h4>')
+            html_parts.append('<h4>Description:</h4>')
             html_parts.append(f'<p>{self._escape_html(figure.long_description)}</p>')
             html_parts.append('</div>\n')
-        
+
         html_parts.append('</figure>\n')
         return "".join(html_parts)
-    
+
     def _render_generic(self, element: DocumentElement) -> str:
         """Render generic element."""
         text = self._escape_html(element.text)
         if not text.strip():
             return ""
-        
+
         return f'<div id="{element.id}" class="element-{element.type.value}">{text}</div>\n'
-    
-    def _build_toc(self, document: DocumentStructure) -> List[Dict[str, Any]]:
+
+    def _build_toc(self, document: DocumentStructure) -> list[dict[str, Any]]:
         """Build table of contents from headings."""
         headings = [elem for elem in document.elements if elem.type == ElementType.HEADING]
-        
+
         toc_items = []
         for heading in headings:
             if isinstance(heading, Heading):
@@ -240,9 +249,9 @@ class AccessibleHTMLRenderer:
                     'level': heading.level.value,
                     'page': heading.page_number
                 })
-        
+
         return toc_items
-    
+
     def _escape_html(self, text: str) -> str:
         """Escape HTML special characters."""
         return (text.replace('&', '&amp;')
@@ -250,12 +259,12 @@ class AccessibleHTMLRenderer:
                    .replace('>', '&gt;')
                    .replace('"', '&quot;')
                    .replace("'", '&#x27;'))
-    
+
     def _safe_id_filter(self, text: str) -> str:
         """Convert text to safe HTML ID."""
         import re
         return re.sub(r'[^a-zA-Z0-9-_]', '-', text.lower()).strip('-')
-    
+
     def _get_main_template(self) -> str:
         """Get the main HTML template."""
         return """<!DOCTYPE html>
@@ -362,7 +371,7 @@ class AccessibleHTMLRenderer:
     </footer>
 </body>
 </html>"""
-    
+
     def _get_css_styles(self) -> str:
         """Get CSS styles for accessible document."""
         return """

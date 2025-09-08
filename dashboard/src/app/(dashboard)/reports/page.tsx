@@ -1,10 +1,14 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   BarChart3,
   TrendingUp,
@@ -17,8 +21,10 @@ import {
   Clock,
   RefreshCw,
   Activity,
+  Filter,
+  CalendarDays,
 } from 'lucide-react'
-import { useReportsSummary, useDocuments, useDownloadUrl } from '@/hooks/useApi'
+import { useReportsSummary, useDocuments, useExportCSV } from '@/hooks/useApi'
 import toast from 'react-hot-toast'
 
 function StatSkeleton() {
@@ -96,6 +102,14 @@ function getStatusBadge(status: string) {
 }
 
 export default function ReportsPage() {
+  const [exportFilters, setExportFilters] = useState({
+    start_date: '',
+    end_date: '',
+    status_filter: '',
+    owner_filter: ''
+  })
+  const [filtersOpen, setFiltersOpen] = useState(false)
+
   const { 
     data: summary, 
     isLoading: summaryLoading, 
@@ -109,7 +123,7 @@ export default function ReportsPage() {
     error: docsError 
   } = useDocuments({ per_page: 10 })
 
-  const downloadMutation = useDownloadUrl()
+  const exportMutation = useExportCSV()
 
   React.useEffect(() => {
     if (summaryError) {
@@ -122,12 +136,23 @@ export default function ReportsPage() {
 
   const handleExportCSV = async () => {
     try {
-      const result = await downloadMutation.mutateAsync({
-        docId: 'summary',
-        type: 'report-csv'
-      })
-      window.open(result.download_url, '_blank')
-      toast.success('CSV export started')
+      // Filter out empty values
+      const filters = Object.fromEntries(
+        Object.entries(exportFilters).filter(([_, value]) => value !== '')
+      )
+      
+      await exportMutation.mutateAsync(filters)
+      toast.success('CSV export downloaded successfully')
+      setFiltersOpen(false)
+    } catch (error) {
+      toast.error('Failed to export CSV')
+    }
+  }
+
+  const handleQuickExport = async () => {
+    try {
+      await exportMutation.mutateAsync()
+      toast.success('Full CSV export downloaded successfully')
     } catch (error) {
       toast.error('Failed to export CSV')
     }
@@ -167,13 +192,97 @@ export default function ReportsPage() {
             Refresh
           </Button>
           <Button 
+            variant="outline" 
             size="sm"
-            onClick={handleExportCSV}
-            disabled={downloadMutation.isPending}
+            onClick={handleQuickExport}
+            disabled={exportMutation.isPending}
           >
             <Download className="h-4 w-4 mr-2" />
-            {downloadMutation.isPending ? 'Exporting...' : 'Export CSV'}
+            {exportMutation.isPending ? 'Exporting...' : 'Quick Export'}
           </Button>
+          <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
+            <PopoverTrigger asChild>
+              <Button size="sm" variant="default">
+                <Filter className="h-4 w-4 mr-2" />
+                Filtered Export
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80" align="end">
+              <div className="grid gap-4">
+                <div className="space-y-2">
+                  <h4 className="font-medium leading-none">Export Filters</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Apply filters to customize your CSV export
+                  </p>
+                </div>
+                <div className="grid gap-3">
+                  <div className="grid gap-2">
+                    <Label htmlFor="start-date">Start Date</Label>
+                    <Input
+                      id="start-date"
+                      type="date"
+                      value={exportFilters.start_date}
+                      onChange={(e) => setExportFilters(prev => ({ ...prev, start_date: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="end-date">End Date</Label>
+                    <Input
+                      id="end-date"
+                      type="date"
+                      value={exportFilters.end_date}
+                      onChange={(e) => setExportFilters(prev => ({ ...prev, end_date: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="status-filter">Status</Label>
+                    <Select 
+                      value={exportFilters.status_filter} 
+                      onValueChange={(value) => setExportFilters(prev => ({ ...prev, status_filter: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="All statuses" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">All statuses</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="processing">Processing</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="failed">Failed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="owner-filter">Owner ID (Optional)</Label>
+                    <Input
+                      id="owner-filter"
+                      placeholder="Filter by specific owner..."
+                      value={exportFilters.owner_filter}
+                      onChange={(e) => setExportFilters(prev => ({ ...prev, owner_filter: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <Button 
+                    size="sm" 
+                    onClick={handleExportCSV}
+                    disabled={exportMutation.isPending}
+                    className="flex-1"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    {exportMutation.isPending ? 'Exporting...' : 'Export CSV'}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setExportFilters({ start_date: '', end_date: '', status_filter: '', owner_filter: '' })}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
@@ -357,7 +466,7 @@ export default function ReportsPage() {
         )}
       </div>
 
-      {/* Export Options */}
+      {/* Enhanced Export Options */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -365,38 +474,120 @@ export default function ReportsPage() {
             Export Options
           </CardTitle>
           <CardDescription>
-            Download reports and data in various formats
+            Download reports and data with advanced filtering options
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3 md:grid-cols-3">
-            <Button 
-              variant="outline" 
-              onClick={handleExportCSV}
-              disabled={downloadMutation.isPending}
-              className="justify-start"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Export Summary CSV
-            </Button>
-            <Button 
-              variant="outline" 
-              disabled
-              className="justify-start"
-            >
-              <Calendar className="h-4 w-4 mr-2" />
-              Monthly Report
-              <Badge variant="secondary" className="ml-2 text-xs">Soon</Badge>
-            </Button>
-            <Button 
-              variant="outline" 
-              disabled
-              className="justify-start"
-            >
-              <Users className="h-4 w-4 mr-2" />
-              User Activity
-              <Badge variant="secondary" className="ml-2 text-xs">Soon</Badge>
-            </Button>
+          <div className="grid gap-4">
+            {/* Quick Export Actions */}
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+              <Button 
+                variant="outline" 
+                onClick={handleQuickExport}
+                disabled={exportMutation.isPending}
+                className="justify-start"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {exportMutation.isPending ? 'Exporting...' : 'All Documents'}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => exportMutation.mutate({ status_filter: 'completed' })}
+                disabled={exportMutation.isPending}
+                className="justify-start"
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Completed Only
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => exportMutation.mutate({ status_filter: 'failed' })}
+                disabled={exportMutation.isPending}
+                className="justify-start"
+              >
+                <AlertCircle className="h-4 w-4 mr-2" />
+                Failed Only
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  const thirtyDaysAgo = new Date()
+                  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+                  exportMutation.mutate({ start_date: thirtyDaysAgo.toISOString().split('T')[0] })
+                }}
+                disabled={exportMutation.isPending}
+                className="justify-start"
+              >
+                <CalendarDays className="h-4 w-4 mr-2" />
+                Last 30 Days
+              </Button>
+            </div>
+            
+            {/* Advanced Filtering */}
+            <div className="border-t pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h4 className="font-medium">Custom Filters</h4>
+                  <p className="text-sm text-muted-foreground">Use the "Filtered Export" button above for advanced filtering options</p>
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Filter className="h-4 w-4 mr-2" />
+                      Advanced
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80" align="end">
+                    <div className="space-y-3">
+                      <div>
+                        <h4 className="font-medium mb-2">Quick Date Ranges</h4>
+                        <div className="grid gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => {
+                              const lastWeek = new Date()
+                              lastWeek.setDate(lastWeek.getDate() - 7)
+                              exportMutation.mutate({ start_date: lastWeek.toISOString().split('T')[0] })
+                            }}
+                            disabled={exportMutation.isPending}
+                            className="justify-start"
+                          >
+                            Last 7 Days
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => {
+                              const lastMonth = new Date()
+                              lastMonth.setMonth(lastMonth.getMonth() - 1)
+                              exportMutation.mutate({ start_date: lastMonth.toISOString().split('T')[0] })
+                            }}
+                            disabled={exportMutation.isPending}
+                            className="justify-start"
+                          >
+                            Last Month
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => {
+                              const lastQuarter = new Date()
+                              lastQuarter.setMonth(lastQuarter.getMonth() - 3)
+                              exportMutation.mutate({ start_date: lastQuarter.toISOString().split('T')[0] })
+                            }}
+                            disabled={exportMutation.isPending}
+                            className="justify-start"
+                          >
+                            Last Quarter
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

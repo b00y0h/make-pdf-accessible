@@ -1,12 +1,14 @@
 """Bedrock client wrapper for Claude 3.5 integration with structured responses."""
 
 import json
-from typing import Dict, Any, List, Optional, Union, Callable
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
+
 import boto3
-from botocore.exceptions import ClientError
 from aws_lambda_powertools import Logger, Tracer
+from botocore.exceptions import ClientError
 
 from pdf_worker.core.config import config
 from pdf_worker.core.exceptions import BedrockError, WorkerConfigError
@@ -37,8 +39,8 @@ class BedrockResponse:
     usage: BedrockUsage
     model_id: str
     request_id: str
-    
-    def try_parse_json(self) -> Optional[Dict[str, Any]]:
+
+    def try_parse_json(self) -> dict[str, Any] | None:
         """Attempt to parse content as JSON.
         
         Returns:
@@ -47,38 +49,38 @@ class BedrockResponse:
         try:
             # Try to find JSON within the response
             content = self.content.strip()
-            
+
             # Look for JSON block markers
             if "```json" in content:
                 start = content.find("```json") + 7
                 end = content.find("```", start)
                 if end != -1:
                     content = content[start:end].strip()
-            
+
             # Try to extract JSON from markdown code blocks
             elif content.startswith("```") and content.endswith("```"):
                 lines = content.split('\n')
                 content = '\n'.join(lines[1:-1])
-            
+
             # Find JSON object boundaries
             start_idx = content.find('{')
             end_idx = content.rfind('}') + 1
-            
+
             if start_idx >= 0 and end_idx > start_idx:
                 json_content = content[start_idx:end_idx]
                 return json.loads(json_content)
-            
+
             # Try parsing entire content
             return json.loads(content)
-            
+
         except (json.JSONDecodeError, ValueError):
             return None
 
 
 class BedrockClient:
     """Enhanced Bedrock client for Claude 3.5 integration."""
-    
-    def __init__(self, region_name: Optional[str] = None) -> None:
+
+    def __init__(self, region_name: str | None = None) -> None:
         """Initialize Bedrock client.
         
         Args:
@@ -91,9 +93,9 @@ class BedrockClient:
             )
         except Exception as e:
             raise WorkerConfigError(f"Failed to initialize Bedrock client: {e}")
-        
+
         logger.info(f"Initialized Bedrock client for region: {region_name or config.aws_region}")
-    
+
     @tracer.capture_method
     def invoke_claude(
         self,
@@ -102,8 +104,8 @@ class BedrockClient:
         max_tokens: int = 4000,
         temperature: float = 0.1,
         top_p: float = 0.9,
-        system_prompt: Optional[str] = None,
-        stop_sequences: Optional[List[str]] = None
+        system_prompt: str | None = None,
+        stop_sequences: list[str] | None = None
     ) -> BedrockResponse:
         """Invoke Claude model with enhanced error handling.
         
@@ -130,7 +132,7 @@ class BedrockClient:
                     "content": prompt
                 }
             ]
-            
+
             # Build request payload
             request_body = {
                 "anthropic_version": "bedrock-2023-05-31",
@@ -139,13 +141,13 @@ class BedrockClient:
                 "top_p": top_p,
                 "messages": messages
             }
-            
+
             if system_prompt:
                 request_body["system"] = system_prompt
-            
+
             if stop_sequences:
                 request_body["stop_sequences"] = stop_sequences
-            
+
             # Invoke model
             response = self._client.invoke_model(
                 modelId=model_id.value,
@@ -153,10 +155,10 @@ class BedrockClient:
                 accept="application/json",
                 body=json.dumps(request_body)
             )
-            
+
             # Parse response
             response_body = json.loads(response['body'].read())
-            
+
             # Extract usage information
             usage_data = response_body.get('usage', {})
             usage = BedrockUsage(
@@ -164,27 +166,27 @@ class BedrockClient:
                 output_tokens=usage_data.get('output_tokens', 0),
                 total_tokens=usage_data.get('input_tokens', 0) + usage_data.get('output_tokens', 0)
             )
-            
+
             # Extract content
             content = ""
             if 'content' in response_body and response_body['content']:
                 content = response_body['content'][0].get('text', '')
-            
+
             result = BedrockResponse(
                 content=content,
                 usage=usage,
                 model_id=model_id.value,
                 request_id=response.get('ResponseMetadata', {}).get('RequestId', '')
             )
-            
+
             logger.info(f"Claude invocation successful: {usage.total_tokens} tokens used")
             logger.debug(f"Response preview: {content[:100]}...")
-            
+
             return result
-            
+
         except ClientError as e:
             error_code = e.response.get('Error', {}).get('Code', 'Unknown')
-            
+
             # Handle specific error cases
             if error_code == 'ValidationException':
                 raise BedrockError(
@@ -201,25 +203,25 @@ class BedrockClient:
                     "Request was throttled, try again later",
                     model_id=model_id.value
                 )
-            
+
             raise BedrockError(
                 f"Bedrock invocation failed: {error_code}",
                 model_id=model_id.value,
                 request_id=e.response.get('ResponseMetadata', {}).get('RequestId')
             ) from e
-        
+
         except json.JSONDecodeError as e:
             raise BedrockError(f"Failed to parse Bedrock response: {e}")
-        
+
         except Exception as e:
             raise BedrockError(f"Unexpected Bedrock error: {e}")
-    
+
     @tracer.capture_method
     def analyze_document_structure(
         self,
         document_text: str,
-        textract_data: Optional[Dict[str, Any]] = None,
-        custom_instructions: Optional[str] = None
+        textract_data: dict[str, Any] | None = None,
+        custom_instructions: str | None = None
     ) -> BedrockResponse:
         """Analyze document structure using Claude 3.5.
         
@@ -233,17 +235,17 @@ class BedrockClient:
         """
         # Build context information
         context_info = []
-        
+
         if textract_data:
             block_counts = {}
             for block in textract_data.get('blocks', []):
                 block_type = block.get('BlockType')
                 block_counts[block_type] = block_counts.get(block_type, 0) + 1
-            
+
             context_info.append(f"Textract detected: {dict(block_counts)}")
-        
+
         context = "\n".join(context_info) if context_info else ""
-        
+
         # Build structured prompt
         system_prompt = """You are a document structure analysis expert. Analyze the provided document text and identify its logical structure including headings, paragraphs, lists, tables, and figures.
 
@@ -276,7 +278,7 @@ Key requirements:
 - Maintain logical reading order
 - Assign realistic confidence scores (0.0-1.0)
 - Use semantic analysis, not just formatting cues"""
-        
+
         user_prompt = f"""Please analyze the following document structure:
 
 {context}
@@ -287,7 +289,7 @@ Document Text:
 {custom_instructions or ''}
 
 Provide a detailed structural analysis as JSON."""
-        
+
         return self.invoke_claude(
             prompt=user_prompt,
             system_prompt=system_prompt,
@@ -295,14 +297,14 @@ Provide a detailed structural analysis as JSON."""
             max_tokens=config.bedrock_max_tokens,
             temperature=0.1  # Low temperature for consistent structure analysis
         )
-    
+
     @tracer.capture_method
     def generate_alt_text(
         self,
         figure_context: str,
-        document_context: Optional[str] = None,
-        figure_type: Optional[str] = None,
-        existing_caption: Optional[str] = None
+        document_context: str | None = None,
+        figure_type: str | None = None,
+        existing_caption: str | None = None
     ) -> BedrockResponse:
         """Generate alt text for figures using Claude 3.5.
         
@@ -331,24 +333,24 @@ Return your response as JSON:
   "confidence": 0.95,
   "reasoning": "Brief explanation of the alt text choice"
 }"""
-        
+
         context_parts = [f"Figure context: {figure_context}"]
-        
+
         if document_context:
             context_parts.append(f"Document context: {document_context}")
-        
+
         if figure_type:
             context_parts.append(f"Figure type: {figure_type}")
-        
+
         if existing_caption:
             context_parts.append(f"Existing caption: {existing_caption}")
-        
+
         user_prompt = f"""Please generate appropriate alt text for this figure:
 
 {chr(10).join(context_parts)}
 
 Consider the document context and provide alt text that would be most helpful for someone using a screen reader."""
-        
+
         return self.invoke_claude(
             prompt=user_prompt,
             system_prompt=system_prompt,
@@ -356,13 +358,13 @@ Consider the document context and provide alt text that would be most helpful fo
             max_tokens=1000,  # Shorter responses for alt text
             temperature=0.2
         )
-    
+
     @tracer.capture_method
     def validate_accessibility(
         self,
-        document_structure: Dict[str, Any],
+        document_structure: dict[str, Any],
         content_sample: str,
-        validation_criteria: Optional[List[str]] = None
+        validation_criteria: list[str] | None = None
     ) -> BedrockResponse:
         """Validate document accessibility using Claude 3.5.
         
@@ -381,7 +383,7 @@ Consider the document context and provide alt text that would be most helpful fo
             "Reading order",
             "Color contrast considerations"
         ]
-        
+
         system_prompt = f"""You are an accessibility compliance expert. Analyze the document structure and content for accessibility issues based on {', '.join(criteria)}.
 
 Return your analysis as JSON:
@@ -400,7 +402,7 @@ Return your analysis as JSON:
   "strengths": ["List of accessibility strengths"],
   "summary": "Brief summary of accessibility status"
 }}"""
-        
+
         user_prompt = f"""Please evaluate this document's accessibility:
 
 Document Structure:
@@ -413,7 +415,7 @@ Validation Criteria:
 {chr(10).join(f'- {criterion}' for criterion in criteria)}
 
 Provide a comprehensive accessibility assessment."""
-        
+
         return self.invoke_claude(
             prompt=user_prompt,
             system_prompt=system_prompt,
@@ -421,7 +423,7 @@ Provide a comprehensive accessibility assessment."""
             max_tokens=config.bedrock_max_tokens,
             temperature=0.1
         )
-    
+
     @tracer.capture_method
     def invoke_with_retry(
         self,
@@ -443,20 +445,20 @@ Provide a comprehensive accessibility assessment."""
             BedrockError: If all retries fail
         """
         import time
-        
+
         last_exception = None
-        
+
         for attempt in range(max_retries + 1):
             try:
                 return invoke_func()
-                
+
             except BedrockError as e:
                 last_exception = e
-                
+
                 # Don't retry for certain errors
                 if "ValidationException" in str(e) or "ModelNotReadyException" in str(e):
                     raise e
-                
+
                 if attempt < max_retries:
                     delay = (backoff_multiplier ** attempt)
                     logger.warning(f"Bedrock invocation failed (attempt {attempt + 1}), retrying in {delay}s: {e}")
@@ -464,10 +466,10 @@ Provide a comprehensive accessibility assessment."""
                 else:
                     logger.error(f"Bedrock invocation failed after {max_retries + 1} attempts")
                     raise e
-        
+
         # This should never be reached, but just in case
         raise last_exception or BedrockError("Unknown error in retry logic")
-    
+
     def estimate_tokens(self, text: str) -> int:
         """Estimate token count for text (rough approximation).
         

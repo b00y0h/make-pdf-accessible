@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { formatRelativeTime, formatBytes } from '@/lib/utils'
 import { useDocument, useDownloadUrl, useUpdateAltText } from '@/hooks/useApi'
+import { AltTextReview } from '@/components/AltTextReview'
 import toast from 'react-hot-toast'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
@@ -301,13 +302,32 @@ export default function DocumentDetailPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="downloads" className="space-y-4">
+      <Tabs defaultValue="alt-text" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="alt-text">Alt Text Review</TabsTrigger>
           <TabsTrigger value="downloads">Downloads</TabsTrigger>
           <TabsTrigger value="artifacts">Artifacts</TabsTrigger>
-          <TabsTrigger value="alt-text">Alt Text</TabsTrigger>
           <TabsTrigger value="metadata">Metadata</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="alt-text" className="space-y-4">
+          {document.status === 'completed' ? (
+            <AltTextReview documentId={document.doc_id} />
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Eye className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Alt-text review not available yet</h3>
+                <p className="text-muted-foreground text-center">
+                  Alt-text review will be available once document processing is completed.
+                </p>
+                <div className="mt-4">
+                  {getStatusBadge(document.status)}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
 
         <TabsContent value="downloads" className="space-y-4">
           <Card>

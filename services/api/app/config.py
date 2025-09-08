@@ -40,7 +40,7 @@ class Settings(BaseSettings):
 
     # JWT Configuration
     jwt_algorithm: str = Field("HS256", env="JWT_ALGORITHM")
-    jwt_issuer: str = Field("accesspdf-dashboard", env="JWT_ISSUER") 
+    jwt_issuer: str = Field("accesspdf-dashboard", env="JWT_ISSUER")
     jwt_audience: str = Field("accesspdf-api", env="JWT_AUDIENCE")
 
     # Security

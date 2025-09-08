@@ -1,10 +1,11 @@
 import time
-from typing import Dict, Any
-from aws_lambda_powertools import Logger, Tracer, Metrics
+from typing import Any, Dict
+
+from aws_lambda_powertools import Logger, Metrics, Tracer
 from aws_lambda_powertools.logging import correlation_paths
 from aws_lambda_powertools.utilities.typing import LambdaContext
-
 from models import StructureRequest, StructureResult
+
 from services import StructureService, StructureServiceError
 
 # Initialize AWS Lambda Powertools
@@ -24,48 +25,48 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
     to analyze document structure and create a logical document model.
     """
     start_time = time.time()
-    
+
     try:
         # Parse input
         request = StructureRequest(**event)
         logger.info(f"Starting structure analysis for document {request.doc_id}")
-        
+
         # Initialize service
         structure_service = StructureService()
-        
+
         # Extract PDF text using pdfminer.six
         logger.info("Extracting PDF text content")
         pdf_text = structure_service.extract_pdf_text(request.original_s3_key)
-        
+
         # Load Textract results if available
         textract_data = None
         if request.textract_s3_key:
             logger.info("Loading Textract OCR results")
             textract_data = structure_service.load_textract_results(request.textract_s3_key)
-        
+
         # Analyze document structure with Bedrock
         logger.info("Analyzing document structure with Bedrock Claude")
         document_structure = structure_service.analyze_document_structure(
             pdf_text, textract_data
         )
-        
+
         # Set doc_id in structure
         document_structure.doc_id = request.doc_id
-        
+
         # Save structured document to S3
         document_json_s3_key = structure_service.save_document_structure(
             request.doc_id, document_structure
         )
-        
+
         processing_time = time.time() - start_time
-        
+
         logger.info(f"Structure analysis completed for {request.doc_id} in {processing_time:.2f} seconds")
         logger.info(f"Detected {len(document_structure.elements)} structural elements")
-        
+
         metrics.add_metric(name="StructureAnalysisSuccess", unit="Count", value=1)
         metrics.add_metric(name="ProcessingTime", unit="Seconds", value=processing_time)
         metrics.add_metric(name="ElementsDetected", unit="Count", value=len(document_structure.elements))
-        
+
         return StructureResult(
             doc_id=request.doc_id,
             status="completed",
@@ -73,21 +74,21 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
             processing_time_seconds=processing_time,
             elements_count=len(document_structure.elements)
         ).dict()
-        
+
     except StructureServiceError as e:
         logger.error(f"Structure service error: {str(e)}")
         metrics.add_metric(name="ServiceErrors", unit="Count", value=1)
-        
+
         return StructureResult(
             doc_id=event.get('doc_id', 'unknown'),
             status="failed",
             error_message=str(e)
         ).dict()
-        
+
     except Exception as e:
         logger.error(f"Unexpected error in structure analysis: {str(e)}")
         metrics.add_metric(name="UnexpectedErrors", unit="Count", value=1)
-        
+
         return StructureResult(
             doc_id=event.get('doc_id', 'unknown'),
             status="failed",

@@ -1,10 +1,10 @@
 """JSON schemas for document structure validation."""
 
-from typing import Dict, Any
 import json
+from typing import Any
 
 # Document structure JSON schema
-DOCUMENT_STRUCTURE_SCHEMA: Dict[str, Any] = {
+DOCUMENT_STRUCTURE_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://pdf-accessibility.com/schemas/document-structure.json",
     "title": "PDF Document Structure Schema",
@@ -311,7 +311,7 @@ DOCUMENT_STRUCTURE_SCHEMA: Dict[str, Any] = {
 }
 
 # Alt text data schema
-ALT_TEXT_SCHEMA: Dict[str, Any] = {
+ALT_TEXT_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://pdf-accessibility.com/schemas/alt-text.json",
     "title": "Alt Text Data Schema",
@@ -380,7 +380,7 @@ ALT_TEXT_SCHEMA: Dict[str, Any] = {
 }
 
 # Validation results schema
-VALIDATION_SCHEMA: Dict[str, Any] = {
+VALIDATION_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://pdf-accessibility.com/schemas/validation.json",
     "title": "Accessibility Validation Schema",
@@ -435,7 +435,7 @@ VALIDATION_SCHEMA: Dict[str, Any] = {
                 "type": {
                     "type": "string",
                     "enum": [
-                        "missing_alt_text", "improper_heading_hierarchy", 
+                        "missing_alt_text", "improper_heading_hierarchy",
                         "color_contrast", "missing_table_headers",
                         "improper_reading_order", "missing_language",
                         "missing_title", "unlabeled_form_field"
@@ -472,7 +472,7 @@ VALIDATION_SCHEMA: Dict[str, Any] = {
 }
 
 
-def get_schema_by_name(schema_name: str) -> Dict[str, Any]:
+def get_schema_by_name(schema_name: str) -> dict[str, Any]:
     """Get JSON schema by name.
     
     Args:
@@ -489,10 +489,10 @@ def get_schema_by_name(schema_name: str) -> Dict[str, Any]:
         'alt_text': ALT_TEXT_SCHEMA,
         'validation': VALIDATION_SCHEMA
     }
-    
+
     if schema_name not in schemas:
         raise ValueError(f"Unknown schema: {schema_name}")
-    
+
     return schemas[schema_name]
 
 
@@ -507,6 +507,6 @@ def export_schemas_to_file(output_path: str) -> None:
         'alt_text': ALT_TEXT_SCHEMA,
         'validation': VALIDATION_SCHEMA
     }
-    
+
     with open(output_path, 'w') as f:
         json.dump(all_schemas, f, indent=2)

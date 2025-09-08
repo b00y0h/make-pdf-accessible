@@ -1,8 +1,8 @@
 """Core configuration management for PDF worker."""
 
 import os
-from typing import Optional
 from dataclasses import dataclass, field
+
 from aws_lambda_powertools import Logger
 
 logger = Logger()
@@ -11,87 +11,87 @@ logger = Logger()
 @dataclass(frozen=True)
 class WorkerConfig:
     """Central configuration for PDF worker components."""
-    
+
     # AWS Configuration
     aws_region: str = field(default_factory=lambda: os.getenv("AWS_REGION", "us-east-1"))
-    
+
     # S3 Buckets
-    pdf_originals_bucket: Optional[str] = field(
+    pdf_originals_bucket: str | None = field(
         default_factory=lambda: os.getenv("PDF_ORIGINALS_BUCKET")
     )
-    pdf_derivatives_bucket: Optional[str] = field(
+    pdf_derivatives_bucket: str | None = field(
         default_factory=lambda: os.getenv("PDF_DERIVATIVES_BUCKET")
     )
-    pdf_accessible_bucket: Optional[str] = field(
+    pdf_accessible_bucket: str | None = field(
         default_factory=lambda: os.getenv("PDF_ACCESSIBLE_BUCKET")
     )
-    pdf_temp_bucket: Optional[str] = field(
+    pdf_temp_bucket: str | None = field(
         default_factory=lambda: os.getenv("PDF_TEMP_BUCKET")
     )
-    
+
     # DynamoDB Tables
-    documents_table: Optional[str] = field(
+    documents_table: str | None = field(
         default_factory=lambda: os.getenv("DOCUMENTS_TABLE")
     )
-    jobs_table: Optional[str] = field(
+    jobs_table: str | None = field(
         default_factory=lambda: os.getenv("JOBS_TABLE")
     )
-    
+
     # SQS Queues
-    ingest_queue_url: Optional[str] = field(
+    ingest_queue_url: str | None = field(
         default_factory=lambda: os.getenv("INGEST_QUEUE_URL")
     )
-    process_queue_url: Optional[str] = field(
+    process_queue_url: str | None = field(
         default_factory=lambda: os.getenv("PROCESS_QUEUE_URL")
     )
-    priority_process_queue_url: Optional[str] = field(
+    priority_process_queue_url: str | None = field(
         default_factory=lambda: os.getenv("PRIORITY_PROCESS_QUEUE_URL")
     )
-    dlq_url: Optional[str] = field(
+    dlq_url: str | None = field(
         default_factory=lambda: os.getenv("DLQ_URL")
     )
-    
+
     # SNS Topics
-    notifications_topic_arn: Optional[str] = field(
+    notifications_topic_arn: str | None = field(
         default_factory=lambda: os.getenv("NOTIFICATIONS_TOPIC_ARN")
     )
-    alerts_topic_arn: Optional[str] = field(
+    alerts_topic_arn: str | None = field(
         default_factory=lambda: os.getenv("ALERTS_TOPIC_ARN")
     )
-    
+
     # Processing Configuration
     textract_job_timeout_seconds: int = field(
         default_factory=lambda: int(os.getenv("TEXTRACT_JOB_TIMEOUT_SECONDS", "600"))
     )
     bedrock_model_id: str = field(
         default_factory=lambda: os.getenv(
-            "BEDROCK_MODEL_ID", 
+            "BEDROCK_MODEL_ID",
             "anthropic.claude-3-5-sonnet-20241022-v2:0"
         )
     )
     bedrock_max_tokens: int = field(
         default_factory=lambda: int(os.getenv("BEDROCK_MAX_TOKENS", "4000"))
     )
-    
+
     # Idempotency Configuration
-    idempotency_table: Optional[str] = field(
+    idempotency_table: str | None = field(
         default_factory=lambda: os.getenv("IDEMPOTENCY_TABLE")
     )
     idempotency_ttl_seconds: int = field(
         default_factory=lambda: int(os.getenv("IDEMPOTENCY_TTL_SECONDS", "3600"))
     )
-    
+
     # Authentication Configuration
-    cognito_user_pool_id: Optional[str] = field(
+    cognito_user_pool_id: str | None = field(
         default_factory=lambda: os.getenv("COGNITO_USER_POOL_ID")
     )
-    cognito_client_id: Optional[str] = field(
+    cognito_client_id: str | None = field(
         default_factory=lambda: os.getenv("COGNITO_CLIENT_ID")
     )
-    cognito_region: Optional[str] = field(
+    cognito_region: str | None = field(
         default_factory=lambda: os.getenv("COGNITO_REGION", os.getenv("AWS_REGION", "us-east-1"))
     )
-    
+
     # Environment
     environment: str = field(
         default_factory=lambda: os.getenv("ENVIRONMENT", "dev")
@@ -99,17 +99,17 @@ class WorkerConfig:
     log_level: str = field(
         default_factory=lambda: os.getenv("LOG_LEVEL", "INFO")
     )
-    
+
     def __post_init__(self) -> None:
         """Validate configuration after initialization."""
         logger.info(f"Initializing WorkerConfig for environment: {self.environment}")
-        
+
         # Log bucket configuration (without sensitive details)
         logger.debug(f"S3 buckets configured: "
                     f"originals={'set' if self.pdf_originals_bucket else 'unset'}, "
                     f"derivatives={'set' if self.pdf_derivatives_bucket else 'unset'}, "
                     f"accessible={'set' if self.pdf_accessible_bucket else 'unset'}")
-    
+
     def get_s3_key_prefix(self, doc_id: str, key_type: str) -> str:
         """Generate standardized S3 key prefixes."""
         prefixes = {
@@ -120,13 +120,13 @@ class WorkerConfig:
             "exports": f"pdf-accessible/{doc_id}/exports/",
             "temp": f"temp/{doc_id}/"
         }
-        
+
         if key_type not in prefixes:
             raise ValueError(f"Unknown key type: {key_type}")
-            
+
         return prefixes[key_type]
-    
-    def get_bucket_for_key_type(self, key_type: str) -> Optional[str]:
+
+    def get_bucket_for_key_type(self, key_type: str) -> str | None:
         """Get the appropriate bucket for a given key type."""
         bucket_mapping = {
             "originals": self.pdf_originals_bucket,
@@ -137,7 +137,7 @@ class WorkerConfig:
             "exports": self.pdf_accessible_bucket,
             "temp": self.pdf_temp_bucket
         }
-        
+
         return bucket_mapping.get(key_type)
 
 

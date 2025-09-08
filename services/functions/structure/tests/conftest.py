@@ -1,6 +1,8 @@
 import os
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, Mock
+
 
 @pytest.fixture(autouse=True)
 def setup_test_environment():

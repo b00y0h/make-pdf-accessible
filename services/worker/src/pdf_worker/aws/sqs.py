@@ -1,13 +1,15 @@
 """SQS client utilities with message handling and batch processing."""
 
 import json
-from typing import Any, Dict, List, Optional, Callable
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
+
 import boto3
-from botocore.exceptions import ClientError
 from aws_lambda_powertools import Logger, Tracer
 from aws_lambda_powertools.utilities.data_classes import SQSEvent, SQSRecord
+from botocore.exceptions import ClientError
 
 from pdf_worker.core.config import config
 from pdf_worker.core.exceptions import SQSError, WorkerConfigError
@@ -21,11 +23,11 @@ class SQSMessage:
     """Structured SQS message representation."""
     message_id: str
     receipt_handle: str
-    body: Dict[str, Any]
-    attributes: Dict[str, Any]
-    message_attributes: Dict[str, Any]
+    body: dict[str, Any]
+    attributes: dict[str, Any]
+    message_attributes: dict[str, Any]
     md5_of_body: str
-    
+
     @classmethod
     def from_sqs_record(cls, record: SQSRecord) -> 'SQSMessage':
         """Create SQSMessage from SQS event record."""
@@ -35,7 +37,7 @@ class SQSMessage:
         except json.JSONDecodeError:
             # Fallback to raw body if not JSON
             body = {"raw_body": record.body}
-        
+
         return cls(
             message_id=record.message_id,
             receipt_handle=record.receipt_handle,
@@ -48,8 +50,8 @@ class SQSMessage:
 
 class SQSClient:
     """Enhanced SQS client with message handling utilities."""
-    
-    def __init__(self, region_name: Optional[str] = None) -> None:
+
+    def __init__(self, region_name: str | None = None) -> None:
         """Initialize SQS client.
         
         Args:
@@ -59,19 +61,19 @@ class SQSClient:
             self._client = boto3.client('sqs', region_name=region_name or config.aws_region)
         except Exception as e:
             raise WorkerConfigError(f"Failed to initialize SQS client: {e}")
-        
+
         logger.info(f"Initialized SQS client for region: {region_name or config.aws_region}")
-    
+
     @tracer.capture_method
     def send_message(
         self,
         queue_url: str,
-        message_body: Dict[str, Any],
+        message_body: dict[str, Any],
         delay_seconds: int = 0,
-        message_attributes: Optional[Dict[str, Any]] = None,
-        message_group_id: Optional[str] = None,
-        message_deduplication_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        message_attributes: dict[str, Any] | None = None,
+        message_group_id: str | None = None,
+        message_deduplication_id: str | None = None
+    ) -> dict[str, Any]:
         """Send message to SQS queue.
         
         Args:
@@ -97,48 +99,48 @@ class SQSClient:
                     'sent_by': 'pdf-accessibility-worker'
                 }
             }
-            
+
             send_kwargs = {
                 'QueueUrl': queue_url,
                 'MessageBody': json.dumps(enhanced_body, ensure_ascii=False)
             }
-            
+
             if delay_seconds > 0:
                 send_kwargs['DelaySeconds'] = delay_seconds
-            
+
             if message_attributes:
                 send_kwargs['MessageAttributes'] = self._format_message_attributes(
                     message_attributes
                 )
-            
+
             # FIFO queue specific parameters
             if message_group_id:
                 send_kwargs['MessageGroupId'] = message_group_id
-            
+
             if message_deduplication_id:
                 send_kwargs['MessageDeduplicationId'] = message_deduplication_id
-            
+
             response = self._client.send_message(**send_kwargs)
-            
+
             logger.info(f"Successfully sent message to queue: {queue_url}")
             logger.debug(f"Message ID: {response.get('MessageId')}")
-            
+
             return response
-            
+
         except ClientError as e:
             error_code = e.response.get('Error', {}).get('Code', 'Unknown')
             raise SQSError(
                 f"Failed to send message to SQS: {error_code}",
                 queue_url=queue_url
             ) from e
-    
+
     @tracer.capture_method
     def send_batch_messages(
         self,
         queue_url: str,
-        messages: List[Dict[str, Any]],
-        message_group_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        messages: list[dict[str, Any]],
+        message_group_id: str | None = None
+    ) -> dict[str, Any]:
         """Send multiple messages to SQS queue in batch.
         
         Args:
@@ -167,36 +169,36 @@ class SQSClient:
                         }
                     }, ensure_ascii=False)
                 }
-                
+
                 if message_group_id:
                     entry['MessageGroupId'] = message_group_id
                     # Use message index as dedup ID for batch
                     entry['MessageDeduplicationId'] = f"{message_group_id}-{i}-{int(datetime.utcnow().timestamp())}"
-                
+
                 entries.append(entry)
-            
+
             response = self._client.send_message_batch(
                 QueueUrl=queue_url,
                 Entries=entries
             )
-            
+
             successful_count = len(response.get('Successful', []))
             failed_count = len(response.get('Failed', []))
-            
+
             logger.info(f"Batch send completed: {successful_count} successful, {failed_count} failed")
-            
+
             if failed_count > 0:
                 logger.warning(f"Failed messages: {response.get('Failed', [])}")
-            
+
             return response
-            
+
         except ClientError as e:
             error_code = e.response.get('Error', {}).get('Code', 'Unknown')
             raise SQSError(
                 f"Failed to send batch messages to SQS: {error_code}",
                 queue_url=queue_url
             ) from e
-    
+
     @tracer.capture_method
     def delete_message(self, queue_url: str, receipt_handle: str) -> None:
         """Delete message from SQS queue.
@@ -213,25 +215,25 @@ class SQSClient:
                 QueueUrl=queue_url,
                 ReceiptHandle=receipt_handle
             )
-            
+
             logger.debug(f"Successfully deleted message from queue: {queue_url}")
-            
+
         except ClientError as e:
             error_code = e.response.get('Error', {}).get('Code', 'Unknown')
-            
+
             # Don't raise error for receipt handle not found (message already deleted)
             if error_code != 'ReceiptHandleIsInvalid':
                 raise SQSError(
                     f"Failed to delete message from SQS: {error_code}",
                     queue_url=queue_url
                 ) from e
-    
+
     @tracer.capture_method
     def delete_batch_messages(
-        self, 
-        queue_url: str, 
-        receipt_handles: List[str]
-    ) -> Dict[str, Any]:
+        self,
+        queue_url: str,
+        receipt_handles: list[str]
+    ) -> dict[str, Any]:
         """Delete multiple messages from SQS queue in batch.
         
         Args:
@@ -249,28 +251,28 @@ class SQSClient:
                 {'Id': str(i), 'ReceiptHandle': handle}
                 for i, handle in enumerate(receipt_handles)
             ]
-            
+
             response = self._client.delete_message_batch(
                 QueueUrl=queue_url,
                 Entries=entries
             )
-            
+
             successful_count = len(response.get('Successful', []))
             failed_count = len(response.get('Failed', []))
-            
+
             logger.info(f"Batch delete completed: {successful_count} successful, {failed_count} failed")
-            
+
             return response
-            
+
         except ClientError as e:
             error_code = e.response.get('Error', {}).get('Code', 'Unknown')
             raise SQSError(
                 f"Failed to delete batch messages from SQS: {error_code}",
                 queue_url=queue_url
             ) from e
-    
+
     @tracer.capture_method
-    def get_queue_attributes(self, queue_url: str) -> Dict[str, Any]:
+    def get_queue_attributes(self, queue_url: str) -> dict[str, Any]:
         """Get SQS queue attributes.
         
         Args:
@@ -287,19 +289,19 @@ class SQSClient:
                 QueueUrl=queue_url,
                 AttributeNames=['All']
             )
-            
+
             attributes = response.get('Attributes', {})
             logger.debug(f"Retrieved attributes for queue: {queue_url}")
-            
+
             return attributes
-            
+
         except ClientError as e:
             error_code = e.response.get('Error', {}).get('Code', 'Unknown')
             raise SQSError(
                 f"Failed to get queue attributes: {error_code}",
                 queue_url=queue_url
             ) from e
-    
+
     @tracer.capture_method
     def change_message_visibility(
         self,
@@ -323,23 +325,23 @@ class SQSClient:
                 ReceiptHandle=receipt_handle,
                 VisibilityTimeout=visibility_timeout
             )
-            
+
             logger.debug(f"Changed message visibility to {visibility_timeout}s")
-            
+
         except ClientError as e:
             error_code = e.response.get('Error', {}).get('Code', 'Unknown')
             raise SQSError(
                 f"Failed to change message visibility: {error_code}",
                 queue_url=queue_url
             ) from e
-    
+
     def _format_message_attributes(
-        self, 
-        attributes: Dict[str, Any]
-    ) -> Dict[str, Dict[str, str]]:
+        self,
+        attributes: dict[str, Any]
+    ) -> dict[str, dict[str, str]]:
         """Format message attributes for SQS API."""
         formatted = {}
-        
+
         for key, value in attributes.items():
             if isinstance(value, str):
                 formatted[key] = {'StringValue': value, 'DataType': 'String'}
@@ -353,27 +355,27 @@ class SQSClient:
                     'StringValue': json.dumps(value),
                     'DataType': 'String'
                 }
-        
+
         return formatted
 
 
 class SQSMessageProcessor:
     """Utility class for processing SQS messages with error handling."""
-    
-    def __init__(self, sqs_client: Optional[SQSClient] = None) -> None:
+
+    def __init__(self, sqs_client: SQSClient | None = None) -> None:
         """Initialize message processor.
         
         Args:
             sqs_client: SQS client instance. Creates new one if not provided.
         """
         self.sqs_client = sqs_client or SQSClient()
-    
+
     @tracer.capture_method
     def process_sqs_event(
         self,
         event: SQSEvent,
-        message_handler: Callable[[SQSMessage], Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        message_handler: Callable[[SQSMessage], dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """Process SQS event with automatic error handling.
         
         Args:
@@ -384,46 +386,46 @@ class SQSMessageProcessor:
             List of processing results
         """
         results = []
-        
+
         for record in event.records:
             try:
                 # Convert to structured message
                 message = SQSMessage.from_sqs_record(record)
-                
+
                 logger.info(f"Processing message {message.message_id}")
-                
+
                 # Process message
                 result = message_handler(message)
-                
+
                 # Mark as successful
                 results.append({
                     'message_id': message.message_id,
                     'status': 'success',
                     'result': result
                 })
-                
+
                 logger.info(f"Successfully processed message {message.message_id}")
-                
+
             except Exception as e:
                 logger.error(f"Failed to process message {record.message_id}: {e}")
-                
+
                 results.append({
                     'message_id': record.message_id,
                     'status': 'error',
                     'error': str(e)
                 })
-                
+
                 # Don't delete failed messages - let them go to DLQ
                 continue
-        
+
         return results
-    
+
     @tracer.capture_method
     def send_to_dlq(
         self,
         dlq_url: str,
         original_message: SQSMessage,
-        error_info: Dict[str, Any]
+        error_info: dict[str, Any]
     ) -> None:
         """Send failed message to dead letter queue.
         
@@ -441,7 +443,7 @@ class SQSMessageProcessor:
                     'error_details': error_info
                 }
             }
-            
+
             self.sqs_client.send_message(
                 queue_url=dlq_url,
                 message_body=dlq_message,
@@ -450,19 +452,19 @@ class SQSMessageProcessor:
                     'original_queue': original_message.attributes.get('source_queue', 'unknown')
                 }
             )
-            
+
             logger.info(f"Sent failed message {original_message.message_id} to DLQ")
-            
+
         except Exception as e:
             logger.error(f"Failed to send message to DLQ: {e}")
-    
+
     def create_process_message(
         self,
         doc_id: str,
         step: str,
-        input_data: Dict[str, Any],
+        input_data: dict[str, Any],
         priority: bool = False
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a standardized process message.
         
         Args:

@@ -1,8 +1,7 @@
-import json
 import time
-from typing import Dict, Any
-import boto3
-from aws_lambda_powertools import Logger, Tracer, Metrics
+from typing import Any, Dict
+
+from aws_lambda_powertools import Logger, Metrics, Tracer
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
 logger = Logger(service="pdf-tagger")
@@ -15,11 +14,11 @@ metrics = Metrics(namespace="PDF-Accessibility", service="pdf-tagger")
 def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, Any]:
     """Tag PDF with accessibility metadata using pikepdf."""
     start_time = time.time()
-    
+
     try:
         doc_id = event.get('docId') or event.get('doc_id')
         logger.info(f"Starting PDF tagging for document {doc_id}")
-        
+
         # Mock PDF tagging - in real implementation:
         # 1. Load original PDF from S3
         # 2. Load document structure and alt text data
@@ -31,15 +30,15 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         #    - Reading order
         #    - Language settings
         # 4. Save tagged PDF to S3
-        
+
         tags_applied = 25  # Mock value
         processing_time = time.time() - start_time
-        
+
         tagged_pdf_s3_key = f"pdf-accessible/{doc_id}/document_tagged.pdf"
-        
+
         logger.info(f"Applied {tags_applied} accessibility tags")
         logger.info(f"Saved tagged PDF to {tagged_pdf_s3_key}")
-        
+
         return {
             "doc_id": doc_id,
             "status": "completed",
@@ -47,7 +46,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
             "tags_applied": tags_applied,
             "processing_time_seconds": processing_time
         }
-        
+
     except Exception as e:
         logger.error(f"PDF tagging failed: {str(e)}")
         return {

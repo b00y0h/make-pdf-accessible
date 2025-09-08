@@ -34,7 +34,11 @@
       "Bash(DATABASE_URL=\"postgresql://postgres:password@localhost:5432/app_db\" npx --prefix dashboard prisma db push)",
       "Bash(/bin/rm:*)",
       "WebFetch(domain:www.better-auth.com)",
-      "Bash(npx @better-auth/cli migrate:*)"
+      "Bash(npx @better-auth/cli migrate:*)",
+      "Bash(./venv/bin/ruff check services/api/app/services.py services/api/app/routes/alt_text.py services/shared/mongo/alt_text.py services/functions/alt_text/main.py --fix)",
+      "Bash(npm run lint:*)",
+      "Bash(npx --prefix web eslint . --fix)",
+      "Bash(npx:*)"
     ],
     "deny": [],
     "ask": []

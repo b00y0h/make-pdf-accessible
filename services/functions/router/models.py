@@ -3,7 +3,7 @@
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Optional
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -52,7 +52,7 @@ class IngestMessage(BaseModel):
     metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Additional metadata")
     webhook_url: Optional[str] = Field(None, description="Webhook URL for notifications")
     priority: bool = Field(False, description="High priority processing")
-    
+
     @field_validator('source_url')
     @classmethod
     def validate_source_url(cls, v, values):
@@ -62,8 +62,8 @@ class IngestMessage(BaseModel):
         if v and not (v.startswith('http://') or v.startswith('https://')):
             raise ValueError('source_url must be a valid HTTP/HTTPS URL')
         return v
-    
-    @field_validator('s3_key') 
+
+    @field_validator('s3_key')
     @classmethod
     def validate_s3_key(cls, v, values):
         source = values.data.get('source') if hasattr(values, 'data') else None
