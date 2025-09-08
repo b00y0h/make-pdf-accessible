@@ -164,3 +164,31 @@ variable "jwt_secret_key" {
   default     = ""
   sensitive   = true
 }
+
+# DocumentDB Configuration
+variable "documentdb_instance_count" {
+  description = "Number of DocumentDB instances in the cluster"
+  type        = number
+  default     = 2
+}
+
+variable "documentdb_instance_class" {
+  description = "DocumentDB instance class"
+  type        = string
+  default     = "db.r5.large"
+  
+  validation {
+    condition = contains([
+      "db.t3.medium", "db.t4g.medium",
+      "db.r5.large", "db.r5.xlarge", "db.r5.2xlarge", "db.r5.4xlarge", "db.r5.12xlarge", "db.r5.24xlarge",
+      "db.r6g.large", "db.r6g.xlarge", "db.r6g.2xlarge", "db.r6g.4xlarge", "db.r6g.12xlarge", "db.r6g.16xlarge"
+    ], var.documentdb_instance_class)
+    error_message = "DocumentDB instance class must be a valid instance type."
+  }
+}
+
+variable "documentdb_performance_insights_enabled" {
+  description = "Enable Performance Insights for DocumentDB instances"
+  type        = bool
+  default     = false
+}

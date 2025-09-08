@@ -207,6 +207,17 @@ resource "aws_iam_role_policy" "processing_lambda_policy" {
           aws_sns_topic.alerts.arn,
           aws_sns_topic.notifications.arn
         ]
+      },
+      # Secrets Manager permissions for DocumentDB credentials
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret"
+        ]
+        Resource = [
+          aws_secretsmanager_secret.documentdb_credentials.arn
+        ]
       }
     ]
   })
@@ -238,15 +249,16 @@ resource "aws_lambda_function" "ocr" {
       POWERTOOLS_METRICS_NAMESPACE = "PDF-Accessibility"
       LOG_LEVEL                   = var.log_level
       ENVIRONMENT                 = var.environment
+      DOCUMENTDB_SECRET_NAME      = aws_secretsmanager_secret.documentdb_credentials.name
+      DOCUMENTDB_ENDPOINT         = aws_docdb_cluster.main.endpoint
+      DOCUMENTDB_PORT             = tostring(aws_docdb_cluster.main.port)
     }
   }
 
-  dynamic "vpc_config" {
-    for_each = var.vpc_config != null ? [var.vpc_config] : []
-    content {
-      subnet_ids         = vpc_config.value.subnet_ids
-      security_group_ids = vpc_config.value.security_group_ids
-    }
+  # VPC Configuration for DocumentDB access
+  vpc_config {
+    subnet_ids         = aws_subnet.private[*].id
+    security_group_ids = [aws_security_group.lambda_sg.id]
   }
 
   tracing_config {
@@ -282,15 +294,16 @@ resource "aws_lambda_function" "structure" {
       POWERTOOLS_METRICS_NAMESPACE = "PDF-Accessibility"
       LOG_LEVEL                   = var.log_level
       ENVIRONMENT                 = var.environment
+      DOCUMENTDB_SECRET_NAME      = aws_secretsmanager_secret.documentdb_credentials.name
+      DOCUMENTDB_ENDPOINT         = aws_docdb_cluster.main.endpoint
+      DOCUMENTDB_PORT             = tostring(aws_docdb_cluster.main.port)
     }
   }
 
-  dynamic "vpc_config" {
-    for_each = var.vpc_config != null ? [var.vpc_config] : []
-    content {
-      subnet_ids         = vpc_config.value.subnet_ids
-      security_group_ids = vpc_config.value.security_group_ids
-    }
+  # VPC Configuration for DocumentDB access
+  vpc_config {
+    subnet_ids         = aws_subnet.private[*].id
+    security_group_ids = [aws_security_group.lambda_sg.id]
   }
 
   tracing_config {
@@ -326,15 +339,16 @@ resource "aws_lambda_function" "alt_text" {
       POWERTOOLS_METRICS_NAMESPACE = "PDF-Accessibility"
       LOG_LEVEL                   = var.log_level
       ENVIRONMENT                 = var.environment
+      DOCUMENTDB_SECRET_NAME      = aws_secretsmanager_secret.documentdb_credentials.name
+      DOCUMENTDB_ENDPOINT         = aws_docdb_cluster.main.endpoint
+      DOCUMENTDB_PORT             = tostring(aws_docdb_cluster.main.port)
     }
   }
 
-  dynamic "vpc_config" {
-    for_each = var.vpc_config != null ? [var.vpc_config] : []
-    content {
-      subnet_ids         = vpc_config.value.subnet_ids
-      security_group_ids = vpc_config.value.security_group_ids
-    }
+  # VPC Configuration for DocumentDB access
+  vpc_config {
+    subnet_ids         = aws_subnet.private[*].id
+    security_group_ids = [aws_security_group.lambda_sg.id]
   }
 
   tracing_config {
@@ -370,15 +384,16 @@ resource "aws_lambda_function" "tag_pdf" {
       POWERTOOLS_METRICS_NAMESPACE = "PDF-Accessibility"
       LOG_LEVEL                   = var.log_level
       ENVIRONMENT                 = var.environment
+      DOCUMENTDB_SECRET_NAME      = aws_secretsmanager_secret.documentdb_credentials.name
+      DOCUMENTDB_ENDPOINT         = aws_docdb_cluster.main.endpoint
+      DOCUMENTDB_PORT             = tostring(aws_docdb_cluster.main.port)
     }
   }
 
-  dynamic "vpc_config" {
-    for_each = var.vpc_config != null ? [var.vpc_config] : []
-    content {
-      subnet_ids         = vpc_config.value.subnet_ids
-      security_group_ids = vpc_config.value.security_group_ids
-    }
+  # VPC Configuration for DocumentDB access
+  vpc_config {
+    subnet_ids         = aws_subnet.private[*].id
+    security_group_ids = [aws_security_group.lambda_sg.id]
   }
 
   tracing_config {
@@ -414,15 +429,16 @@ resource "aws_lambda_function" "exports" {
       POWERTOOLS_METRICS_NAMESPACE = "PDF-Accessibility"
       LOG_LEVEL                   = var.log_level
       ENVIRONMENT                 = var.environment
+      DOCUMENTDB_SECRET_NAME      = aws_secretsmanager_secret.documentdb_credentials.name
+      DOCUMENTDB_ENDPOINT         = aws_docdb_cluster.main.endpoint
+      DOCUMENTDB_PORT             = tostring(aws_docdb_cluster.main.port)
     }
   }
 
-  dynamic "vpc_config" {
-    for_each = var.vpc_config != null ? [var.vpc_config] : []
-    content {
-      subnet_ids         = vpc_config.value.subnet_ids
-      security_group_ids = vpc_config.value.security_group_ids
-    }
+  # VPC Configuration for DocumentDB access
+  vpc_config {
+    subnet_ids         = aws_subnet.private[*].id
+    security_group_ids = [aws_security_group.lambda_sg.id]
   }
 
   tracing_config {
@@ -458,15 +474,16 @@ resource "aws_lambda_function" "validate" {
       POWERTOOLS_METRICS_NAMESPACE = "PDF-Accessibility"
       LOG_LEVEL                   = var.log_level
       ENVIRONMENT                 = var.environment
+      DOCUMENTDB_SECRET_NAME      = aws_secretsmanager_secret.documentdb_credentials.name
+      DOCUMENTDB_ENDPOINT         = aws_docdb_cluster.main.endpoint
+      DOCUMENTDB_PORT             = tostring(aws_docdb_cluster.main.port)
     }
   }
 
-  dynamic "vpc_config" {
-    for_each = var.vpc_config != null ? [var.vpc_config] : []
-    content {
-      subnet_ids         = vpc_config.value.subnet_ids
-      security_group_ids = vpc_config.value.security_group_ids
-    }
+  # VPC Configuration for DocumentDB access
+  vpc_config {
+    subnet_ids         = aws_subnet.private[*].id
+    security_group_ids = [aws_security_group.lambda_sg.id]
   }
 
   tracing_config {
@@ -503,15 +520,16 @@ resource "aws_lambda_function" "notify" {
       POWERTOOLS_METRICS_NAMESPACE = "PDF-Accessibility"
       LOG_LEVEL                   = var.log_level
       ENVIRONMENT                 = var.environment
+      DOCUMENTDB_SECRET_NAME      = aws_secretsmanager_secret.documentdb_credentials.name
+      DOCUMENTDB_ENDPOINT         = aws_docdb_cluster.main.endpoint
+      DOCUMENTDB_PORT             = tostring(aws_docdb_cluster.main.port)
     }
   }
 
-  dynamic "vpc_config" {
-    for_each = var.vpc_config != null ? [var.vpc_config] : []
-    content {
-      subnet_ids         = vpc_config.value.subnet_ids
-      security_group_ids = vpc_config.value.security_group_ids
-    }
+  # VPC Configuration for DocumentDB access
+  vpc_config {
+    subnet_ids         = aws_subnet.private[*].id
+    security_group_ids = [aws_security_group.lambda_sg.id]
   }
 
   tracing_config {

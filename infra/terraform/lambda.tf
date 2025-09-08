@@ -9,7 +9,7 @@ resource "aws_lambda_function" "api" {
   timeout     = 30
   memory_size = 512
   
-  # VPC Configuration (optional - remove if not needed)
+  # VPC Configuration for DocumentDB access
   vpc_config {
     subnet_ids         = aws_subnet.private[*].id
     security_group_ids = [aws_security_group.lambda_sg.id]
@@ -66,6 +66,11 @@ resource "aws_lambda_function" "api" {
         "https://localhost:3000",
         var.domain_name != "" ? "https://${var.domain_name}" : "https://example.com"
       ])
+      
+      # DocumentDB Configuration
+      DOCUMENTDB_SECRET_NAME = aws_secretsmanager_secret.documentdb_credentials.name
+      DOCUMENTDB_ENDPOINT = aws_docdb_cluster.main.endpoint
+      DOCUMENTDB_PORT = tostring(aws_docdb_cluster.main.port)
     }
   }
   
@@ -97,12 +102,31 @@ resource "aws_security_group" "lambda_sg" {
   vpc_id      = aws_vpc.main.id
   description = "Security group for Lambda functions"
   
-  # Allow all outbound traffic
+  # Allow outbound HTTPS for AWS services
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTPS outbound for AWS services"
+  }
+  
+  # Allow outbound DocumentDB access
+  egress {
+    from_port       = 27017
+    to_port         = 27017
+    protocol        = "tcp"
+    security_groups = [aws_security_group.documentdb.id]
+    description     = "DocumentDB access"
+  }
+  
+  # Allow outbound HTTP for general internet access (if needed)
+  egress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTP outbound"
   }
   
   tags = merge(local.common_tags, {

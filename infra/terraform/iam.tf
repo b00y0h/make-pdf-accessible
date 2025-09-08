@@ -168,6 +168,17 @@ resource "aws_iam_role_policy" "lambda_custom" {
           aws_kms_key.dynamodb.arn,
           aws_kms_key.sqs.arn
         ]
+      },
+      # Secrets Manager permissions for DocumentDB credentials
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret"
+        ]
+        Resource = [
+          aws_secretsmanager_secret.documentdb_credentials.arn
+        ]
       }
     ]
   })

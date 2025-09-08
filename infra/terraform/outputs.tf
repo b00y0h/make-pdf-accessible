@@ -355,3 +355,39 @@ output "auth_urls" {
     jwks_url = "https://cognito-idp.${data.aws_region.current.name}.amazonaws.com/${aws_cognito_user_pool.main.id}/.well-known/jwks.json"
   }
 }
+
+# DocumentDB Outputs
+output "documentdb_cluster_endpoint" {
+  description = "DocumentDB cluster endpoint"
+  value       = aws_docdb_cluster.main.endpoint
+}
+
+output "documentdb_cluster_reader_endpoint" {
+  description = "DocumentDB cluster reader endpoint"
+  value       = aws_docdb_cluster.main.reader_endpoint
+}
+
+output "documentdb_cluster_port" {
+  description = "DocumentDB cluster port"
+  value       = aws_docdb_cluster.main.port
+}
+
+output "documentdb_cluster_members" {
+  description = "List of DocumentDB cluster members"
+  value       = aws_docdb_cluster.main.cluster_members
+}
+
+output "documentdb_security_group_id" {
+  description = "ID of the DocumentDB security group"
+  value       = aws_security_group.documentdb.id
+}
+
+output "documentdb_credentials_secret_name" {
+  description = "Name of the Secrets Manager secret storing DocumentDB credentials"
+  value       = aws_secretsmanager_secret.documentdb_credentials.name
+}
+
+output "documentdb_credentials_secret_arn" {
+  description = "ARN of the Secrets Manager secret storing DocumentDB credentials"
+  value       = aws_secretsmanager_secret.documentdb_credentials.arn
+}
