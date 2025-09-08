@@ -5,8 +5,12 @@ import { useMemo } from 'react'
 
 // Create API service instance using the auth context
 export function useApiService() {
-  const { apiClient } = useAuth()
-  return useMemo(() => new ApiService(apiClient), [apiClient])
+  const { apiClient, isLoading } = useAuth()
+  return useMemo(() => {
+    // Return null during loading to prevent issues
+    if (isLoading) return null
+    return new ApiService(apiClient)
+  }, [apiClient, isLoading])
 }
 
 // Query keys
@@ -38,7 +42,8 @@ export function useDocuments(params?: {
   
   return useQuery({
     queryKey: queryKeys.documents.list(params),
-    queryFn: () => apiService.getDocuments(params),
+    queryFn: () => apiService!.getDocuments(params),
+    enabled: !!apiService,
     staleTime: 30 * 1000, // 30 seconds
   })
 }
@@ -48,8 +53,8 @@ export function useDocument(docId: string) {
   
   return useQuery({
     queryKey: queryKeys.documents.detail(docId),
-    queryFn: () => apiService.getDocument(docId),
-    enabled: !!docId,
+    queryFn: () => apiService!.getDocument(docId),
+    enabled: !!docId && !!apiService,
     staleTime: 30 * 1000,
   })
 }
@@ -60,7 +65,7 @@ export function useUploadDocument() {
   
   return useMutation({
     mutationFn: (data: Parameters<typeof apiService.uploadDocument>[0]) => 
-      apiService.uploadDocument(data),
+      apiService!.uploadDocument(data),
     onSuccess: () => {
       // Invalidate and refetch documents list
       queryClient.invalidateQueries({ queryKey: queryKeys.documents.lists() })
@@ -77,7 +82,7 @@ export function useDownloadUrl() {
       docId: string; 
       type: string; 
       expiresIn?: number 
-    }) => apiService.getDownloadUrl(docId, type, expiresIn),
+    }) => apiService!.getDownloadUrl(docId, type, expiresIn),
   })
 }
 
@@ -87,7 +92,7 @@ export function useUpdateAltText() {
   
   return useMutation({
     mutationFn: ({ docId, altText }: { docId: string; altText: Record<string, any> }) => 
-      apiService.updateAltText(docId, altText),
+      apiService!.updateAltText(docId, altText),
     onSuccess: (_, variables) => {
       // Invalidate the specific document
       queryClient.invalidateQueries({ 
@@ -105,7 +110,8 @@ export function useReportsSummary() {
   
   return useQuery({
     queryKey: queryKeys.reports.summary(),
-    queryFn: () => apiService.getReportsSummary(),
+    queryFn: () => apiService!.getReportsSummary(),
+    enabled: !!apiService,
     staleTime: 60 * 1000, // 1 minute
   })
 }
@@ -116,7 +122,8 @@ export function useUserProfile() {
   
   return useQuery({
     queryKey: queryKeys.auth.user(),
-    queryFn: () => apiService.getUserProfile(),
+    queryFn: () => apiService!.getUserProfile(),
+    enabled: !!apiService,
     staleTime: 5 * 60 * 1000, // 5 minutes
   })
 }

@@ -23,19 +23,21 @@ async def get_user_profile(current_user: User = Depends(get_current_user)) -> di
     
     return {
         "sub": current_user.sub,
-        "username": current_user.username,
+        "name": current_user.name,
         "email": current_user.email,
-        "roles": current_user.roles,
+        "role": current_user.role,
+        "orgId": current_user.org_id,
         "claims": {
             key: value for key, value in current_user.token_claims.items()
             if key in [
+                "sub",
+                "name", 
                 "email", 
-                "email_verified", 
-                "given_name", 
-                "family_name", 
-                "picture", 
-                "cognito:groups",
-                "cognito:username"
+                "role",
+                "orgId",
+                "aud",
+                "iss",
+                "exp"
             ]
         }
     }

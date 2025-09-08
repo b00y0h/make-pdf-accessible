@@ -1,7 +1,6 @@
 import time
 from typing import Dict, List, Optional
 
-import httpx
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
@@ -10,48 +9,11 @@ from .config import settings
 from .models import UserRole
 
 
-class CognitoJWKSError(Exception):
-    """Exception for JWKS-related errors"""
-    pass
-
-
-class JWKSClient:
-    """Client for fetching and caching Cognito JWKS"""
-
-    def __init__(self):
-        self._jwks: Optional[Dict] = None
-        self._last_fetch: float = 0
-        self._cache_ttl: int = 3600  # 1 hour cache
-
-    async def get_jwks(self) -> Dict:
-        """Get JWKS, fetching from Cognito if needed"""
-        current_time = time.time()
-
-        if self._jwks is None or (current_time - self._last_fetch) > self._cache_ttl:
-            await self._fetch_jwks()
-
-        return self._jwks
-
-    async def _fetch_jwks(self) -> None:
-        """Fetch JWKS from Cognito"""
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(settings.cognito_jwks_url)
-                response.raise_for_status()
-                self._jwks = response.json()
-                self._last_fetch = time.time()
-        except httpx.RequestError as e:
-            raise CognitoJWKSError(f"Failed to fetch JWKS: {str(e)}")
-        except httpx.HTTPStatusError as e:
-            raise CognitoJWKSError(f"JWKS endpoint returned {e.response.status_code}")
-
-
-class CognitoJWTBearer(HTTPBearer):
-    """Custom JWT Bearer authentication for Cognito"""
+class BetterAuthJWTBearer(HTTPBearer):
+    """Custom JWT Bearer authentication for BetterAuth"""
 
     def __init__(self, auto_error: bool = True):
         super().__init__(auto_error=auto_error)
-        self.jwks_client = JWKSClient()
 
     async def __call__(self, request: Request) -> HTTPAuthorizationCredentials:
         credentials = await super().__call__(request)
@@ -68,49 +30,23 @@ class CognitoJWTBearer(HTTPBearer):
         return credentials
 
     async def _validate_token(self, token: str) -> None:
-        """Validate JWT token with Cognito JWKS"""
+        """Validate JWT token with BetterAuth secret"""
         try:
-            # Get JWKS
-            jwks = await self.jwks_client.get_jwks()
-
-            # Decode header to get kid
-            unverified_header = jwt.get_unverified_header(token)
-            kid = unverified_header.get('kid')
-
-            if not kid:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Token missing kid claim"
-                )
-
-            # Find matching key
-            key = None
-            for jwk_key in jwks.get('keys', []):
-                if jwk_key.get('kid') == kid:
-                    key = jwk_key
-                    break
-
-            if not key:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Unable to find appropriate key"
-                )
-
-            # Verify token
+            # Verify token with shared secret
             payload = jwt.decode(
                 token,
-                key,
+                settings.better_auth_secret,
                 algorithms=[settings.jwt_algorithm],
-                audience=settings.cognito_client_id,
-                issuer=settings.cognito_issuer,
-                options={"verify_exp": True, "verify_aud": True}
+                audience=settings.jwt_audience,
+                issuer=settings.jwt_issuer,
+                options={"verify_exp": True, "verify_aud": True, "verify_iss": True}
             )
 
-            # Validate token type
-            if payload.get('token_use') != 'access':
+            # Validate required claims exist
+            if not payload.get('sub'):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid token type"
+                    detail="Token missing subject claim"
                 )
 
         except JWTError as e:
@@ -118,7 +54,7 @@ class CognitoJWTBearer(HTTPBearer):
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=f"Token validation failed: {str(e)}"
             )
-        except CognitoJWKSError as e:
+        except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Authentication service error: {str(e)}"
@@ -131,20 +67,22 @@ class User:
     def __init__(
         self,
         sub: str,
-        username: str,
+        name: Optional[str] = None,
         email: Optional[str] = None,
-        roles: Optional[List[str]] = None,
+        role: Optional[str] = None,
+        org_id: Optional[str] = None,
         token_claims: Optional[Dict] = None
     ):
         self.sub = sub
-        self.username = username
+        self.name = name or ""
         self.email = email
-        self.roles = roles or []
+        self.role = role or UserRole.VIEWER.value
+        self.org_id = org_id
         self.token_claims = token_claims or {}
 
     def has_role(self, role: UserRole) -> bool:
         """Check if user has specific role"""
-        return role.value in self.roles
+        return self.role == role.value
 
     def is_admin(self) -> bool:
         """Check if user is admin"""
@@ -156,7 +94,7 @@ class User:
 
 
 # Global JWT bearer instance
-jwt_bearer = CognitoJWTBearer()
+jwt_bearer = BetterAuthJWTBearer()
 
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(jwt_bearer)) -> User:
@@ -168,25 +106,17 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(j
 
         # Extract user information
         sub = payload.get('sub')
-        username = payload.get('username', payload.get('cognito:username', ''))
+        name = payload.get('name')
         email = payload.get('email')
-
-        # Extract roles from custom claims or groups
-        roles = []
-        if 'custom:roles' in payload:
-            roles = payload['custom:roles'].split(',')
-        elif 'cognito:groups' in payload:
-            roles = payload['cognito:groups']
-
-        # Default role assignment
-        if not roles:
-            roles = [UserRole.VIEWER.value]
+        role = payload.get('role', UserRole.VIEWER.value)
+        org_id = payload.get('orgId')
 
         return User(
             sub=sub,
-            username=username,
+            name=name,
             email=email,
-            roles=roles,
+            role=role,
+            org_id=org_id,
             token_claims=payload
         )
 
@@ -210,9 +140,7 @@ async def get_admin_user(current_user: User = Depends(get_current_user)) -> User
 def require_roles(required_roles: List[UserRole]):
     """Decorator factory for role-based access control"""
     def role_checker(current_user: User = Depends(get_current_user)) -> User:
-        user_roles = [UserRole(role) for role in current_user.roles if role in [r.value for r in UserRole]]
-
-        if not any(role in user_roles for role in required_roles):
+        if not any(current_user.has_role(role) for role in required_roles):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Required roles: {[role.value for role in required_roles]}"

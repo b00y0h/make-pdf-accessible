@@ -34,15 +34,14 @@ class Settings(BaseSettings):
     callback_queue_url: str = Field("", env="CALLBACK_QUEUE_URL")
     priority_process_queue_url: str = Field("", env="PRIORITY_PROCESS_QUEUE_URL")
 
-    # Cognito Configuration
-    cognito_user_pool_id: str = Field("", env="COGNITO_USER_POOL_ID")
-    cognito_client_id: str = Field("", env="COGNITO_CLIENT_ID")
-    cognito_region: str = Field("us-east-1", env="COGNITO_REGION")
+    # BetterAuth Configuration
+    better_auth_secret: str = Field("", env="API_JWT_SECRET")
+    better_auth_dashboard_url: str = Field("http://localhost:3001", env="BETTER_AUTH_DASHBOARD_URL")
 
     # JWT Configuration
-    jwt_algorithm: str = Field("RS256", env="JWT_ALGORITHM")
-    jwt_issuer: Optional[str] = Field(None, env="JWT_ISSUER")
-    jwt_audience: Optional[str] = Field(None, env="JWT_AUDIENCE")
+    jwt_algorithm: str = Field("HS256", env="JWT_ALGORITHM")
+    jwt_issuer: str = Field("accesspdf-dashboard", env="JWT_ISSUER") 
+    jwt_audience: str = Field("accesspdf-api", env="JWT_AUDIENCE")
 
     # Security
     webhook_secret_key: str = Field("", env="WEBHOOK_SECRET_KEY")
@@ -84,15 +83,6 @@ class Settings(BaseSettings):
         case_sensitive=False
     )
 
-    @property
-    def cognito_jwks_url(self) -> str:
-        """Get Cognito JWKS URL"""
-        return f"https://cognito-idp.{self.cognito_region}.amazonaws.com/{self.cognito_user_pool_id}/.well-known/jwks.json"
-
-    @property
-    def cognito_issuer(self) -> str:
-        """Get Cognito JWT issuer"""
-        return f"https://cognito-idp.{self.cognito_region}.amazonaws.com/{self.cognito_user_pool_id}"
 
     def get_table_name(self, table_type: str) -> str:
         """Get full table name with environment prefix"""

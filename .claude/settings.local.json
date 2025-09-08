@@ -29,7 +29,12 @@
       "Bash(source:*)",
       "Bash(/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/services/api/venv/bin/pip install -r /Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/services/api/requirements.txt)",
       "Bash(./venv/bin/pip install pymongo boto3)",
-      "Bash(docker exec:*)"
+      "Bash(docker exec:*)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:password@localhost:5432/app_db\" pnpm run db:push)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:password@localhost:5432/app_db\" npx --prefix dashboard prisma db push)",
+      "Bash(/bin/rm:*)",
+      "WebFetch(domain:www.better-auth.com)",
+      "Bash(npx @better-auth/cli migrate:*)"
     ],
     "deny": [],
     "ask": []

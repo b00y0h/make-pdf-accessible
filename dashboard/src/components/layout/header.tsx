@@ -1,7 +1,8 @@
 'use client'
 
-import React from 'react'
-import { Bell, Search, User } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { Bell, Search, User, Settings, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -14,12 +15,57 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface HeaderProps {
   title?: string
 }
 
 export function Header({ title }: HeaderProps) {
+  const [isClient, setIsClient] = useState(false)
+  
+  // Handle hydration
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  // Show loading during SSR and hydration
+  if (!isClient) {
+    return (
+      <header className="flex h-16 items-center justify-between border-b bg-background px-6">
+        <div className="flex items-center gap-4">
+          {title && <h1 className="text-xl font-semibold">{title}</h1>}
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
+        </div>
+      </header>
+    )
+  }
+
+  const { user, isAdmin, logout, isLoading } = useAuth()
+
+  const getUserInitials = () => {
+    if (user?.name) {
+      return user.name.split(' ').map(n => n.charAt(0)).join('').toUpperCase()
+    }
+    return user?.email?.charAt(0)?.toUpperCase() || 'U'
+  }
+
+  // Show loading state while auth is initializing
+  if (isLoading) {
+    return (
+      <header className="flex h-16 items-center justify-between border-b bg-background px-6">
+        <div className="flex items-center gap-4">
+          {title && <h1 className="text-xl font-semibold">{title}</h1>}
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
+        </div>
+      </header>
+    )
+  }
+
   return (
     <header className="flex h-16 items-center justify-between border-b bg-background px-6">
       <div className="flex items-center gap-4">
@@ -27,6 +73,16 @@ export function Header({ title }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-4">
+        {/* Admin Link - Only visible to admin users */}
+        {isAdmin && (
+          <Link href="/admin">
+            <Button variant="outline" size="sm" className="gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              Admin Panel
+            </Button>
+          </Link>
+        )}
+
         {/* Search */}
         <div className="relative hidden md:block">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -52,32 +108,55 @@ export function Header({ title }: HeaderProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-8 w-8 rounded-full">
               <Avatar className="h-8 w-8">
-                <AvatarImage src="/avatars/01.png" alt="User avatar" />
-                <AvatarFallback>JD</AvatarFallback>
+                <AvatarImage src={user?.picture} alt="User avatar" />
+                <AvatarFallback>{getUserInitials()}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56" align="end" forceMount>
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">John Doe</p>
-                <p className="text-xs leading-none text-muted-foreground">
-                  john@example.com
+                <p className="text-sm font-medium leading-none">
+                  {user?.name || 'No name set'}
                 </p>
+                <p className="text-xs leading-none text-muted-foreground">
+                  {user?.email}
+                </p>
+                {user?.role && (
+                  <p className="text-xs leading-none text-muted-foreground capitalize">
+                    {user.role} User
+                  </p>
+                )}
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            
+            {/* Admin-only menu item */}
+            {isAdmin && (
+              <>
+                <DropdownMenuItem asChild>
+                  <Link href="/admin" className="w-full cursor-pointer">
+                    <ShieldCheck className="mr-2 h-4 w-4" />
+                    Admin Panel
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
+            
             <DropdownMenuItem>
+              <User className="mr-2 h-4 w-4" />
               Profile
             </DropdownMenuItem>
             <DropdownMenuItem>
+              <Settings className="mr-2 h-4 w-4" />
               Settings
             </DropdownMenuItem>
             <DropdownMenuItem>
               Support
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={logout} className="text-red-600">
               Log out
             </DropdownMenuItem>
           </DropdownMenuContent>

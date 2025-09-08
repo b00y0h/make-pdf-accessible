@@ -2,15 +2,15 @@
 
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Eye, EyeOff, Mail, Lock, ArrowRight, Shield, Zap, Users } from 'lucide-react'
-import { useAuth } from '@/contexts/AuthContext'
-import { getAuthUrls } from '@/lib/auth-config'
+import { Eye, EyeOff, Mail, Lock, ArrowRight, Shield } from 'lucide-react'
+import { signIn, signInWithProvider, useSession } from '@/lib/auth-client'
+import toast from 'react-hot-toast'
 
 const features = [
   {
@@ -19,65 +19,68 @@ const features = [
     description: 'Automated accessibility compliance for all your PDFs',
   },
   {
-    icon: Zap,
+    icon: Shield,
     title: 'Lightning Fast',
     description: 'Process hundreds of documents in minutes',
   },
   {
-    icon: Users,
+    icon: Shield,
     title: 'Team Collaboration',
     description: 'Work together with your team on accessibility projects',
   },
 ]
 
-const testimonials = [
-  {
-    quote: "AccessPDF has transformed our document workflow. We've made all our training materials accessible in record time.",
-    author: "Sarah Johnson",
-    role: "Accessibility Manager",
-    company: "TechCorp",
-  },
-  {
-    quote: "The automated alt-text generation is incredibly accurate. It's saved us hundreds of hours of manual work.",
-    author: "Michael Chen",
-    role: "Content Director",
-    company: "EduPlatform",
-  },
-]
-
-export default function LoginPage() {
+export default function SignInPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
-  const { login, isAuthenticated, isLoading: authLoading } = useAuth()
+  const searchParams = useSearchParams()
+  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
+  
+  const { data: session, isPending } = useSession()
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      router.push('/dashboard')
+    if (session && !isPending) {
+      router.push(callbackUrl)
     }
-  }, [isAuthenticated, router])
+  }, [session, isPending, router, callbackUrl])
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
-    // For email/password, still redirect to Cognito Hosted UI
-    // In production, you could implement direct auth here
-    login()
+    if (isLoading) return
+
+    setIsLoading(true)
+    try {
+      const result = await signIn(email, password)
+      
+      if (result.error) {
+        toast.error(result.error.message || 'Sign in failed')
+      } else {
+        toast.success('Sign in successful')
+        router.push(callbackUrl)
+      }
+    } catch (error) {
+      console.error('Sign in error:', error)
+      toast.error('Sign in failed. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const handleSSOLogin = (provider: string) => {
-    // All providers go through Cognito Hosted UI
-    // The identity provider (Google) is handled by Cognito
-    login()
+  const handleSocialSignIn = async (provider: 'google' | 'github' | 'apple' | 'discord') => {
+    try {
+      await signInWithProvider(provider)
+      // The provider will handle the redirect
+    } catch (error) {
+      console.error(`${provider} sign in error:`, error)
+      toast.error(`${provider} sign in failed. Please try again.`)
+    }
   }
 
-  const handleDirectLogin = () => {
-    login()
-  }
-
-  if (authLoading) {
+  if (isPending) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex items-center justify-center">
         <div className="text-center">
@@ -131,7 +134,7 @@ export default function LoginPage() {
             </div>
 
             {/* Features */}
-            <div className="space-y-4 mb-8">
+            <div className="space-y-4">
               {features.map((feature, index) => {
                 const Icon = feature.icon
                 return (
@@ -151,38 +154,27 @@ export default function LoginPage() {
                 )
               })}
             </div>
-
-            {/* Testimonial */}
-            <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-200 dark:border-gray-700">
-              <p className="text-sm text-gray-600 dark:text-gray-300 italic mb-2">
-                "{testimonials[0].quote}"
-              </p>
-              <div className="text-xs text-gray-500 dark:text-gray-400">
-                <strong>{testimonials[0].author}</strong>, {testimonials[0].role} at {testimonials[0].company}
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* Right Side - Login Form */}
+        {/* Right Side - Sign In Form */}
         <div className="flex flex-col justify-center px-8 py-12 lg:px-16 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
           <div className="max-w-sm mx-auto w-full">
             <Card className="border-0 shadow-xl">
               <CardHeader className="space-y-1 text-center">
                 <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
                 <CardDescription>
-                  Sign in to your AccessPDF admin dashboard
+                  Sign in to your AccessPDF dashboard
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {/* SSO Buttons - Priority Order */}
+                {/* Social Sign In Buttons */}
                 <div className="space-y-3 mb-6">
-                  {/* Google - Primary, Large Button */}
                   <Button
                     variant="outline"
                     size="lg"
                     className="w-full h-12 text-base font-medium"
-                    onClick={handleDirectLogin}
+                    onClick={() => handleSocialSignIn('google')}
                   >
                     <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24">
                       <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -193,12 +185,11 @@ export default function LoginPage() {
                     Continue with Google
                   </Button>
 
-                  {/* Other SSO Options - Smaller */}
                   <div className="grid grid-cols-3 gap-2">
                     <Button
                       variant="outline"
                       className="h-10"
-                      onClick={handleDirectLogin}
+                      onClick={() => handleSocialSignIn('github')}
                       title="Sign in with GitHub"
                     >
                       <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
@@ -208,21 +199,21 @@ export default function LoginPage() {
                     <Button
                       variant="outline"
                       className="h-10"
-                      onClick={handleDirectLogin}
-                      title="Sign in with Microsoft"
+                      onClick={() => handleSocialSignIn('apple')}
+                      title="Sign in with Apple"
                     >
                       <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zM24 11.4H12.6V0H24v11.4z"/>
+                        <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/>
                       </svg>
                     </Button>
                     <Button
                       variant="outline"
                       className="h-10"
-                      onClick={handleDirectLogin}
-                      title="Sign in with Apple"
+                      onClick={() => handleSocialSignIn('discord')}
+                      title="Sign in with Discord"
                     >
                       <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/>
+                        <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419-.0002 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9554 2.4189-2.1568 2.4189Z"/>
                       </svg>
                     </Button>
                   </div>
@@ -237,7 +228,7 @@ export default function LoginPage() {
                 </div>
 
                 {/* Email/Password Form */}
-                <form onSubmit={handleLogin} className="space-y-4">
+                <form onSubmit={handleEmailSignIn} className="space-y-4">
                   <div className="space-y-2">
                     <div className="relative">
                       <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -248,6 +239,7 @@ export default function LoginPage() {
                         onChange={(e) => setEmail(e.target.value)}
                         className="pl-10"
                         required
+                        disabled={isLoading}
                       />
                     </div>
                   </div>
@@ -261,11 +253,13 @@ export default function LoginPage() {
                         onChange={(e) => setPassword(e.target.value)}
                         className="pl-10 pr-10"
                         required
+                        disabled={isLoading}
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                        disabled={isLoading}
                       >
                         {showPassword ? (
                           <EyeOff className="h-4 w-4" />
@@ -293,36 +287,15 @@ export default function LoginPage() {
                 
                 {/* Links */}
                 <div className="mt-6 space-y-3 text-center text-sm">
-                  <div className="flex justify-center space-x-4 text-blue-600">
-                    <button onClick={handleDirectLogin} className="hover:text-blue-500">
-                      Use single sign-on
-                    </button>
-                    <span className="text-gray-300">•</span>
-                    <button onClick={handleDirectLogin} className="hover:text-blue-500">
-                      Reset password
-                    </button>
-                  </div>
                   <p className="text-gray-600 dark:text-gray-400">
                     Don't have an account?{' '}
-                    <button
-                      onClick={handleDirectLogin}
-                      className="font-medium text-blue-600 hover:text-blue-500"
-                    >
+                    <Link href="/sign-up" className="font-medium text-blue-600 hover:text-blue-500">
                       Create account
-                    </button>
+                    </Link>
                   </p>
                 </div>
               </CardContent>
             </Card>
-
-            {/* OAuth Information */}
-            <div className="mt-6 text-center">
-              <div className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                <strong>Authentication:</strong>
-                <br />Uses AWS Cognito with Google OAuth
-                <br />All options redirect to secure hosted UI
-              </div>
-            </div>
           </div>
         </div>
       </div>
