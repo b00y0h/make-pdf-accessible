@@ -1,155 +1,91 @@
 services:
-  # API Service
-  api:
-    build:
-      context: ./services/api
-      dockerfile: Dockerfile.dev
+  # =============================================================================
+  # INFRASTRUCTURE SERVICES
+  # =============================================================================
+
+  # MongoDB - Primary database for documents and jobs
+  mongo:
+    image: mongo:7.0
+    container_name: pdf-accessibility-mongo
     ports:
-      - "8000:8000"
+      - "27017:27017"
     environment:
-      - DATABASE_URL=postgresql://postgres:password@postgres:5432/app_db
-      - REDIS_URL=redis://redis:6379
-      - PYTHONPATH=/app
-      # MongoDB configuration
-      - PERSISTENCE_PROVIDER=mongo
-      - MONGODB_URI=mongodb://mongo:27017/pdf_accessibility
-      - MONGODB_DATABASE=pdf_accessibility
-      - ENABLE_QUERY_LOGGING=true
-      - DEBUG_MODE=true
-    depends_on:
-      - postgres
-      - redis
-      - mongo
+      - MONGO_INITDB_DATABASE=pdf_accessibility
     volumes:
-      - ./services/api/app:/app/app
-      - ./services/api/tests:/app/tests
-      - ./services/api/main.py:/app/main.py
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+      - mongo_data:/data/db
+      - ./scripts/mongo-init:/docker-entrypoint-initdb.d
+    command: mongod --replSet rs0 --bind_ip_all
+    healthcheck:
+      test: mongosh --eval "db.runCommand('ping').ok" --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # Worker Service
-  worker:
-    build:
-      context: ./services/worker
-      dockerfile: Dockerfile
-    environment:
-      - DATABASE_URL=postgresql://postgres:password@postgres:5432/app_db
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - postgres
-      - redis
-    volumes:
-      - ./services/worker:/app
-      - ./packages/schemas:/app/packages/schemas
-
-  # Function Services
-  function-router:
-    build:
-      context: ./services/functions/router
-      dockerfile: Dockerfile
+  # Mongo Express - MongoDB web interface
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: pdf-accessibility-mongo-express
     ports:
-      - "8001:8000"
+      - "8081:8081"
     environment:
-      - REDIS_URL=redis://redis:6379
+      - ME_CONFIG_MONGODB_SERVER=mongo
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_MONGODB_ENABLE_ADMIN=true
+      - ME_CONFIG_BASICAUTH_USERNAME=admin
+      - ME_CONFIG_BASICAUTH_PASSWORD=admin123
     depends_on:
-      - redis
-    volumes:
-      - ./services/functions/router:/app
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
 
-  function-ocr:
-    build:
-      context: ./services/functions/ocr
-      dockerfile: Dockerfile
+  # LocalStack - Local AWS services (S3, SQS, SNS, etc.)
+  localstack:
+    image: localstack/localstack:3.0
+    container_name: pdf-accessibility-localstack
     ports:
-      - "8002:8000"
+      - "4566:4566"
     environment:
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - redis
+      # Core LocalStack configuration
+      - DEBUG=1
+      - SERVICES=s3,sqs,sns,secretsmanager,stepfunctions
+      - DATA_DIR=/var/lib/localstack/data
+      - PORT_WEB_UI=4566
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      # AWS configuration
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      # S3 configuration
+      - S3_SKIP_SIGNATURE_VALIDATION=1
+      - DISABLE_CORS_CHECKS=1
     volumes:
-      - ./services/functions/ocr:/app
+      - localstack_data:/var/lib/localstack
+      - ./scripts/localstack-init:/etc/localstack/init/ready.d
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: curl -f http://localhost:4566/_localstack/health || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
-  function-structure:
-    build:
-      context: ./services/functions/structure
-      dockerfile: Dockerfile
+  # Redis - For caching and task queues
+  redis:
+    image: redis:7-alpine
+    container_name: pdf-accessibility-redis
     ports:
-      - "8003:8000"
-    environment:
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - redis
+      - "6379:6379"
     volumes:
-      - ./services/functions/structure:/app
+      - redis_data:/data
+    healthcheck:
+      test: redis-cli ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  function-tagger:
-    build:
-      context: ./services/functions/tagger
-      dockerfile: Dockerfile
-    ports:
-      - "8004:8000"
-    environment:
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - redis
-    volumes:
-      - ./services/functions/tagger:/app
-
-  function-exporter:
-    build:
-      context: ./services/functions/exporter
-      dockerfile: Dockerfile
-    ports:
-      - "8005:8000"
-    environment:
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - redis
-    volumes:
-      - ./services/functions/exporter:/app
-
-  function-validator:
-    build:
-      context: ./services/functions/validator
-      dockerfile: Dockerfile
-    ports:
-      - "8006:8000"
-    environment:
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - redis
-    volumes:
-      - ./services/functions/validator:/app
-
-  function-notifier:
-    build:
-      context: ./services/functions/notifier
-      dockerfile: Dockerfile
-    ports:
-      - "8007:8000"
-    environment:
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - redis
-    volumes:
-      - ./services/functions/notifier:/app
-
-  # Web Application
-  web:
-    build:
-      context: ./web
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-    volumes:
-      - ./web:/app
-      - /app/node_modules
-    command: npm run dev
-
-  # Database
+  # PostgreSQL - Legacy/backup database (can be removed later)
   postgres:
     image: postgres:15
+    container_name: pdf-accessibility-postgres
     environment:
       - POSTGRES_DB=app_db
       - POSTGRES_USER=postgres
@@ -158,27 +94,295 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -U postgres
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # Redis
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
+  # =============================================================================
+  # APPLICATION SERVICES
+  # =============================================================================
 
-  # MongoDB
-  mongo:
-    image: mongo:7.0
+  # API Service - Main FastAPI application
+  api:
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile.dev
+    container_name: pdf-accessibility-api
     ports:
-      - "27017:27017"
+      - "8000:8000"
     environment:
-      - MONGO_INITDB_DATABASE=pdf_accessibility
+      # Python configuration
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      # Database configuration
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/app_db
+      - REDIS_URL=redis://redis:6379
+      # MongoDB configuration
+      - PERSISTENCE_PROVIDER=mongo
+      - MONGODB_URI=mongodb://mongo:27017/pdf_accessibility?replicaSet=rs0
+      - MONGODB_DATABASE=pdf_accessibility
+      - ENABLE_QUERY_LOGGING=true
+      - DEBUG_MODE=true
+      # AWS Local configuration
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - S3_ENDPOINT=http://localstack:4566
+      - SQS_ENDPOINT=http://localstack:4566
+      - SNS_ENDPOINT=http://localstack:4566
+      # S3 Buckets
+      - S3_BUCKET_UPLOADS=pdf-accessibility-uploads
+      - S3_BUCKET_PROCESSED=pdf-accessibility-processed
+      - S3_BUCKET_REPORTS=pdf-accessibility-reports
+      # SQS Queues
+      - SQS_INGEST_QUEUE=pdf-accessibility-ingest
+      - SQS_PRIORITY_QUEUE=pdf-accessibility-priority
+      - SQS_CALLBACK_QUEUE=pdf-accessibility-callbacks
+      # Feature flags
+      - ENABLE_DUAL_WRITE=false
+      - ENABLE_PERFORMANCE_METRICS=true
+    depends_on:
+      mongo:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
-      - mongo_data:/data/db
-    command: mongod --replSet rs0 --bind_ip_all
+      - ./services/api/app:/app/app
+      - ./services/api/tests:/app/tests
+      - ./services/api/main.py:/app/main.py
+      - ./services/shared:/app/services/shared
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+
+  # Worker Service - Background job processor
+  worker:
+    build:
+      context: ./services/worker
+      dockerfile: Dockerfile
+    container_name: pdf-accessibility-worker
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/app_db
+      - REDIS_URL=redis://redis:6379
+      # MongoDB configuration
+      - PERSISTENCE_PROVIDER=mongo
+      - MONGODB_URI=mongodb://mongo:27017/pdf_accessibility?replicaSet=rs0
+      - MONGODB_DATABASE=pdf_accessibility
+      # AWS Local configuration
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    depends_on:
+      mongo:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/worker:/app
+      - ./services/shared:/app/services/shared
+      - ./packages/schemas:/app/packages/schemas
+    restart: unless-stopped
+
+  # =============================================================================
+  # PROCESSING FUNCTIONS (Local Lambda equivalents)
+  # =============================================================================
+
+  function-router:
+    build:
+      context: ./services/functions/router
+      dockerfile: Dockerfile
+    container_name: pdf-accessibility-router
+    ports:
+      - "8001:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    depends_on:
+      - redis
+      - localstack
+    volumes:
+      - ./services/functions/router:/app
+    restart: unless-stopped
+
+  function-ocr:
+    build:
+      context: ./services/functions/ocr
+      dockerfile: Dockerfile
+    container_name: pdf-accessibility-ocr
+    ports:
+      - "8002:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    depends_on:
+      - redis
+      - localstack
+    volumes:
+      - ./services/functions/ocr:/app
+    restart: unless-stopped
+
+  function-structure:
+    build:
+      context: ./services/functions/structure
+      dockerfile: Dockerfile
+    container_name: pdf-accessibility-structure
+    ports:
+      - "8003:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    depends_on:
+      - redis
+      - localstack
+    volumes:
+      - ./services/functions/structure:/app
+    restart: unless-stopped
+
+  function-tagger:
+    build:
+      context: ./services/functions/tagger
+      dockerfile: Dockerfile
+    container_name: pdf-accessibility-tagger
+    ports:
+      - "8004:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    depends_on:
+      - redis
+      - localstack
+    volumes:
+      - ./services/functions/tagger:/app
+    restart: unless-stopped
+
+  function-exporter:
+    build:
+      context: ./services/functions/exporter
+      dockerfile: Dockerfile
+    container_name: pdf-accessibility-exporter
+    ports:
+      - "8005:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    depends_on:
+      - redis
+      - localstack
+    volumes:
+      - ./services/functions/exporter:/app
+    restart: unless-stopped
+
+  function-validator:
+    build:
+      context: ./services/functions/validator
+      dockerfile: Dockerfile
+    container_name: pdf-accessibility-validator
+    ports:
+      - "8006:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    depends_on:
+      - redis
+      - localstack
+    volumes:
+      - ./services/functions/validator:/app
+    restart: unless-stopped
+
+  function-notifier:
+    build:
+      context: ./services/functions/notifier
+      dockerfile: Dockerfile
+    container_name: pdf-accessibility-notifier
+    ports:
+      - "8007:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    depends_on:
+      - redis
+      - localstack
+    volumes:
+      - ./services/functions/notifier:/app
+    restart: unless-stopped
+
+  # =============================================================================
+  # FRONTEND APPLICATIONS
+  # =============================================================================
+
+  # Dashboard - Next.js web application
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: pdf-accessibility-dashboard
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NODE_ENV=development
+    volumes:
+      - ./dashboard:/app
+      - /app/node_modules
+    command: npm run dev
+    restart: unless-stopped
+
+  # Legacy Web (if needed)
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: pdf-accessibility-web
+    ports:
+      - "3001:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+    command: npm run dev
+    restart: unless-stopped
+    profiles:
+      - legacy
 
 volumes:
   postgres_data:
+    name: pdf_accessibility_postgres_data
   redis_data:
+    name: pdf_accessibility_redis_data
   mongo_data:
+    name: pdf_accessibility_mongo_data
+  localstack_data:
+    name: pdf_accessibility_localstack_data
+
+networks:
+  default:
+    name: pdf-accessibility-network

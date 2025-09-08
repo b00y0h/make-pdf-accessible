@@ -27,7 +27,9 @@
       "Bash(curl:*)",
       "Bash(python3:*)",
       "Bash(source:*)",
-      "Bash(/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/services/api/venv/bin/pip install -r /Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/services/api/requirements.txt)"
+      "Bash(/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/services/api/venv/bin/pip install -r /Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/services/api/requirements.txt)",
+      "Bash(./venv/bin/pip install pymongo boto3)",
+      "Bash(docker exec:*)"
     ],
     "deny": [],
     "ask": []
