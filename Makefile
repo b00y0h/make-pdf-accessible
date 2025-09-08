@@ -65,7 +65,7 @@ test:
 	docker-compose -f docker-compose.test.yml run --rm api-test
 	@echo "✅ All tests passed!"
 
-# Run core/development tests only (should always pass during development)  
+# Run core/development tests only (should always pass during development)
 test-dev:
 	@echo "🧪 Running development tests..."
 	docker-compose -f docker-compose.test.yml run --rm api-test pytest tests/test_models.py tests/test_auth.py tests/unit/ tests/api/test_endpoints.py -v
@@ -204,7 +204,7 @@ seed:
 	@echo ""
 	@echo "👥 Sample users created (for BetterAuth):"
 	@echo "  - user_alice_developer"
-	@echo "  - user_bob_designer" 
+	@echo "  - user_bob_designer"
 	@echo "  - user_carol_admin"
 	@echo "  - user_david_client"
 	@echo "  - user_eve_tester"
