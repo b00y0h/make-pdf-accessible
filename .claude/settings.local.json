@@ -24,7 +24,10 @@
       "Bash(make:*)",
       "Bash(cat:*)",
       "Bash(ls:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(source:*)",
+      "Bash(/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/services/api/venv/bin/pip install -r /Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/services/api/requirements.txt)"
     ],
     "deny": [],
     "ask": []

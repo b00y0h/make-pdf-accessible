@@ -1,0 +1,329 @@
+{
+  "$jsonSchema": {
+    "bsonType": "object",
+    "title": "Document Schema",
+    "description": "Schema for PDF accessibility processing documents",
+    "required": ["docId", "ownerId", "status", "createdAt", "updatedAt"],
+    "properties": {
+      "_id": {
+        "bsonType": "objectId",
+        "description": "MongoDB ObjectId (auto-generated)"
+      },
+      "docId": {
+        "bsonType": "string",
+        "description": "Unique document identifier (UUID)",
+        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+      },
+      "ownerId": {
+        "bsonType": "string",
+        "description": "User/owner identifier (Cognito sub)",
+        "minLength": 1,
+        "maxLength": 255
+      },
+      "status": {
+        "bsonType": "string",
+        "description": "Current processing status",
+        "enum": ["pending", "processing", "completed", "failed", "validation_failed", "notification_failed"]
+      },
+      "filename": {
+        "bsonType": ["string", "null"],
+        "description": "Original filename of the uploaded document",
+        "maxLength": 255
+      },
+      "createdAt": {
+        "bsonType": "date",
+        "description": "Document creation timestamp"
+      },
+      "updatedAt": {
+        "bsonType": "date",
+        "description": "Last update timestamp"
+      },
+      "completedAt": {
+        "bsonType": ["date", "null"],
+        "description": "Processing completion timestamp"
+      },
+      "metadata": {
+        "bsonType": "object",
+        "description": "Document metadata and user-provided information",
+        "properties": {
+          "priority": {
+            "bsonType": "bool",
+            "description": "High priority processing flag"
+          },
+          "webhookUrl": {
+            "bsonType": ["string", "null"],
+            "description": "Callback webhook URL",
+            "pattern": "^https?://.+"
+          },
+          "originalSize": {
+            "bsonType": ["long", "null"],
+            "description": "Original file size in bytes"
+          },
+          "pageCount": {
+            "bsonType": ["int", "null"],
+            "description": "Number of pages in PDF"
+          },
+          "language": {
+            "bsonType": ["string", "null"],
+            "description": "Document language (ISO 639-1 code)"
+          }
+        }
+      },
+      "artifacts": {
+        "bsonType": "object",
+        "description": "S3 keys for generated artifacts",
+        "properties": {
+          "original": {
+            "bsonType": ["string", "null"],
+            "description": "S3 key for original uploaded PDF"
+          },
+          "structure": {
+            "bsonType": ["string", "null"],
+            "description": "S3 key for document structure JSON"
+          },
+          "altText": {
+            "bsonType": ["string", "null"],
+            "description": "S3 key for alt text JSON"
+          },
+          "tagged": {
+            "bsonType": ["string", "null"],
+            "description": "S3 key for accessibility-tagged PDF"
+          },
+          "html": {
+            "bsonType": ["string", "null"],
+            "description": "S3 key for accessible HTML export"
+          },
+          "epub": {
+            "bsonType": ["string", "null"],
+            "description": "S3 key for EPUB export"
+          },
+          "csvZip": {
+            "bsonType": ["string", "null"],
+            "description": "S3 key for CSV tables ZIP export"
+          }
+        }
+      },
+      "scores": {
+        "bsonType": "object",
+        "description": "Accessibility scores and metrics",
+        "properties": {
+          "validationScore": {
+            "bsonType": ["double", "null"],
+            "description": "Overall accessibility validation score (0-100)",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "pdfUaCompliant": {
+            "bsonType": ["bool", "null"],
+            "description": "PDF/UA compliance status"
+          },
+          "wcagLevel": {
+            "bsonType": ["string", "null"],
+            "description": "WCAG compliance level achieved",
+            "enum": ["A", "AA", "AAA", null]
+          },
+          "structureScore": {
+            "bsonType": ["double", "null"],
+            "description": "Document structure score (0-100)",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "altTextCoverage": {
+            "bsonType": ["double", "null"],
+            "description": "Percentage of images with alt text",
+            "minimum": 0,
+            "maximum": 100
+          }
+        }
+      },
+      "issues": {
+        "bsonType": "array",
+        "description": "Accessibility validation issues found",
+        "items": {
+          "bsonType": "object",
+          "required": ["type", "level", "message"],
+          "properties": {
+            "type": {
+              "bsonType": "string",
+              "description": "Issue type/category"
+            },
+            "level": {
+              "bsonType": "string",
+              "description": "Issue severity level",
+              "enum": ["error", "warning", "info"]
+            },
+            "message": {
+              "bsonType": "string",
+              "description": "Human-readable issue description"
+            },
+            "location": {
+              "bsonType": ["string", "null"],
+              "description": "Location in document (page, element, etc.)"
+            },
+            "rule": {
+              "bsonType": ["string", "null"],
+              "description": "Validation rule that triggered"
+            },
+            "count": {
+              "bsonType": ["int", "null"],
+              "description": "Number of occurrences of this issue",
+              "minimum": 1
+            }
+          }
+        }
+      },
+      "ai": {
+        "bsonType": "object",
+        "description": "AI processing results and manifest",
+        "properties": {
+          "manifest": {
+            "bsonType": "object",
+            "description": "AI processing manifest with step results",
+            "properties": {
+              "structureExtraction": {
+                "bsonType": ["object", "null"],
+                "description": "Structure extraction step results",
+                "properties": {
+                  "status": {
+                    "bsonType": "string",
+                    "enum": ["started", "processing", "completed", "failed"]
+                  },
+                  "startedAt": {
+                    "bsonType": ["date", "null"]
+                  },
+                  "completedAt": {
+                    "bsonType": ["date", "null"]
+                  },
+                  "processingTimeSeconds": {
+                    "bsonType": ["double", "null"]
+                  },
+                  "elementsProcessed": {
+                    "bsonType": ["int", "null"],
+                    "minimum": 0
+                  },
+                  "errorMessage": {
+                    "bsonType": ["string", "null"]
+                  }
+                }
+              },
+              "altTextGeneration": {
+                "bsonType": ["object", "null"],
+                "description": "Alt text generation step results",
+                "properties": {
+                  "status": {
+                    "bsonType": "string",
+                    "enum": ["started", "processing", "completed", "failed"]
+                  },
+                  "startedAt": {
+                    "bsonType": ["date", "null"]
+                  },
+                  "completedAt": {
+                    "bsonType": ["date", "null"]
+                  },
+                  "processingTimeSeconds": {
+                    "bsonType": ["double", "null"]
+                  },
+                  "figuresProcessed": {
+                    "bsonType": ["int", "null"],
+                    "minimum": 0
+                  },
+                  "errorMessage": {
+                    "bsonType": ["string", "null"]
+                  }
+                }
+              },
+              "pdfTagging": {
+                "bsonType": ["object", "null"],
+                "description": "PDF tagging step results",
+                "properties": {
+                  "status": {
+                    "bsonType": "string",
+                    "enum": ["started", "processing", "completed", "failed"]
+                  },
+                  "startedAt": {
+                    "bsonType": ["date", "null"]
+                  },
+                  "completedAt": {
+                    "bsonType": ["date", "null"]
+                  },
+                  "processingTimeSeconds": {
+                    "bsonType": ["double", "null"]
+                  },
+                  "tagsApplied": {
+                    "bsonType": ["int", "null"],
+                    "minimum": 0
+                  },
+                  "errorMessage": {
+                    "bsonType": ["string", "null"]
+                  }
+                }
+              },
+              "validation": {
+                "bsonType": ["object", "null"],
+                "description": "Validation step results",
+                "properties": {
+                  "status": {
+                    "bsonType": "string",
+                    "enum": ["started", "processing", "completed", "failed"]
+                  },
+                  "startedAt": {
+                    "bsonType": ["date", "null"]
+                  },
+                  "completedAt": {
+                    "bsonType": ["date", "null"]
+                  },
+                  "processingTimeSeconds": {
+                    "bsonType": ["double", "null"]
+                  },
+                  "issuesFound": {
+                    "bsonType": ["int", "null"],
+                    "minimum": 0
+                  },
+                  "errorMessage": {
+                    "bsonType": ["string", "null"]
+                  }
+                }
+              },
+              "exports": {
+                "bsonType": ["object", "null"],
+                "description": "Export generation step results",
+                "properties": {
+                  "status": {
+                    "bsonType": "string",
+                    "enum": ["started", "processing", "completed", "failed"]
+                  },
+                  "startedAt": {
+                    "bsonType": ["date", "null"]
+                  },
+                  "completedAt": {
+                    "bsonType": ["date", "null"]
+                  },
+                  "processingTimeSeconds": {
+                    "bsonType": ["double", "null"]
+                  },
+                  "exportsGenerated": {
+                    "bsonType": ["int", "null"],
+                    "minimum": 0
+                  },
+                  "errorMessage": {
+                    "bsonType": ["string", "null"]
+                  }
+                }
+              }
+            }
+          },
+          "totalProcessingTimeSeconds": {
+            "bsonType": ["double", "null"],
+            "description": "Total processing time across all steps",
+            "minimum": 0
+          }
+        }
+      },
+      "errorMessage": {
+        "bsonType": ["string", "null"],
+        "description": "Error message if processing failed"
+      }
+    },
+    "additionalProperties": false
+  }
+}

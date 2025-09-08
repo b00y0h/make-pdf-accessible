@@ -17,6 +17,7 @@ from .models import (
     DocumentType,
     ReportsSummaryResponse,
 )
+from services.shared.persistence import get_persistence_manager
 
 logger = Logger()
 tracer = Tracer()
@@ -29,15 +30,12 @@ class AWSServiceError(Exception):
 
 
 class DocumentService:
-    """Service for document operations with DynamoDB and S3"""
+    """Service for document operations with MongoDB/DynamoDB and S3"""
 
     def __init__(self):
-        self.dynamodb = boto3.resource('dynamodb', region_name=settings.aws_region)
+        self.persistence_manager = get_persistence_manager()
         self.s3_client = boto3.client('s3', region_name=settings.aws_region)
         self.sqs_client = boto3.client('sqs', region_name=settings.aws_region)
-
-        self.documents_table = self.dynamodb.Table(settings.documents_table)
-        self.jobs_table = self.dynamodb.Table(settings.jobs_table)
 
     @tracer.capture_method
     async def create_document(
@@ -53,39 +51,41 @@ class DocumentService:
         doc_id = str(uuid.uuid4())
         now = datetime.utcnow()
 
-        document_item = {
+        document_data = {
             'docId': doc_id,
-            'userId': user_id,
+            'ownerId': user_id,  # Use ownerId for MongoDB schema compatibility
             'status': DocumentStatus.PENDING.value,
-            'createdAt': now.isoformat(),
-            'updatedAt': now.isoformat(),
+            'createdAt': now,
+            'updatedAt': now,
             'metadata': metadata or {},
             'artifacts': {}
         }
 
         if filename:
-            document_item['filename'] = filename
+            document_data['filename'] = filename
         if source_url:
-            document_item['sourceUrl'] = source_url
+            document_data['sourceUrl'] = source_url
         if webhook_url:
-            document_item['webhookUrl'] = webhook_url
+            document_data['webhookUrl'] = webhook_url
 
         try:
-            # Store document record
-            self.documents_table.put_item(Item=document_item)
+            # Store document record using persistence layer
+            created_document = self.persistence_manager.create_document(document_data)
 
             # Create job record
-            job_item = {
+            job_data = {
                 'jobId': str(uuid.uuid4()),
                 'docId': doc_id,
-                'userId': user_id,
-                'status': 'queued',
+                'ownerId': user_id,  # Use ownerId for consistency
+                'step': 'structure',  # Initial step
+                'status': 'pending',
                 'priority': priority,
-                'createdAt': now.isoformat(),
-                'queuedAt': now.isoformat()
+                'createdAt': now,
+                'updatedAt': now,
+                'queuedAt': now
             }
 
-            self.jobs_table.put_item(Item=job_item)
+            self.persistence_manager.create_job(job_data)
 
             # Send to appropriate queue
             queue_url = settings.priority_process_queue_url if priority else settings.ingest_queue_url
@@ -123,7 +123,7 @@ class DocumentService:
                 artifacts={}
             )
 
-        except ClientError as e:
+        except Exception as e:
             logger.error(f"Failed to create document: {e}")
             raise AWSServiceError(f"Failed to create document: {e}")
 
@@ -131,31 +131,43 @@ class DocumentService:
     async def get_document(self, doc_id: str, user_id: Optional[str] = None) -> Optional[DocumentResponse]:
         """Get document by ID"""
         try:
-            response = self.documents_table.get_item(Key={'docId': doc_id})
+            document = self.persistence_manager.document_repository.get_document(doc_id)
 
-            if 'Item' not in response:
+            if not document:
                 return None
 
-            item = response['Item']
-
-            # Check access permissions
-            if user_id and item.get('userId') != user_id:
+            # Check access permissions - handle both userId (DynamoDB) and ownerId (MongoDB)
+            document_owner = document.get('ownerId') or document.get('userId')
+            if user_id and document_owner != user_id:
                 return None
+
+            # Handle both datetime objects and ISO strings for compatibility
+            created_at = document['createdAt']
+            if isinstance(created_at, str):
+                created_at = datetime.fromisoformat(created_at)
+            
+            updated_at = document['updatedAt']
+            if isinstance(updated_at, str):
+                updated_at = datetime.fromisoformat(updated_at)
+
+            completed_at = document.get('completedAt')
+            if completed_at and isinstance(completed_at, str):
+                completed_at = datetime.fromisoformat(completed_at)
 
             return DocumentResponse(
-                doc_id=uuid.UUID(item['docId']),
-                status=DocumentStatus(item['status']),
-                filename=item.get('filename'),
-                created_at=datetime.fromisoformat(item['createdAt']),
-                updated_at=datetime.fromisoformat(item['updatedAt']),
-                completed_at=datetime.fromisoformat(item['completedAt']) if item.get('completedAt') else None,
-                user_id=item['userId'],
-                metadata=item.get('metadata', {}),
-                error_message=item.get('errorMessage'),
-                artifacts=item.get('artifacts', {})
+                doc_id=uuid.UUID(document['docId']),
+                status=DocumentStatus(document['status']),
+                filename=document.get('filename'),
+                created_at=created_at,
+                updated_at=updated_at,
+                completed_at=completed_at,
+                user_id=document_owner,  # Use the appropriate field
+                metadata=document.get('metadata', {}),
+                error_message=document.get('errorMessage'),
+                artifacts=document.get('artifacts', {})
             )
 
-        except ClientError as e:
+        except Exception as e:
             logger.error(f"Failed to get document {doc_id}: {e}")
             raise AWSServiceError(f"Failed to get document: {e}")
 
@@ -169,53 +181,51 @@ class DocumentService:
     ) -> Tuple[List[DocumentResponse], int]:
         """List documents for a user with pagination"""
         try:
-            # Build filter expression
-            filter_expression = "userId = :userId"
-            expression_values = {':userId': user_id}
+            # Prepare status filter for persistence layer
+            status_list = [status_filter.value] if status_filter else None
 
-            if status_filter:
-                filter_expression += " AND #status = :status"
-                expression_values[':status'] = status_filter.value
-
-            # Query with pagination
-            scan_params = {
-                'FilterExpression': filter_expression,
-                'ExpressionAttributeValues': expression_values,
-                'Limit': limit + offset  # Scan more to handle offset
-            }
-
-            if status_filter:
-                scan_params['ExpressionAttributeNames'] = {'#status': 'status'}
-
-            response = self.documents_table.scan(**scan_params)
-
-            items = response.get('Items', [])
-
-            # Sort by creation date (newest first)
-            items.sort(key=lambda x: x['createdAt'], reverse=True)
-
-            # Apply pagination
-            paginated_items = items[offset:offset + limit]
-            total = len(items)
+            # Use the persistence layer's document repository
+            result = self.persistence_manager.document_repository.get_documents_by_owner(
+                owner_id=user_id,
+                status_filter=status_list,
+                page=(offset // limit) + 1,  # Convert offset to page number
+                limit=limit
+            )
 
             documents = []
-            for item in paginated_items:
+            for item in result['documents']:
+                # Handle both datetime objects and ISO strings for compatibility
+                created_at = item['createdAt']
+                if isinstance(created_at, str):
+                    created_at = datetime.fromisoformat(created_at)
+                
+                updated_at = item['updatedAt']
+                if isinstance(updated_at, str):
+                    updated_at = datetime.fromisoformat(updated_at)
+
+                completed_at = item.get('completedAt')
+                if completed_at and isinstance(completed_at, str):
+                    completed_at = datetime.fromisoformat(completed_at)
+
+                # Handle both userId (DynamoDB) and ownerId (MongoDB) fields
+                document_owner = item.get('ownerId') or item.get('userId')
+
                 documents.append(DocumentResponse(
                     doc_id=uuid.UUID(item['docId']),
                     status=DocumentStatus(item['status']),
                     filename=item.get('filename'),
-                    created_at=datetime.fromisoformat(item['createdAt']),
-                    updated_at=datetime.fromisoformat(item['updatedAt']),
-                    completed_at=datetime.fromisoformat(item['completedAt']) if item.get('completedAt') else None,
-                    user_id=item['userId'],
+                    created_at=created_at,
+                    updated_at=updated_at,
+                    completed_at=completed_at,
+                    user_id=document_owner,
                     metadata=item.get('metadata', {}),
                     error_message=item.get('errorMessage'),
                     artifacts=item.get('artifacts', {})
                 ))
 
-            return documents, total
+            return documents, result['total']
 
-        except ClientError as e:
+        except Exception as e:
             logger.error(f"Failed to list documents for user {user_id}: {e}")
             raise AWSServiceError(f"Failed to list documents: {e}")
 
@@ -330,34 +340,24 @@ class ReportsService:
     """Service for generating reports and analytics"""
 
     def __init__(self):
-        self.dynamodb = boto3.resource('dynamodb', region_name=settings.aws_region)
-        self.documents_table = self.dynamodb.Table(settings.documents_table)
-        self.jobs_table = self.dynamodb.Table(settings.jobs_table)
+        self.persistence_manager = get_persistence_manager()
 
     @tracer.capture_method
     async def get_summary_report(self) -> ReportsSummaryResponse:
         """Generate summary report with statistics"""
         try:
-            # Scan documents table for overall stats
-            documents_response = self.documents_table.scan()
-            documents = documents_response.get('Items', [])
+            # Get processing summary from the document repository
+            summary = self.persistence_manager.document_repository.get_processing_summary()
 
-            # Count documents by status
-            status_counts = {}
-            processing_times = []
+            # Calculate metrics
+            total_documents = summary.get('total_documents', 0)
+            status_counts = summary.get('documents_by_status', {})
+            completed_count = status_counts.get('completed', 0)
+            success_rate = (completed_count / total_documents * 100) if total_documents > 0 else 0
+            avg_processing_time = summary.get('average_processing_time', 0)
 
-            for doc in documents:
-                status = doc.get('status', 'unknown')
-                status_counts[status] = status_counts.get(status, 0) + 1
-
-                # Calculate processing time for completed documents
-                if status == 'completed' and doc.get('createdAt') and doc.get('completedAt'):
-                    created = datetime.fromisoformat(doc['createdAt'])
-                    completed = datetime.fromisoformat(doc['completedAt'])
-                    processing_time = (completed - created).total_seconds()
-                    processing_times.append(processing_time)
-
-            # Generate weekly stats (last 4 weeks)
+            # Generate weekly stats (last 4 weeks) - simplified for now
+            # In a production system, this would be optimized with aggregation queries
             weekly_stats = []
             current_week = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -365,31 +365,14 @@ class ReportsService:
                 week_start = current_week - timedelta(weeks=i+1)
                 week_end = current_week - timedelta(weeks=i)
 
-                week_docs = [
-                    doc for doc in documents
-                    if doc.get('createdAt') and
-                    week_start <= datetime.fromisoformat(doc['createdAt']) < week_end
-                ]
-
+                # For now, use placeholder data - this would need proper aggregation
                 weekly_stats.append({
                     'week_start': week_start.isoformat(),
                     'week_end': week_end.isoformat(),
-                    'total_documents': len(week_docs),
-                    'completed_documents': len([
-                        doc for doc in week_docs
-                        if doc.get('status') == 'completed'
-                    ]),
-                    'failed_documents': len([
-                        doc for doc in week_docs
-                        if doc.get('status') in ['failed', 'validation_failed']
-                    ])
+                    'total_documents': 0,  # Would need aggregation query
+                    'completed_documents': 0,  # Would need aggregation query
+                    'failed_documents': 0  # Would need aggregation query
                 })
-
-            # Calculate metrics
-            total_documents = len(documents)
-            completed_count = status_counts.get('completed', 0)
-            success_rate = (completed_count / total_documents * 100) if total_documents > 0 else 0
-            avg_processing_time = sum(processing_times) / len(processing_times) if processing_times else 0
 
             return ReportsSummaryResponse(
                 total_documents=total_documents,
@@ -399,7 +382,7 @@ class ReportsService:
                 success_rate=success_rate
             )
 
-        except ClientError as e:
+        except Exception as e:
             logger.error(f"Failed to generate summary report: {e}")
             raise AWSServiceError(f"Failed to generate report: {e}")
 

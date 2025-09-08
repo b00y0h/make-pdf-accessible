@@ -1,0 +1,272 @@
+{
+  "$jsonSchema": {
+    "bsonType": "object",
+    "title": "Job Schema",
+    "description": "Schema for PDF processing job tracking",
+    "required": ["jobId", "docId", "step", "status", "createdAt", "updatedAt"],
+    "properties": {
+      "_id": {
+        "bsonType": "objectId",
+        "description": "MongoDB ObjectId (auto-generated)"
+      },
+      "jobId": {
+        "bsonType": "string",
+        "description": "Unique job identifier (UUID)",
+        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+      },
+      "docId": {
+        "bsonType": "string",
+        "description": "Associated document identifier (UUID)",
+        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+      },
+      "step": {
+        "bsonType": "string",
+        "description": "Processing step name",
+        "enum": ["structure", "ocr", "tagger", "validator", "exporter", "notifier"]
+      },
+      "status": {
+        "bsonType": "string",
+        "description": "Current job status",
+        "enum": ["pending", "running", "completed", "failed", "retry", "timeout"]
+      },
+      "priority": {
+        "bsonType": "int",
+        "description": "Job priority level (higher = more urgent)",
+        "minimum": 1,
+        "maximum": 10,
+        "default": 5
+      },
+      "createdAt": {
+        "bsonType": "date",
+        "description": "Job creation timestamp"
+      },
+      "updatedAt": {
+        "bsonType": "date",
+        "description": "Last update timestamp"
+      },
+      "startedAt": {
+        "bsonType": ["date", "null"],
+        "description": "Job execution start timestamp"
+      },
+      "completedAt": {
+        "bsonType": ["date", "null"],
+        "description": "Job completion timestamp"
+      },
+      "attempts": {
+        "bsonType": "int",
+        "description": "Number of execution attempts",
+        "minimum": 0,
+        "default": 0
+      },
+      "maxAttempts": {
+        "bsonType": "int",
+        "description": "Maximum allowed retry attempts",
+        "minimum": 1,
+        "default": 3
+      },
+      "executionTimeSeconds": {
+        "bsonType": ["double", "null"],
+        "description": "Total execution time in seconds",
+        "minimum": 0
+      },
+      "input": {
+        "bsonType": "object",
+        "description": "Job input parameters and data",
+        "properties": {
+          "userId": {
+            "bsonType": "string",
+            "description": "User identifier (Cognito sub)"
+          },
+          "s3Keys": {
+            "bsonType": "object",
+            "description": "Input S3 keys for processing",
+            "properties": {
+              "original": {
+                "bsonType": ["string", "null"]
+              },
+              "structure": {
+                "bsonType": ["string", "null"]
+              },
+              "altText": {
+                "bsonType": ["string", "null"]
+              },
+              "tagged": {
+                "bsonType": ["string", "null"]
+              },
+              "html": {
+                "bsonType": ["string", "null"]
+              }
+            }
+          },
+          "configuration": {
+            "bsonType": "object",
+            "description": "Step-specific configuration parameters",
+            "additionalProperties": true
+          }
+        }
+      },
+      "output": {
+        "bsonType": ["object", "null"],
+        "description": "Job output results and artifacts",
+        "properties": {
+          "s3Keys": {
+            "bsonType": "object",
+            "description": "Generated S3 artifact keys",
+            "additionalProperties": {
+              "bsonType": "string"
+            }
+          },
+          "metrics": {
+            "bsonType": "object",
+            "description": "Processing metrics and statistics",
+            "properties": {
+              "itemsProcessed": {
+                "bsonType": ["int", "null"],
+                "minimum": 0
+              },
+              "bytesProcessed": {
+                "bsonType": ["long", "null"],
+                "minimum": 0
+              },
+              "qualityScore": {
+                "bsonType": ["double", "null"],
+                "minimum": 0,
+                "maximum": 100
+              }
+            }
+          },
+          "data": {
+            "bsonType": "object",
+            "description": "Step-specific output data",
+            "additionalProperties": true
+          }
+        }
+      },
+      "error": {
+        "bsonType": ["object", "null"],
+        "description": "Error information if job failed",
+        "properties": {
+          "code": {
+            "bsonType": "string",
+            "description": "Error code or type"
+          },
+          "message": {
+            "bsonType": "string",
+            "description": "Human-readable error message"
+          },
+          "details": {
+            "bsonType": "object",
+            "description": "Additional error details and context",
+            "additionalProperties": true
+          },
+          "stack": {
+            "bsonType": ["string", "null"],
+            "description": "Error stack trace (development only)"
+          },
+          "timestamp": {
+            "bsonType": "date",
+            "description": "Error occurrence timestamp"
+          }
+        }
+      },
+      "retryPolicy": {
+        "bsonType": "object",
+        "description": "Retry behavior configuration",
+        "properties": {
+          "enabled": {
+            "bsonType": "bool",
+            "description": "Whether retries are enabled",
+            "default": true
+          },
+          "backoffMultiplier": {
+            "bsonType": "double",
+            "description": "Exponential backoff multiplier",
+            "minimum": 1.0,
+            "default": 2.0
+          },
+          "initialDelaySeconds": {
+            "bsonType": "int",
+            "description": "Initial retry delay in seconds",
+            "minimum": 1,
+            "default": 30
+          },
+          "maxDelaySeconds": {
+            "bsonType": "int",
+            "description": "Maximum retry delay in seconds",
+            "minimum": 1,
+            "default": 1800
+          }
+        }
+      },
+      "timeout": {
+        "bsonType": "object",
+        "description": "Job timeout configuration",
+        "properties": {
+          "executionTimeoutSeconds": {
+            "bsonType": "int",
+            "description": "Maximum execution time in seconds",
+            "minimum": 1,
+            "default": 900
+          },
+          "heartbeatIntervalSeconds": {
+            "bsonType": "int",
+            "description": "Heartbeat check interval",
+            "minimum": 1,
+            "default": 30
+          }
+        }
+      },
+      "worker": {
+        "bsonType": ["object", "null"],
+        "description": "Worker instance information",
+        "properties": {
+          "instanceId": {
+            "bsonType": "string",
+            "description": "Worker instance identifier"
+          },
+          "version": {
+            "bsonType": "string",
+            "description": "Worker code version"
+          },
+          "region": {
+            "bsonType": "string",
+            "description": "AWS region where worker is running"
+          },
+          "startedAt": {
+            "bsonType": "date",
+            "description": "Worker assignment timestamp"
+          }
+        }
+      },
+      "logs": {
+        "bsonType": "array",
+        "description": "Job execution log entries",
+        "items": {
+          "bsonType": "object",
+          "required": ["timestamp", "level", "message"],
+          "properties": {
+            "timestamp": {
+              "bsonType": "date",
+              "description": "Log entry timestamp"
+            },
+            "level": {
+              "bsonType": "string",
+              "description": "Log level",
+              "enum": ["debug", "info", "warn", "error"]
+            },
+            "message": {
+              "bsonType": "string",
+              "description": "Log message"
+            },
+            "context": {
+              "bsonType": "object",
+              "description": "Additional log context",
+              "additionalProperties": true
+            }
+          }
+        }
+      }
+    },
+    "additionalProperties": false
+  }
+}

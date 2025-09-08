@@ -10,9 +10,16 @@ services:
       - DATABASE_URL=postgresql://postgres:password@postgres:5432/app_db
       - REDIS_URL=redis://redis:6379
       - PYTHONPATH=/app
+      # MongoDB configuration
+      - PERSISTENCE_PROVIDER=mongo
+      - MONGODB_URI=mongodb://mongo:27017/pdf_accessibility
+      - MONGODB_DATABASE=pdf_accessibility
+      - ENABLE_QUERY_LOGGING=true
+      - DEBUG_MODE=true
     depends_on:
       - postgres
       - redis
+      - mongo
     volumes:
       - ./services/api/app:/app/app
       - ./services/api/tests:/app/tests
@@ -160,6 +167,18 @@ services:
     volumes:
       - redis_data:/data
 
+  # MongoDB
+  mongo:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=pdf_accessibility
+    volumes:
+      - mongo_data:/data/db
+    command: mongod --replSet rs0 --bind_ip_all
+
 volumes:
   postgres_data:
   redis_data:
+  mongo_data:
