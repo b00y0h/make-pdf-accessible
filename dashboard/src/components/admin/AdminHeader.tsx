@@ -2,15 +2,17 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { useAuth } from '@/contexts/AuthContext'
+import { useSession } from '@/lib/auth-client'
 import { 
-  BellIcon, 
-  Bars3Icon,
-  HomeIcon
-} from '@heroicons/react/24/outline'
+  Bell as BellIcon, 
+  Menu as Bars3Icon,
+  Home as HomeIcon
+} from 'lucide-react'
+import { SignOutButton } from '@/components/auth/SignOutButton'
 
 export function AdminHeader() {
-  const { user } = useAuth()
+  const { data: session } = useSession()
+  const user = session?.user
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200">
@@ -51,6 +53,9 @@ export function AdminHeader() {
               <span className="sr-only">View notifications</span>
               <BellIcon className="h-6 w-6" aria-hidden="true" />
             </button>
+
+            {/* Sign out button */}
+            <SignOutButton />
 
             {/* User info */}
             <div className="flex items-center space-x-3">

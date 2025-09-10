@@ -11,7 +11,8 @@ from mangum import Mangum
 
 from .config import settings
 from .models import ErrorResponse, HealthResponse
-from .routes import auth, documents, reports, webhooks
+from .routes import auth, documents, reports, webhooks, quotas, api_keys, admin
+from .middleware import APIKeyAuthMiddleware
 from .services import AWSServiceError
 
 # Initialize Powertools
@@ -57,6 +58,18 @@ app = FastAPI(
         {
             "name": "auth",
             "description": "Authentication and user profile endpoints"
+        },
+        {
+            "name": "quotas",
+            "description": "Tenant quota management and monitoring"
+        },
+        {
+            "name": "API Keys",
+            "description": "API key generation and management"
+        },
+        {
+            "name": "admin",
+            "description": "Admin-only endpoints for user management"
         }
     ]
 )
@@ -68,6 +81,18 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+)
+
+# Add API Key authentication middleware
+app.add_middleware(
+    APIKeyAuthMiddleware,
+    excluded_paths=[
+        "/docs",
+        "/openapi.json",
+        "/health",
+        "/ping",
+        "/auth",  # BetterAuth endpoints
+    ]
 )
 
 
@@ -218,6 +243,9 @@ app.include_router(auth.router)
 app.include_router(documents.router)
 app.include_router(webhooks.router)
 app.include_router(reports.router)
+app.include_router(quotas.router)
+app.include_router(api_keys.router)
+app.include_router(admin.router)
 
 
 # Lambda handler

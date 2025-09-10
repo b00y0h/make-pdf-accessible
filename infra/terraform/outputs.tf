@@ -349,7 +349,7 @@ output "cognito_identity_pool_id" {
 output "auth_urls" {
   description = "Authentication-related URLs for frontend configuration"
   value = {
-    login_url = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${data.aws_region.current.name}.amazoncognito.com/login?client_id=${aws_cognito_user_pool_client.web_client.id}&response_type=code&scope=email+openid+profile+aws.cognito.signin.user.admin&redirect_uri="
+    login_url = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${data.aws_region.current.name}.amazoncognito.com/sign-in?client_id=${aws_cognito_user_pool_client.web_client.id}&response_type=code&scope=email+openid+profile+aws.cognito.signin.user.admin&redirect_uri="
     logout_url = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${data.aws_region.current.name}.amazoncognito.com/logout?client_id=${aws_cognito_user_pool_client.web_client.id}&logout_uri="
     token_url = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${data.aws_region.current.name}.amazoncognito.com/oauth2/token"
     jwks_url = "https://cognito-idp.${data.aws_region.current.name}.amazonaws.com/${aws_cognito_user_pool.main.id}/.well-known/jwks.json"

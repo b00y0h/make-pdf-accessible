@@ -3,16 +3,16 @@
 import React, { Fragment, useState } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
 import { 
-  XMarkIcon,
-  UserIcon,
-  DocumentTextIcon,
-  CalendarIcon,
-  ClipboardIcon,
-  TrashIcon,
-  ExclamationTriangleIcon
-} from '@heroicons/react/24/outline'
+  X as XMarkIcon,
+  User as UserIcon,
+  FileText as DocumentTextIcon,
+  Calendar as CalendarIcon,
+  Clipboard as ClipboardIcon,
+  Trash as TrashIcon,
+  AlertTriangle as ExclamationTriangleIcon
+} from 'lucide-react'
 import { UserSummary } from '@/types/admin'
-import { useAuth } from '@/contexts/AuthContext'
+import { useSession } from '@/lib/auth-client'
 import toast from 'react-hot-toast'
 
 interface UserDetailDrawerProps {
@@ -23,7 +23,7 @@ interface UserDetailDrawerProps {
 }
 
 export function UserDetailDrawer({ user, isOpen, onClose, onUserUpdated }: UserDetailDrawerProps) {
-  const { apiClient } = useAuth()
+  const { data: session } = useSession()
   const [isDeleting, setIsDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')

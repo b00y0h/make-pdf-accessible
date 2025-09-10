@@ -2,11 +2,11 @@
 
 import React from 'react'
 import { 
-  UsersIcon, 
-  DocumentTextIcon, 
-  CheckCircleIcon,
-  ExclamationTriangleIcon
-} from '@heroicons/react/24/outline'
+  Users as UsersIcon, 
+  FileText as DocumentTextIcon, 
+  CheckCircle as CheckCircleIcon,
+  AlertTriangle as ExclamationTriangleIcon
+} from 'lucide-react'
 
 const stats = [
   { name: 'Total Users', value: '0', icon: UsersIcon, change: '+0%', changeType: 'increase' },

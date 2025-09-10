@@ -3,15 +3,15 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useAuth } from '@/contexts/AuthContext'
+import { useSession, signOut } from '@/lib/auth-client'
 import { 
-  HomeIcon, 
-  UsersIcon, 
-  DocumentTextIcon,
-  CogIcon,
-  ShieldCheckIcon,
-  ChartBarIcon
-} from '@heroicons/react/24/outline'
+  Home as HomeIcon, 
+  Users as UsersIcon, 
+  FileText as DocumentTextIcon,
+  Settings as CogIcon,
+  Shield as ShieldCheckIcon,
+  BarChart3 as ChartBarIcon
+} from 'lucide-react'
 
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: HomeIcon },
@@ -28,7 +28,13 @@ function classNames(...classes: string[]) {
 
 export function AdminSidebar() {
   const pathname = usePathname()
-  const { user, logout } = useAuth()
+  const { data: session } = useSession()
+  const user = session?.user
+
+  const logout = async () => {
+    await signOut()
+    window.location.href = '/sign-in'
+  }
 
   return (
     <div className="flex flex-col w-64 bg-gray-800">

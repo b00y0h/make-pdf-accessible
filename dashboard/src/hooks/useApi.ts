@@ -1,16 +1,34 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useAuth } from '@/contexts/AuthContext'
+import { useSession } from '@/lib/auth-client'
 import { ApiService, Document, DocumentListResponse, ReportsSummary, UserProfile } from '@/lib/api'
 import { useMemo } from 'react'
+import axios from 'axios'
 
-// Create API service instance using the auth context
+// Create API service instance using the auth session
 export function useApiService() {
-  const { apiClient, isLoading } = useAuth()
+  const { data: session, isLoading } = useSession()
+  
   return useMemo(() => {
     // Return null during loading to prevent issues
     if (isLoading) return null
+    
+    // Create authenticated axios instance
+    const apiClient = axios.create({
+      baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+      withCredentials: true,
+    })
+    
+    // Add auth interceptor if we have a session
+    if (session?.user) {
+      apiClient.interceptors.request.use((config) => {
+        // BetterAuth uses cookies for authentication - no need for Authorization header
+        // The cookies will be sent automatically with withCredentials: true
+        return config
+      })
+    }
+    
     return new ApiService(apiClient)
-  }, [apiClient, isLoading])
+  }, [session, isLoading])
 }
 
 // Query keys

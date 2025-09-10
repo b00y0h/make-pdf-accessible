@@ -1,16 +1,17 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { useSession } from '@/lib/auth-client'
+import { useApiService } from '@/hooks/useApi'
 import { UserSummary, UserListParams, UserListResponse } from '@/types/admin'
 import { 
-  MagnifyingGlassIcon,
-  FunnelIcon,
-  EllipsisVerticalIcon,
-  UserIcon,
-  DocumentTextIcon,
-  ClipboardDocumentListIcon
-} from '@heroicons/react/24/outline'
+  Search as MagnifyingGlassIcon,
+  Filter as FunnelIcon,
+  MoreVertical as EllipsisVerticalIcon,
+  User as UserIcon,
+  FileText as DocumentTextIcon,
+  ClipboardList as ClipboardDocumentListIcon
+} from 'lucide-react'
 import { UserDetailDrawer } from './UserDetailDrawer'
 
 const SORT_OPTIONS = [
@@ -21,7 +22,8 @@ const SORT_OPTIONS = [
 ]
 
 export function UsersList() {
-  const { apiClient } = useAuth()
+  const { data: session } = useSession()
+  const apiService = useApiService()
   const [users, setUsers] = useState<UserSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -42,48 +44,94 @@ export function UsersList() {
   })
 
   const [searchInput, setSearchInput] = useState('')
+  const lastParamsRef = useRef<UserListParams>()
 
-  const fetchUsers = useCallback(async () => {
+  useEffect(() => {
+    if (!apiService) return
+    
+    // Check if params actually changed (deep comparison)
+    const currentParams = {
+      page: params.page,
+      pageSize: params.pageSize,
+      sortBy: params.sortBy,
+      sortOrder: params.sortOrder,
+      search: params.search,
+      role: params.role
+    }
+    
+    const lastParams = lastParamsRef.current
+    
+    // Skip if params haven't changed
+    if (lastParams && 
+        lastParams.page === currentParams.page &&
+        lastParams.pageSize === currentParams.pageSize &&
+        lastParams.sortBy === currentParams.sortBy &&
+        lastParams.sortOrder === currentParams.sortOrder &&
+        lastParams.search === currentParams.search &&
+        lastParams.role === currentParams.role) {
+      console.log('Skipping fetch - params unchanged')
+      return
+    }
+    
+    console.log('UsersList fetching with new params:', currentParams)
+    lastParamsRef.current = currentParams
+    
+    const fetchUsers = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        // Use apiService method
+        const response = await apiService.getUsers(params)
+        
+        if (response.success) {
+          const data: UserListResponse = response.data
+          setUsers(data.users)
+          setPagination({
+            total: data.total,
+            totalPages: data.totalPages,
+          })
+        } else {
+          setError(response.error || 'Failed to fetch users')
+        }
+      } catch (err: any) {
+        console.error('Error fetching users:', err)
+        setError(err.response?.data?.error || 'Failed to fetch users')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchUsers()
+  }, [apiService, params.page, params.pageSize, params.sortBy, params.sortOrder, params.search, params.role])
+
+  // Separate function for manual refresh (used by drawer)
+  const refreshUsers = useCallback(async () => {
+    if (!apiService) return
+    
     try {
       setLoading(true)
       setError(null)
 
-      const queryParams = new URLSearchParams()
-      queryParams.append('page', params.page.toString())
-      queryParams.append('pageSize', params.pageSize.toString())
-      queryParams.append('sortBy', params.sortBy)
-      queryParams.append('sortOrder', params.sortOrder)
+      const response = await apiService.getUsers(params)
       
-      if (params.search) {
-        queryParams.append('search', params.search)
-      }
-      if (params.role) {
-        queryParams.append('role', params.role)
-      }
-
-      const response = await apiClient.get(`/api/admin/users?${queryParams.toString()}`)
-      
-      if (response.data.success) {
-        const data: UserListResponse = response.data.data
+      if (response.success) {
+        const data: UserListResponse = response.data
         setUsers(data.users)
         setPagination({
           total: data.total,
           totalPages: data.totalPages,
         })
       } else {
-        setError(response.data.error || 'Failed to fetch users')
+        setError(response.error || 'Failed to fetch users')
       }
     } catch (err: any) {
-      console.error('Error fetching users:', err)
-      setError(err.response?.data?.error || 'Failed to fetch users')
+      console.error('Error refreshing users:', err)
+      setError(err.response?.data?.error || 'Failed to refresh users')
     } finally {
       setLoading(false)
     }
-  }, [apiClient, params])
-
-  useEffect(() => {
-    fetchUsers()
-  }, [fetchUsers])
+  }, [apiService, params])
 
   const handleSearch = useCallback((value: string) => {
     setParams(prev => ({
@@ -396,7 +444,7 @@ export function UsersList() {
           setIsDrawerOpen(false)
           setSelectedUser(null)
         }}
-        onUserUpdated={fetchUsers}
+        onUserUpdated={refreshUsers}
       />
     </>
   )

@@ -8,6 +8,7 @@ help:
 	@echo "  up            - Start complete local development stack (one-command)"
 	@echo "  down          - Stop all services started with 'up'"
 	@echo "  seed          - Populate database with sample data"
+	@echo "  seed-admin    - Create admin user from dashboard/.env.local"
 	@echo ""
 	@echo "📋 Setup & Maintenance:"
 	@echo "  init          - Initialize development environment"
@@ -15,8 +16,8 @@ help:
 	@echo ""
 	@echo "🏗️  Development:"
 	@echo "  dev           - Start backend services only (Docker)"
-	@echo "  dev-web       - Start public web app (port 3001)"
-	@echo "  dev-dashboard - Start admin dashboard (port 3000)"
+	@echo "  dev-web       - Start public web app (port 3000)"
+	@echo "  dev-dashboard - Start admin dashboard (port 3001)"
 	@echo "  dev-frontend  - Start both frontend apps"
 	@echo "  dev-full      - Start everything (backend + frontend)"
 	@echo "  dev-stop      - Stop all development services"
@@ -36,8 +37,8 @@ help:
 	@echo "  deploy        - Deploy to production"
 	@echo ""
 	@echo "🌐 URLs:"
-	@echo "  http://localhost:3000  - Dashboard"
-	@echo "  http://localhost:3001  - Web App (if enabled)"
+	@echo "  http://localhost:3000  - Public Web App"
+	@echo "  http://localhost:3001  - Admin Dashboard" 
 	@echo "  http://localhost:8000  - API"
 	@echo "  http://localhost:8081  - Mongo Express (admin/admin123)"
 	@echo "  http://localhost:4566  - LocalStack"
@@ -125,11 +126,11 @@ dev-full:
 	@echo "🚀 Starting full development stack..."
 	@echo "📋 Backend services..."
 	docker-compose up -d
-	@sleep 3
-	@echo "📋 Frontend applications..."
-	npx concurrently -p "[{name}]" -n "web,dashboard" -c "cyan,magenta" \
-		"pnpm --filter=pdf-accessibility-web dev --port 3000" \
-		"pnpm --filter=accesspdf-dashboard dev --port 3001"
+# 	@sleep 3
+# 	@echo "📋 Frontend applications..."
+# 	npx concurrently -p "[{name}]" -n "web,dashboard" -c "cyan,magenta" \
+# 		"pnpm --filter=pdf-accessibility-web dev --port 3000" \
+# 		"pnpm --filter=accesspdf-dashboard dev --port 3001"
 
 # Stop all development services
 dev-stop:
@@ -151,15 +152,15 @@ dev-logs:
 # ONE-COMMAND LOCAL DEVELOPMENT STACK
 # =============================================================================
 
-# Start complete local development stack (MongoDB, LocalStack, API, Worker)
+# Start complete local development stack with native pnpm frontends
 up:
 	@echo "🚀 Starting complete local development stack..."
 	@echo ""
 	@echo "📦 Starting infrastructure services..."
-	docker-compose up -d mongo localstack redis postgres
+	docker-compose up -d mongo mongo-express localstack redis postgres postgres-auth clamav
 	@echo ""
-	@echo "⏳ Waiting for services to be ready..."
-	@sleep 10
+	@echo "⏳ Waiting for infrastructure to be ready..."
+	@sleep 15
 	@echo ""
 	@echo "🔧 Starting application services..."
 	docker-compose up -d api worker
@@ -167,28 +168,47 @@ up:
 	@echo "⚙️  Starting processing functions..."
 	docker-compose up -d function-router function-ocr function-structure function-tagger function-exporter function-validator function-notifier
 	@echo ""
+	@echo "🎨 Starting frontend applications with pnpm..."
+	@echo "🔸 Starting dashboard and web apps in the background..."
+	@nohup pnpm --filter=accesspdf-dashboard dev --port 3001 > dashboard.log 2>&1 &
+	@nohup pnpm --filter=pdf-accessibility-web dev --port 3000 > web.log 2>&1 &
+	@echo ""
 	@echo "🎉 Complete local development stack started successfully!"
 	@echo ""
 	@echo "🌐 Available services:"
-	@echo "  🔌 API:           http://localhost:8000"
-	@echo "  🗄️  MongoDB:       mongodb://localhost:27017/pdf_accessibility"
-	@echo "  ☁️  LocalStack:   http://localhost:4566"
-	@echo "  🧰 Redis:         redis://localhost:6379"
-	@echo "  ⚙️  Functions:     Router, OCR, Structure, Tagger, Validator, Exporter, Notifier"
+	@echo "  🔌 API:              http://localhost:8000"
+	@echo "  📊 Admin Dashboard:  http://localhost:3001 (pnpm dev)"
+	@echo "  🌐 Public Web App:   http://localhost:3000 (pnpm dev)"
+	@echo "  🗄️  MongoDB:          mongodb://localhost:27017/pdf_accessibility"
+	@echo "  🗄️  Mongo Express:    http://localhost:8081 (admin/admin123)"
+	@echo "  ☁️  LocalStack:       http://localhost:4566"
+	@echo "  🧰 Redis:            redis://localhost:6379"
+	@echo "  🛡️  PostgreSQL:       postgresql://postgres:password@localhost:5432/app_db"
+	@echo "  🔐 Auth PostgreSQL:  postgresql://postgres:password@localhost:5433/better_auth"
+	@echo "  🔍 ClamAV:           localhost:3310"
+	@echo "  ⚙️  Functions (8001-8007): Router, OCR, Structure, Tagger, Exporter, Validator, Notifier"
 	@echo ""
 	@echo "📋 Next steps:"
-	@echo "  1. Run './venv/bin/python scripts/simple-seed.py' to add sample data"
-	@echo "  2. Run 'make dev-dashboard' to start the frontend"
-	@echo "  3. View data: docker exec pdf-accessibility-mongo mongosh pdf_accessibility"
+	@echo "  1. Run 'make seed' to add sample data"
+	@echo "  2. Run 'make seed-admin' to create admin user"
+	@echo "  3. Frontend logs: tail -f dashboard.log (dashboard) or tail -f web.log (web)"
+	@echo "  4. View data: docker exec pdf-accessibility-mongo mongosh pdf_accessibility"
 	@echo ""
-	@echo "💡 Dashboard processes may already be running in background - check ports 3000-3003"
+	@echo "✅ All services running with optimal development experience!"
 
 # Bring down all services started with 'make up'
 down:
 	@echo "⏹️ Shutting down complete local development stack..."
 	@echo ""
-	@echo "🔻 Stopping all services (application services, functions, and infrastructure)..."
+	@echo "🔻 Stopping frontend pnpm processes..."
+	-@pkill -f "pnpm.*dev" || true
+	-@pkill -f "next.*dev" || true
+	@echo ""
+	@echo "🔻 Stopping Docker services..."
 	docker-compose down
+	@echo ""
+	@echo "🧹 Cleaning up log files..."
+	-@rm -f dashboard.log web.log
 	@echo ""
 	@echo "✅ All services have been stopped!"
 	@echo ""
@@ -212,6 +232,12 @@ seed:
 	@echo "📄 25 sample documents with realistic statuses"
 	@echo "⚙️  Sample jobs with processing history"
 	@echo "📁 Sample files in LocalStack S3"
+
+# Seed admin user from dashboard/.env.local
+seed-admin:
+	@echo "👤 Creating admin user from dashboard/.env.local..."
+	@cd dashboard && node seed-admin-better-auth.js
+	@echo "✅ Admin user created successfully!"
 
 # =============================================================================
 # UPDATED TARGETS FOR LOCAL STACK
@@ -245,29 +271,39 @@ clean:
 	pnpm store prune
 	@echo "✅ Cleanup complete!"
 
-# Updated status check for new services
+# Updated status check for all services
 dev-status:
 	@echo "📊 Development Environment Status:"
 	@echo ""
 	@echo "🐳 Infrastructure Services:"
-	@docker-compose ps mongo localstack redis 2>/dev/null || echo "  ❌ Infrastructure not running"
+	@docker-compose ps mongo mongo-express localstack redis postgres clamav 2>/dev/null || echo "  ❌ Infrastructure not running"
 	@echo ""
 	@echo "🔌 Application Services:"
 	@docker-compose ps api worker 2>/dev/null || echo "  ❌ Applications not running"
 	@echo ""
+	@echo "⚙️  Processing Functions:"
+	@docker-compose ps function-router function-ocr function-structure function-tagger function-exporter function-validator function-notifier 2>/dev/null || echo "  ❌ Functions not running"
+	@echo ""
 	@echo "📱 Frontend Services:"
-	@docker-compose ps dashboard 2>/dev/null || echo "  ❌ Dashboard not running (use 'make up' or 'make dev-dashboard')"
+	@docker-compose ps dashboard web 2>/dev/null || echo "  ❌ Frontend apps not running"
 	@echo ""
 	@echo "🌐 Port Usage:"
-	@echo "  Port 3000: $$(lsof -ti:3000 > /dev/null && echo "✅ In Use (Dashboard)" || echo "❌ Free")"
+	@echo "  Port 3000: $$(lsof -ti:3000 > /dev/null && echo "✅ In Use (Web App)" || echo "❌ Free")"
+	@echo "  Port 3001: $$(lsof -ti:3001 > /dev/null && echo "✅ In Use (Dashboard)" || echo "❌ Free")"
 	@echo "  Port 8000: $$(lsof -ti:8000 > /dev/null && echo "✅ In Use (API)" || echo "❌ Free")"
 	@echo "  Port 8081: $$(lsof -ti:8081 > /dev/null && echo "✅ In Use (Mongo Express)" || echo "❌ Free")"
 	@echo "  Port 4566: $$(lsof -ti:4566 > /dev/null && echo "✅ In Use (LocalStack)" || echo "❌ Free")"
+	@echo "  Port 5432: $$(lsof -ti:5432 > /dev/null && echo "✅ In Use (PostgreSQL)" || echo "❌ Free")"
+	@echo "  Port 6379: $$(lsof -ti:6379 > /dev/null && echo "✅ In Use (Redis)" || echo "❌ Free")"
 	@echo "  Port 27017: $$(lsof -ti:27017 > /dev/null && echo "✅ In Use (MongoDB)" || echo "❌ Free")"
+	@echo "  Port 3310: $$(lsof -ti:3310 > /dev/null && echo "✅ In Use (ClamAV)" || echo "❌ Free")"
+	@echo "  Ports 8001-8007: Function services"
 	@echo ""
 	@echo "🗄️  Database Status:"
 	@echo -n "  MongoDB: "
 	@docker exec pdf-accessibility-mongo mongosh --eval "db.runCommand('ping').ok" --quiet 2>/dev/null && echo "✅ Connected" || echo "❌ Not connected"
+	@echo -n "  PostgreSQL: "
+	@docker exec pdf-accessibility-postgres pg_isready -U postgres --quiet 2>/dev/null && echo "✅ Connected" || echo "❌ Not connected"
 	@echo ""
 	@echo "☁️  LocalStack Status:"
 	@curl -s http://localhost:4566/_localstack/health 2>/dev/null | grep -q '"s3": "available"' && echo "  ✅ S3 ready" || echo "  ❌ S3 not ready"

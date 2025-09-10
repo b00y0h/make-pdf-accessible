@@ -81,15 +81,18 @@ class WorkerConfig:
         default_factory=lambda: int(os.getenv("IDEMPOTENCY_TTL_SECONDS", "3600"))
     )
 
-    # Authentication Configuration
-    cognito_user_pool_id: str | None = field(
-        default_factory=lambda: os.getenv("COGNITO_USER_POOL_ID")
+    # Authentication Configuration - BetterAuth
+    better_auth_secret: str | None = field(
+        default_factory=lambda: os.getenv("API_JWT_SECRET")
     )
-    cognito_client_id: str | None = field(
-        default_factory=lambda: os.getenv("COGNITO_CLIENT_ID")
+    jwt_algorithm: str = field(
+        default_factory=lambda: os.getenv("JWT_ALGORITHM", "HS256")
     )
-    cognito_region: str | None = field(
-        default_factory=lambda: os.getenv("COGNITO_REGION", os.getenv("AWS_REGION", "us-east-1"))
+    jwt_issuer: str = field(
+        default_factory=lambda: os.getenv("JWT_ISSUER", "accesspdf-dashboard")
+    )
+    jwt_audience: str = field(
+        default_factory=lambda: os.getenv("JWT_AUDIENCE", "accesspdf-api")
     )
 
     # Environment

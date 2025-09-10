@@ -15,6 +15,8 @@ from fastapi import (
 
 from ..auth import User, get_current_user, require_roles
 from ..config import settings
+from ..security import security_service, VirusDetectedError, VirusScanError
+from ..quota import quota_service, QuotaType
 from ..models import (
     DocumentCreateRequest,
     DocumentListResponse,
@@ -50,6 +52,19 @@ async def get_presigned_upload_url(
 ) -> PreSignedUploadResponse:
     """Get pre-signed S3 upload URL for direct client upload"""
 
+    # Enforce quota limits
+    if current_user.org_id:
+        await quota_service.enforce_quota(
+            current_user.org_id, 
+            QuotaType.PROCESSING_MONTHLY, 
+            1
+        )
+        await quota_service.enforce_quota(
+            current_user.org_id, 
+            QuotaType.STORAGE_TOTAL, 
+            request.file_size
+        )
+
     # Validate file size
     if request.file_size > settings.max_file_size:
         raise HTTPException(
@@ -57,6 +72,13 @@ async def get_presigned_upload_url(
             detail=f"File size exceeds maximum allowed size of {settings.max_file_size} bytes"
         )
 
+    # Enhanced file metadata validation
+    security_service.validate_file_metadata(
+        filename=request.filename,
+        content_type=request.content_type,
+        metadata={"size": request.file_size}
+    )
+    
     # Validate file extension
     filename_lower = request.filename.lower()
     file_extension = f".{filename_lower.split('.')[-1]}"
@@ -65,6 +87,17 @@ async def get_presigned_upload_url(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"File type not allowed. Supported types: {settings.allowed_file_types}"
         )
+    
+    # Security audit logging
+    security_service.audit_security_event(
+        "PRESIGNED_UPLOAD_REQUEST",
+        current_user.sub,
+        {
+            "filename": request.filename,
+            "file_size": request.file_size,
+            "org_id": current_user.org_id
+        }
+    )
 
     try:
         # Generate pre-signed upload URL
@@ -120,6 +153,65 @@ async def create_document_after_upload(
             )
 
     try:
+        # Validate processing request for security
+        file_info = {
+            "filename": request.s3_key.split('/')[-1],
+            "s3_key": request.s3_key,
+            "size": 0  # Will be determined from S3 file
+        }
+        
+        await security_service.validate_processing_request(
+            current_user.sub,
+            current_user.org_id or "default",
+            file_info
+        )
+        
+        # First validate the uploaded file for security
+        try:
+            # Get S3 client from document service for validation
+            # We'll need to access the S3 client from document_service
+            await security_service.validate_s3_file(
+                s3_client=document_service.s3_client,
+                bucket="pdf-accessibility-uploads",  # TODO: Get from settings
+                key=request.s3_key
+            )
+            
+            logger.info(
+                "S3 file security validation passed",
+                extra={
+                    "doc_id": str(request.doc_id),
+                    "s3_key": request.s3_key,
+                    "user_id": current_user.sub
+                }
+            )
+        except VirusDetectedError as e:
+            logger.error(
+                f"Virus detected in S3 file: {e.virus_name}",
+                extra={
+                    "doc_id": str(request.doc_id),
+                    "s3_key": request.s3_key,
+                    "user_id": current_user.sub,
+                    "virus_name": e.virus_name
+                }
+            )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File rejected: virus detected ({e.virus_name})"
+            )
+        except VirusScanError as e:
+            logger.error(
+                f"S3 file security validation failed: {str(e)}",
+                extra={
+                    "doc_id": str(request.doc_id),
+                    "s3_key": request.s3_key,
+                    "user_id": current_user.sub
+                }
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="File security validation failed. Please try again."
+            )
+
         # Create document record and enqueue for processing
         document = await document_service.create_document_from_s3(
             doc_id=str(request.doc_id),
@@ -130,6 +222,16 @@ async def create_document_after_upload(
             priority=request.priority,
             webhook_url=request.webhook_url
         )
+
+        # Increment quota usage after successful document creation
+        if current_user.org_id:
+            await quota_service.increment_usage(
+                current_user.org_id, 
+                QuotaType.PROCESSING_MONTHLY, 
+                1
+            )
+            # TODO: Get actual file size for storage quota
+            # For now, we'll increment storage quota in the worker
 
         metrics.add_metric(name="DocumentsCreated", unit="Count", value=1)
         metrics.add_metric(name="PriorityDocuments", unit="Count", value=1 if request.priority else 0)
@@ -194,22 +296,60 @@ async def upload_document(
 
     # Process file upload
     if file:
-        # Validate file size
-        if file.size and file.size > settings.max_file_size:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail=f"File size exceeds maximum allowed size of {settings.max_file_size} bytes"
+        # Enforce quota limits before processing
+        if current_user.org_id:
+            await quota_service.enforce_quota(
+                current_user.org_id, 
+                QuotaType.PROCESSING_MONTHLY, 
+                1
             )
-
-        # Validate file type
-        file_extension = None
-        if file.filename:
-            file_extension = f".{file.filename.split('.')[-1].lower()}"
-            if file_extension not in settings.allowed_file_types:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"File type not allowed. Supported types: {settings.allowed_file_types}"
+            # We'll check storage quota after reading the file
+        
+        # Perform comprehensive security validation
+        try:
+            file_content = await security_service.validate_upload_file(file)
+            
+            # Enforce storage quota after getting file size
+            if current_user.org_id:
+                await quota_service.enforce_quota(
+                    current_user.org_id, 
+                    QuotaType.STORAGE_TOTAL, 
+                    len(file_content)
                 )
+            
+            logger.info(
+                "File security validation passed",
+                extra={
+                    "filename": file.filename,
+                    "size": len(file_content),
+                    "user_id": current_user.sub
+                }
+            )
+        except VirusDetectedError as e:
+            logger.error(
+                f"Virus detected in uploaded file: {e.virus_name}",
+                extra={
+                    "filename": file.filename,
+                    "user_id": current_user.sub,
+                    "virus_name": e.virus_name
+                }
+            )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File rejected: virus detected ({e.virus_name})"
+            )
+        except VirusScanError as e:
+            logger.error(
+                f"Virus scanning failed: {str(e)}",
+                extra={
+                    "filename": file.filename,
+                    "user_id": current_user.sub
+                }
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="File security validation failed. Please try again."
+            )
 
         filename = filename or file.filename
 
@@ -244,6 +384,20 @@ async def upload_document(
 
         # If file was uploaded, we would upload it to S3 here
         # For now, we'll assume the processing pipeline handles file downloads
+
+        # Increment quota usage after successful document creation
+        if current_user.org_id:
+            await quota_service.increment_usage(
+                current_user.org_id, 
+                QuotaType.PROCESSING_MONTHLY, 
+                1
+            )
+            if file:
+                await quota_service.increment_usage(
+                    current_user.org_id, 
+                    QuotaType.STORAGE_TOTAL, 
+                    len(file_content)
+                )
 
         metrics.add_metric(name="DocumentUploads", unit="Count", value=1)
         metrics.add_metric(name="PriorityUploads", unit="Count", value=1 if priority else 0)

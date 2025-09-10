@@ -1,0 +1,769 @@
+openapi: 3.1.0
+info:
+  title: PDF Accessibility Platform API
+  description: |
+    API for PDF accessibility processing platform
+    
+    This API provides document processing capabilities to convert PDFs into accessible formats
+    including ADA/Section 508 compliant PDFs and LLM-ready structured data exports.
+    
+    ## Authentication
+    - Bearer token authentication using BetterAuth JWT tokens
+    - API keys for programmatic access (coming soon)
+    
+    ## Rate Limits
+    - 60 requests per minute per user
+    - 1000 requests per hour per user
+    
+    ## Supported Formats
+    - Input: PDF, DOC, DOCX, TXT files
+    - Output: Accessible PDF, HTML, JSON, CSV/ZIP exports
+    
+  version: 1.0.0
+  contact:
+    name: PDF Accessibility Platform
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.pdf-accessibility.com
+    description: Production server
+
+tags:
+  - name: health
+    description: Health check and service status endpoints
+  - name: auth
+    description: Authentication and user profile endpoints  
+  - name: documents
+    description: Document upload, processing, and management
+  - name: reports
+    description: Analytics and reporting endpoints
+  - name: webhooks
+    description: Webhook endpoints for external callbacks
+
+paths:
+  # Health and Status
+  /health:
+    get:
+      tags: [health]
+      summary: Service health check
+      description: Get service health status and version information
+      operationId: health_check
+      responses:
+        '200':
+          description: Service health information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /:
+    get:
+      tags: [health]
+      summary: API root
+      description: API root endpoint with basic information
+      operationId: root
+      responses:
+        '200':
+          description: API information
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+
+  # Authentication
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: Get current user profile
+      description: Get the current authenticated user's profile information from JWT claims
+      operationId: get_user_profile
+      security:
+        - BetterAuthJWTBearer: []
+      responses:
+        '200':
+          description: User profile information
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # Documents
+  /documents/upload/presigned:
+    post:
+      tags: [documents]
+      summary: Get pre-signed upload URL
+      description: Generate a pre-signed S3 upload URL for direct client-side file upload with progress tracking
+      operationId: get_presigned_upload_url
+      security:
+        - BetterAuthJWTBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreSignedUploadRequest'
+      responses:
+        '201':
+          description: Pre-signed upload URL generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreSignedUploadResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /documents/create:
+    post:
+      tags: [documents]
+      summary: Create document after successful upload
+      description: Create document record and enqueue for processing after successful S3 upload
+      operationId: create_document_after_upload
+      security:
+        - BetterAuthJWTBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentCreateRequest'
+      responses:
+        '201':
+          description: Document created and queued for processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /documents:
+    post:
+      tags: [documents]
+      summary: Upload document for processing
+      description: Upload a document file or provide URL for processing. Returns document ID and queues for processing.
+      operationId: upload_document
+      security:
+        - BetterAuthJWTBearer: []
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Document file to upload
+                source_url:
+                  type: string
+                  format: uri
+                  description: URL to download document from
+                filename:
+                  type: string
+                  description: Original filename
+                priority:
+                  type: boolean
+                  default: false
+                  description: High priority processing
+                webhook_url:
+                  type: string
+                  format: uri
+                  description: Callback webhook URL
+                metadata:
+                  type: string
+                  description: JSON metadata string
+      responses:
+        '201':
+          description: Document uploaded and queued for processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    get:
+      tags: [documents]
+      summary: List user documents
+      description: List documents for the authenticated user with pagination and optional status filtering
+      operationId: list_documents
+      security:
+        - BetterAuthJWTBearer: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: per_page
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: status
+          in: query
+          description: Filter by document status
+          schema:
+            $ref: '#/components/schemas/DocumentStatus'
+      responses:
+        '200':
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /documents/{document_id}:
+    get:
+      tags: [documents]
+      summary: Get document details
+      description: Get detailed information about a specific document including status, metadata, and available artifacts
+      operationId: get_document
+      security:
+        - BetterAuthJWTBearer: []
+      parameters:
+        - name: document_id
+          in: path
+          required: true
+          description: Document ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Document details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    delete:
+      tags: [documents]
+      summary: Delete document
+      description: Delete a document and all associated files (admin only)
+      operationId: delete_document
+      security:
+        - BetterAuthJWTBearer: []
+      parameters:
+        - name: document_id
+          in: path
+          required: true
+          description: Document ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Document deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /documents/{document_id}/downloads:
+    get:
+      tags: [documents]
+      summary: Get document download URL
+      description: Generate pre-signed URL for downloading processed documents in various formats
+      operationId: get_download_url
+      security:
+        - BetterAuthJWTBearer: []
+      parameters:
+        - name: document_id
+          in: path
+          required: true
+          description: Document ID
+          schema:
+            type: string
+            format: uuid
+        - name: document_type
+          in: query
+          required: true
+          description: Type of document to download
+          schema:
+            $ref: '#/components/schemas/DocumentType'
+        - name: expires_in
+          in: query
+          description: URL expiration time in seconds
+          schema:
+            type: integer
+            minimum: 300
+            maximum: 86400
+            default: 3600
+      responses:
+        '200':
+          description: Download URL generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Reports
+  /reports/summary:
+    get:
+      tags: [reports]
+      summary: Get reports summary
+      description: Get summary statistics including document counts, averages by week, and success rates (admin only)
+      operationId: get_summary_report
+      security:
+        - BetterAuthJWTBearer: []
+      responses:
+        '200':
+          description: Summary statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportsSummaryResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /reports/export.csv:
+    get:
+      tags: [reports]
+      summary: Export documents to CSV
+      description: Stream CSV export of documents with filtering support (admin only)
+      operationId: export_documents_csv
+      security:
+        - BetterAuthJWTBearer: []
+      parameters:
+        - name: start_date
+          in: query
+          description: Start date filter (ISO format)
+          schema:
+            type: string
+            format: date-time
+        - name: end_date
+          in: query
+          description: End date filter (ISO format)  
+          schema:
+            type: string
+            format: date-time
+        - name: owner_filter
+          in: query
+          description: Filter by owner ID
+          schema:
+            type: string
+        - name: status_filter
+          in: query
+          description: Filter by document status
+          schema:
+            type: string
+      responses:
+        '200':
+          description: CSV file stream
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # Webhooks
+  /webhooks:
+    post:
+      tags: [webhooks]
+      summary: Receive webhook callbacks
+      description: Endpoint for receiving HMAC-signed webhook callbacks from external services
+      operationId: receive_webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Webhook received successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+
+  /webhooks/test:
+    post:
+      tags: [webhooks]
+      summary: Test webhook endpoint
+      description: Test endpoint for webhook functionality (development only)
+      operationId: test_webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Webhook test successful
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+components:
+  securitySchemes:
+    BetterAuthJWTBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token from BetterAuth authentication
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HTTPValidationError'
+
+  schemas:
+    # Health and Status
+    HealthResponse:
+      type: object
+      required: [status, version]
+      properties:
+        status:
+          type: string
+          description: Service status
+          example: healthy
+        version:
+          type: string
+          description: API version
+          example: "1.0.0"
+        timestamp:
+          type: string
+          format: date-time
+          description: Health check timestamp
+        dependencies:
+          type: object
+          additionalProperties:
+            type: string
+          description: Dependency status
+
+    # Authentication
+    UserProfile:
+      type: object
+      properties:
+        sub:
+          type: string
+          description: User ID
+        username:
+          type: string
+          description: Username
+        email:
+          type: string
+          format: email
+          description: Email address
+        roles:
+          type: array
+          items:
+            type: string
+          description: User roles
+        orgId:
+          type: string
+          description: Organization ID
+
+    # Documents
+    DocumentStatus:
+      type: string
+      enum: [pending, processing, completed, failed, validation_failed, notification_failed]
+      description: Document processing status
+
+    DocumentType:
+      type: string
+      enum: [pdf, html, json, csvzip]
+      description: Supported document types
+
+    PreSignedUploadRequest:
+      type: object
+      required: [filename, content_type, file_size]
+      properties:
+        filename:
+          type: string
+          description: Original filename
+          example: "document.pdf"
+        content_type:
+          type: string
+          description: MIME content type
+          example: "application/pdf"
+        file_size:
+          type: integer
+          minimum: 1
+          description: File size in bytes
+          example: 1048576
+
+    PreSignedUploadResponse:
+      type: object
+      required: [upload_url, fields, expires_at, s3_key, doc_id]
+      properties:
+        upload_url:
+          type: string
+          format: uri
+          description: Pre-signed S3 upload URL
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+          description: Required form fields for upload
+        expires_at:
+          type: string
+          format: date-time
+          description: URL expiration timestamp
+        s3_key:
+          type: string
+          description: S3 key for the uploaded file
+        doc_id:
+          type: string
+          format: uuid
+          description: Generated document ID
+
+    DocumentCreateRequest:
+      type: object
+      required: [doc_id, s3_key]
+      properties:
+        doc_id:
+          type: string
+          format: uuid
+          description: Document ID from pre-signed upload
+        s3_key:
+          type: string
+          description: S3 key of uploaded file
+        source:
+          type: string
+          description: Source of document
+          default: upload
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Additional metadata
+        priority:
+          type: boolean
+          description: High priority processing
+          default: false
+        webhook_url:
+          type: string
+          format: uri
+          description: Callback webhook URL
+
+    DocumentResponse:
+      type: object
+      required: [doc_id, status, created_at, updated_at, user_id]
+      properties:
+        doc_id:
+          type: string
+          format: uuid
+          description: Document ID
+        status:
+          $ref: '#/components/schemas/DocumentStatus'
+        filename:
+          type: string
+          description: Original filename
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+        completed_at:
+          type: string
+          format: date-time
+          description: Completion timestamp
+        user_id:
+          type: string
+          description: User who uploaded the document
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Document metadata
+        error_message:
+          type: string
+          description: Error message if failed
+        artifacts:
+          type: object
+          additionalProperties:
+            type: string
+          description: Available artifacts
+
+    DocumentListResponse:
+      type: object
+      required: [documents, total, page, per_page]
+      properties:
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentResponse'
+          description: List of documents
+        total:
+          type: integer
+          description: Total number of documents
+        page:
+          type: integer
+          description: Current page number
+        per_page:
+          type: integer
+          description: Items per page
+
+    DownloadResponse:
+      type: object
+      required: [download_url, expires_at, content_type, filename]
+      properties:
+        download_url:
+          type: string
+          format: uri
+          description: Pre-signed download URL
+        expires_at:
+          type: string
+          format: date-time
+          description: URL expiration timestamp
+        content_type:
+          type: string
+          description: MIME content type
+        filename:
+          type: string
+          description: Suggested filename
+
+    # Reports
+    ReportsSummaryResponse:
+      type: object
+      required: [total_documents, completed_documents, processing_documents, failed_documents, pending_documents, completion_rate, avg_processing_time_hours, weekly_stats]
+      properties:
+        total_documents:
+          type: integer
+          description: Total documents processed
+        completed_documents:
+          type: integer
+          description: Successfully completed documents
+        processing_documents:
+          type: integer
+          description: Documents currently being processed
+        failed_documents:
+          type: integer
+          description: Documents that failed processing
+        pending_documents:
+          type: integer
+          description: Documents pending processing
+        completion_rate:
+          type: number
+          description: Success rate percentage (0-100)
+        avg_processing_time_hours:
+          type: number
+          description: Average processing time in hours
+        weekly_stats:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+          description: Weekly statistics with aggregated data
+
+    # Error responses
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: Error type
+        message:
+          type: string
+          description: Error message
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional error details
+        timestamp:
+          type: string
+          format: date-time
+          description: Error timestamp
+
+    HTTPValidationError:
+      type: object
+      properties:
+        detail:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationError'
+
+    ValidationError:
+      type: object
+      required: [loc, msg, type]
+      properties:
+        loc:
+          type: array
+          items:
+            anyOf:
+              - type: string
+              - type: integer
+          description: Error location
+        msg:
+          type: string
+          description: Error message
+        type:
+          type: string
+          description: Error type

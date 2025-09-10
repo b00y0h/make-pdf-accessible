@@ -8,7 +8,7 @@ services:
     image: mongo:7.0
     container_name: pdf-accessibility-mongo
     ports:
-      - "27017:27017"
+      - '27017:27017'
     environment:
       - MONGO_INITDB_DATABASE=pdf_accessibility
     volumes:
@@ -26,7 +26,7 @@ services:
     image: mongo-express:1.0.2
     container_name: pdf-accessibility-mongo-express
     ports:
-      - "8081:8081"
+      - '8081:8081'
     environment:
       - ME_CONFIG_MONGODB_SERVER=mongo
       - ME_CONFIG_MONGODB_PORT=27017
@@ -43,7 +43,7 @@ services:
     image: localstack/localstack:3.0
     container_name: pdf-accessibility-localstack
     ports:
-      - "4566:4566"
+      - '4566:4566'
     environment:
       # Core LocalStack configuration
       - DEBUG=1
@@ -73,7 +73,7 @@ services:
     image: redis:7-alpine
     container_name: pdf-accessibility-redis
     ports:
-      - "6379:6379"
+      - '6379:6379'
     volumes:
       - redis_data:/data
     healthcheck:
@@ -82,7 +82,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # PostgreSQL - Legacy/backup database (can be removed later)
+  # PostgreSQL - Primary database for BetterAuth and application data
   postgres:
     image: postgres:15
     container_name: pdf-accessibility-postgres
@@ -91,14 +91,51 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./scripts/postgres-init:/docker-entrypoint-initdb.d
     healthcheck:
       test: pg_isready -U postgres
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # PostgreSQL for BetterAuth
+  postgres-auth:
+    image: postgres:15
+    container_name: pdf-accessibility-postgres-auth
+    environment:
+      - POSTGRES_DB=better_auth
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - '5433:5432'
+    volumes:
+      - postgres_auth_data:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -U postgres
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ClamAV - Virus scanning service
+  clamav:
+    image: mkodockx/docker-clamav:alpine
+    container_name: pdf-accessibility-clamav
+    ports:
+      - '3310:3310'
+    volumes:
+      - clamav_data:/var/lib/clamav
+    environment:
+      - CLAMD_CONF_Foreground=yes
+    healthcheck:
+      test: ['CMD', 'nc', '-z', 'localhost', '3310']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    restart: unless-stopped
 
   # =============================================================================
   # APPLICATION SERVICES
@@ -108,10 +145,10 @@ services:
   api:
     build:
       context: ./services/api
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     container_name: pdf-accessibility-api
     ports:
-      - "8000:8000"
+      - '8000:8000'
     environment:
       # Python configuration
       - PYTHONPATH=/app
@@ -144,6 +181,16 @@ services:
       # Feature flags
       - ENABLE_DUAL_WRITE=false
       - ENABLE_PERFORMANCE_METRICS=true
+      # Security configuration
+      - CLAMAV_HOST=clamav
+      - CLAMAV_PORT=3310
+      - ENABLE_VIRUS_SCANNING=true
+      # BetterAuth configuration
+      - API_JWT_SECRET=your-secret-key-here-change-in-production
+      - JWT_ALGORITHM=HS256
+      - JWT_ISSUER=accesspdf-dashboard
+      - JWT_AUDIENCE=accesspdf-api
+      - BETTER_AUTH_DASHBOARD_URL=http://host.docker.internal:3001
     depends_on:
       mongo:
         condition: service_healthy
@@ -151,11 +198,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      postgres-auth:
+        condition: service_healthy
     volumes:
       - ./services/api/app:/app/app
       - ./services/api/tests:/app/tests
       - ./services/api/main.py:/app/main.py
       - ./services/shared:/app/services/shared
+      - auth_data:/app/auth_data
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     restart: unless-stopped
 
@@ -177,6 +227,11 @@ services:
       - AWS_DEFAULT_REGION=us-east-1
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
+      # BetterAuth configuration
+      - API_JWT_SECRET=your-secret-key-here-change-in-production
+      - JWT_ALGORITHM=HS256
+      - JWT_ISSUER=accesspdf-dashboard
+      - JWT_AUDIENCE=accesspdf-api
     depends_on:
       mongo:
         condition: service_healthy
@@ -200,7 +255,7 @@ services:
       dockerfile: Dockerfile
     container_name: pdf-accessibility-router
     ports:
-      - "8001:8000"
+      - '8001:8000'
     environment:
       - REDIS_URL=redis://redis:6379
       - AWS_ENDPOINT_URL=http://localstack:4566
@@ -220,7 +275,7 @@ services:
       dockerfile: Dockerfile
     container_name: pdf-accessibility-ocr
     ports:
-      - "8002:8000"
+      - '8002:8000'
     environment:
       - REDIS_URL=redis://redis:6379
       - AWS_ENDPOINT_URL=http://localstack:4566
@@ -240,7 +295,7 @@ services:
       dockerfile: Dockerfile
     container_name: pdf-accessibility-structure
     ports:
-      - "8003:8000"
+      - '8003:8000'
     environment:
       - REDIS_URL=redis://redis:6379
       - AWS_ENDPOINT_URL=http://localstack:4566
@@ -260,7 +315,7 @@ services:
       dockerfile: Dockerfile
     container_name: pdf-accessibility-tagger
     ports:
-      - "8004:8000"
+      - '8004:8000'
     environment:
       - REDIS_URL=redis://redis:6379
       - AWS_ENDPOINT_URL=http://localstack:4566
@@ -280,7 +335,7 @@ services:
       dockerfile: Dockerfile
     container_name: pdf-accessibility-exporter
     ports:
-      - "8005:8000"
+      - '8005:8000'
     environment:
       - REDIS_URL=redis://redis:6379
       - AWS_ENDPOINT_URL=http://localstack:4566
@@ -300,7 +355,7 @@ services:
       dockerfile: Dockerfile
     container_name: pdf-accessibility-validator
     ports:
-      - "8006:8000"
+      - '8006:8000'
     environment:
       - REDIS_URL=redis://redis:6379
       - AWS_ENDPOINT_URL=http://localstack:4566
@@ -320,7 +375,7 @@ services:
       dockerfile: Dockerfile
     container_name: pdf-accessibility-notifier
     ports:
-      - "8007:8000"
+      - '8007:8000'
     environment:
       - REDIS_URL=redis://redis:6379
       - AWS_ENDPOINT_URL=http://localstack:4566
@@ -337,51 +392,24 @@ services:
   # =============================================================================
   # FRONTEND APPLICATIONS
   # =============================================================================
-
-  # Dashboard - Next.js web application
-  dashboard:
-    build:
-      context: ./dashboard
-      dockerfile: Dockerfile
-    container_name: pdf-accessibility-dashboard
-    ports:
-      - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-      - NODE_ENV=development
-    volumes:
-      - ./dashboard:/app
-      - /app/node_modules
-    command: npm run dev
-    restart: unless-stopped
-
-  # Legacy Web (if needed)
-  web:
-    build:
-      context: ./web
-      dockerfile: Dockerfile
-    container_name: pdf-accessibility-web
-    ports:
-      - "3001:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-    volumes:
-      - ./web:/app
-      - /app/node_modules
-    command: npm run dev
-    restart: unless-stopped
-    profiles:
-      - legacy
+  # Note: Dashboard and Web apps now run with pnpm dev (see Makefile)
+  # This provides better hot reload and development experience
 
 volumes:
   postgres_data:
     name: pdf_accessibility_postgres_data
+  postgres_auth_data:
+    name: pdf_accessibility_postgres_auth_data
   redis_data:
     name: pdf_accessibility_redis_data
   mongo_data:
     name: pdf_accessibility_mongo_data
   localstack_data:
     name: pdf_accessibility_localstack_data
+  clamav_data:
+    name: pdf_accessibility_clamav_data
+  auth_data:
+    name: pdf_accessibility_auth_data
 
 networks:
   default:

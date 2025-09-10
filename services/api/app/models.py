@@ -349,3 +349,42 @@ class AltTextHistoryResponse(BaseModel):
     versions: List[AltTextVersion] = Field(..., description="All versions of this figure")
     current_version: int = Field(..., description="Current active version")
     status: AltTextStatus = Field(..., description="Current status")
+
+
+# Admin models
+class UserSummary(BaseModel):
+    """User summary for admin interface"""
+    id: str = Field(..., description="User ID")
+    name: Optional[str] = Field(None, description="User display name")
+    email: str = Field(..., description="User email address")
+    role: Optional[str] = Field(None, description="User role")
+    created_at: datetime = Field(..., description="Account creation timestamp")
+    updated_at: datetime = Field(..., description="Last update timestamp")
+    last_activity: Optional[datetime] = Field(None, description="Last activity timestamp")
+    document_count: int = Field(default=0, description="Total documents")
+    documents_completed: int = Field(default=0, description="Completed documents")
+    documents_processing: int = Field(default=0, description="Processing documents")
+    documents_failed: int = Field(default=0, description="Failed documents")
+
+    @field_serializer('created_at', 'updated_at', 'last_activity')
+    def serialize_datetime(self, value: Optional[datetime]) -> Optional[str]:
+        return value.isoformat() if value else None
+
+
+class UserListParams(BaseModel):
+    """Parameters for user list query"""
+    page: int = Field(1, ge=1, description="Page number")
+    page_size: int = Field(20, ge=1, le=100, description="Items per page")
+    sort_by: str = Field("created_at", description="Sort field")
+    sort_order: str = Field("desc", description="Sort order (asc/desc)")
+    search: Optional[str] = Field(None, description="Search term")
+    role: Optional[str] = Field(None, description="Role filter")
+
+
+class UserListResponse(BaseModel):
+    """Response for user list"""
+    users: List[UserSummary] = Field(..., description="List of users")
+    total: int = Field(..., description="Total number of users")
+    total_pages: int = Field(..., description="Total number of pages")
+    current_page: int = Field(..., description="Current page number")
+    page_size: int = Field(..., description="Items per page")

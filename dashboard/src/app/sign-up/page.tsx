@@ -8,14 +8,12 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Shield } from 'lucide-react'
-import { signUp, signInWithProvider, useSession } from '@/lib/auth-client'
+import { Eye, EyeOff, Mail, Lock, ArrowRight, Shield } from 'lucide-react'
+import { signUp, signIn, signInWithProvider, useSession } from '@/lib/auth-client'
 import toast from 'react-hot-toast'
 
 export default function SignUpPage() {
-  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -50,13 +48,29 @@ export default function SignUpPage() {
 
     setIsLoading(true)
     try {
-      const result = await signUp(email, password, name, username)
+      // Generate username from email prefix, add timestamp to avoid conflicts
+      const emailPrefix = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '') // Remove special chars
+      const timestamp = Date.now().toString().slice(-4) // Last 4 digits of timestamp
+      const username = `${emailPrefix}${timestamp}`
+      const result = await signUp(email, password, undefined, username)
       
       if (result.error) {
         toast.error(result.error.message || 'Sign up failed')
       } else {
         toast.success('Account created successfully!')
-        router.push(callbackUrl)
+        
+        // Automatically sign in the user after successful signup
+        const signInResult = await signIn(email, password)
+        if (signInResult.error) {
+          console.error('Auto sign-in failed:', signInResult.error)
+          // If auto sign-in fails, redirect to sign-in page
+          router.push('/sign-in?message=Please sign in with your new account')
+        } else {
+          // Wait a moment for session to be established, then redirect to dashboard
+          setTimeout(() => {
+            window.location.href = callbackUrl
+          }, 500)
+        }
       }
     } catch (error) {
       console.error('Sign up error:', error)
@@ -202,20 +216,6 @@ export default function SignUpPage() {
                 <form onSubmit={handleEmailSignUp} className="space-y-4">
                   <div className="space-y-2">
                     <div className="relative">
-                      <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        type="text"
-                        placeholder="Full name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="pl-10"
-                        required
-                        disabled={isLoading}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="relative">
                       <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         type="email"
@@ -224,19 +224,6 @@ export default function SignUpPage() {
                         onChange={(e) => setEmail(e.target.value)}
                         className="pl-10"
                         required
-                        disabled={isLoading}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="relative">
-                      <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        type="text"
-                        placeholder="Username (optional)"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        className="pl-10"
                         disabled={isLoading}
                       />
                     </div>

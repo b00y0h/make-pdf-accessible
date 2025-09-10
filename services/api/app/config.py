@@ -34,21 +34,26 @@ class Settings(BaseSettings):
     callback_queue_url: str = Field("", env="CALLBACK_QUEUE_URL")
     priority_process_queue_url: str = Field("", env="PRIORITY_PROCESS_QUEUE_URL")
 
-    # BetterAuth Configuration
-    better_auth_secret: str = Field("", env="API_JWT_SECRET")
-    better_auth_dashboard_url: str = Field("http://localhost:3001", env="BETTER_AUTH_DASHBOARD_URL")
-
-    # JWT Configuration
-    jwt_algorithm: str = Field("HS256", env="JWT_ALGORITHM")
-    jwt_issuer: str = Field("accesspdf-dashboard", env="JWT_ISSUER")
-    jwt_audience: str = Field("accesspdf-api", env="JWT_AUDIENCE")
+    # BetterAuth Configuration  
+    better_auth_dashboard_url: str = Field("http://host.docker.internal:3001", env="BETTER_AUTH_DASHBOARD_URL")
 
     # Security
     webhook_secret_key: str = Field("", env="WEBHOOK_SECRET_KEY")
     cors_origins: list[str] = Field(
-        ["http://localhost:3000", "https://localhost:3000"],
+        ["http://localhost:3000", "https://localhost:3000", "http://localhost:3001", "https://localhost:3001"],
         env="CORS_ORIGINS"
     )
+    
+    # Virus Scanning Configuration
+    enable_virus_scanning: bool = Field(True, env="ENABLE_VIRUS_SCANNING")
+    clamav_host: str = Field("localhost", env="CLAMAV_HOST")
+    clamav_port: int = Field(3310, env="CLAMAV_PORT")
+    clamav_timeout: int = Field(30, env="CLAMAV_TIMEOUT")  # seconds
+    
+    # Processing Security Configuration
+    max_processing_time: int = Field(300, env="MAX_PROCESSING_TIME")  # 5 minutes
+    enable_processing_isolation: bool = Field(True, env="ENABLE_PROCESSING_ISOLATION")
+    enable_security_audit_logging: bool = Field(True, env="ENABLE_SECURITY_AUDIT_LOGGING")
 
     # File Upload Configuration
     max_file_size: int = Field(100 * 1024 * 1024, env="MAX_FILE_SIZE")  # 100MB
@@ -73,6 +78,12 @@ class Settings(BaseSettings):
     log_level: str = Field("INFO", env="LOG_LEVEL")
     powertools_service_name: str = Field("pdf-accessibility-api", env="POWERTOOLS_SERVICE_NAME")
     powertools_metrics_namespace: str = Field("PDF-Accessibility", env="POWERTOOLS_METRICS_NAMESPACE")
+
+    # BetterAuth JWT Configuration
+    api_jwt_secret: str = Field("your-secret-key-here-change-in-production", env="API_JWT_SECRET")
+    jwt_algorithm: str = Field("HS256", env="JWT_ALGORITHM")
+    jwt_issuer: str = Field("accesspdf-dashboard", env="JWT_ISSUER")
+    jwt_audience: str = Field("accesspdf-api", env="JWT_AUDIENCE")
 
     # Environment
     environment: str = Field("dev", env="ENVIRONMENT")

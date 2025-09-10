@@ -35,7 +35,7 @@ resource "aws_cognito_user_pool" "main" {
     name                = "email"
     required            = true
     mutable             = false
-    
+
     string_attribute_constraints {
       max_length = "2048"
       min_length = "0"
@@ -47,7 +47,7 @@ resource "aws_cognito_user_pool" "main" {
     name                = "given_name"
     required            = false
     mutable             = true
-    
+
     string_attribute_constraints {
       max_length = "2048"
       min_length = "0"
@@ -59,7 +59,7 @@ resource "aws_cognito_user_pool" "main" {
     name                = "family_name"
     required            = false
     mutable             = true
-    
+
     string_attribute_constraints {
       max_length = "2048"
       min_length = "0"
@@ -71,7 +71,7 @@ resource "aws_cognito_user_pool" "main" {
     name                = "picture"
     required            = false
     mutable             = true
-    
+
     string_attribute_constraints {
       max_length = "2048"
       min_length = "0"
@@ -177,9 +177,9 @@ resource "aws_cognito_user_pool_client" "web_client" {
     var.domain_name != "" ? "https://${var.domain_name}/auth/callback" : "https://example.com/auth/callback"
   ]
   logout_urls = [
-    "http://localhost:3000/login",
-    "http://localhost:3001/login",
-    var.domain_name != "" ? "https://${var.domain_name}/login" : "https://example.com/login"
+    "http://localhost:3000/sign-in",
+    "http://localhost:3001/sign-in",
+    var.domain_name != "" ? "https://${var.domain_name}/sign-in" : "https://example.com/sign-in"
   ]
 
   allowed_oauth_flows_user_pool_client = true

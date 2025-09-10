@@ -1,0 +1,205 @@
+{
+  "generated_at": "2025-01-09T02:38:00Z",
+  "repo_summary": {
+    "workspaces": ["web", "dashboard", "integrations/*", "packages/*"],
+    "services": [
+      "api (port 8000)",
+      "function-router (port 8001)", 
+      "function-ocr (port 8002)",
+      "function-structure (port 8003)",
+      "function-tagger (port 8004)",
+      "function-exporter (port 8005)",
+      "function-validator (port 8006)",
+      "function-notifier (port 8007)",
+      "worker (background)",
+      "dashboard (port 3000)",
+      "web (port 3001)"
+    ],
+    "envs": [".env.local", "dashboard/.env.local", "services/api/.env"],
+    "runtimes": ["Python 3.11", "Node.js 18+", "pnpm 8.15.0"],
+    "ci_cd": ["GitHub Actions", "api-ci.yml", "web-ci.yml", "infra-ci.yml"],
+    "infra": ["Docker Compose", "Terraform", "AWS LocalStack", "MongoDB", "Redis", "PostgreSQL"]
+  },
+  "gaps": [
+    {
+      "id": "GAP-001",
+      "title": "Authentication System Inconsistency",
+      "area": "auth",
+      "status": "partial",
+      "evidence": [
+        "services/api/app/auth.py - BetterAuth JWT with HS256",
+        "services/worker/auth/jwt_auth.py - AWS Cognito JWKS",
+        "dashboard/src/lib/auth.ts - BetterAuth frontend config",
+        "Mixed authentication approaches across services"
+      ],
+      "risk": "H",
+      "effort": "M",
+      "dependencies": [],
+      "proposed_fix": "Standardize all services on BetterAuth with unified JWT validation and remove Cognito dependencies"
+    },
+    {
+      "id": "GAP-002", 
+      "title": "Missing Billing Infrastructure",
+      "area": "billing",
+      "status": "missing",
+      "evidence": [
+        "No Stripe or Paddle integration found",
+        "No billing database schemas in MongoDB collections",
+        "No billing API endpoints in routes",
+        "Dashboard shows mock billing: 'Professional - $99/month'",
+        "No usage tracking or subscription management"
+      ],
+      "risk": "H",
+      "effort": "H",
+      "dependencies": ["GAP-001"],
+      "proposed_fix": "Implement complete Stripe integration with subscriptions, usage tracking, webhooks, and customer portal"
+    },
+    {
+      "id": "GAP-003",
+      "title": "WordPress Plugin Non-Existent", 
+      "area": "wordpress",
+      "status": "missing",
+      "evidence": [
+        "integrations/wordpress/ directory is empty",
+        "No PHP plugin files found",
+        "No WordPress development environment",
+        "Documentation references plugin but no implementation"
+      ],
+      "risk": "H", 
+      "effort": "H",
+      "dependencies": ["GAP-001", "GAP-005"],
+      "proposed_fix": "Build complete WordPress plugin with PHP backend, admin interface, media library integration, and SaaS API communication"
+    },
+    {
+      "id": "GAP-004",
+      "title": "Security Vulnerabilities in Processing Pipeline",
+      "area": "security", 
+      "status": "missing",
+      "evidence": [
+        "No virus scanning of uploaded files",
+        "No PDF content validation for malicious elements", 
+        "No quota enforcement per tenant",
+        "No processing time limits enforcement",
+        "File upload accepts PDFs without security checks"
+      ],
+      "risk": "H",
+      "effort": "M",
+      "dependencies": [],
+      "proposed_fix": "Implement virus scanning (ClamAV), PDF content validation, tenant quotas, processing timeouts, and comprehensive input validation"
+    },
+    {
+      "id": "GAP-005",
+      "title": "API Versioning and Job-Centric Design",
+      "area": "api",
+      "status": "partial", 
+      "evidence": [
+        "API uses document-centric approach vs required job-centric",
+        "No /v1/ versioning prefix on routes",
+        "Missing POST /v1/jobs/bulk endpoint",
+        "No dedicated GET /v1/jobs/:id/artifacts endpoint",
+        "Routes use /documents/{id} instead of /v1/jobs/{id}"
+      ],
+      "risk": "M",
+      "effort": "M", 
+      "dependencies": [],
+      "proposed_fix": "Redesign API to be job-centric with v1 versioning, add bulk endpoints, and dedicated artifacts listing"
+    },
+    {
+      "id": "GAP-006",
+      "title": "Frontend Development Issues",
+      "area": "dashboard",
+      "status": "partial",
+      "evidence": [
+        "Dashboard: BetterAuth 'node:sqlite' compatibility error in browser",
+        "Web app: Missing '@tailwindcss/forms' dependency",
+        "Port conflicts between frontend applications",
+        "Next.js build error: 'Reading from node:sqlite is not handled'"
+      ],
+      "risk": "M",
+      "effort": "L",
+      "dependencies": [],
+      "proposed_fix": "Fix BetterAuth browser configuration, install missing dependencies, resolve port conflicts"
+    },
+    {
+      "id": "GAP-007", 
+      "title": "Missing OpenAPI Specification File",
+      "area": "api",
+      "status": "partial",
+      "evidence": [
+        "FastAPI auto-generates OpenAPI at /docs endpoint",
+        "No committed openapi.yaml file in repository", 
+        "No Postman collection for API testing",
+        "API documentation only available at runtime"
+      ],
+      "risk": "M",
+      "effort": "L",
+      "dependencies": ["GAP-005"],
+      "proposed_fix": "Generate and commit openapi.yaml file, create Postman collection, add API contract testing"
+    },
+    {
+      "id": "GAP-008",
+      "title": "Enhanced Observability",
+      "area": "observability", 
+      "status": "partial",
+      "evidence": [
+        "Basic CloudWatch metrics and X-Ray tracing implemented",
+        "Missing comprehensive alerting rules",
+        "No cost monitoring dashboards", 
+        "Limited performance SLOs defined"
+      ],
+      "risk": "L",
+      "effort": "M",
+      "dependencies": [],
+      "proposed_fix": "Implement comprehensive monitoring, alerting, cost tracking, and SLO definitions"
+    },
+    {
+      "id": "GAP-009",
+      "title": "Advanced RBAC and Multi-tenancy",
+      "area": "auth",
+      "status": "partial",
+      "evidence": [
+        "Basic admin/viewer roles implemented",
+        "No granular permissions system",
+        "Missing organization management APIs",
+        "No tenant-level data isolation enforcement",
+        "orgId field exists but not consistently used"
+      ],
+      "risk": "L", 
+      "effort": "M",
+      "dependencies": ["GAP-001"],
+      "proposed_fix": "Implement fine-grained permissions, organization management, and enforce tenant data isolation"
+    },
+    {
+      "id": "GAP-010",
+      "title": "API Key Management System",
+      "area": "auth",
+      "status": "missing",
+      "evidence": [
+        "No API key authentication system found",
+        "No API key storage in database schemas", 
+        "All authentication relies on JWT tokens only",
+        "No programmatic access method for integrations"
+      ],
+      "risk": "M",
+      "effort": "M",
+      "dependencies": ["GAP-001"],
+      "proposed_fix": "Implement API key generation, storage, authentication, and management system"
+    }
+  ],
+  "blockers": [
+    "Security vulnerabilities prevent production deployment",
+    "No monetization capability without billing system", 
+    "Cannot serve WordPress market without plugin",
+    "Frontend development environment has build issues",
+    "Mixed authentication systems create security risks"
+  ],
+  "acceptance_tests": [
+    "Sign-up via Google → tenant created → API key issued (FAILING - no API keys)",
+    "Single PDF upload → job runs → accessible PDF + JSON artifacts (PARTIAL - works but wrong API design)", 
+    "Bulk upload (10+ PDFs) → parallel jobs throttled per tenant (FAILING - no bulk endpoint)",
+    "Alt-text review → approve/edit → re-export artifacts (PASSING - implemented)",
+    "Reports export with filters (PASSING - CSV export works)",
+    "Stripe test clock: subscription + usage → invoice (FAILING - no billing)",
+    "WordPress: connect site → submit PDF → track status (FAILING - no plugin)"
+  ]
+}

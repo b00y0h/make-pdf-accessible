@@ -8,56 +8,53 @@ from .config import settings
 from .models import UserRole
 
 
-class BetterAuthJWTBearer(HTTPBearer):
-    """Custom JWT Bearer authentication for BetterAuth"""
+import requests
 
-    def __init__(self, auto_error: bool = True):
-        super().__init__(auto_error=auto_error)
+class BetterAuthSessionValidator:
+    """Custom session validator for BetterAuth"""
 
-    async def __call__(self, request: Request) -> HTTPAuthorizationCredentials:
-        credentials = await super().__call__(request)
-        if credentials:
-            if not credentials.scheme == "Bearer":
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Invalid authentication scheme"
-                )
+    def __init__(self, better_auth_url: str):
+        self.better_auth_url = better_auth_url.rstrip('/')
 
-            # Validate the token
-            await self._validate_token(credentials.credentials)
-
-        return credentials
-
-    async def _validate_token(self, token: str) -> None:
-        """Validate JWT token with BetterAuth secret"""
+    def validate_session(self, request: Request) -> Optional[Dict]:
+        """Validate session with BetterAuth service by forwarding all cookies"""
         try:
-            # Verify token with shared secret
-            payload = jwt.decode(
-                token,
-                settings.better_auth_secret,
-                algorithms=[settings.jwt_algorithm],
-                audience=settings.jwt_audience,
-                issuer=settings.jwt_issuer,
-                options={"verify_exp": True, "verify_aud": True, "verify_iss": True}
-            )
+            # Forward all cookies from the original request to BetterAuth
+            cookies = dict(request.cookies)
+            
+            if not cookies:
+                print("DEBUG: No cookies received from request")
+                return None
 
-            # Validate required claims exist
-            if not payload.get('sub'):
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Token missing subject claim"
-                )
+            print(f"DEBUG: Forwarding {len(cookies)} cookies to BetterAuth: {list(cookies.keys())}")
+            print(f"DEBUG: BetterAuth URL: {self.better_auth_url}")
+            
+            auth_url = f"{self.better_auth_url}/api/auth/session"
+            print(f"DEBUG: Making request to: {auth_url}")
 
-        except JWTError as e:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Token validation failed: {str(e)}"
+            # Call BetterAuth session endpoint with all cookies
+            response = requests.get(
+                auth_url,
+                cookies=cookies,
+                timeout=5.0
             )
+            
+            print(f"DEBUG: BetterAuth response status: {response.status_code}")
+            if response.status_code != 200:
+                print(f"DEBUG: BetterAuth response body: {response.text}")
+                return None
+                
+            session_data = response.json()
+            print(f"DEBUG: BetterAuth session data: {session_data}")
+            if not session_data.get('user'):
+                print("DEBUG: No user in session data")
+                return None
+                
+            return session_data
+                
         except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Authentication service error: {str(e)}"
-            )
+            print(f"DEBUG: Session validation exception: {type(e).__name__}: {e}")
+            return None
 
 
 class User:
@@ -92,42 +89,35 @@ class User:
         return self.is_admin() or self.sub == resource_user_id
 
 
-# Global JWT bearer instance
-jwt_bearer = BetterAuthJWTBearer()
+# Global session validator instance
+session_validator = BetterAuthSessionValidator(settings.better_auth_dashboard_url)
 
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(jwt_bearer)) -> User:
+async def get_current_user(request: Request) -> User:
     """Get current authenticated user"""
-    try:
-        # Decode token without verification (already validated in jwt_bearer)
-        token = credentials.credentials
-        payload = jwt.get_unverified_claims(token)
-
-        # Extract user information
-        sub = payload.get('sub')
-        name = payload.get('name')
-        email = payload.get('email')
-        role = payload.get('role', UserRole.VIEWER.value)
-        org_id = payload.get('orgId')
-
-        return User(
-            sub=sub,
-            name=name,
-            email=email,
-            role=role,
-            org_id=org_id,
-            token_claims=payload
-        )
-
-    except Exception as e:
+    session_data = session_validator.validate_session(request)
+    
+    if not session_data or not session_data.get('user'):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Failed to extract user information: {str(e)}"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authenticated"
         )
+    
+    user_data = session_data['user']
+    
+    return User(
+        sub=user_data.get('id'),
+        name=user_data.get('name'),
+        email=user_data.get('email'),
+        role=user_data.get('role', UserRole.VIEWER.value),
+        org_id=user_data.get('orgId'),
+        token_claims=user_data
+    )
 
 
-async def get_admin_user(current_user: User = Depends(get_current_user)) -> User:
+async def get_admin_user(request: Request) -> User:
     """Get current user and verify admin role"""
+    current_user = await get_current_user(request)
     if not current_user.is_admin():
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

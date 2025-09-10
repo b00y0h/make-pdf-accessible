@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Eye, EyeOff, Mail, Lock, ArrowRight, Shield } from 'lucide-react'
-import { signIn, signInWithProvider, useSession } from '@/lib/auth-client'
+import { signIn, signInWithProvider, signOut, useSession } from '@/lib/auth-client'
 import toast from 'react-hot-toast'
 
 const features = [
@@ -60,7 +60,10 @@ export default function SignInPage() {
         toast.error(result.error.message || 'Sign in failed')
       } else {
         toast.success('Sign in successful')
-        router.push(callbackUrl)
+        // Force a full page reload to ensure session is properly established
+        setTimeout(() => {
+          window.location.href = callbackUrl
+        }, 500)
       }
     } catch (error) {
       console.error('Sign in error:', error)

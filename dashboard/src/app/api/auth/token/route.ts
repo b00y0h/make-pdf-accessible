@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/auth-server'
 
 const API_JWT_SECRET = process.env.API_JWT_SECRET || 'your-api-jwt-secret-change-in-production'
 

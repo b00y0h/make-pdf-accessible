@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { useAuth } from '@/contexts/AuthContext'
+import { useSession, signOut } from '@/lib/auth-client'
 
 interface HeaderProps {
   title?: string
@@ -23,11 +23,20 @@ interface HeaderProps {
 
 export function Header({ title }: HeaderProps) {
   const [isClient, setIsClient] = useState(false)
+  const { data: session, isLoading } = useSession()
   
   // Handle hydration
   useEffect(() => {
     setIsClient(true)
   }, [])
+
+  const user = session?.user
+  const isAdmin = user?.role === 'admin'
+  
+  const logout = async () => {
+    await signOut()
+    window.location.href = '/sign-in'
+  }
 
   // Show loading during SSR and hydration
   if (!isClient) {
@@ -42,8 +51,6 @@ export function Header({ title }: HeaderProps) {
       </header>
     )
   }
-
-  const { user, isAdmin, logout, isLoading } = useAuth()
 
   const getUserInitials = () => {
     if (user?.name) {
@@ -108,7 +115,7 @@ export function Header({ title }: HeaderProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-8 w-8 rounded-full">
               <Avatar className="h-8 w-8">
-                <AvatarImage src={user?.picture} alt="User avatar" />
+                <AvatarImage src={user?.image} alt="User avatar" />
                 <AvatarFallback>{getUserInitials()}</AvatarFallback>
               </Avatar>
             </Button>
