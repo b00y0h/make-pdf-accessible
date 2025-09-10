@@ -1,94 +1,178 @@
-import { NextRequest } from 'next/server'
-import { withRBAC } from '@/lib/rbac-middleware'
-import { getAdminRepository } from '@/lib/mongodb'
+import { NextRequest, NextResponse } from 'next/server';
+import { withRBAC, AuthenticatedRequest } from '@/lib/rbac-middleware';
+import { Pool } from 'pg';
 
-async function deleteUserHandler(request: NextRequest, { params }: { params: { userId: string } }) {
+async function deleteUserHandler(
+  request: AuthenticatedRequest
+): Promise<NextResponse> {
   try {
-    const { userId } = params
-    const actorUserId = (request as any).user?._id?.toString() || (request as any).user?.sub
+    // Extract userId from URL pathname
+    const url = new URL(request.url);
+    const pathSegments = url.pathname.split('/');
+    const userId = pathSegments[pathSegments.indexOf('users') + 1];
+
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'User ID not found in URL' },
+        { status: 400 }
+      );
+    }
+
+    const actorUserId = request.user?.id || request.user?.sub;
 
     if (!actorUserId) {
-      return Response.json(
+      return NextResponse.json(
         { success: false, error: 'Actor user ID not found' },
         { status: 401 }
-      )
+      );
     }
 
     // Prevent self-deletion
     if (userId === actorUserId) {
-      return Response.json(
+      return NextResponse.json(
         { success: false, error: 'Cannot delete your own account' },
         { status: 400 }
-      )
+      );
     }
 
-    // Get admin repository and delete user
-    const adminRepo = await getAdminRepository()
-    const deletionJob = await adminRepo.deleteUser(userId, actorUserId)
+    // Connect to BetterAuth PostgreSQL database
+    const pool = new Pool({
+      connectionString:
+        process.env.AUTH_DATABASE_URL ||
+        'postgresql://postgres:password@localhost:5433/better_auth',
+    });
 
-    return Response.json({
-      success: true,
-      data: {
-        jobId: deletionJob._id?.toString(),
-        status: deletionJob.status,
-        deletedDocuments: deletionJob.meta?.deletedDocuments || 0,
-        message: 'User and all associated data deleted successfully'
+    try {
+      // Check if user exists
+      const userCheck = await pool.query(
+        'SELECT id, email FROM "user" WHERE id = $1',
+        [userId]
+      );
+
+      if (userCheck.rows.length === 0) {
+        await pool.end();
+        return NextResponse.json(
+          { success: false, error: 'User not found' },
+          { status: 404 }
+        );
       }
-    })
 
+      // Delete the user from BetterAuth database
+      await pool.query('DELETE FROM "user" WHERE id = $1', [userId]);
+
+      await pool.end();
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          userId,
+          message: 'User deleted successfully',
+        },
+      });
+    } catch (dbError) {
+      await pool.end();
+      throw dbError;
+    }
   } catch (error: any) {
-    console.error('Error deleting user:', error)
-    
+    console.error('Error deleting user:', error);
+
     // Handle specific error cases
     if (error.message === 'User not found') {
-      return Response.json(
+      return NextResponse.json(
         { success: false, error: 'User not found' },
         { status: 404 }
-      )
+      );
     }
 
-    return Response.json(
-      { 
+    return NextResponse.json(
+      {
         success: false,
-        error: 'Failed to delete user' 
+        error: 'Failed to delete user',
       },
       { status: 500 }
-    )
+    );
   }
 }
 
-async function getUserHandler(request: NextRequest, { params }: { params: { userId: string } }) {
+async function getUserHandler(
+  request: AuthenticatedRequest
+): Promise<NextResponse> {
   try {
-    const { userId } = params
+    // Extract userId from URL pathname
+    const url = new URL(request.url);
+    const pathSegments = url.pathname.split('/');
+    const userId = pathSegments[pathSegments.indexOf('users') + 1];
 
-    // Get admin repository and fetch user
-    const adminRepo = await getAdminRepository()
-    const user = await adminRepo.getUserById(userId)
-
-    if (!user) {
-      return Response.json(
-        { success: false, error: 'User not found' },
-        { status: 404 }
-      )
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'User ID not found in URL' },
+        { status: 400 }
+      );
     }
 
-    return Response.json({
-      success: true,
-      data: user,
-    })
+    // Connect to BetterAuth PostgreSQL database
+    const pool = new Pool({
+      connectionString:
+        process.env.AUTH_DATABASE_URL ||
+        'postgresql://postgres:password@localhost:5433/better_auth',
+    });
 
+    try {
+      // Get user from BetterAuth database
+      const userResult = await pool.query(
+        'SELECT id, email, name, username, role, "emailVerified", "createdAt", "updatedAt" FROM "user" WHERE id = $1',
+        [userId]
+      );
+
+      if (userResult.rows.length === 0) {
+        await pool.end();
+        return NextResponse.json(
+          { success: false, error: 'User not found' },
+          { status: 404 }
+        );
+      }
+
+      const user = userResult.rows[0];
+      await pool.end();
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          _id: user.id,
+          id: user.id,
+          sub: user.id,
+          email: user.email,
+          name: user.name,
+          username: user.username,
+          role: user.role || 'user',
+          emailVerified: user.emailVerified,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+          // Mock document stats for now
+          documentCount: 0,
+          documentsCompleted: 0,
+          documentsPending: 0,
+          documentsProcessing: 0,
+          documentsFailed: 0,
+          lastActivity: null,
+        },
+      });
+    } catch (dbError) {
+      await pool.end();
+      throw dbError;
+    }
   } catch (error) {
-    console.error('Error fetching user:', error)
-    return Response.json(
-      { 
+    console.error('Error fetching user:', error);
+    return NextResponse.json(
+      {
         success: false,
-        error: 'Failed to fetch user' 
+        error: 'Failed to fetch user',
       },
       { status: 500 }
-    )
+    );
   }
 }
 
 // Apply RBAC middleware requiring admin role
-export const GET = withRBAC(getUserHandler, { requiredRole: 'admin' })
-export const DELETE = withRBAC(deleteUserHandler, { requiredRole: 'admin' })
+export const GET = withRBAC(getUserHandler, { requiredRole: 'admin' });
+export const DELETE = withRBAC(deleteUserHandler, { requiredRole: 'admin' });
