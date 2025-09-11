@@ -43,7 +43,7 @@ describe('Authentication Utilities', () => {
 
   describe('Role validation', () => {
     const VALID_ROLES = ['user', 'admin', 'super_admin'] as const;
-    type Role = typeof VALID_ROLES[number];
+    type Role = (typeof VALID_ROLES)[number];
 
     const isValidRole = (role: string): role is Role => {
       return VALID_ROLES.includes(role as Role);
