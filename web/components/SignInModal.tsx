@@ -83,7 +83,7 @@ export default function SignInModal({ isOpen, onClose, onSuccess }: SignInModalP
         </button>
 
         <p className="mt-6 text-sm text-gray-500">
-          You'll be redirected to our secure sign-in page with multiple authentication options including Google, GitHub, and more.
+          You&apos;ll be redirected to our secure sign-in page with multiple authentication options including Google, GitHub, and more.
         </p>
       </div>
     </div>

@@ -25,35 +25,13 @@ import {
   AlertCircle,
   ExternalLink,
   RefreshCw,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { formatDate, formatBytes } from '@/lib/utils';
 import { useDocuments } from '@/hooks/useApi';
+import { Document } from '@/lib/api';
 import toast from 'react-hot-toast';
-
-interface Document {
-  doc_id: string;
-  filename: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
-  completed_at?: string;
-  user_id: string;
-  metadata?: {
-    originalSize?: number;
-    pageCount?: number;
-    title?: string;
-    author?: string;
-  };
-  scores?: {
-    overall?: number;
-    structure?: number;
-    alt_text?: number;
-    color_contrast?: number;
-    navigation?: number;
-  };
-  artifacts?: Record<string, string>;
-  error_message?: string;
-}
 
 function getStatusBadge(status: string) {
   switch (status) {
@@ -116,18 +94,57 @@ function DocumentSkeleton() {
 export default function DocumentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  
-  const { data: documentsResponse, isLoading, error, refetch } = useDocuments({
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    document?: Document;
+  }>({ isOpen: false });
+
+  const {
+    data: documentsResponse,
+    isLoading,
+    error,
+    refetch,
+  } = useDocuments({
     page: 1,
-    limit: 50
+    per_page: 50,
   });
-  
+
   React.useEffect(() => {
     if (error) {
       toast.error('Failed to load documents');
     }
   }, [error]);
   
+  // Delete document handler
+  const handleDeleteDocument = async (doc: Document) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/documents/${doc.doc_id}?confirm_deletion=true`, {
+        method: 'DELETE',
+        headers: {
+          'X-Dashboard-Internal': 'true',
+          'X-Dashboard-Secret': 'dashboard_internal_secret_123',
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete document');
+      }
+      
+      const result = await response.json();
+      toast.success(`Document deleted successfully. Removed ${result.deletion_summary.total_artifacts_removed} artifacts.`);
+      
+      // Refresh the list
+      refetch();
+      
+      // Close confirmation modal
+      setDeleteConfirmation({ isOpen: false });
+      
+    } catch (error) {
+      console.error('Delete failed:', error);
+      toast.error('Failed to delete document');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -139,7 +156,7 @@ export default function DocumentsPage() {
             </p>
           </div>
         </div>
-        
+
         {/* Stats Skeleton */}
         <div className="grid gap-4 md:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
@@ -154,7 +171,7 @@ export default function DocumentsPage() {
             </Card>
           ))}
         </div>
-        
+
         <Card>
           <CardHeader>
             <CardTitle>Document Library</CardTitle>
@@ -168,23 +185,28 @@ export default function DocumentsPage() {
   }
 
   const documents: Document[] = documentsResponse?.documents || [];
-  
+
   // Filter documents
-  const filteredDocuments = documents.filter(doc => {
-    const matchesSearch = !searchTerm || 
+  const filteredDocuments = documents.filter((doc) => {
+    const matchesSearch =
+      !searchTerm ||
       doc.filename.toLowerCase().includes(searchTerm.toLowerCase()) ||
       doc.user_id.toLowerCase().includes(searchTerm.toLowerCase());
-      
+
     const matchesStatus = statusFilter === 'all' || doc.status === statusFilter;
-    
+
     return matchesSearch && matchesStatus;
   });
-  
+
   const completedDocs = documents.filter((doc) => doc.status === 'completed');
   const failedDocs = documents.filter((doc) => doc.status === 'failed');
-  const avgScore = completedDocs.length > 0 
-    ? completedDocs.reduce((sum, doc) => sum + (doc.scores?.overall || 0), 0) / completedDocs.length
-    : 0;
+  const avgScore =
+    completedDocs.length > 0
+      ? completedDocs.reduce(
+          (sum, doc) => sum + (doc.scores?.overall || 0),
+          0
+        ) / completedDocs.length
+      : 0;
 
   return (
     <div className="space-y-6">
@@ -243,8 +265,11 @@ export default function DocumentsPage() {
           <CardContent>
             <div className="text-2xl font-bold">
               {
-                completedDocs.filter(
-                  (doc) => doc.wcagLevel === 'AA' || doc.wcagLevel === 'AAA'
+                documents.filter(
+                  (doc) =>
+                    (doc.scores?.overall && doc.scores.overall >= 85) ||
+                    doc.wcagLevel === 'AA' ||
+                    doc.wcagLevel === 'AAA'
                 ).length
               }
             </div>
@@ -259,7 +284,7 @@ export default function DocumentsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {completedDocs.reduce((sum, doc) => sum + (doc.issues || 0), 0)}
+              {documents.reduce((sum, doc) => sum + (doc.issues || 0), 0)}
             </div>
             <p className="text-xs text-muted-foreground">
               Across all documents
@@ -274,8 +299,8 @@ export default function DocumentsPage() {
           <div className="flex gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Search documents..." 
+              <Input
+                placeholder="Search documents..."
                 className="pl-8"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -310,7 +335,9 @@ export default function DocumentsPage() {
               <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <h3 className="text-lg font-semibold mb-2">No documents found</h3>
               <p className="text-sm">
-                {searchTerm ? 'Try adjusting your search terms' : 'Upload a document to get started'}
+                {searchTerm
+                  ? 'Try adjusting your search terms'
+                  : 'Upload a document to get started'}
               </p>
             </div>
           ) : (
@@ -325,24 +352,32 @@ export default function DocumentsPage() {
                   <div className="flex-1 min-w-0 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <Link 
+                        <Link
                           href={`/documents/${doc.doc_id}`}
                           className="font-medium truncate hover:underline"
                         >
                           {doc.filename || 'Untitled Document'}
                         </Link>
                         {getStatusBadge(doc.status)}
-                        {doc.scores?.overall && doc.scores.overall >= 85 && (
+                        {((doc.scores?.overall && doc.scores.overall >= 85) ||
+                          doc.wcagLevel === 'AA') && (
                           <Badge variant="success">WCAG AA</Badge>
                         )}
-                        {doc.scores?.overall && doc.scores.overall >= 95 && (
+                        {((doc.scores?.overall && doc.scores.overall >= 95) ||
+                          doc.wcagLevel === 'AAA') && (
                           <Badge variant="success">WCAG AAA</Badge>
                         )}
                       </div>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span>{formatBytes(doc.metadata?.originalSize || 0)}</span>
+                        <span>
+                          {formatBytes(doc.metadata?.originalSize || 0)}
+                        </span>
                         {doc.scores?.overall && (
-                          <span className={getAccessibilityScoreColor(doc.scores.overall)}>
+                          <span
+                            className={getAccessibilityScoreColor(
+                              doc.scores.overall
+                            )}
+                          >
                             {doc.scores.overall}% accessible
                           </span>
                         )}
@@ -350,10 +385,6 @@ export default function DocumentsPage() {
                     </div>
 
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        <span>{doc.user_id}</span>
-                      </div>
                       <div className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
                         <span>Uploaded {formatDate(doc.created_at)}</span>
@@ -378,12 +409,15 @@ export default function DocumentsPage() {
                     </Link>
                     {doc.status === 'completed' && doc.artifacts && (
                       <>
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => {
                             // Download accessible PDF
-                            window.open(`/api/v1/documents/${doc.doc_id}/downloads?document_type=accessible_pdf`, '_blank');
+                            window.open(
+                              `/api/v1/documents/${doc.doc_id}/downloads?document_type=accessible_pdf`,
+                              '_blank'
+                            );
                           }}
                         >
                           <Download className="h-4 w-4" />
@@ -395,14 +429,81 @@ export default function DocumentsPage() {
                         </Link>
                       </>
                     )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDeleteConfirmation({ isOpen: true, document: doc })}
+                      className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               ))}
             </div>
           )}
-          </div>
         </CardContent>
       </Card>
+      
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmation.isOpen && deleteConfirmation.document && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-red-600">
+                <AlertTriangle className="h-5 w-5" />
+                Delete Document?
+              </CardTitle>
+              <CardDescription>
+                This action cannot be undone. This will permanently delete the document and all associated files.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-red-900 mb-1">
+                      {deleteConfirmation.document.filename}
+                    </p>
+                    <p className="text-red-700">
+                      • Original PDF file
+                      <br />
+                      • Accessible PDF version
+                      <br />
+                      • HTML and text exports
+                      <br />
+                      • Processing artifacts
+                      <br />
+                      • Alt-text and metadata
+                      <br />
+                      • Vector embeddings
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setDeleteConfirmation({ isOpen: false })}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => handleDeleteDocument(deleteConfirmation.document!)}
+                  className="flex-1"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Forever
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

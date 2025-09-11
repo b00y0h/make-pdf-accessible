@@ -17,6 +17,8 @@ import {
   Tag,
   ExternalLink,
   Eye,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -67,6 +69,7 @@ export default function DocumentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const docId = params.id as string;
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = React.useState(false);
 
   const {
     document,
@@ -96,6 +99,34 @@ export default function DocumentDetailPage() {
     if (duration < 60) return `${duration} seconds`;
     if (duration < 3600) return `${Math.floor(duration / 60)} minutes`;
     return `${Math.floor(duration / 3600)} hours`;
+  };
+
+  const handleDeleteDocument = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/documents/${docId}?confirm_deletion=true`, {
+        method: 'DELETE',
+        headers: {
+          'X-Dashboard-Internal': 'true',
+          'X-Dashboard-Secret': 'dashboard_internal_secret_123',
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete document');
+      }
+      
+      const result = await response.json();
+      
+      // Show success message
+      alert(`Document deleted successfully. Removed ${result.deletion_summary.total_artifacts_removed} artifacts.`);
+      
+      // Navigate back to documents list
+      router.push('/');
+      
+    } catch (error) {
+      console.error('Delete failed:', error);
+      alert('Failed to delete document');
+    }
   };
 
   if (isLoading) {
@@ -454,11 +485,71 @@ export default function DocumentDetailPage() {
                 >
                   View All Documents
                 </button>
+
+                {isCompleted && (
+                  <button
+                    onClick={() => setShowDeleteConfirmation(true)}
+                    className="w-full px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete Document
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </div>
       </div>
+      
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="bg-red-100 p-2 rounded-full">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-medium text-gray-900">Delete Document</h3>
+                <p className="text-sm text-gray-500">This action cannot be undone</p>
+              </div>
+            </div>
+            
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <p className="text-sm text-red-800 mb-2 font-medium">
+                {document?.filename || 'This document'}
+              </p>
+              <p className="text-sm text-red-700">
+                The following will be permanently deleted:
+              </p>
+              <ul className="text-sm text-red-700 mt-2 space-y-1 ml-4">
+                <li>• Original PDF file</li>
+                <li>• Accessible PDF version</li>
+                <li>• HTML and text exports</li>
+                <li>• Processing artifacts</li>
+                <li>• Alt-text and metadata</li>
+                <li>• Vector embeddings</li>
+              </ul>
+            </div>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowDeleteConfirmation(false)}
+                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteDocument}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center justify-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete Forever
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

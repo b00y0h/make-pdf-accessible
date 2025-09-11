@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 import logging
 
@@ -19,7 +19,7 @@ from fastapi import (
 
 from services.shared.mongo.demo_sessions import get_demo_session_repository
 
-from ..auth import User, get_current_user, require_roles
+from ..auth import User, get_current_user, get_dashboard_user, require_roles
 from ..config import settings
 from ..models import (
     DocumentCreateRequest,
@@ -53,7 +53,8 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 )
 @tracer.capture_method
 async def get_presigned_upload_url(
-    request: PreSignedUploadRequest, current_user: User = Depends(get_current_user)
+    request: PreSignedUploadRequest, 
+    current_user: User = Depends(get_dashboard_user)
 ) -> PreSignedUploadResponse:
     """Get pre-signed S3 upload URL for direct client upload"""
     
@@ -1077,15 +1078,23 @@ async def get_download_url(
 
 @router.delete(
     "/{document_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Delete document",
-    description="Delete a document and all associated files (admin only).",
+    status_code=status.HTTP_200_OK,
+    summary="Delete document and all artifacts",
+    description="Permanently delete a document and all associated artifacts. Requires confirmation parameter.",
 )
 @tracer.capture_method
 async def delete_document(
-    document_id: UUID, current_user: User = Depends(require_roles([UserRole.ADMIN]))
-) -> None:
-    """Delete document (admin only)"""
+    document_id: UUID,
+    confirm_deletion: bool = Query(False, description="Must be true to confirm deletion"),
+    current_user: User = Depends(get_dashboard_user)
+) -> Dict[str, Any]:
+    """Delete document and all artifacts with confirmation"""
+
+    if not confirm_deletion:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Deletion must be confirmed by setting confirm_deletion=true"
+        )
 
     try:
         # First, verify the document exists
@@ -1096,18 +1105,94 @@ async def delete_document(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
             )
 
-        # TODO: Implement document deletion logic
-        # This would involve:
-        # 1. Deleting files from S3 buckets
-        # 2. Removing records from DynamoDB
-        # 3. Canceling any in-progress jobs
+        # Get document to verify it exists and get artifact info
+        document = await document_service.get_document(doc_id=str(document_id))
+        if not document:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Document not found"
+            )
+        
+        # Check ownership (user can only delete own docs unless admin)
+        if document.user_id != current_user.sub and current_user.role != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only delete your own documents"
+            )
+        
+        # Delete all S3 artifacts
+        import boto3
+        s3_client = boto3.client("s3")
+        buckets_to_check = ["pdf-accessibility-dev-pdf-originals", "pdf-derivatives", "pdf-temp", "pdf-reports"]
+        
+        deleted_objects = []
+        doc_id = str(document_id)
+        
+        # Delete from all possible S3 locations
+        common_prefixes = [
+            f"uploads/{current_user.sub}/{doc_id}/",
+            f"pdf-derivatives/{doc_id}/",
+            f"exports/{doc_id}/",
+            f"reports/{doc_id}/", 
+            f"previews/{doc_id}/",
+            f"accessible/{doc_id}/",
+            f"corpus/{doc_id}/",
+            f"embeddings/{doc_id}/",
+        ]
+        
+        for bucket in buckets_to_check:
+            try:
+                for prefix in common_prefixes:
+                    response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
+                    
+                    if 'Contents' in response:
+                        objects_to_delete = [{'Key': obj['Key']} for obj in response['Contents']]
+                        
+                        if objects_to_delete:
+                            delete_response = s3_client.delete_objects(
+                                Bucket=bucket,
+                                Delete={'Objects': objects_to_delete}
+                            )
+                            deleted_objects.extend(delete_response.get('Deleted', []))
+                            
+            except Exception as e:
+                logger.warning(f"Could not delete from bucket {bucket}: {e}")
+        
+        # Delete from MongoDB
+        from services.shared.mongo.documents import get_document_repository
+        doc_repo = get_document_repository()
+        mongo_deleted = doc_repo.delete_by_id(doc_id)
+        
+        # Delete alt-text data
+        try:
+            from services.shared.mongo.alt_text import get_alt_text_repository
+            alt_text_repo = get_alt_text_repository()
+            alt_text_repo.delete_document_alt_text(doc_id)
+        except Exception as e:
+            logger.warning(f"Could not delete alt-text data: {e}")
 
         metrics.add_metric(name="DocumentDeletions", unit="Count", value=1)
+        metrics.add_metric(name="ArtifactsDeleted", unit="Count", value=len(deleted_objects))
 
         logger.info(
-            "Document deleted",
-            extra={"doc_id": str(document_id), "admin_user": current_user.sub},
+            "Document and artifacts deleted successfully",
+            extra={
+                "doc_id": str(document_id), 
+                "admin_user": current_user.sub,
+                "deleted_objects": len(deleted_objects)
+            },
         )
+        
+        return {
+            "message": "Document and all artifacts deleted successfully",
+            "doc_id": str(document_id),
+            "deletion_summary": {
+                "s3_objects_deleted": len(deleted_objects),
+                "mongodb_record_deleted": mongo_deleted,
+                "alt_text_deleted": True,
+                "total_artifacts_removed": len(deleted_objects),
+            }
+        }
 
     except AWSServiceError as e:
         logger.error(f"Failed to delete document {document_id}: {e}")

@@ -6,7 +6,7 @@ import uuid
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Query
 from pydantic import BaseModel, Field
 
 from ..auth import User as UserInfo, get_current_user

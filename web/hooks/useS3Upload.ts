@@ -37,6 +37,13 @@ export interface DocumentResponse {
   user_id: string;
   metadata: { [key: string]: any };
   artifacts: { [key: string]: string };
+  scores?: {
+    overall?: number;
+    structure?: number;
+    alt_text?: number;
+    color_contrast?: number;
+    navigation?: number;
+  };
   error_message?: string;
 }
 

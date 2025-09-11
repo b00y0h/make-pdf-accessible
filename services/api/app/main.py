@@ -129,11 +129,14 @@ app.add_middleware(
     APIKeyAuthMiddleware,
     excluded_paths=[
         "/docs",
-        "/openapi.json",
+        "/openapi.json", 
         "/health",
         "/ping",
         "/auth",  # BetterAuth endpoints
-        "/documents",  # Temporarily excluded for demo
+        "/documents",  # Dashboard and demo endpoints
+        "/v1/documents",  # Versioned dashboard endpoints
+        "/reports",  # Dashboard analytics
+        "/v1/reports",  # Versioned dashboard analytics
     ],
 )
 

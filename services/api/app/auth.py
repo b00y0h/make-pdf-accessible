@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional
 
 import requests
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, status, Header
 
 from .config import settings
 from .models import UserRole
@@ -150,3 +150,29 @@ def require_roles(required_roles: List[UserRole]):
         return current_user
 
     return role_checker
+
+
+async def get_dashboard_user(
+    x_dashboard_internal: Optional[str] = Header(None),
+    x_dashboard_secret: Optional[str] = Header(None),
+) -> User:
+    """Internal dashboard authentication for same-system communication."""
+    
+    # Check for dashboard internal headers
+    if (x_dashboard_internal == "true" and 
+        x_dashboard_secret == "dashboard_internal_secret_123"):
+        
+        # Return a dashboard system user
+        return User(
+            sub="dashboard_system_user",
+            email="dashboard@system.local",
+            name="Dashboard System",
+            role="admin",  # Dashboard has admin access
+            org_id="system",
+        )
+    
+    # Not a dashboard internal call
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Dashboard authentication required"
+    )

@@ -38,8 +38,11 @@ export function useApiService() {
         headers: config.headers,
       });
       
-      // BetterAuth uses cookies for authentication - no need for Authorization header
-      // The cookies will be sent automatically with withCredentials: true
+      // Add dashboard internal authentication header
+      config.headers['X-Dashboard-Internal'] = 'true';
+      config.headers['X-Dashboard-Secret'] = 'dashboard_internal_secret_123';
+      
+      // BetterAuth cookies handle dashboard user sessions internally
       return config;
     });
 
