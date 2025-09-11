@@ -13,7 +13,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from .config import settings
 from .middleware import APIKeyAuthMiddleware
 from .models import ErrorResponse, HealthResponse
-from .routes import admin, api_keys, auth, demo, documents, quotas, reports, webhooks
+from .routes import admin, api_keys, auth, demo, documents, quotas, reports, webhooks, search
 from .services import AWSServiceError
 
 # Initialize Powertools
@@ -272,6 +272,7 @@ app.include_router(reports.router)
 app.include_router(quotas.router)
 app.include_router(api_keys.router)
 app.include_router(admin.router)
+app.include_router(search.router)
 
 
 # Lambda handler

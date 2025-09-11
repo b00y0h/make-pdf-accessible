@@ -40,7 +40,7 @@ export interface DocumentResponse {
   error_message?: string;
 }
 
-export function useS3Upload(apiBaseUrl: string = '/api') {
+export function useS3Upload(apiBaseUrl: string = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') {
   const [uploadProgress, setUploadProgress] = useState<{
     [fileId: string]: UploadProgress;
   }>({});

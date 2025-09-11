@@ -58,6 +58,26 @@ class TextractBlock(BaseModel):
         None, description="Bounding box coordinates"
     )
     page: Optional[int] = Field(None, description="Page number")
+    query_alias: Optional[str] = Field(None, description="Query alias if this is a query result")
+
+
+class TextractQueryResult(BaseModel):
+    """Textract query result model."""
+    
+    alias: str = Field(..., description="Query alias")
+    text: Optional[str] = Field(None, description="Query answer text")
+    confidence: Optional[float] = Field(None, description="Confidence score")
+
+
+class DocumentMetadata(BaseModel):
+    """Enhanced document metadata from Textract queries."""
+    
+    title: Optional[str] = Field(None, description="Document title")
+    main_heading: Optional[str] = Field(None, description="Main document heading")
+    subject: Optional[str] = Field(None, description="Document subject")
+    author: Optional[str] = Field(None, description="Document author")
+    key_topics: Optional[str] = Field(None, description="Key topics covered")
+    confidence_scores: Dict[str, float] = Field(default_factory=dict, description="Confidence scores for each metadata field")
 
 
 class TextractResponse(BaseModel):
@@ -67,3 +87,5 @@ class TextractResponse(BaseModel):
     document_metadata: Dict[str, Any] = Field(..., description="Document metadata")
     blocks: List[TextractBlock] = Field(..., description="Extracted text blocks")
     total_pages: int = Field(..., description="Total number of pages")
+    query_results: List[TextractQueryResult] = Field(default_factory=list, description="Query results")
+    extracted_metadata: Optional[DocumentMetadata] = Field(None, description="Extracted document metadata")

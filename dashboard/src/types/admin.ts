@@ -8,12 +8,11 @@ export interface User {
   id?: string; // For compatibility with existing code
   email: string;
   name?: string;
-  username?: string; // For local admin login
-  password?: string; // Hashed password for local admin
+  username?: string;
+  password?: string; // Hashed password (only for local admin accounts)
   role: UserRole;
-  sub?: string; // Cognito subject ID
-  cognitoGroups?: string[]; // Cognito groups
-  cognitoUsername?: string; // Cognito username
+  sub?: string; // Subject ID for compatibility
+  orgId?: string; // Organization ID
   createdAt: Date;
   updatedAt: Date;
 }

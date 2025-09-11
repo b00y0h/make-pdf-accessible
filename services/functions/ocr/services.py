@@ -7,7 +7,7 @@ import PyPDF2
 from aws_lambda_powertools import Logger, Metrics, Tracer
 from aws_lambda_powertools.metrics import MetricUnit
 from botocore.exceptions import ClientError
-from models import OCRStatus, TextractBlock, TextractJobStatus, TextractResponse
+from models import OCRStatus, TextractBlock, TextractJobStatus, TextractResponse, TextractQueryResult, DocumentMetadata
 
 logger = Logger()
 tracer = Tracer()
@@ -84,18 +84,28 @@ class OCRService:
     @tracer.capture_method
     def start_textract_job(self, s3_key: str, doc_id: str) -> str:
         """
-        Start an asynchronous Textract document analysis job.
+        Start an asynchronous Textract document analysis job with queries.
 
         Returns:
             Textract job ID
         """
         try:
-            # Use document analysis for better structure detection
+            # Define queries for metadata extraction
+            queries = [
+                {"Text": "What is the title of this document?", "Alias": "DOCUMENT_TITLE"},
+                {"Text": "What is the main heading?", "Alias": "MAIN_HEADING"},
+                {"Text": "What is the subject of this document?", "Alias": "DOCUMENT_SUBJECT"},
+                {"Text": "Who is the author?", "Alias": "DOCUMENT_AUTHOR"},
+                {"Text": "What are the key topics covered?", "Alias": "KEY_TOPICS"},
+            ]
+
+            # Use document analysis with queries for metadata extraction
             response = self.textract.start_document_analysis(
                 DocumentLocation={
                     "S3Object": {"Bucket": self.bucket_name, "Name": s3_key}
                 },
-                FeatureTypes=["TABLES", "FORMS", "LAYOUT"],
+                FeatureTypes=["TABLES", "FORMS", "LAYOUT", "QUERIES"],
+                QueriesConfig={"Queries": queries},
                 JobTag=f"pdf-accessibility-{doc_id}",
             )
 
@@ -202,6 +212,7 @@ class OCRService:
         """
         try:
             blocks = []
+            query_results = []
             next_token = None
 
             while True:
@@ -214,6 +225,21 @@ class OCRService:
 
                 # Process blocks
                 for block in response.get("Blocks", []):
+                    query_alias = None
+                    
+                    # Check if this block is part of a query result
+                    if block["BlockType"] == "QUERY_RESULT":
+                        # Find the associated query to get the alias
+                        query_alias = self._find_query_alias(block, response.get("Blocks", []))
+                        
+                        # Store query result
+                        query_result = TextractQueryResult(
+                            alias=query_alias or "UNKNOWN",
+                            text=block.get("Text"),
+                            confidence=block.get("Confidence")
+                        )
+                        query_results.append(query_result)
+                    
                     textract_block = TextractBlock(
                         id=block["Id"],
                         block_type=block["BlockType"],
@@ -221,6 +247,7 @@ class OCRService:
                         confidence=block.get("Confidence"),
                         bounding_box=block.get("Geometry", {}).get("BoundingBox"),
                         page=block.get("Page"),
+                        query_alias=query_alias,
                     )
                     blocks.append(textract_block)
 
@@ -232,8 +259,11 @@ class OCRService:
             page_blocks = [b for b in blocks if b.block_type == "PAGE"]
             total_pages = len(page_blocks)
 
+            # Extract metadata from query results
+            extracted_metadata = self._extract_metadata_from_queries(query_results)
+
             logger.info(
-                f"Retrieved {len(blocks)} blocks from Textract job {job_id}, {total_pages} pages"
+                f"Retrieved {len(blocks)} blocks, {len(query_results)} query results from Textract job {job_id}, {total_pages} pages"
             )
 
             return TextractResponse(
@@ -241,6 +271,8 @@ class OCRService:
                 document_metadata=response.get("DocumentMetadata", {}),
                 blocks=blocks,
                 total_pages=total_pages,
+                query_results=query_results,
+                extracted_metadata=extracted_metadata,
             )
 
         except ClientError as e:
@@ -269,6 +301,8 @@ class OCRService:
                 "document_metadata": textract_response.document_metadata,
                 "total_pages": textract_response.total_pages,
                 "blocks": [block.dict() for block in textract_response.blocks],
+                "query_results": [qr.dict() for qr in textract_response.query_results],
+                "extracted_metadata": textract_response.extracted_metadata.dict() if textract_response.extracted_metadata else None,
             }
 
             # Upload to S3
@@ -290,3 +324,81 @@ class OCRService:
             error_code = e.response["Error"]["Code"]
             logger.error(f"Failed to save Textract results: {error_code}")
             raise OCRServiceError(f"Failed to save Textract results: {error_code}")
+
+    def _find_query_alias(self, query_result_block: dict, all_blocks: list) -> str:
+        """
+        Find the query alias associated with a query result block.
+        
+        Args:
+            query_result_block: The QUERY_RESULT block
+            all_blocks: All blocks from the Textract response
+            
+        Returns:
+            Query alias string or None
+        """
+        try:
+            # Look for relationships to find the associated QUERY block
+            relationships = query_result_block.get("Relationships", [])
+            for relationship in relationships:
+                if relationship["Type"] == "ANSWER":
+                    # Find the QUERY block this result answers
+                    for block in all_blocks:
+                        if block["Id"] in relationship["Ids"] and block["BlockType"] == "QUERY":
+                            return block.get("Query", {}).get("Alias", "UNKNOWN")
+            return "UNKNOWN"
+        except Exception as e:
+            logger.warning(f"Error finding query alias: {e}")
+            return "UNKNOWN"
+
+    def _extract_metadata_from_queries(self, query_results: List[TextractQueryResult]) -> DocumentMetadata:
+        """
+        Extract document metadata from Textract query results.
+        
+        Args:
+            query_results: List of query results
+            
+        Returns:
+            DocumentMetadata object
+        """
+        metadata = DocumentMetadata()
+        
+        for result in query_results:
+            if not result.text or not result.text.strip():
+                continue
+                
+            # Clean up the text
+            text = result.text.strip()
+            confidence = result.confidence or 0.0
+            
+            # Map query aliases to metadata fields
+            if result.alias == "DOCUMENT_TITLE":
+                metadata.title = text
+                metadata.confidence_scores["title"] = confidence
+            elif result.alias == "MAIN_HEADING":
+                metadata.main_heading = text
+                metadata.confidence_scores["main_heading"] = confidence
+            elif result.alias == "DOCUMENT_SUBJECT":
+                metadata.subject = text
+                metadata.confidence_scores["subject"] = confidence
+            elif result.alias == "DOCUMENT_AUTHOR":
+                metadata.author = text
+                metadata.confidence_scores["author"] = confidence
+            elif result.alias == "KEY_TOPICS":
+                metadata.key_topics = text
+                metadata.confidence_scores["key_topics"] = confidence
+        
+        # Log extracted metadata
+        extracted_fields = []
+        if metadata.title:
+            extracted_fields.append(f"title: {metadata.title[:50]}...")
+        if metadata.author:
+            extracted_fields.append(f"author: {metadata.author}")
+        if metadata.subject:
+            extracted_fields.append(f"subject: {metadata.subject[:50]}...")
+            
+        if extracted_fields:
+            logger.info(f"Extracted metadata: {', '.join(extracted_fields)}")
+        else:
+            logger.info("No metadata extracted from queries")
+            
+        return metadata

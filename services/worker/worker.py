@@ -550,3 +550,109 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
             raise self.retry(exc=e, countdown=60)  # Retry after 1 minute
         
         raise
+
+
+@app.task(bind=True, max_retries=2)
+def prepare_document_corpus(self, doc_id: str, document_structure_s3_key: str, alt_text_s3_key: str = None):
+    """Prepare document for LLM consumption with chunking and embeddings"""
+    try:
+        logger.info(f"Starting corpus preparation for document {doc_id}")
+        
+        # Import required modules
+        import boto3
+        import json
+        from datetime import datetime
+        
+        # Import chunking and embeddings services
+        from src.chunking_service import ChunkingService
+        from src.embeddings_service import get_embeddings_service
+        from services.shared.mongo.documents import get_document_repository
+        
+        # Initialize services
+        chunking_service = ChunkingService()
+        embeddings_service = get_embeddings_service()
+        doc_repo = get_document_repository()
+        
+        # Initialize S3 client for LocalStack
+        s3_client = boto3.client(
+            's3',
+            endpoint_url='http://localstack:4566',
+            aws_access_key_id='test',
+            aws_secret_access_key='test',
+            region_name='us-east-1'
+        )
+        
+        # Load document structure
+        logger.info(f"Loading document structure from {document_structure_s3_key}")
+        structure_response = s3_client.get_object(Bucket='pdf-derivatives', Key=document_structure_s3_key)
+        document_structure = json.loads(structure_response['Body'].read())
+        
+        # Load alt-text data if available
+        alt_text_data = None
+        if alt_text_s3_key:
+            try:
+                alt_response = s3_client.get_object(Bucket='pdf-derivatives', Key=alt_text_s3_key)
+                alt_text_data = json.loads(alt_response['Body'].read())
+                logger.info(f"Loaded alt-text data with {len(alt_text_data.get('figures', []))} figures")
+            except Exception as e:
+                logger.warning(f"Could not load alt-text data: {e}")
+        
+        # Create document corpus
+        logger.info("Creating document corpus with chunking")
+        document_corpus = chunking_service.create_document_corpus(
+            doc_id=doc_id,
+            document_structure=document_structure,
+            textract_results=None,  # Could load if needed
+            alt_text_data=alt_text_data
+        )
+        
+        # Generate embeddings
+        logger.info("Generating embeddings for corpus")
+        enhanced_corpus = embeddings_service.generate_embeddings_for_corpus(
+            doc_id=doc_id,
+            document_corpus=document_corpus
+        )
+        
+        # Save corpus to S3
+        corpus_s3_key = f"corpus/{doc_id}/document_corpus.json"
+        s3_client.put_object(
+            Bucket='pdf-derivatives',
+            Key=corpus_s3_key,
+            Body=json.dumps(enhanced_corpus, default=str),
+            ContentType='application/json'
+        )
+        
+        # Save embeddings separately for vector search
+        embeddings_s3_key = None
+        if enhanced_corpus.get("embeddings"):
+            embeddings_s3_key = embeddings_service.save_embeddings_to_s3(
+                doc_id=doc_id,
+                embeddings=enhanced_corpus["embeddings"],
+                bucket_name='pdf-derivatives'
+            )
+            logger.info(f"Saved embeddings to {embeddings_s3_key}")
+        
+        # Update document with corpus artifacts
+        doc_repo.update_artifacts(doc_id=doc_id, artifacts={
+            "corpus": corpus_s3_key,
+            "embeddings": embeddings_s3_key,
+        })
+        
+        logger.info(f"Corpus preparation completed for document {doc_id}")
+        return {
+            "status": "completed", 
+            "corpus_s3_key": corpus_s3_key,
+            "embeddings_s3_key": embeddings_s3_key,
+            "total_chunks": enhanced_corpus.get("totalChunks", 0),
+            "total_embeddings": len(enhanced_corpus.get("embeddings", [])),
+        }
+        
+    except Exception as e:
+        logger.error(f"Error preparing corpus for document {doc_id}: {str(e)}")
+        
+        # Retry the task if retries are available
+        if self.request.retries < self.max_retries:
+            logger.info(f"Retrying corpus preparation for document {doc_id}")
+            raise self.retry(countdown=60, exc=e)
+        
+        return {"status": "failed", "error": str(e)}

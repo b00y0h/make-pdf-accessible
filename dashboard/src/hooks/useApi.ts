@@ -44,7 +44,7 @@ export function useApiService() {
     });
 
     return new ApiService(apiClient);
-  }, [session, isPending]);
+  }, [isPending]);
 }
 
 // Query keys
