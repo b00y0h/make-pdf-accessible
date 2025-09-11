@@ -27,8 +27,8 @@ class DocumentRepository(Protocol):
         status_filter: Optional[List[str]] = None,
         page: int = 1,
         limit: int = 10,
-        sort_by: str = 'createdAt',
-        sort_order: str = 'desc'
+        sort_by: str = "createdAt",
+        sort_order: str = "desc",
     ) -> dict:
         """Get documents for owner with pagination."""
         ...
@@ -39,7 +39,7 @@ class DocumentRepository(Protocol):
         status: str,
         error_message: Optional[str] = None,
         completed_at: Optional[datetime] = None,
-        additional_data: Optional[dict] = None
+        additional_data: Optional[dict] = None,
     ) -> bool:
         """Update document status."""
         ...
@@ -65,7 +65,7 @@ class JobRepository(Protocol):
         self,
         doc_id: str,
         step_filter: Optional[List[str]] = None,
-        status_filter: Optional[List[str]] = None
+        status_filter: Optional[List[str]] = None,
     ) -> List[dict]:
         """Get jobs for document."""
         ...
@@ -74,17 +74,12 @@ class JobRepository(Protocol):
         self,
         step: Optional[str] = None,
         limit: int = 10,
-        priority_threshold: Optional[int] = None
+        priority_threshold: Optional[int] = None,
     ) -> List[dict]:
         """Get pending jobs for processing."""
         ...
 
-    def update_job_status(
-        self,
-        job_id: str,
-        status: str,
-        **kwargs
-    ) -> bool:
+    def update_job_status(self, job_id: str, status: str, **kwargs) -> bool:
         """Update job status."""
         ...
 
@@ -96,7 +91,9 @@ class PersistenceManager:
         self.feature_flags = get_feature_flags()
         self._document_repo: Optional[DocumentRepository] = None
         self._job_repo: Optional[JobRepository] = None
-        self._dynamo_document_repo: Optional[DocumentRepository] = None  # For dual write
+        self._dynamo_document_repo: Optional[DocumentRepository] = (
+            None  # For dual write
+        )
         self._dynamo_job_repo: Optional[JobRepository] = None  # For dual write
         self._setup_repositories()
 
@@ -171,7 +168,9 @@ class PersistenceManager:
                 self._dynamo_document_repo = DynamoDocumentRepository()
                 self._dynamo_job_repo = DynamoJobRepository()
 
-                logger.info("Dual write enabled: MongoDB (primary) -> DynamoDB (secondary)")
+                logger.info(
+                    "Dual write enabled: MongoDB (primary) -> DynamoDB (secondary)"
+                )
 
             elif primary_provider == PersistenceProvider.DYNAMO:
                 # Setup MongoDB as secondary
@@ -183,12 +182,14 @@ class PersistenceManager:
 
                 # For DynamoDB primary, we'd need different storage
                 # This is a simplified version - in production you'd want better separation
-                logger.info("Dual write enabled: DynamoDB (primary) -> MongoDB (secondary)")
+                logger.info(
+                    "Dual write enabled: DynamoDB (primary) -> MongoDB (secondary)"
+                )
 
         except Exception as e:
             logger.error(f"Failed to setup dual write: {e}")
             # Don't fail completely, just disable dual write
-            self.feature_flags.set('enable_dual_write', False)
+            self.feature_flags.set("enable_dual_write", False)
 
     @property
     def document_repository(self) -> DocumentRepository:
@@ -214,9 +215,13 @@ class PersistenceManager:
             if self.feature_flags.should_dual_write() and self._dynamo_document_repo:
                 try:
                     self._dynamo_document_repo.create_document(doc_data)
-                    logger.debug(f"Dual write successful for document {doc_data.get('docId')}")
+                    logger.debug(
+                        f"Dual write successful for document {doc_data.get('docId')}"
+                    )
                 except Exception as e:
-                    logger.error(f"Dual write failed for document {doc_data.get('docId')}: {e}")
+                    logger.error(
+                        f"Dual write failed for document {doc_data.get('docId')}: {e}"
+                    )
                     # Continue with primary write success
 
             return result
@@ -235,9 +240,13 @@ class PersistenceManager:
             if self.feature_flags.should_dual_write() and self._dynamo_job_repo:
                 try:
                     self._dynamo_job_repo.create_job(job_data)
-                    logger.debug(f"Dual write successful for job {job_data.get('jobId')}")
+                    logger.debug(
+                        f"Dual write successful for job {job_data.get('jobId')}"
+                    )
                 except Exception as e:
-                    logger.error(f"Dual write failed for job {job_data.get('jobId')}: {e}")
+                    logger.error(
+                        f"Dual write failed for job {job_data.get('jobId')}: {e}"
+                    )
                     # Continue with primary write success
 
             return result
@@ -246,21 +255,20 @@ class PersistenceManager:
             logger.error(f"Failed to create job: {e}")
             raise
 
-    def update_document_status(
-        self,
-        doc_id: str,
-        status: str,
-        **kwargs
-    ) -> bool:
+    def update_document_status(self, doc_id: str, status: str, **kwargs) -> bool:
         """Update document status with dual write support."""
         try:
             # Primary update
-            result = self.document_repository.update_document_status(doc_id, status, **kwargs)
+            result = self.document_repository.update_document_status(
+                doc_id, status, **kwargs
+            )
 
             # Secondary update if dual write enabled
             if self.feature_flags.should_dual_write() and self._dynamo_document_repo:
                 try:
-                    self._dynamo_document_repo.update_document_status(doc_id, status, **kwargs)
+                    self._dynamo_document_repo.update_document_status(
+                        doc_id, status, **kwargs
+                    )
                     logger.debug(f"Dual write update successful for document {doc_id}")
                 except Exception as e:
                     logger.error(f"Dual write update failed for document {doc_id}: {e}")
@@ -272,12 +280,7 @@ class PersistenceManager:
             logger.error(f"Failed to update document status: {e}")
             raise
 
-    def update_job_status(
-        self,
-        job_id: str,
-        status: str,
-        **kwargs
-    ) -> bool:
+    def update_job_status(self, job_id: str, status: str, **kwargs) -> bool:
         """Update job status with dual write support."""
         try:
             # Primary update
@@ -303,51 +306,53 @@ class PersistenceManager:
         try:
             provider = self.feature_flags.get_persistence_provider()
             health_status = {
-                'provider': provider.value,
-                'status': 'unknown',
-                'dual_write': self.feature_flags.should_dual_write(),
-                'details': {}
+                "provider": provider.value,
+                "status": "unknown",
+                "dual_write": self.feature_flags.should_dual_write(),
+                "details": {},
             }
 
             if provider == PersistenceProvider.MONGO:
                 from .mongo import health_check
+
                 mongo_health = health_check()
-                health_status['status'] = mongo_health.get('status', 'unhealthy')
-                health_status['details']['mongo'] = mongo_health
+                health_status["status"] = mongo_health.get("status", "unhealthy")
+                health_status["details"]["mongo"] = mongo_health
 
             elif provider == PersistenceProvider.DYNAMO:
                 # DynamoDB health check would go here
-                health_status['status'] = 'healthy'  # Simplified
-                health_status['details']['dynamo'] = {'status': 'healthy'}
+                health_status["status"] = "healthy"  # Simplified
+                health_status["details"]["dynamo"] = {"status": "healthy"}
 
             # Check secondary storage if dual write is enabled
             if self.feature_flags.should_dual_write():
                 if provider == PersistenceProvider.MONGO and self._dynamo_document_repo:
-                    health_status['details']['dynamo_secondary'] = {'status': 'healthy'}
+                    health_status["details"]["dynamo_secondary"] = {"status": "healthy"}
                 elif provider == PersistenceProvider.DYNAMO:
                     from .mongo import health_check
+
                     mongo_health = health_check()
-                    health_status['details']['mongo_secondary'] = mongo_health
+                    health_status["details"]["mongo_secondary"] = mongo_health
 
             return health_status
 
         except Exception as e:
             logger.error(f"Health check failed: {e}")
             return {
-                'provider': 'unknown',
-                'status': 'unhealthy',
-                'error': str(e),
-                'dual_write': False,
-                'details': {}
+                "provider": "unknown",
+                "status": "unhealthy",
+                "error": str(e),
+                "dual_write": False,
+                "details": {},
             }
 
     def get_provider_info(self) -> dict:
         """Get information about the current persistence provider."""
         return {
-            'provider': self.feature_flags.get_persistence_provider().value,
-            'dual_write_enabled': self.feature_flags.should_dual_write(),
-            'migration_mode': self.feature_flags.is_migration_mode(),
-            'configuration': self.feature_flags.get_connection_config()
+            "provider": self.feature_flags.get_persistence_provider().value,
+            "dual_write_enabled": self.feature_flags.should_dual_write(),
+            "migration_mode": self.feature_flags.is_migration_mode(),
+            "configuration": self.feature_flags.get_connection_config(),
         }
 
 

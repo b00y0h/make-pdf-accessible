@@ -22,7 +22,7 @@ export function useDocumentPolling(
     enabled = true,
     refetchInterval = DEFAULT_REFETCH_INTERVAL,
     stopPollingOnStatus = DEFAULT_STOP_STATUSES,
-    apiBaseUrl = '/api'
+    apiBaseUrl = '/api',
   } = options;
 
   const {
@@ -30,14 +30,14 @@ export function useDocumentPolling(
     isLoading,
     isError,
     error,
-    refetch
+    refetch,
   } = useQuery({
     queryKey: ['document', docId],
     queryFn: async (): Promise<DocumentResponse> => {
       if (!docId) {
         throw new Error('Document ID is required');
       }
-      
+
       const response = await axios.get(`${apiBaseUrl}/documents/${docId}`);
       return response.data;
     },
@@ -59,13 +59,22 @@ export function useDocumentPolling(
       // Retry up to 3 times with exponential backoff
       return failureCount < 3;
     },
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000)
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
-  const isPolling = enabled && !!docId && document && !stopPollingOnStatus.includes(document.status);
-  const isProcessing = document && ['pending', 'processing'].includes(document.status);
+  const isPolling =
+    enabled &&
+    !!docId &&
+    document &&
+    !stopPollingOnStatus.includes(document.status);
+  const isProcessing =
+    document && ['pending', 'processing'].includes(document.status);
   const isCompleted = document && document.status === 'completed';
-  const isFailed = document && ['failed', 'validation_failed', 'notification_failed'].includes(document.status);
+  const isFailed =
+    document &&
+    ['failed', 'validation_failed', 'notification_failed'].includes(
+      document.status
+    );
 
   return {
     document,
@@ -76,22 +85,19 @@ export function useDocumentPolling(
     isProcessing,
     isCompleted,
     isFailed,
-    refetch
+    refetch,
   };
 }
 
-export function useDocumentsList(options: { 
-  page?: number; 
-  per_page?: number; 
-  status?: string;
-  apiBaseUrl?: string;
-} = {}) {
-  const { 
-    page = 1, 
-    per_page = 10, 
-    status,
-    apiBaseUrl = '/api' 
-  } = options;
+export function useDocumentsList(
+  options: {
+    page?: number;
+    per_page?: number;
+    status?: string;
+    apiBaseUrl?: string;
+  } = {}
+) {
+  const { page = 1, per_page = 10, status, apiBaseUrl = '/api' } = options;
 
   return useQuery({
     queryKey: ['documents', { page, per_page, status }],
@@ -99,13 +105,13 @@ export function useDocumentsList(options: {
       const params = new URLSearchParams({
         page: page.toString(),
         per_page: per_page.toString(),
-        ...(status && { status })
+        ...(status && { status }),
       });
-      
+
       const response = await axios.get(`${apiBaseUrl}/documents?${params}`);
       return response.data;
     },
     staleTime: 30000, // Consider data fresh for 30 seconds
-    retry: 2
+    retry: 2,
   });
 }

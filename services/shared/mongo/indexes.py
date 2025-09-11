@@ -72,14 +72,18 @@ class IndexManager:
                 self.database.create_collection(
                     collection_name,
                     validator=validator,
-                    validationLevel='moderate',  # Allow updates that don't include all required fields
-                    validationAction='error'      # Reject invalid documents
+                    validationLevel="moderate",  # Allow updates that don't include all required fields
+                    validationAction="error",  # Reject invalid documents
                 )
-                logger.info(f"Created collection '{collection_name}' with schema validation")
+                logger.info(
+                    f"Created collection '{collection_name}' with schema validation"
+                )
             else:
                 # Create collection without validation
                 self.database.create_collection(collection_name)
-                logger.info(f"Created collection '{collection_name}' without schema validation")
+                logger.info(
+                    f"Created collection '{collection_name}' without schema validation"
+                )
 
             return True
 
@@ -94,19 +98,15 @@ class IndexManager:
             logger.error(f"Error creating collection '{collection_name}': {e}")
             return False
 
-    def create_index(
-        self,
-        collection: Collection,
-        index_spec: Dict[str, Any]
-    ) -> bool:
+    def create_index(self, collection: Collection, index_spec: Dict[str, Any]) -> bool:
         """Create a single index on collection."""
         try:
-            name = index_spec['name']
-            keys = index_spec['keys']
-            options = index_spec.get('options', {})
+            name = index_spec["name"]
+            keys = index_spec["keys"]
+            options = index_spec.get("options", {})
 
             # Check if index already exists
-            existing_indexes = {idx['name']: idx for idx in collection.list_indexes()}
+            existing_indexes = {idx["name"]: idx for idx in collection.list_indexes()}
 
             if name in existing_indexes:
                 logger.debug(f"Index '{name}' already exists on {collection.name}")
@@ -116,203 +116,186 @@ class IndexManager:
             created_name = collection.create_index(
                 [(key, direction) for key, direction in keys.items()],
                 name=name,
-                background=options.get('background', True),
-                **{k: v for k, v in options.items() if k != 'background'}
+                background=options.get("background", True),
+                **{k: v for k, v in options.items() if k != "background"},
             )
 
             logger.info(f"Created index '{created_name}' on {collection.name}")
             return True
 
         except Exception as e:
-            logger.error(f"Error creating index '{index_spec.get('name')}' on {collection.name}: {e}")
+            logger.error(
+                f"Error creating index '{index_spec.get('name')}' on {collection.name}: {e}"
+            )
             return False
 
     def create_document_indexes(self) -> Dict[str, bool]:
         """Create all indexes for documents collection."""
-        collection = get_collection('documents')
+        collection = get_collection("documents")
 
         # Define document indexes
         indexes = [
             # Primary unique index on docId
             {
-                'name': 'docId_unique',
-                'keys': {'docId': 1},
-                'options': {'unique': True, 'background': True}
+                "name": "docId_unique",
+                "keys": {"docId": 1},
+                "options": {"unique": True, "background": True},
             },
-
             # Owner and creation time for user document lists
             {
-                'name': 'owner_createdAt',
-                'keys': {'ownerId': 1, 'createdAt': -1},
-                'options': {'background': True}
+                "name": "owner_createdAt",
+                "keys": {"ownerId": 1, "createdAt": -1},
+                "options": {"background": True},
             },
-
             # Status and update time for processing queues
             {
-                'name': 'status_updatedAt',
-                'keys': {'status': 1, 'updatedAt': -1},
-                'options': {'background': True}
+                "name": "status_updatedAt",
+                "keys": {"status": 1, "updatedAt": -1},
+                "options": {"background": True},
             },
-
             # Owner and status for filtered user queries
             {
-                'name': 'owner_status',
-                'keys': {'ownerId': 1, 'status': 1},
-                'options': {'background': True}
+                "name": "owner_status",
+                "keys": {"ownerId": 1, "status": 1},
+                "options": {"background": True},
             },
-
             # Created time for temporal queries
             {
-                'name': 'createdAt',
-                'keys': {'createdAt': -1},
-                'options': {'background': True}
+                "name": "createdAt",
+                "keys": {"createdAt": -1},
+                "options": {"background": True},
             },
-
             # Updated time for change tracking
             {
-                'name': 'updatedAt',
-                'keys': {'updatedAt': -1},
-                'options': {'background': True}
+                "name": "updatedAt",
+                "keys": {"updatedAt": -1},
+                "options": {"background": True},
             },
-
             # Completed time for analytics
             {
-                'name': 'completedAt',
-                'keys': {'completedAt': -1},
-                'options': {'background': True, 'sparse': True}
+                "name": "completedAt",
+                "keys": {"completedAt": -1},
+                "options": {"background": True, "sparse": True},
             },
-
             # Priority processing
             {
-                'name': 'priority_status',
-                'keys': {'metadata.priority': -1, 'status': 1, 'createdAt': 1},
-                'options': {
-                    'background': True,
-                    'sparse': True,
-                    'partialFilterExpression': {'metadata.priority': True}
-                }
+                "name": "priority_status",
+                "keys": {"metadata.priority": -1, "status": 1, "createdAt": 1},
+                "options": {
+                    "background": True,
+                    "sparse": True,
+                    "partialFilterExpression": {"metadata.priority": True},
+                },
             },
-
             # Full-text search on filename
             {
-                'name': 'filename_text',
-                'keys': {'filename': 'text'},
-                'options': {'background': True, 'sparse': True}
-            }
+                "name": "filename_text",
+                "keys": {"filename": "text"},
+                "options": {"background": True, "sparse": True},
+            },
         ]
 
         results = {}
         for index_spec in indexes:
-            results[index_spec['name']] = self.create_index(collection, index_spec)
+            results[index_spec["name"]] = self.create_index(collection, index_spec)
 
         return results
 
     def create_job_indexes(self) -> Dict[str, bool]:
         """Create all indexes for jobs collection."""
-        collection = get_collection('jobs')
+        collection = get_collection("jobs")
 
         # Define job indexes
         indexes = [
             # Primary unique index on jobId
             {
-                'name': 'jobId_unique',
-                'keys': {'jobId': 1},
-                'options': {'unique': True, 'background': True}
+                "name": "jobId_unique",
+                "keys": {"jobId": 1},
+                "options": {"unique": True, "background": True},
             },
-
             # Document jobs lookup
             {
-                'name': 'docId_updatedAt',
-                'keys': {'docId': 1, 'updatedAt': -1},
-                'options': {'background': True}
+                "name": "docId_updatedAt",
+                "keys": {"docId": 1, "updatedAt": -1},
+                "options": {"background": True},
             },
-
             # Job queue processing by status and priority
             {
-                'name': 'status_priority_createdAt',
-                'keys': {'status': 1, 'priority': -1, 'createdAt': 1},
-                'options': {'background': True}
+                "name": "status_priority_createdAt",
+                "keys": {"status": 1, "priority": -1, "createdAt": 1},
+                "options": {"background": True},
             },
-
             # Step-specific job queries
             {
-                'name': 'step_status',
-                'keys': {'step': 1, 'status': 1},
-                'options': {'background': True}
+                "name": "step_status",
+                "keys": {"step": 1, "status": 1},
+                "options": {"background": True},
             },
-
             # Document and step combination
             {
-                'name': 'docId_step',
-                'keys': {'docId': 1, 'step': 1},
-                'options': {'background': True}
+                "name": "docId_step",
+                "keys": {"docId": 1, "step": 1},
+                "options": {"background": True},
             },
-
             # Created time for temporal queries
             {
-                'name': 'createdAt',
-                'keys': {'createdAt': -1},
-                'options': {'background': True}
+                "name": "createdAt",
+                "keys": {"createdAt": -1},
+                "options": {"background": True},
             },
-
             # Updated time for change tracking
             {
-                'name': 'updatedAt',
-                'keys': {'updatedAt': -1},
-                'options': {'background': True}
+                "name": "updatedAt",
+                "keys": {"updatedAt": -1},
+                "options": {"background": True},
             },
-
             # Started time for execution tracking
             {
-                'name': 'startedAt',
-                'keys': {'startedAt': -1},
-                'options': {'background': True, 'sparse': True}
+                "name": "startedAt",
+                "keys": {"startedAt": -1},
+                "options": {"background": True, "sparse": True},
             },
-
             # Completed time for analytics
             {
-                'name': 'completedAt',
-                'keys': {'completedAt': -1},
-                'options': {'background': True, 'sparse': True}
+                "name": "completedAt",
+                "keys": {"completedAt": -1},
+                "options": {"background": True, "sparse": True},
             },
-
             # Failed jobs for retry processing
             {
-                'name': 'failed_attempts',
-                'keys': {'status': 1, 'attempts': 1, 'updatedAt': 1},
-                'options': {
-                    'background': True,
-                    'partialFilterExpression': {'status': {'$in': ['failed', 'retry']}}
-                }
+                "name": "failed_attempts",
+                "keys": {"status": 1, "attempts": 1, "updatedAt": 1},
+                "options": {
+                    "background": True,
+                    "partialFilterExpression": {"status": {"$in": ["failed", "retry"]}},
+                },
             },
-
             # Active jobs for monitoring
             {
-                'name': 'active_worker',
-                'keys': {'status': 1, 'worker.instanceId': 1, 'startedAt': -1},
-                'options': {
-                    'background': True,
-                    'sparse': True,
-                    'partialFilterExpression': {'status': 'running'}
-                }
+                "name": "active_worker",
+                "keys": {"status": 1, "worker.instanceId": 1, "startedAt": -1},
+                "options": {
+                    "background": True,
+                    "sparse": True,
+                    "partialFilterExpression": {"status": "running"},
+                },
             },
-
             # TTL index for completed jobs (30 days)
             {
-                'name': 'completed_ttl',
-                'keys': {'completedAt': 1},
-                'options': {
-                    'background': True,
-                    'sparse': True,
-                    'expireAfterSeconds': 30 * 24 * 60 * 60,  # 30 days
-                    'partialFilterExpression': {'status': 'completed'}
-                }
-            }
+                "name": "completed_ttl",
+                "keys": {"completedAt": 1},
+                "options": {
+                    "background": True,
+                    "sparse": True,
+                    "expireAfterSeconds": 30 * 24 * 60 * 60,  # 30 days
+                    "partialFilterExpression": {"status": "completed"},
+                },
+            },
         ]
 
         results = {}
         for index_spec in indexes:
-            results[index_spec['name']] = self.create_index(collection, index_spec)
+            results[index_spec["name"]] = self.create_index(collection, index_spec)
 
         return results
 
@@ -322,33 +305,39 @@ class IndexManager:
             logger.info("Setting up MongoDB collections and indexes...")
 
             results = {
-                'collections_created': {},
-                'documents_indexes': {},
-                'jobs_indexes': {}
+                "collections_created": {},
+                "documents_indexes": {},
+                "jobs_indexes": {},
             }
 
             # Create collections with validation
-            results['collections_created']['documents'] = self.create_collection_with_validation('documents')
-            results['collections_created']['jobs'] = self.create_collection_with_validation('jobs')
+            results["collections_created"]["documents"] = (
+                self.create_collection_with_validation("documents")
+            )
+            results["collections_created"]["jobs"] = (
+                self.create_collection_with_validation("jobs")
+            )
 
             # Create document indexes
             logger.info("Creating document indexes...")
-            results['documents_indexes'] = self.create_document_indexes()
+            results["documents_indexes"] = self.create_document_indexes()
 
             # Create job indexes
             logger.info("Creating job indexes...")
-            results['jobs_indexes'] = self.create_job_indexes()
+            results["jobs_indexes"] = self.create_job_indexes()
 
             # Log summary
-            total_doc_indexes = len(results['documents_indexes'])
-            successful_doc_indexes = sum(results['documents_indexes'].values())
+            total_doc_indexes = len(results["documents_indexes"])
+            successful_doc_indexes = sum(results["documents_indexes"].values())
 
-            total_job_indexes = len(results['jobs_indexes'])
-            successful_job_indexes = sum(results['jobs_indexes'].values())
+            total_job_indexes = len(results["jobs_indexes"])
+            successful_job_indexes = sum(results["jobs_indexes"].values())
 
-            logger.info(f"Index creation complete: "
-                       f"Documents ({successful_doc_indexes}/{total_doc_indexes}), "
-                       f"Jobs ({successful_job_indexes}/{total_job_indexes})")
+            logger.info(
+                f"Index creation complete: "
+                f"Documents ({successful_doc_indexes}/{total_doc_indexes}), "
+                f"Jobs ({successful_job_indexes}/{total_job_indexes})"
+            )
 
             return results
 
@@ -379,7 +368,9 @@ class IndexManager:
             return True
 
         except Exception as e:
-            logger.error(f"Error dropping index '{index_name}' from {collection_name}: {e}")
+            logger.error(
+                f"Error dropping index '{index_name}' from {collection_name}: {e}"
+            )
             return False
 
     def rebuild_index(self, collection_name: str, index_name: str) -> bool:
@@ -388,7 +379,7 @@ class IndexManager:
             collection = get_collection(collection_name)
 
             # Get current indexes
-            existing_indexes = {idx['name']: idx for idx in collection.list_indexes()}
+            existing_indexes = {idx["name"]: idx for idx in collection.list_indexes()}
 
             if index_name not in existing_indexes:
                 logger.error(f"Index '{index_name}' not found on {collection_name}")
@@ -399,11 +390,15 @@ class IndexManager:
 
             # Find the index specification to recreate it
             # This is a simplified version - in production you might want to store specs
-            logger.warning(f"Index '{index_name}' dropped but automatic recreation not implemented")
+            logger.warning(
+                f"Index '{index_name}' dropped but automatic recreation not implemented"
+            )
             return True
 
         except Exception as e:
-            logger.error(f"Error rebuilding index '{index_name}' on {collection_name}: {e}")
+            logger.error(
+                f"Error rebuilding index '{index_name}' on {collection_name}: {e}"
+            )
             return False
 
     def get_index_stats(self, collection_name: str) -> Dict[str, Any]:
@@ -412,25 +407,25 @@ class IndexManager:
             collection = get_collection(collection_name)
 
             # Get index stats using $indexStats aggregation
-            pipeline = [{'$indexStats': {}}]
+            pipeline = [{"$indexStats": {}}]
             index_stats = list(collection.aggregate(pipeline))
 
             return {
-                'collection': collection_name,
-                'total_indexes': len(index_stats),
-                'index_usage': [
+                "collection": collection_name,
+                "total_indexes": len(index_stats),
+                "index_usage": [
                     {
-                        'name': stat['name'],
-                        'accesses': stat['accesses']['ops'],
-                        'since': stat['accesses']['since']
+                        "name": stat["name"],
+                        "accesses": stat["accesses"]["ops"],
+                        "since": stat["accesses"]["since"],
                     }
                     for stat in index_stats
-                ]
+                ],
             }
 
         except Exception as e:
             logger.error(f"Error getting index stats for {collection_name}: {e}")
-            return {'collection': collection_name, 'error': str(e)}
+            return {"collection": collection_name, "error": str(e)}
 
 
 # Global index manager instance

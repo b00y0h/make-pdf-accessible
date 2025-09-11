@@ -12,22 +12,24 @@ from moto import mock_aws
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_environment():
     """Setup test environment variables"""
-    os.environ.update({
-        "AWS_DEFAULT_REGION": "us-east-1",
-        "AWS_ACCESS_KEY_ID": "testing",
-        "AWS_SECRET_ACCESS_KEY": "testing",
-        "AWS_SECURITY_TOKEN": "testing",
-        "AWS_SESSION_TOKEN": "testing",
-        "COGNITO_USER_POOL_ID": "us-east-1_test123",
-        "COGNITO_CLIENT_ID": "test-client-id",
-        "WEBHOOK_SECRET_KEY": "test-secret-key",
-        "DOCUMENTS_TABLE": "test-documents",
-        "JOBS_TABLE": "test-jobs",
-        "PDF_ORIGINALS_BUCKET": "test-originals",
-        "PDF_DERIVATIVES_BUCKET": "test-derivatives",
-        "INGEST_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789/test-ingest",
-        "ENVIRONMENT": "test"
-    })
+    os.environ.update(
+        {
+            "AWS_DEFAULT_REGION": "us-east-1",
+            "AWS_ACCESS_KEY_ID": "testing",
+            "AWS_SECRET_ACCESS_KEY": "testing",
+            "AWS_SECURITY_TOKEN": "testing",
+            "AWS_SESSION_TOKEN": "testing",
+            "COGNITO_USER_POOL_ID": "us-east-1_test123",
+            "COGNITO_CLIENT_ID": "test-client-id",
+            "WEBHOOK_SECRET_KEY": "test-secret-key",
+            "DOCUMENTS_TABLE": "test-documents",
+            "JOBS_TABLE": "test-jobs",
+            "PDF_ORIGINALS_BUCKET": "test-originals",
+            "PDF_DERIVATIVES_BUCKET": "test-derivatives",
+            "INGEST_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789/test-ingest",
+            "ENVIRONMENT": "test",
+        }
+    )
 
 
 @pytest.fixture
@@ -57,14 +59,14 @@ def aws_mock(aws_credentials):
             TableName="test-documents",
             KeySchema=[{"AttributeName": "docId", "KeyType": "HASH"}],
             AttributeDefinitions=[{"AttributeName": "docId", "AttributeType": "S"}],
-            BillingMode="PAY_PER_REQUEST"
+            BillingMode="PAY_PER_REQUEST",
         )
 
         jobs_table = dynamodb.create_table(
             TableName="test-jobs",
             KeySchema=[{"AttributeName": "jobId", "KeyType": "HASH"}],
             AttributeDefinitions=[{"AttributeName": "jobId", "AttributeType": "S"}],
-            BillingMode="PAY_PER_REQUEST"
+            BillingMode="PAY_PER_REQUEST",
         )
 
         # Create S3 buckets
@@ -76,11 +78,7 @@ def aws_mock(aws_credentials):
         sqs = boto3.client("sqs", region_name="us-east-1")
         sqs.create_queue(QueueName="test-ingest")
 
-        yield {
-            "dynamodb": dynamodb,
-            "s3": s3,
-            "sqs": sqs
-        }
+        yield {"dynamodb": dynamodb, "s3": s3, "sqs": sqs}
 
 
 @pytest.fixture
@@ -94,7 +92,7 @@ def mock_user():
         username="testuser",
         email="test@example.com",
         roles=[UserRole.VIEWER.value],
-        token_claims={"sub": "test-user-123", "username": "testuser"}
+        token_claims={"sub": "test-user-123", "username": "testuser"},
     )
 
 
@@ -109,7 +107,7 @@ def mock_admin_user():
         username="admin",
         email="admin@example.com",
         roles=[UserRole.ADMIN.value],
-        token_claims={"sub": "admin-user-123", "username": "admin"}
+        token_claims={"sub": "admin-user-123", "username": "admin"},
     )
 
 
@@ -122,9 +120,11 @@ def mock_jwt_token():
 @pytest.fixture(autouse=True)
 def mock_powertools():
     """Mock AWS Powertools to avoid dependencies in tests"""
-    with patch("app.main.logger") as mock_logger, \
-         patch("app.main.tracer") as mock_tracer, \
-         patch("app.main.metrics") as mock_metrics:
+    with (
+        patch("app.main.logger") as mock_logger,
+        patch("app.main.tracer") as mock_tracer,
+        patch("app.main.metrics") as mock_metrics,
+    ):
 
         mock_logger.info = Mock()
         mock_logger.error = Mock()
@@ -139,11 +139,7 @@ def mock_powertools():
         mock_metrics.add_metric = Mock()
         mock_metrics.log_metrics = lambda f: f
 
-        yield {
-            "logger": mock_logger,
-            "tracer": mock_tracer,
-            "metrics": mock_metrics
-        }
+        yield {"logger": mock_logger, "tracer": mock_tracer, "metrics": mock_metrics}
 
 
 @pytest.fixture
@@ -157,7 +153,7 @@ def sample_document_data():
         "createdAt": "2023-01-01T00:00:00",
         "updatedAt": "2023-01-01T00:00:00",
         "metadata": {"source": "test"},
-        "artifacts": {}
+        "artifacts": {},
     }
 
 
@@ -169,5 +165,5 @@ def sample_webhook_payload():
         "doc_id": "test-doc-123",
         "status": "completed",
         "timestamp": "2023-01-01T00:00:00Z",
-        "data": {"processing_time": 30}
+        "data": {"processing_time": 30},
     }

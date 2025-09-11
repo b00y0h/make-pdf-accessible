@@ -20,7 +20,7 @@ metrics = Metrics(namespace="PDF-Accessibility", service="pdf-ocr")
 def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, Any]:
     """
     Lambda handler for OCR processing using AWS Textract.
-    
+
     Processes PDF documents to extract text using Textract for image-based PDFs.
     For text-based PDFs, validates content and marks as not requiring OCR.
     """
@@ -36,7 +36,9 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
 
         # Check if PDF is image-based
         logger.info("Analyzing PDF content type")
-        is_image_based, page_count = ocr_service.check_if_image_based(ocr_request.s3_key)
+        is_image_based, page_count = ocr_service.check_if_image_based(
+            ocr_request.s3_key
+        )
 
         if not is_image_based:
             # Text-based PDF - no OCR needed
@@ -44,7 +46,9 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
             processing_time = time.time() - start_time
 
             metrics.add_metric(name="TextBasedPDFs", unit="Count", value=1)
-            metrics.add_metric(name="ProcessingTime", unit="Seconds", value=processing_time)
+            metrics.add_metric(
+                name="ProcessingTime", unit="Seconds", value=processing_time
+            )
 
             return OCRResult(
                 doc_id=ocr_request.doc_id,
@@ -52,7 +56,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
                 textract_s3_key=None,  # No Textract output needed
                 is_image_based=False,
                 page_count=page_count,
-                processing_time_seconds=processing_time
+                processing_time_seconds=processing_time,
             ).dict()
 
         # Image-based PDF - run Textract
@@ -77,16 +81,20 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
                 textract_s3_key=None,
                 is_image_based=True,
                 page_count=page_count,
-                error_message=error_msg
+                error_message=error_msg,
             ).dict()
 
         # Get results and save to S3
         textract_response = ocr_service.get_textract_results(job_id)
-        textract_s3_key = ocr_service.save_textract_results(ocr_request.doc_id, textract_response)
+        textract_s3_key = ocr_service.save_textract_results(
+            ocr_request.doc_id, textract_response
+        )
 
         processing_time = time.time() - start_time
 
-        logger.info(f"OCR processing completed for {ocr_request.doc_id} in {processing_time:.2f} seconds")
+        logger.info(
+            f"OCR processing completed for {ocr_request.doc_id} in {processing_time:.2f} seconds"
+        )
         metrics.add_metric(name="OCRSuccess", unit="Count", value=1)
         metrics.add_metric(name="ProcessingTime", unit="Seconds", value=processing_time)
         metrics.add_metric(name="PagesProcessed", unit="Count", value=page_count)
@@ -97,7 +105,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
             textract_s3_key=textract_s3_key,
             is_image_based=True,
             page_count=page_count,
-            processing_time_seconds=processing_time
+            processing_time_seconds=processing_time,
         ).dict()
 
     except OCRServiceError as e:
@@ -105,12 +113,12 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         metrics.add_metric(name="ServiceErrors", unit="Count", value=1)
 
         return OCRResult(
-            doc_id=event.get('doc_id', 'unknown'),
+            doc_id=event.get("doc_id", "unknown"),
             status=OCRStatus.FAILED,
             textract_s3_key=None,
             is_image_based=False,
             page_count=0,
-            error_message=str(e)
+            error_message=str(e),
         ).dict()
 
     except Exception as e:
@@ -118,10 +126,10 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         metrics.add_metric(name="UnexpectedErrors", unit="Count", value=1)
 
         return OCRResult(
-            doc_id=event.get('doc_id', 'unknown'),
+            doc_id=event.get("doc_id", "unknown"),
             status=OCRStatus.FAILED,
             textract_s3_key=None,
             is_image_based=False,
             page_count=0,
-            error_message=f"Unexpected error: {str(e)}"
+            error_message=f"Unexpected error: {str(e)}",
         ).dict()

@@ -5,11 +5,13 @@ A comprehensive Python package providing shared utilities for PDF accessibility 
 ## Features
 
 ### 🔧 Core Utilities
+
 - **Configuration Management**: Centralized environment-based configuration
 - **Error Handling**: Comprehensive custom exceptions with context
 - **Type Safety**: Full type hints and mypy compliance
 
 ### ☁️ AWS Service Integrations
+
 - **S3 Client**: Enhanced S3 operations with metadata, tagging, and error handling
 - **DynamoDB Repository**: Generic repository pattern with CRUD operations
 - **SQS Client**: Message handling with batch processing and error recovery
@@ -17,12 +19,14 @@ A comprehensive Python package providing shared utilities for PDF accessibility 
 - **Bedrock Client**: Claude 3.5 integration with structured responses
 
 ### 🔄 Processing Utilities
+
 - **PDF Utils**: Content analysis, text extraction, and layout detection
 - **Idempotency**: Decorator-based idempotency with DynamoDB backing
 - **Document Models**: Comprehensive Pydantic models for document structure
 - **HTML Rendering**: Accessible HTML generation with WCAG compliance
 
 ### 🧪 Quality Assurance
+
 - **Comprehensive Tests**: 90%+ test coverage with unit and integration tests
 - **Type Checking**: Strict mypy configuration for type safety
 - **JSON Schemas**: Validation schemas for data interchange
@@ -299,9 +303,9 @@ def test_s3_upload_json(s3_client, mock_s3_setup):
         key="test.json",
         metadata={"version": "1.0"}
     )
-    
+
     assert result.startswith("s3://")
-    
+
     # Verify round-trip
     downloaded = s3_client.download_json("test-bucket", "test.json")
     assert downloaded == data
@@ -359,11 +363,13 @@ mkdocs serve
 ### Using in Lambda Functions
 
 1. **Add to requirements.txt**:
+
 ```
 pdf-accessibility-worker>=1.0.0
 ```
 
 2. **Update Lambda function**:
+
 ```python
 from pdf_worker import S3Client, DocumentRepository, idempotent_by_doc_id
 from aws_lambda_powertools import Logger
@@ -374,7 +380,7 @@ logger = Logger()
 def lambda_handler(event, context):
     s3 = S3Client()
     repo = DocumentRepository()
-    
+
     # Your processing logic here
     return {"status": "completed"}
 ```
@@ -403,11 +409,13 @@ CMD ["main.lambda_handler"]
 ## Performance Considerations
 
 ### Memory Usage
+
 - S3Client: Streams large files to minimize memory usage
 - DynamoDB: Uses batch operations for bulk operations
 - PDF processing: Processes pages incrementally
 
 ### Cost Optimization
+
 - Bedrock: Token usage tracking and estimation
 - Textract: Optimal polling intervals to reduce API calls
 - S3: Lifecycle policies for temporary files
@@ -415,6 +423,7 @@ CMD ["main.lambda_handler"]
 ### Monitoring
 
 The package integrates with AWS Lambda Powertools for:
+
 - **Structured Logging**: Correlation IDs and request tracking
 - **Metrics**: Custom metrics for monitoring
 - **Tracing**: X-Ray integration for performance analysis
@@ -437,6 +446,7 @@ def lambda_handler(event, context):
 ## Contributing
 
 ### Guidelines
+
 1. **Type Hints**: All public APIs must have type hints
 2. **Tests**: New features require tests (aim for >90% coverage)
 3. **Documentation**: Update docstrings and README for new features
@@ -444,6 +454,7 @@ def lambda_handler(event, context):
 5. **Backward Compatibility**: Follow semantic versioning
 
 ### Pull Request Process
+
 1. Create feature branch from `main`
 2. Make changes with tests
 3. Run quality checks: `pre-commit run --all-files`

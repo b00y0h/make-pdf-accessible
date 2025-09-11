@@ -48,7 +48,7 @@
       ]
     },
     "AnalyzeStructure": {
-      "Type": "Task", 
+      "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
         "FunctionName": "placeholder-structure-function",

@@ -4,26 +4,41 @@ API Key Management Routes
 Endpoints for creating, managing, and monitoring API keys.
 """
 
-from typing import List, Optional, Dict, Any
 from datetime import datetime
+from typing import Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
-from ..auth import get_current_user, get_admin_user, User
-from ..middleware import APIKeyPermissions
-from services.shared.mongo.api_keys import get_api_key_repository, APIKey, RepositoryError
+from services.shared.mongo.api_keys import (
+    APIKey,
+    RepositoryError,
+    get_api_key_repository,
+)
 
+from ..auth import User, get_current_user
+from ..middleware import APIKeyPermissions
 
 router = APIRouter(prefix="/api-keys", tags=["API Keys"])
 
 
 # Request/Response Models
 class CreateAPIKeyRequest(BaseModel):
-    name: str = Field(..., min_length=1, max_length=100, description="Human-readable name for the API key")
-    permissions: List[str] = Field(default_factory=list, description="List of permissions to grant")
-    expires_in_days: Optional[int] = Field(None, ge=1, le=365, description="Expiration in days (optional)")
-    rate_limit: Optional[int] = Field(None, ge=1, le=10000, description="Requests per minute limit (optional)")
+    name: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Human-readable name for the API key",
+    )
+    permissions: List[str] = Field(
+        default_factory=list, description="List of permissions to grant"
+    )
+    expires_in_days: Optional[int] = Field(
+        None, ge=1, le=365, description="Expiration in days (optional)"
+    )
+    rate_limit: Optional[int] = Field(
+        None, ge=1, le=10000, description="Requests per minute limit (optional)"
+    )
 
 
 class APIKeyResponse(BaseModel):
@@ -41,7 +56,10 @@ class APIKeyResponse(BaseModel):
 
 class CreateAPIKeyResponse(BaseModel):
     api_key: APIKeyResponse
-    key: str = Field(..., description="The actual API key - store this securely, it won't be shown again")
+    key: str = Field(
+        ...,
+        description="The actual API key - store this securely, it won't be shown again",
+    )
 
 
 class UpdateAPIKeyRequest(BaseModel):
@@ -63,13 +81,13 @@ def validate_permissions(permissions: List[str]) -> List[str]:
     """Validate and filter permissions"""
     valid_permissions = APIKeyPermissions.get_all_permissions()
     invalid_perms = [p for p in permissions if p not in valid_permissions]
-    
+
     if invalid_perms:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid permissions: {invalid_perms}. Valid permissions: {valid_permissions}"
+            detail=f"Invalid permissions: {invalid_perms}. Valid permissions: {valid_permissions}",
         )
-    
+
     return permissions
 
 
@@ -90,14 +108,15 @@ def api_key_to_response(api_key: APIKey) -> APIKeyResponse:
 
 
 # Routes
-@router.post("/", response_model=CreateAPIKeyResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=CreateAPIKeyResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_api_key(
-    request: CreateAPIKeyRequest,
-    current_user: User = Depends(get_current_user)
+    request: CreateAPIKeyRequest, current_user: User = Depends(get_current_user)
 ):
     """
     Create a new API key for the authenticated user
-    
+
     - **name**: Human-readable name for identification
     - **permissions**: List of permissions to grant (defaults to basic permissions)
     - **expires_in_days**: Optional expiration (1-365 days)
@@ -107,16 +126,16 @@ async def create_api_key(
         # Validate permissions
         permissions = request.permissions or APIKeyPermissions.get_default_permissions()
         permissions = validate_permissions(permissions)
-        
+
         # Admin check for sensitive permissions
         sensitive_perms = [APIKeyPermissions.USERS_MANAGE, APIKeyPermissions.ADMIN]
         if any(p in permissions for p in sensitive_perms):
             if not current_user.is_admin():
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Admin role required for sensitive permissions"
+                    detail="Admin role required for sensitive permissions",
                 )
-        
+
         # Create API key
         repo = get_api_key_repository()
         api_key, raw_key = repo.generate_api_key(
@@ -124,18 +143,15 @@ async def create_api_key(
             name=request.name,
             permissions=permissions,
             expires_in_days=request.expires_in_days,
-            rate_limit=request.rate_limit
+            rate_limit=request.rate_limit,
         )
-        
-        return CreateAPIKeyResponse(
-            api_key=api_key_to_response(api_key),
-            key=raw_key
-        )
-        
+
+        return CreateAPIKeyResponse(api_key=api_key_to_response(api_key), key=raw_key)
+
     except RepositoryError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create API key: {str(e)}"
+            detail=f"Failed to create API key: {str(e)}",
         )
 
 
@@ -144,12 +160,12 @@ async def list_api_keys(current_user: dict = Depends(get_current_user)):
     """List all API keys for the authenticated user"""
     try:
         repo = get_api_key_repository()
-        api_keys = repo.get_user_api_keys(current_user['id'])
+        api_keys = repo.get_user_api_keys(current_user["id"])
         return [api_key_to_response(key) for key in api_keys]
     except RepositoryError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list API keys: {str(e)}"
+            detail=f"Failed to list API keys: {str(e)}",
         )
 
 
@@ -158,7 +174,7 @@ async def get_available_permissions():
     """Get all available API key permissions"""
     return {
         "all_permissions": APIKeyPermissions.get_all_permissions(),
-        "default_permissions": APIKeyPermissions.get_default_permissions()
+        "default_permissions": APIKeyPermissions.get_default_permissions(),
     }
 
 
@@ -167,12 +183,12 @@ async def get_usage_stats(current_user: dict = Depends(get_current_user)):
     """Get API key usage statistics for the authenticated user"""
     try:
         repo = get_api_key_repository()
-        stats = repo.get_usage_stats(current_user['id'])
+        stats = repo.get_usage_stats(current_user["id"])
         return UsageStatsResponse(**stats)
     except RepositoryError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get usage stats: {str(e)}"
+            detail=f"Failed to get usage stats: {str(e)}",
         )
 
 
@@ -182,26 +198,28 @@ async def get_api_key(key_id: str, current_user: dict = Depends(get_current_user
     try:
         repo = get_api_key_repository()
         api_key = repo.get_api_key(key_id)
-        
+
         if not api_key:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="API key not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="API key not found"
             )
-        
+
         # Check ownership
-        if api_key.user_id != current_user['id'] and current_user.get('role') != 'admin':
+        if (
+            api_key.user_id != current_user["id"]
+            and current_user.get("role") != "admin"
+        ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to access this API key"
+                detail="Not authorized to access this API key",
             )
-        
+
         return api_key_to_response(api_key)
-        
+
     except RepositoryError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get API key: {str(e)}"
+            detail=f"Failed to get API key: {str(e)}",
         )
 
 
@@ -209,62 +227,64 @@ async def get_api_key(key_id: str, current_user: dict = Depends(get_current_user
 async def update_api_key(
     key_id: str,
     request: UpdateAPIKeyRequest,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     """Update an existing API key"""
     try:
         repo = get_api_key_repository()
         api_key = repo.get_api_key(key_id)
-        
+
         if not api_key:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="API key not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="API key not found"
             )
-        
+
         # Check ownership
-        if api_key.user_id != current_user['id'] and current_user.get('role') != 'admin':
+        if (
+            api_key.user_id != current_user["id"]
+            and current_user.get("role") != "admin"
+        ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to modify this API key"
+                detail="Not authorized to modify this API key",
             )
-        
+
         # Build updates
         updates = {}
         if request.name is not None:
-            updates['name'] = request.name
+            updates["name"] = request.name
         if request.permissions is not None:
             permissions = validate_permissions(request.permissions)
             # Check admin permissions
             sensitive_perms = [APIKeyPermissions.USERS_MANAGE, APIKeyPermissions.ADMIN]
             if any(p in permissions for p in sensitive_perms):
-                if current_user.get('role') != 'admin':
+                if current_user.get("role") != "admin":
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Admin role required for sensitive permissions"
+                        detail="Admin role required for sensitive permissions",
                     )
-            updates['permissions'] = permissions
+            updates["permissions"] = permissions
         if request.rate_limit is not None:
-            updates['rate_limit'] = request.rate_limit
+            updates["rate_limit"] = request.rate_limit
         if request.is_active is not None:
-            updates['is_active'] = request.is_active
-        
+            updates["is_active"] = request.is_active
+
         # Update the key
         success = repo.update_api_key(key_id, updates)
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update API key"
+                detail="Failed to update API key",
             )
-        
+
         # Return updated key
         updated_key = repo.get_api_key(key_id)
         return api_key_to_response(updated_key)
-        
+
     except RepositoryError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update API key: {str(e)}"
+            detail=f"Failed to update API key: {str(e)}",
         )
 
 
@@ -274,69 +294,75 @@ async def delete_api_key(key_id: str, current_user: dict = Depends(get_current_u
     try:
         repo = get_api_key_repository()
         api_key = repo.get_api_key(key_id)
-        
+
         if not api_key:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="API key not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="API key not found"
             )
-        
+
         # Check ownership
-        if api_key.user_id != current_user['id'] and current_user.get('role') != 'admin':
+        if (
+            api_key.user_id != current_user["id"]
+            and current_user.get("role") != "admin"
+        ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to delete this API key"
+                detail="Not authorized to delete this API key",
             )
-        
+
         success = repo.delete_api_key(key_id)
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to delete API key"
+                detail="Failed to delete API key",
             )
-        
+
     except RepositoryError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete API key: {str(e)}"
+            detail=f"Failed to delete API key: {str(e)}",
         )
 
 
 @router.post("/{key_id}/deactivate", response_model=APIKeyResponse)
-async def deactivate_api_key(key_id: str, current_user: dict = Depends(get_current_user)):
+async def deactivate_api_key(
+    key_id: str, current_user: dict = Depends(get_current_user)
+):
     """Deactivate an API key (safer than deletion)"""
     try:
         repo = get_api_key_repository()
         api_key = repo.get_api_key(key_id)
-        
+
         if not api_key:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="API key not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="API key not found"
             )
-        
+
         # Check ownership
-        if api_key.user_id != current_user['id'] and current_user.get('role') != 'admin':
+        if (
+            api_key.user_id != current_user["id"]
+            and current_user.get("role") != "admin"
+        ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to modify this API key"
+                detail="Not authorized to modify this API key",
             )
-        
+
         success = repo.deactivate_api_key(key_id)
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to deactivate API key"
+                detail="Failed to deactivate API key",
             )
-        
+
         # Return updated key
         updated_key = repo.get_api_key(key_id)
         return api_key_to_response(updated_key)
-        
+
     except RepositoryError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to deactivate API key: {str(e)}"
+            detail=f"Failed to deactivate API key: {str(e)}",
         )
 
 
@@ -344,35 +370,33 @@ async def deactivate_api_key(key_id: str, current_user: dict = Depends(get_curre
 @router.get("/admin/all", response_model=List[APIKeyResponse])
 async def list_all_api_keys(current_user: dict = Depends(get_current_user)):
     """Admin endpoint: List all API keys in the system"""
-    if current_user.get('role') != 'admin':
+    if current_user.get("role") != "admin":
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin role required"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required"
         )
-    
+
     try:
         repo = get_api_key_repository()
         # Get all keys by aggregating across all users
         # This is inefficient but works for the current scale
-        docs = repo.collection.find({}).sort([('created_at', -1)])
+        docs = repo.collection.find({}).sort([("created_at", -1)])
         api_keys = [APIKey.from_dict(doc) for doc in docs]
         return [api_key_to_response(key) for key in api_keys]
     except RepositoryError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list all API keys: {str(e)}"
+            detail=f"Failed to list all API keys: {str(e)}",
         )
 
 
 @router.post("/admin/cleanup", response_model=Dict[str, int])
 async def cleanup_expired_keys(current_user: dict = Depends(get_current_user)):
     """Admin endpoint: Clean up expired API keys"""
-    if current_user.get('role') != 'admin':
+    if current_user.get("role") != "admin":
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin role required"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required"
         )
-    
+
     try:
         repo = get_api_key_repository()
         deleted_count = repo.cleanup_expired_keys()
@@ -380,5 +404,5 @@ async def cleanup_expired_keys(current_user: dict = Depends(get_current_user)):
     except RepositoryError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to cleanup expired keys: {str(e)}"
+            detail=f"Failed to cleanup expired keys: {str(e)}",
         )

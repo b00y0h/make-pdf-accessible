@@ -10,7 +10,9 @@ from sqlalchemy.exc import OperationalError
 @pytest.fixture
 def database_url():
     """Get database URL from environment."""
-    return os.getenv("DATABASE_URL", "postgresql://testuser:testpass@localhost:5432/testdb")
+    return os.getenv(
+        "DATABASE_URL", "postgresql://testuser:testpass@localhost:5432/testdb"
+    )
 
 
 def test_database_connection(database_url):

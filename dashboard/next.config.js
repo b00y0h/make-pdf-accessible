@@ -16,24 +16,24 @@ const nextConfig = {
         'node:fs': false,
         'node:path': false,
         'node:crypto': false,
-        'fs': false,
-        'path': false,
-        'crypto': false,
-        'sqlite3': false,
+        fs: false,
+        path: false,
+        crypto: false,
+        sqlite3: false,
         'better-sqlite3': false,
-      }
-      
+      };
+
       // Add externals for Node.js modules that shouldn't be bundled for browser
       config.externals.push({
         'better-sqlite3': 'commonjs better-sqlite3',
         'node:sqlite': 'commonjs node:sqlite',
-      })
+      });
     }
-    
-    return config
+
+    return config;
   },
   serverExternalPackages: ['better-sqlite3'],
   outputFileTracingRoot: '../',
-}
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;

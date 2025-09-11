@@ -14,7 +14,7 @@ export type {
   WcagLevel,
   StepStatus,
   LogLevel,
-  
+
   // Document interfaces
   DocumentMetadata,
   DocumentArtifacts,
@@ -23,7 +23,7 @@ export type {
   StepResult,
   AIManifest,
   DocumentAI,
-  
+
   // Job interfaces
   JobInput,
   JobMetrics,
@@ -33,34 +33,34 @@ export type {
   JobTimeout,
   WorkerInfo,
   JobLogEntry,
-  
+
   // Filter and query types
   DocumentFilter,
   JobFilter,
   PaginationOptions,
   PaginatedResult,
-  
+
   // Update types
   DocumentUpdate,
   JobUpdate,
-  
+
   // Index types
   IndexDefinition,
-  
+
   // Result types
   CreateResult,
   UpdateResult,
   DeleteResult,
-  
+
   // Statistics types
   DocumentStats,
   JobStats,
-  
+
   // Configuration types
   PersistenceProvider,
   FeatureFlags,
   MongoConfig,
-  CollectionName
+  CollectionName,
 } from './types';
 
 // Export index definitions
@@ -73,7 +73,7 @@ export {
   validateIndexDefinition,
   QUERY_HINTS,
   type IndexCreationResult,
-  type QueryHint
+  type QueryHint,
 } from './indexes';
 
 // Export constants
@@ -90,7 +90,7 @@ export const MongoUtils = {
    */
   toApiDocument(doc: any): any {
     if (!doc) return null;
-    
+
     const { _id, ...rest } = doc;
     return {
       ...rest,
@@ -99,10 +99,10 @@ export const MongoUtils = {
       // Ensure dates are ISO strings
       createdAt: rest.createdAt?.toISOString?.() || rest.createdAt,
       updatedAt: rest.updatedAt?.toISOString?.() || rest.updatedAt,
-      completedAt: rest.completedAt?.toISOString?.() || rest.completedAt
+      completedAt: rest.completedAt?.toISOString?.() || rest.completedAt,
     };
   },
-  
+
   /**
    * Convert API input to MongoDB document format
    */
@@ -113,10 +113,10 @@ export const MongoUtils = {
       // Convert date strings to Date objects
       createdAt: rest.createdAt ? new Date(rest.createdAt) : new Date(),
       updatedAt: rest.updatedAt ? new Date(rest.updatedAt) : new Date(),
-      completedAt: rest.completedAt ? new Date(rest.completedAt) : null
+      completedAt: rest.completedAt ? new Date(rest.completedAt) : null,
     };
   },
-  
+
   /**
    * Generate a new document with required fields
    */
@@ -136,10 +136,10 @@ export const MongoUtils = {
       issues: data.issues || [],
       ai: data.ai || {},
       errorMessage: data.errorMessage || null,
-      ...data
+      ...data,
     };
   },
-  
+
   /**
    * Generate a new job with required fields
    */
@@ -166,94 +166,99 @@ export const MongoUtils = {
         backoffMultiplier: 2.0,
         initialDelaySeconds: 30,
         maxDelaySeconds: 1800,
-        ...data.retryPolicy
+        ...data.retryPolicy,
       },
       timeout: {
         executionTimeoutSeconds: 900,
         heartbeatIntervalSeconds: 30,
-        ...data.timeout
+        ...data.timeout,
       },
       worker: null,
       logs: [],
-      ...data
+      ...data,
     };
   },
-  
+
   /**
    * Build MongoDB filter from type-safe filter object
    */
   buildDocumentFilter(filter: DocumentFilter): any {
     const mongoFilter: any = {};
-    
+
     if (filter.docId) mongoFilter.docId = filter.docId;
     if (filter.ownerId) mongoFilter.ownerId = filter.ownerId;
-    
-    if (filter.status) {
-      mongoFilter.status = Array.isArray(filter.status) 
-        ? { $in: filter.status }
-        : filter.status;
-    }
-    
-    if (filter.createdAfter || filter.createdBefore) {
-      mongoFilter.createdAt = {};
-      if (filter.createdAfter) mongoFilter.createdAt.$gte = filter.createdAfter;
-      if (filter.createdBefore) mongoFilter.createdAt.$lte = filter.createdBefore;
-    }
-    
-    if (filter.updatedAfter || filter.updatedBefore) {
-      mongoFilter.updatedAt = {};
-      if (filter.updatedAfter) mongoFilter.updatedAt.$gte = filter.updatedAfter;
-      if (filter.updatedBefore) mongoFilter.updatedAt.$lte = filter.updatedBefore;
-    }
-    
-    if (filter.hasErrors !== undefined) {
-      mongoFilter.errorMessage = filter.hasErrors ? { $ne: null } : null;
-    }
-    
-    return mongoFilter;
-  },
-  
-  /**
-   * Build MongoDB filter from job filter object
-   */
-  buildJobFilter(filter: JobFilter): any {
-    const mongoFilter: any = {};
-    
-    if (filter.jobId) mongoFilter.jobId = filter.jobId;
-    if (filter.docId) mongoFilter.docId = filter.docId;
-    
-    if (filter.step) {
-      mongoFilter.step = Array.isArray(filter.step)
-        ? { $in: filter.step }
-        : filter.step;
-    }
-    
+
     if (filter.status) {
       mongoFilter.status = Array.isArray(filter.status)
         ? { $in: filter.status }
         : filter.status;
     }
-    
-    if (filter.priority) mongoFilter.priority = filter.priority;
-    
+
     if (filter.createdAfter || filter.createdBefore) {
       mongoFilter.createdAt = {};
       if (filter.createdAfter) mongoFilter.createdAt.$gte = filter.createdAfter;
-      if (filter.createdBefore) mongoFilter.createdAt.$lte = filter.createdBefore;
+      if (filter.createdBefore)
+        mongoFilter.createdAt.$lte = filter.createdBefore;
     }
-    
+
+    if (filter.updatedAfter || filter.updatedBefore) {
+      mongoFilter.updatedAt = {};
+      if (filter.updatedAfter) mongoFilter.updatedAt.$gte = filter.updatedAfter;
+      if (filter.updatedBefore)
+        mongoFilter.updatedAt.$lte = filter.updatedBefore;
+    }
+
+    if (filter.hasErrors !== undefined) {
+      mongoFilter.errorMessage = filter.hasErrors ? { $ne: null } : null;
+    }
+
+    return mongoFilter;
+  },
+
+  /**
+   * Build MongoDB filter from job filter object
+   */
+  buildJobFilter(filter: JobFilter): any {
+    const mongoFilter: any = {};
+
+    if (filter.jobId) mongoFilter.jobId = filter.jobId;
+    if (filter.docId) mongoFilter.docId = filter.docId;
+
+    if (filter.step) {
+      mongoFilter.step = Array.isArray(filter.step)
+        ? { $in: filter.step }
+        : filter.step;
+    }
+
+    if (filter.status) {
+      mongoFilter.status = Array.isArray(filter.status)
+        ? { $in: filter.status }
+        : filter.status;
+    }
+
+    if (filter.priority) mongoFilter.priority = filter.priority;
+
+    if (filter.createdAfter || filter.createdBefore) {
+      mongoFilter.createdAt = {};
+      if (filter.createdAfter) mongoFilter.createdAt.$gte = filter.createdAfter;
+      if (filter.createdBefore)
+        mongoFilter.createdAt.$lte = filter.createdBefore;
+    }
+
     if (filter.attempts) {
       mongoFilter.attempts = {};
-      if (filter.attempts.min !== undefined) mongoFilter.attempts.$gte = filter.attempts.min;
-      if (filter.attempts.max !== undefined) mongoFilter.attempts.$lte = filter.attempts.max;
+      if (filter.attempts.min !== undefined)
+        mongoFilter.attempts.$gte = filter.attempts.min;
+      if (filter.attempts.max !== undefined)
+        mongoFilter.attempts.$lte = filter.attempts.max;
     }
-    
+
     if (filter.hasErrors !== undefined) {
       mongoFilter.error = filter.hasErrors ? { $ne: null } : null;
     }
-    
+
     return mongoFilter;
-  }
+  },
 };
 
 // Re-export types from MongoDB driver that we commonly use

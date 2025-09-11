@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 # Mock the services module before importing main
-with patch('main.RouterService') as mock_service_class:
+with patch("main.RouterService") as mock_service_class:
     mock_service = Mock()
     mock_service_class.return_value = mock_service
 
@@ -16,6 +16,7 @@ with patch('main.RouterService') as mock_service_class:
 
 class MockLambdaContext:
     """Mock Lambda context for testing."""
+
     def __init__(self):
         self.function_name = "test-router"
         self.function_version = "1"
@@ -26,18 +27,20 @@ class TestProcessDocument:
     """Test process_document function."""
 
     @pytest.mark.asyncio
-    @patch('main.router_service')
+    @patch("main.router_service")
     async def test_process_document_success_upload(self, mock_service):
         """Test successful document processing for upload."""
         # Setup mocks
         mock_service.check_document_exists.return_value = False
-        mock_service.copy_uploaded_file.return_value = "originals/test-doc-123/document.pdf"
+        mock_service.copy_uploaded_file.return_value = (
+            "originals/test-doc-123/document.pdf"
+        )
         mock_service.save_document_record = Mock()
         mock_service.create_job_record = Mock()
         mock_service.enqueue_process_message = Mock()
 
         # Mock tracer
-        with patch('main.tracer') as mock_tracer:
+        with patch("main.tracer") as mock_tracer:
             mock_tracer.provider.get_start_time.return_value = 1234567890
             mock_tracer.provider.get_elapsed_time_ms.return_value = 150
 
@@ -48,7 +51,7 @@ class TestProcessDocument:
                 s3_key="temp/test-doc-123/document.pdf",
                 filename="document.pdf",
                 user_id="user-123",
-                priority=False
+                priority=False,
             )
 
             # Process document
@@ -71,7 +74,7 @@ class TestProcessDocument:
         mock_service.enqueue_process_message.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch('main.router_service')
+    @patch("main.router_service")
     async def test_process_document_success_url(self, mock_service):
         """Test successful document processing for URL."""
         # Setup mocks
@@ -84,7 +87,7 @@ class TestProcessDocument:
         mock_service.enqueue_process_message = Mock()
 
         # Mock tracer
-        with patch('main.tracer') as mock_tracer:
+        with patch("main.tracer") as mock_tracer:
             mock_tracer.provider.get_start_time.return_value = 1234567890
             mock_tracer.provider.get_elapsed_time_ms.return_value = 300
 
@@ -95,7 +98,7 @@ class TestProcessDocument:
                 source_url="https://example.com/document.pdf",
                 filename="document.pdf",
                 user_id="user-456",
-                priority=True
+                priority=True,
             )
 
             # Process document
@@ -110,11 +113,11 @@ class TestProcessDocument:
         mock_service.download_and_store_from_url.assert_called_once_with(
             doc_id="test-doc-456",
             source_url="https://example.com/document.pdf",
-            filename="document.pdf"
+            filename="document.pdf",
         )
 
     @pytest.mark.asyncio
-    @patch('main.router_service')
+    @patch("main.router_service")
     async def test_process_document_already_exists(self, mock_service):
         """Test document already exists (idempotency)."""
         # Setup mocks
@@ -125,7 +128,7 @@ class TestProcessDocument:
             doc_id="existing-doc-123",
             source=DocumentSource.UPLOAD,
             s3_key="temp/existing-doc-123/document.pdf",
-            filename="document.pdf"
+            filename="document.pdf",
         )
 
         # Process document
@@ -142,7 +145,7 @@ class TestProcessDocument:
         mock_service.save_document_record.assert_not_called()
 
     @pytest.mark.asyncio
-    @patch('main.router_service')
+    @patch("main.router_service")
     async def test_process_document_aws_service_error(self, mock_service):
         """Test AWS service error handling."""
         from services import AWSServiceError
@@ -156,7 +159,7 @@ class TestProcessDocument:
             doc_id="error-doc-123",
             source=DocumentSource.UPLOAD,
             s3_key="temp/error-doc-123/document.pdf",
-            filename="document.pdf"
+            filename="document.pdf",
         )
 
         # Process document
@@ -178,42 +181,46 @@ class TestLambdaHandler:
             "Records": [
                 {
                     "messageId": "test-message-1",
-                    "body": json.dumps({
-                        "doc_id": "test-doc-123",
-                        "source": "upload",
-                        "s3_key": "temp/test-doc-123/document.pdf",
-                        "filename": "document.pdf",
-                        "user_id": "user-123",
-                        "priority": False
-                    })
+                    "body": json.dumps(
+                        {
+                            "doc_id": "test-doc-123",
+                            "source": "upload",
+                            "s3_key": "temp/test-doc-123/document.pdf",
+                            "filename": "document.pdf",
+                            "user_id": "user-123",
+                            "priority": False,
+                        }
+                    ),
                 },
                 {
                     "messageId": "test-message-2",
-                    "body": json.dumps({
-                        "doc_id": "test-doc-456",
-                        "source": "url",
-                        "source_url": "https://example.com/document.pdf",
-                        "filename": "document.pdf",
-                        "user_id": "user-456",
-                        "priority": True
-                    })
-                }
+                    "body": json.dumps(
+                        {
+                            "doc_id": "test-doc-456",
+                            "source": "url",
+                            "source_url": "https://example.com/document.pdf",
+                            "filename": "document.pdf",
+                            "user_id": "user-456",
+                            "priority": True,
+                        }
+                    ),
+                },
             ]
         }
 
         # Mock process_document function
-        with patch('main.process_document') as mock_process:
+        with patch("main.process_document") as mock_process:
             mock_process.side_effect = [
                 {
                     "status": "success",
                     "doc_id": "test-doc-123",
-                    "actions_performed": ["test"]
+                    "actions_performed": ["test"],
                 },
                 {
                     "status": "success",
                     "doc_id": "test-doc-456",
-                    "actions_performed": ["test"]
-                }
+                    "actions_performed": ["test"],
+                },
             ]
 
             # Execute handler
@@ -235,40 +242,46 @@ class TestLambdaHandler:
             "Records": [
                 {
                     "messageId": "success-message",
-                    "body": json.dumps({
-                        "doc_id": "success-doc",
-                        "source": "upload",
-                        "s3_key": "temp/success-doc/document.pdf",
-                        "filename": "document.pdf"
-                    })
+                    "body": json.dumps(
+                        {
+                            "doc_id": "success-doc",
+                            "source": "upload",
+                            "s3_key": "temp/success-doc/document.pdf",
+                            "filename": "document.pdf",
+                        }
+                    ),
                 },
                 {
                     "messageId": "skip-message",
-                    "body": json.dumps({
-                        "doc_id": "skip-doc",
-                        "source": "upload",
-                        "s3_key": "temp/skip-doc/document.pdf",
-                        "filename": "document.pdf"
-                    })
+                    "body": json.dumps(
+                        {
+                            "doc_id": "skip-doc",
+                            "source": "upload",
+                            "s3_key": "temp/skip-doc/document.pdf",
+                            "filename": "document.pdf",
+                        }
+                    ),
                 },
                 {
                     "messageId": "fail-message",
-                    "body": json.dumps({
-                        "doc_id": "fail-doc",
-                        "source": "upload",
-                        "s3_key": "temp/fail-doc/document.pdf",
-                        "filename": "document.pdf"
-                    })
-                }
+                    "body": json.dumps(
+                        {
+                            "doc_id": "fail-doc",
+                            "source": "upload",
+                            "s3_key": "temp/fail-doc/document.pdf",
+                            "filename": "document.pdf",
+                        }
+                    ),
+                },
             ]
         }
 
         # Mock process_document function
-        with patch('main.process_document') as mock_process:
+        with patch("main.process_document") as mock_process:
             mock_process.side_effect = [
                 {"status": "success", "doc_id": "success-doc"},
                 {"status": "skipped", "doc_id": "skip-doc"},
-                {"status": "failed", "doc_id": "fail-doc", "error": "Test error"}
+                {"status": "failed", "doc_id": "fail-doc", "error": "Test error"},
             ]
 
             # Execute handler
@@ -284,12 +297,7 @@ class TestLambdaHandler:
         """Test Lambda handler with invalid message format."""
         # Create test event with invalid JSON
         test_event = {
-            "Records": [
-                {
-                    "messageId": "invalid-message",
-                    "body": "invalid json"
-                }
-            ]
+            "Records": [{"messageId": "invalid-message", "body": "invalid json"}]
         }
 
         # Execute handler

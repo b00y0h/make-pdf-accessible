@@ -27,7 +27,7 @@ class TestIngestMessage:
             s3_key="temp/test-doc-123/document.pdf",
             filename="document.pdf",
             user_id="user-123",
-            priority=False
+            priority=False,
         )
 
         assert message.doc_id == "test-doc-123"
@@ -46,7 +46,7 @@ class TestIngestMessage:
             filename="document.pdf",
             user_id="user-456",
             priority=True,
-            webhook_url="https://webhook.example.com/notify"
+            webhook_url="https://webhook.example.com/notify",
         )
 
         assert message.doc_id == "test-doc-456"
@@ -61,7 +61,7 @@ class TestIngestMessage:
             IngestMessage(
                 doc_id="test-doc-123",
                 source=DocumentSource.UPLOAD,
-                filename="document.pdf"
+                filename="document.pdf",
             )
 
         assert "s3_key is required when source is upload" in str(exc_info.value)
@@ -72,7 +72,7 @@ class TestIngestMessage:
             IngestMessage(
                 doc_id="test-doc-123",
                 source=DocumentSource.URL,
-                filename="document.pdf"
+                filename="document.pdf",
             )
 
         assert "source_url is required when source is URL" in str(exc_info.value)
@@ -84,7 +84,7 @@ class TestIngestMessage:
                 doc_id="test-doc-123",
                 source=DocumentSource.URL,
                 source_url="not-a-url",
-                filename="document.pdf"
+                filename="document.pdf",
             )
 
         assert "source_url must be a valid HTTP/HTTPS URL" in str(exc_info.value)
@@ -101,7 +101,7 @@ class TestDocumentRecord:
             source=DocumentSource.UPLOAD,
             filename="document.pdf",
             s3_key_original="originals/test-doc-123/document.pdf",
-            metadata={"test": True}
+            metadata={"test": True},
         )
 
         assert record.doc_id == "test-doc-123"
@@ -113,10 +113,7 @@ class TestDocumentRecord:
 
     def test_default_values(self):
         """Test document record default values."""
-        record = DocumentRecord(
-            doc_id="test-doc-123",
-            source=DocumentSource.URL
-        )
+        record = DocumentRecord(doc_id="test-doc-123", source=DocumentSource.URL)
 
         assert record.status == DocumentStatus.PENDING
         assert record.metadata == {}
@@ -133,7 +130,7 @@ class TestJobRecord:
             doc_id="test-doc-123",
             step=JobStep.OCR,
             priority=True,
-            input_data={"s3_key": "test-key"}
+            input_data={"s3_key": "test-key"},
         )
 
         assert job.doc_id == "test-doc-123"
@@ -147,20 +144,14 @@ class TestJobRecord:
 
     def test_job_id_generation(self):
         """Test that job_id is automatically generated."""
-        job = JobRecord(
-            doc_id="test-doc-123",
-            step=JobStep.OCR
-        )
+        job = JobRecord(doc_id="test-doc-123", step=JobStep.OCR)
 
         assert job.job_id is not None
         assert len(job.job_id) > 0
 
     def test_default_values(self):
         """Test job record default values."""
-        job = JobRecord(
-            doc_id="test-doc-123",
-            step=JobStep.STRUCTURE
-        )
+        job = JobRecord(doc_id="test-doc-123", step=JobStep.STRUCTURE)
 
         assert job.status == JobStatus.PENDING
         assert job.priority is False
@@ -181,7 +172,7 @@ class TestProcessMessage:
             step=JobStep.OCR,
             priority=True,
             input_data={"test": "data"},
-            retry_count=1
+            retry_count=1,
         )
 
         assert message.job_id == "job-123"
@@ -194,9 +185,7 @@ class TestProcessMessage:
     def test_default_values(self):
         """Test process message default values."""
         message = ProcessMessage(
-            job_id="job-123",
-            doc_id="doc-123",
-            step=JobStep.VALIDATOR
+            job_id="job-123", doc_id="doc-123", step=JobStep.VALIDATOR
         )
 
         assert message.priority is False

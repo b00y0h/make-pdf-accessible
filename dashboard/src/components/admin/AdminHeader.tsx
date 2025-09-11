@@ -1,18 +1,18 @@
-'use client'
+'use client';
 
-import React from 'react'
-import Link from 'next/link'
-import { useSession } from '@/lib/auth-client'
-import { 
-  Bell as BellIcon, 
+import React from 'react';
+import Link from 'next/link';
+import { useSession } from '@/lib/auth-client';
+import {
+  Bell as BellIcon,
   Menu as Bars3Icon,
-  Home as HomeIcon
-} from 'lucide-react'
-import { SignOutButton } from '@/components/auth/SignOutButton'
+  Home as HomeIcon,
+} from 'lucide-react';
+import { SignOutButton } from '@/components/auth/SignOutButton';
 
 export function AdminHeader() {
-  const { data: session } = useSession()
-  const user = session?.user
+  const { data: session } = useSession();
+  const user = session?.user;
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200">
@@ -64,13 +64,15 @@ export function AdminHeader() {
                   {user?.name || user?.email}
                 </div>
                 <div className="text-gray-500 capitalize">
-                  {user?.role} Access
+                  {(user as any)?.role} Access
                 </div>
               </div>
               <div className="flex-shrink-0">
                 <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
                   <span className="text-indigo-600 text-sm font-medium">
-                    {user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'A'}
+                    {user?.name?.charAt(0)?.toUpperCase() ||
+                      user?.email?.charAt(0)?.toUpperCase() ||
+                      'A'}
                   </span>
                 </div>
               </div>
@@ -79,5 +81,5 @@ export function AdminHeader() {
         </div>
       </div>
     </header>
-  )
+  );
 }

@@ -1,17 +1,17 @@
-'use client'
+'use client';
 
-import React from 'react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { useSession, signOut } from '@/lib/auth-client'
-import { 
-  Home as HomeIcon, 
-  Users as UsersIcon, 
+import React from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useSession, signOut } from '@/lib/auth-client';
+import {
+  Home as HomeIcon,
+  Users as UsersIcon,
   FileText as DocumentTextIcon,
   Settings as CogIcon,
   Shield as ShieldCheckIcon,
-  BarChart3 as ChartBarIcon
-} from 'lucide-react'
+  BarChart3 as ChartBarIcon,
+} from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: HomeIcon },
@@ -20,21 +20,21 @@ const navigation = [
   { name: 'Analytics', href: '/admin/analytics', icon: ChartBarIcon },
   { name: 'Audit Logs', href: '/admin/audit', icon: ShieldCheckIcon },
   { name: 'Settings', href: '/admin/settings', icon: CogIcon },
-]
+];
 
 function classNames(...classes: string[]) {
-  return classes.filter(Boolean).join(' ')
+  return classes.filter(Boolean).join(' ');
 }
 
 export function AdminSidebar() {
-  const pathname = usePathname()
-  const { data: session } = useSession()
-  const user = session?.user
+  const pathname = usePathname();
+  const { data: session } = useSession();
+  const user = session?.user;
 
   const logout = async () => {
-    await signOut()
-    window.location.href = '/sign-in'
-  }
+    await signOut();
+    window.location.href = '/sign-in';
+  };
 
   return (
     <div className="flex flex-col w-64 bg-gray-800">
@@ -47,7 +47,7 @@ export function AdminSidebar() {
       <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
         <nav className="mt-5 flex-1 px-2 space-y-1">
           {navigation.map((item) => {
-            const isCurrent = pathname === item.href
+            const isCurrent = pathname === item.href;
             return (
               <Link
                 key={item.name}
@@ -61,14 +61,16 @@ export function AdminSidebar() {
               >
                 <item.icon
                   className={classNames(
-                    isCurrent ? 'text-gray-300' : 'text-gray-400 group-hover:text-gray-300',
+                    isCurrent
+                      ? 'text-gray-300'
+                      : 'text-gray-400 group-hover:text-gray-300',
                     'mr-3 flex-shrink-0 h-6 w-6'
                   )}
                   aria-hidden="true"
                 />
                 {item.name}
               </Link>
-            )
+            );
           })}
         </nav>
       </div>
@@ -80,7 +82,9 @@ export function AdminSidebar() {
             <div className="flex-shrink-0">
               <div className="inline-block h-10 w-10 rounded-full bg-gray-600 flex items-center justify-center">
                 <span className="text-white text-sm font-medium">
-                  {user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'A'}
+                  {user?.name?.charAt(0)?.toUpperCase() ||
+                    user?.email?.charAt(0)?.toUpperCase() ||
+                    'A'}
                 </span>
               </div>
             </div>
@@ -89,7 +93,7 @@ export function AdminSidebar() {
                 {user?.name || user?.email}
               </p>
               <p className="text-xs text-gray-400 capitalize">
-                {user?.role} User
+                {(user as any)?.role} User
               </p>
             </div>
           </div>
@@ -104,5 +108,5 @@ export function AdminSidebar() {
         </div>
       </div>
     </div>
-  )
+  );
 }

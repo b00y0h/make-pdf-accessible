@@ -18,7 +18,7 @@ router = APIRouter(prefix="/webhooks", tags=["webhooks"])
     "",
     status_code=status.HTTP_200_OK,
     summary="Receive webhook callbacks",
-    description="Endpoint for receiving HMAC-signed webhook callbacks from external services."
+    description="Endpoint for receiving HMAC-signed webhook callbacks from external services.",
 )
 @tracer.capture_method
 async def receive_webhook(request: Request) -> Dict[str, str]:
@@ -27,16 +27,18 @@ async def receive_webhook(request: Request) -> Dict[str, str]:
     try:
         # Get raw body for signature verification
         raw_body = await request.body()
-        body_str = raw_body.decode('utf-8')
+        body_str = raw_body.decode("utf-8")
 
         # Get signature from headers
-        signature = request.headers.get('X-Hub-Signature-256') or request.headers.get('X-Signature-256')
+        signature = request.headers.get("X-Hub-Signature-256") or request.headers.get(
+            "X-Signature-256"
+        )
 
         if not signature:
             logger.warning("Webhook received without signature")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Missing webhook signature"
+                detail="Missing webhook signature",
             )
 
         # Verify signature if webhook secret is configured
@@ -44,7 +46,7 @@ async def receive_webhook(request: Request) -> Dict[str, str]:
             is_valid = webhook_service.verify_webhook_signature(
                 payload=body_str,
                 signature=signature,
-                secret=settings.webhook_secret_key
+                secret=settings.webhook_secret_key,
             )
 
             if not is_valid:
@@ -52,16 +54,20 @@ async def receive_webhook(request: Request) -> Dict[str, str]:
                     "Invalid webhook signature",
                     extra={
                         "signature": signature,
-                        "remote_addr": request.client.host if request.client else "unknown"
-                    }
+                        "remote_addr": (
+                            request.client.host if request.client else "unknown"
+                        ),
+                    },
                 )
                 metrics.add_metric(name="WebhookAuthFailures", unit="Count", value=1)
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid webhook signature"
+                    detail="Invalid webhook signature",
                 )
         else:
-            logger.warning("Webhook secret not configured - signature verification skipped")
+            logger.warning(
+                "Webhook secret not configured - signature verification skipped"
+            )
 
         # Parse JSON payload
         try:
@@ -69,31 +75,30 @@ async def receive_webhook(request: Request) -> Dict[str, str]:
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON in webhook payload: {e}")
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid JSON payload"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON payload"
             )
 
         # Validate required fields
-        required_fields = ['event_type', 'doc_id', 'status', 'timestamp']
+        required_fields = ["event_type", "doc_id", "status", "timestamp"]
         missing_fields = [field for field in required_fields if field not in payload]
 
         if missing_fields:
             logger.error(f"Missing required fields in webhook: {missing_fields}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Missing required fields: {missing_fields}"
+                detail=f"Missing required fields: {missing_fields}",
             )
 
         # Log webhook details
         logger.info(
             "Webhook received",
             extra={
-                "event_type": payload.get('event_type'),
-                "doc_id": payload.get('doc_id'),
-                "status": payload.get('status'),
+                "event_type": payload.get("event_type"),
+                "doc_id": payload.get("doc_id"),
+                "status": payload.get("status"),
                 "remote_addr": request.client.host if request.client else "unknown",
-                "user_agent": request.headers.get('User-Agent', 'unknown')
-            }
+                "user_agent": request.headers.get("User-Agent", "unknown"),
+            },
         )
 
         # Process webhook
@@ -104,14 +109,14 @@ async def receive_webhook(request: Request) -> Dict[str, str]:
             metrics.add_metric(
                 name=f"Webhooks{payload.get('event_type', 'Unknown').title()}",
                 unit="Count",
-                value=1
+                value=1,
             )
 
             return {"status": "received", "message": "Webhook processed successfully"}
         else:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to process webhook"
+                detail="Failed to process webhook",
             )
 
     except HTTPException:
@@ -120,13 +125,13 @@ async def receive_webhook(request: Request) -> Dict[str, str]:
         logger.error(f"AWS service error processing webhook: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal service error"
+            detail="Internal service error",
         )
     except Exception as e:
         logger.error(f"Unexpected error processing webhook: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unexpected error processing webhook"
+            detail="Unexpected error processing webhook",
         )
 
 
@@ -134,7 +139,7 @@ async def receive_webhook(request: Request) -> Dict[str, str]:
     "/health",
     status_code=status.HTTP_200_OK,
     summary="Webhook endpoint health check",
-    description="Simple health check for webhook endpoint availability."
+    description="Simple health check for webhook endpoint availability.",
 )
 async def webhook_health() -> Dict[str, str]:
     """Webhook endpoint health check"""
@@ -145,7 +150,7 @@ async def webhook_health() -> Dict[str, str]:
     "/test",
     status_code=status.HTTP_200_OK,
     summary="Test webhook endpoint",
-    description="Test endpoint for webhook functionality (development only)."
+    description="Test endpoint for webhook functionality (development only).",
 )
 @tracer.capture_method
 async def test_webhook(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -154,7 +159,7 @@ async def test_webhook(payload: Dict[str, Any]) -> Dict[str, Any]:
     if settings.environment.lower() == "production":
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Test endpoint not available in production"
+            detail="Test endpoint not available in production",
         )
 
     logger.info("Test webhook received", extra={"payload": payload})
@@ -164,5 +169,5 @@ async def test_webhook(payload: Dict[str, Any]) -> Dict[str, Any]:
         "status": "test_received",
         "received_payload": payload,
         "timestamp": "2023-01-01T00:00:00Z",
-        "environment": settings.environment
+        "environment": settings.environment,
     }

@@ -1,1 +1,1 @@
-export { APIKeyManager } from './APIKeyManager'
+export { APIKeyManager } from './APIKeyManager';

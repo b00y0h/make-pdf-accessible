@@ -23,7 +23,14 @@
       "status": {
         "bsonType": "string",
         "description": "Current processing status",
-        "enum": ["pending", "processing", "completed", "failed", "validation_failed", "notification_failed"]
+        "enum": [
+          "pending",
+          "processing",
+          "completed",
+          "failed",
+          "validation_failed",
+          "notification_failed"
+        ]
       },
       "filename": {
         "bsonType": ["string", "null"],

@@ -3,22 +3,22 @@ info:
   title: PDF Accessibility Platform API
   description: |
     API for PDF accessibility processing platform
-    
+
     This API provides document processing capabilities to convert PDFs into accessible formats
     including ADA/Section 508 compliant PDFs and LLM-ready structured data exports.
-    
+
     ## Authentication
     - Bearer token authentication using BetterAuth JWT tokens
     - API keys for programmatic access (coming soon)
-    
+
     ## Rate Limits
     - 60 requests per minute per user
     - 1000 requests per hour per user
-    
+
     ## Supported Formats
     - Input: PDF, DOC, DOCX, TXT files
     - Output: Accessible PDF, HTML, JSON, CSV/ZIP exports
-    
+
   version: 1.0.0
   contact:
     name: PDF Accessibility Platform
@@ -35,7 +35,7 @@ tags:
   - name: health
     description: Health check and service status endpoints
   - name: auth
-    description: Authentication and user profile endpoints  
+    description: Authentication and user profile endpoints
   - name: documents
     description: Document upload, processing, and management
   - name: reports
@@ -371,7 +371,7 @@ paths:
             format: date-time
         - name: end_date
           in: query
-          description: End date filter (ISO format)  
+          description: End date filter (ISO format)
           schema:
             type: string
             format: date-time
@@ -459,21 +459,21 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    
+
     Forbidden:
       description: Insufficient permissions
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    
+
     NotFound:
       description: Resource not found
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    
+
     ValidationError:
       description: Validation error
       content:
@@ -494,7 +494,7 @@ components:
         version:
           type: string
           description: API version
-          example: "1.0.0"
+          example: '1.0.0'
         timestamp:
           type: string
           format: date-time
@@ -531,7 +531,15 @@ components:
     # Documents
     DocumentStatus:
       type: string
-      enum: [pending, processing, completed, failed, validation_failed, notification_failed]
+      enum:
+        [
+          pending,
+          processing,
+          completed,
+          failed,
+          validation_failed,
+          notification_failed,
+        ]
       description: Document processing status
 
     DocumentType:
@@ -546,11 +554,11 @@ components:
         filename:
           type: string
           description: Original filename
-          example: "document.pdf"
+          example: 'document.pdf'
         content_type:
           type: string
           description: MIME content type
-          example: "application/pdf"
+          example: 'application/pdf'
         file_size:
           type: integer
           minimum: 1
@@ -692,7 +700,17 @@ components:
     # Reports
     ReportsSummaryResponse:
       type: object
-      required: [total_documents, completed_documents, processing_documents, failed_documents, pending_documents, completion_rate, avg_processing_time_hours, weekly_stats]
+      required:
+        [
+          total_documents,
+          completed_documents,
+          processing_documents,
+          failed_documents,
+          pending_documents,
+          completion_rate,
+          avg_processing_time_hours,
+          weekly_stats,
+        ]
       properties:
         total_documents:
           type: integer

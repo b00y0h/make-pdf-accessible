@@ -108,15 +108,7 @@ export function UsersList() {
     };
 
     fetchUsers();
-  }, [
-    apiService,
-    params.page,
-    params.pageSize,
-    params.sortBy,
-    params.sortOrder,
-    params.search,
-    params.role,
-  ]);
+  }, [apiService, params]);
 
   // Separate function for manual refresh (used by drawer)
   const refreshUsers = useCallback(async () => {

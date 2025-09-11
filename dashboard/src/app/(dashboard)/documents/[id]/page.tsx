@@ -1,12 +1,18 @@
-'use client'
+'use client';
 
-import React, { useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Textarea } from '@/components/ui/textarea'
+import React, { useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 import {
   ArrowLeft,
   Download,
@@ -20,12 +26,12 @@ import {
   X,
   RefreshCw,
   ExternalLink,
-} from 'lucide-react'
-import { formatRelativeTime, formatBytes } from '@/lib/utils'
-import { useDocument, useDownloadUrl, useUpdateAltText } from '@/hooks/useApi'
-import { AltTextReview } from '@/components/AltTextReview'
-import toast from 'react-hot-toast'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+} from 'lucide-react';
+import { formatRelativeTime, formatBytes } from '@/lib/utils';
+import { useDocument, useDownloadUrl, useUpdateAltText } from '@/hooks/useApi';
+import { AltTextReview } from '@/components/AltTextReview';
+import toast from 'react-hot-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 function DocumentSkeleton() {
   return (
@@ -37,13 +43,13 @@ function DocumentSkeleton() {
           <Skeleton className="h-4 w-60" />
         </div>
       </div>
-      
+
       <div className="grid gap-4 md:grid-cols-3">
         <Skeleton className="h-32" />
         <Skeleton className="h-32" />
         <Skeleton className="h-32" />
       </div>
-      
+
       <Card>
         <CardHeader>
           <Skeleton className="h-6 w-40" />
@@ -53,60 +59,82 @@ function DocumentSkeleton() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
 
 function getStatusIcon(status: string) {
   switch (status) {
     case 'processing':
-      return <Clock className="h-5 w-5 text-yellow-500" />
+      return <Clock className="h-5 w-5 text-yellow-500" />;
     case 'completed':
-      return <CheckCircle className="h-5 w-5 text-green-500" />
+      return <CheckCircle className="h-5 w-5 text-green-500" />;
     case 'failed':
-      return <AlertCircle className="h-5 w-5 text-red-500" />
+      return <AlertCircle className="h-5 w-5 text-red-500" />;
     case 'pending':
-      return <Clock className="h-5 w-5 text-blue-500" />
+      return <Clock className="h-5 w-5 text-blue-500" />;
     default:
-      return <FileText className="h-5 w-5 text-gray-500" />
+      return <FileText className="h-5 w-5 text-gray-500" />;
   }
 }
 
 function getStatusBadge(status: string) {
   switch (status) {
     case 'processing':
-      return <Badge variant="warning" className="text-sm">Processing</Badge>
+      return (
+        <Badge variant="warning" className="text-sm">
+          Processing
+        </Badge>
+      );
     case 'completed':
-      return <Badge variant="success" className="text-sm">Completed</Badge>
+      return (
+        <Badge variant="success" className="text-sm">
+          Completed
+        </Badge>
+      );
     case 'failed':
-      return <Badge variant="error" className="text-sm">Failed</Badge>
+      return (
+        <Badge variant="error" className="text-sm">
+          Failed
+        </Badge>
+      );
     case 'pending':
-      return <Badge variant="secondary" className="text-sm">Pending</Badge>
+      return (
+        <Badge variant="secondary" className="text-sm">
+          Pending
+        </Badge>
+      );
     default:
-      return <Badge className="text-sm">Unknown</Badge>
+      return <Badge className="text-sm">Unknown</Badge>;
   }
 }
 
 interface DownloadButtonProps {
-  docId: string
-  type: string
-  label: string
-  description: string
-  disabled?: boolean
+  docId: string;
+  type: string;
+  label: string;
+  description: string;
+  disabled?: boolean;
 }
 
-function DownloadButton({ docId, type, label, description, disabled }: DownloadButtonProps) {
-  const downloadMutation = useDownloadUrl()
+function DownloadButton({
+  docId,
+  type,
+  label,
+  description,
+  disabled,
+}: DownloadButtonProps) {
+  const downloadMutation = useDownloadUrl();
 
   const handleDownload = async () => {
     try {
-      const result = await downloadMutation.mutateAsync({ docId, type })
+      const result = await downloadMutation.mutateAsync({ docId, type });
       // Open the pre-signed URL
-      window.open(result.download_url, '_blank')
-      toast.success(`Download started for ${label}`)
+      window.open(result.download_url, '_blank');
+      toast.success(`Download started for ${label}`);
     } catch (error) {
-      toast.error(`Failed to download ${label}`)
+      toast.error(`Failed to download ${label}`);
     }
-  }
+  };
 
   return (
     <Button
@@ -123,68 +151,65 @@ function DownloadButton({ docId, type, label, description, disabled }: DownloadB
             <div className="text-xs text-muted-foreground">{description}</div>
           </div>
         </div>
-        {downloadMutation.isPending && <RefreshCw className="h-4 w-4 animate-spin" />}
+        {downloadMutation.isPending && (
+          <RefreshCw className="h-4 w-4 animate-spin" />
+        )}
       </div>
     </Button>
-  )
+  );
 }
 
 export default function DocumentDetailPage() {
-  const params = useParams()
-  const router = useRouter()
-  const docId = params.id as string
-  
-  const [editingAltText, setEditingAltText] = useState(false)
-  const [altTextValue, setAltTextValue] = useState('')
+  const params = useParams();
+  const router = useRouter();
+  const docId = params.id as string;
 
-  const { 
-    data: document, 
-    isLoading, 
-    error, 
-    refetch 
-  } = useDocument(docId)
+  const [editingAltText, setEditingAltText] = useState(false);
+  const [altTextValue, setAltTextValue] = useState('');
 
-  const updateAltTextMutation = useUpdateAltText()
+  const { data: document, isLoading, error, refetch } = useDocument(docId);
+
+  const updateAltTextMutation = useUpdateAltText();
 
   React.useEffect(() => {
     if (error) {
-      toast.error('Failed to load document details')
+      toast.error('Failed to load document details');
     }
-  }, [error])
+  }, [error]);
 
   React.useEffect(() => {
     if (document?.artifacts?.alt_text) {
       try {
-        const altTextData = JSON.parse(document.artifacts.alt_text)
-        setAltTextValue(JSON.stringify(altTextData, null, 2))
+        const altTextData = JSON.parse(document.artifacts.alt_text);
+        setAltTextValue(JSON.stringify(altTextData, null, 2));
       } catch {
-        setAltTextValue(document.artifacts.alt_text)
+        setAltTextValue(document.artifacts.alt_text);
       }
     }
-  }, [document])
+  }, [document]);
 
   React.useEffect(() => {
     if (updateAltTextMutation.isSuccess) {
-      toast.success('Alt text updated successfully')
-      setEditingAltText(false)
-      refetch()
+      toast.success('Alt text updated successfully');
+      setEditingAltText(false);
+      refetch();
     }
     if (updateAltTextMutation.error) {
-      toast.error('Failed to update alt text')
+      toast.error('Failed to update alt text');
     }
-  }, [updateAltTextMutation.isSuccess, updateAltTextMutation.error, refetch])
+  }, [updateAltTextMutation.isSuccess, updateAltTextMutation.error, refetch]);
 
   const handleSaveAltText = async () => {
     try {
-      const altTextData = JSON.parse(altTextValue)
+      const altTextData = JSON.parse(altTextValue);
       await updateAltTextMutation.mutateAsync({
         docId,
-        altText: altTextData
-      })
+        altText: altTextData,
+      });
     } catch (error) {
-      toast.error('Invalid JSON format')
+      toast.error('Invalid JSON format');
     }
-  }
+  };
 
   if (isLoading) {
     return (
@@ -197,7 +222,7 @@ export default function DocumentDetailPage() {
         </div>
         <DocumentSkeleton />
       </div>
-    )
+    );
   }
 
   if (error || !document) {
@@ -214,18 +239,21 @@ export default function DocumentDetailPage() {
             <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">Document not found</h3>
             <p className="text-muted-foreground text-center mb-4">
-              The requested document could not be found or you don't have permission to view it.
+              The requested document could not be found or you don&apos;t have
+              permission to view it.
             </p>
-            <Button onClick={() => router.push('/queue')}>
-              Go to Queue
-            </Button>
+            <Button onClick={() => router.push('/queue')}>Go to Queue</Button>
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
-  const hasArtifacts = document.artifacts && Object.keys(document.artifacts).some(key => document.artifacts![key])
+  const hasArtifacts =
+    document.artifacts &&
+    Object.keys(document.artifacts).some(
+      (key) => (document.artifacts as any)[key]
+    );
 
   return (
     <div className="space-y-6">
@@ -238,18 +266,26 @@ export default function DocumentDetailPage() {
           </Button>
           {getStatusIcon(document.status)}
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">{document.filename}</h1>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {document.filename}
+            </h1>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <span>ID: {document.doc_id}</span>
-              <span>Created {formatRelativeTime(new Date(document.created_at))}</span>
-              <span>Updated {formatRelativeTime(new Date(document.updated_at))}</span>
+              <span>
+                Created {formatRelativeTime(new Date(document.created_at))}
+              </span>
+              <span>
+                Updated {formatRelativeTime(new Date(document.updated_at))}
+              </span>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {getStatusBadge(document.status)}
           {document.priority && (
-            <Badge variant="error" className="text-xs">High Priority</Badge>
+            <Badge variant="error" className="text-xs">
+              High Priority
+            </Badge>
           )}
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="h-4 w-4 mr-2" />
@@ -270,8 +306,10 @@ export default function DocumentDetailPage() {
               <span className="font-medium capitalize">{document.status}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {document.status === 'completed' && 'Processing completed successfully'}
-              {document.status === 'processing' && 'Document is being processed'}
+              {document.status === 'completed' &&
+                'Processing completed successfully'}
+              {document.status === 'processing' &&
+                'Document is being processed'}
               {document.status === 'failed' && 'Processing failed'}
               {document.status === 'pending' && 'Waiting to be processed'}
             </p>
@@ -296,7 +334,9 @@ export default function DocumentDetailPage() {
             <div className="font-medium">
               {document.priority ? 'High Priority' : 'Normal Priority'}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Processing priority</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Processing priority
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -317,13 +357,14 @@ export default function DocumentDetailPage() {
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Eye className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Alt-text review not available yet</h3>
+                <h3 className="text-lg font-semibold mb-2">
+                  Alt-text review not available yet
+                </h3>
                 <p className="text-muted-foreground text-center">
-                  Alt-text review will be available once document processing is completed.
+                  Alt-text review will be available once document processing is
+                  completed.
                 </p>
-                <div className="mt-4">
-                  {getStatusBadge(document.status)}
-                </div>
+                <div className="mt-4">{getStatusBadge(document.status)}</div>
               </CardContent>
             </Card>
           )}
@@ -344,7 +385,7 @@ export default function DocumentDetailPage() {
                 label="Original PDF"
                 description="The original uploaded document"
               />
-              
+
               <DownloadButton
                 docId={document.doc_id}
                 type="accessible"
@@ -352,7 +393,7 @@ export default function DocumentDetailPage() {
                 description="PDF with accessibility improvements"
                 disabled={document.status !== 'completed'}
               />
-              
+
               <DownloadButton
                 docId={document.doc_id}
                 type="report"
@@ -360,7 +401,7 @@ export default function DocumentDetailPage() {
                 description="Detailed report of accessibility improvements"
                 disabled={document.status !== 'completed'}
               />
-              
+
               <DownloadButton
                 docId={document.doc_id}
                 type="csvzip"
@@ -385,7 +426,9 @@ export default function DocumentDetailPage() {
                 <div className="text-center py-8 text-muted-foreground">
                   <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p>No artifacts available yet</p>
-                  <p className="text-xs">Artifacts will appear as the document is processed</p>
+                  <p className="text-xs">
+                    Artifacts will appear as the document is processed
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -393,7 +436,9 @@ export default function DocumentDetailPage() {
                     <div className="flex items-center justify-between p-3 border rounded-lg">
                       <div>
                         <div className="font-medium">Textract Data</div>
-                        <div className="text-xs text-muted-foreground">OCR and text extraction results</div>
+                        <div className="text-xs text-muted-foreground">
+                          OCR and text extraction results
+                        </div>
                       </div>
                       <Button variant="outline" size="sm">
                         <ExternalLink className="h-4 w-4 mr-2" />
@@ -401,12 +446,14 @@ export default function DocumentDetailPage() {
                       </Button>
                     </div>
                   )}
-                  
+
                   {document.artifacts?.structure && (
                     <div className="flex items-center justify-between p-3 border rounded-lg">
                       <div>
                         <div className="font-medium">Document Structure</div>
-                        <div className="text-xs text-muted-foreground">Hierarchical structure analysis</div>
+                        <div className="text-xs text-muted-foreground">
+                          Hierarchical structure analysis
+                        </div>
                       </div>
                       <Button variant="outline" size="sm">
                         <ExternalLink className="h-4 w-4 mr-2" />
@@ -414,12 +461,14 @@ export default function DocumentDetailPage() {
                       </Button>
                     </div>
                   )}
-                  
+
                   {document.artifacts?.tagged_pdf && (
                     <div className="flex items-center justify-between p-3 border rounded-lg">
                       <div>
                         <div className="font-medium">Tagged PDF</div>
-                        <div className="text-xs text-muted-foreground">PDF with accessibility tags</div>
+                        <div className="text-xs text-muted-foreground">
+                          PDF with accessibility tags
+                        </div>
                       </div>
                       <Button variant="outline" size="sm">
                         <Download className="h-4 w-4 mr-2" />
@@ -440,8 +489,8 @@ export default function DocumentDetailPage() {
                 Alt Text Configuration
                 <div className="flex items-center gap-2">
                   {!editingAltText ? (
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       onClick={() => setEditingAltText(true)}
                       disabled={!document.artifacts?.alt_text}
                     >
@@ -450,26 +499,30 @@ export default function DocumentDetailPage() {
                     </Button>
                   ) : (
                     <>
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         onClick={handleSaveAltText}
                         disabled={updateAltTextMutation.isPending}
                       >
                         <Save className="h-4 w-4 mr-2" />
                         Save
                       </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => {
-                          setEditingAltText(false)
+                          setEditingAltText(false);
                           // Reset to original value
                           if (document.artifacts?.alt_text) {
                             try {
-                              const altTextData = JSON.parse(document.artifacts.alt_text)
-                              setAltTextValue(JSON.stringify(altTextData, null, 2))
+                              const altTextData = JSON.parse(
+                                document.artifacts.alt_text
+                              );
+                              setAltTextValue(
+                                JSON.stringify(altTextData, null, 2)
+                              );
                             } catch {
-                              setAltTextValue(document.artifacts.alt_text)
+                              setAltTextValue(document.artifacts.alt_text);
                             }
                           }
                         }}
@@ -490,7 +543,9 @@ export default function DocumentDetailPage() {
                 <div className="text-center py-8 text-muted-foreground">
                   <Eye className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p>No alt text available yet</p>
-                  <p className="text-xs">Alt text will be generated during processing</p>
+                  <p className="text-xs">
+                    Alt text will be generated during processing
+                  </p>
                 </div>
               ) : editingAltText ? (
                 <div className="space-y-4">
@@ -501,7 +556,8 @@ export default function DocumentDetailPage() {
                     className="min-h-64 font-mono text-sm"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Edit the JSON structure containing alt text descriptions for images and elements
+                    Edit the JSON structure containing alt text descriptions for
+                    images and elements
                   </p>
                 </div>
               ) : (
@@ -510,7 +566,8 @@ export default function DocumentDetailPage() {
                     {altTextValue}
                   </pre>
                   <p className="text-xs text-muted-foreground">
-                    Alt text descriptions for images and visual elements in the document
+                    Alt text descriptions for images and visual elements in the
+                    document
                   </p>
                 </div>
               )}
@@ -530,11 +587,15 @@ export default function DocumentDetailPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <div className="text-sm font-medium">Document ID</div>
-                  <div className="text-sm text-muted-foreground font-mono">{document.doc_id}</div>
+                  <div className="text-sm text-muted-foreground font-mono">
+                    {document.doc_id}
+                  </div>
                 </div>
                 <div>
                   <div className="text-sm font-medium">User ID</div>
-                  <div className="text-sm text-muted-foreground font-mono">{document.user_id}</div>
+                  <div className="text-sm text-muted-foreground font-mono">
+                    {document.user_id}
+                  </div>
                 </div>
                 <div>
                   <div className="text-sm font-medium">Created</div>
@@ -561,10 +622,12 @@ export default function DocumentDetailPage() {
                   </div>
                 </div>
               </div>
-              
+
               {document.metadata && (
                 <div className="mt-6">
-                  <div className="text-sm font-medium mb-2">Custom Metadata</div>
+                  <div className="text-sm font-medium mb-2">
+                    Custom Metadata
+                  </div>
                   <pre className="bg-muted p-4 rounded-lg text-sm overflow-auto">
                     {JSON.stringify(document.metadata, null, 2)}
                   </pre>
@@ -575,5 +638,5 @@ export default function DocumentDetailPage() {
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }

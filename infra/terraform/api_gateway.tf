@@ -17,7 +17,10 @@ resource "aws_apigatewayv2_api" "main" {
     allow_methods = ["*"]
     allow_origins = [
       "http://localhost:3000",
-      var.domain_name != "" ? "https://${var.domain_name}" : "https://example.com"
+      "http://localhost:3001",
+      "https://makepdfaccessible.com",
+      "https://www.makepdfaccessible.com",
+      "https://dashboard.makepdfaccessible.com"
     ]
     expose_headers = ["date", "keep-alive"]
     max_age        = 86400

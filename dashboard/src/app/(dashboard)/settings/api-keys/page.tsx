@@ -1,4 +1,4 @@
-import { APIKeyManager } from '@/components/api-keys'
+import { APIKeyManager } from '@/components/api-keys';
 
 export default function APIKeysPage() {
   return (
@@ -9,8 +9,8 @@ export default function APIKeysPage() {
           Manage API keys for programmatic access to your account.
         </p>
       </div>
-      
+
       <APIKeyManager />
     </div>
-  )
+  );
 }

@@ -17,7 +17,7 @@
       "awsRegion": "us-east-1"
     },
     {
-      "messageId": "test-message-2", 
+      "messageId": "test-message-2",
       "receiptHandle": "test-receipt-handle-2",
       "body": "{\"doc_id\": \"test-doc-456\", \"source\": \"url\", \"source_url\": \"https://example.com/document.pdf\", \"filename\": \"url-document.pdf\", \"user_id\": \"user-456\", \"priority\": true, \"webhook_url\": \"https://webhook.example.com/notify\"}",
       "attributes": {

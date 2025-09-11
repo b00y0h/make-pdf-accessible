@@ -7,13 +7,15 @@ Complete end-to-end PDF accessibility processing pipeline using AWS Step Functio
 ## Architecture
 
 ### Step Functions Workflow
+
 ```
 Upload PDF → Router → Step Functions → Accessible Outputs
 ```
 
 ### Processing Steps
+
 1. **OCR** - AWS Textract for image-based PDFs
-2. **STRUCTURE** - Bedrock Claude for document structure analysis  
+2. **STRUCTURE** - Bedrock Claude for document structure analysis
 3. **ALT TEXT** - Bedrock Vision + Rekognition for figure descriptions
 4. **TAG PDF** - pikepdf for accessibility tagging
 5. **EXPORTS** - HTML, EPUB, CSV generation
@@ -23,19 +25,22 @@ Upload PDF → Router → Step Functions → Accessible Outputs
 ## Files Created
 
 ### Step Functions
+
 - `infra/step-functions/pdf-processing-workflow.json` - Complete ASL workflow definition
 - `infra/terraform/step-functions.tf` - Step Functions infrastructure
 
 ### Lambda Functions
 
 #### OCR Function
+
 - `services/functions/ocr/main.py` - Textract integration with polling
 - `services/functions/ocr/models.py` - OCR data models
 - `services/functions/ocr/services.py` - Textract service wrapper
 - `services/functions/ocr/requirements.txt` - Dependencies
 - `services/functions/ocr/Dockerfile` - Container configuration
 
-#### Structure Function  
+#### Structure Function
+
 - `services/functions/structure/main.py` - Bedrock Claude integration
 - `services/functions/structure/models.py` - Document structure models
 - `services/functions/structure/services.py` - PDF analysis + Bedrock service
@@ -43,11 +48,13 @@ Upload PDF → Router → Step Functions → Accessible Outputs
 - `services/functions/structure/Dockerfile` - Container configuration
 
 #### Processing Functions (Alt Text, Tag PDF, Exports, Validate, Notify)
+
 - `services/functions/{function}/main.py` - Lambda handlers with error handling
 - All functions include proper AWS Powertools integration
 - Clear input/output contracts using Pydantic models
 
 ### Infrastructure
+
 - `infra/terraform/processing-lambdas.tf` - All Lambda functions infrastructure
 - `infra/terraform/step-functions.tf` - Step Functions state machine
 - Complete IAM roles and policies
@@ -55,6 +62,7 @@ Upload PDF → Router → Step Functions → Accessible Outputs
 - ECR repositories for container deployment
 
 ### Testing
+
 - `tests/test_pipeline_integration.py` - Comprehensive integration tests
 - `tests/fixtures/sample_document_structure.json` - Sample data for testing
 - `services/shared/models.py` - Shared data models across functions
@@ -62,21 +70,25 @@ Upload PDF → Router → Step Functions → Accessible Outputs
 ## Key Features Implemented
 
 ### ✅ Complete Pipeline
+
 - Step Functions orchestrates 7 Lambda functions
 - Error handling with DLQ and retry policies
 - Proper timeouts and resource allocation
 
 ### ✅ OCR Processing
+
 - Detects image-based vs text-based PDFs
 - Async Textract integration with polling
 - Saves raw OCR data to S3
 
 ### ✅ Structure Analysis
+
 - Combines PDFMiner text extraction + Textract data
 - Bedrock Claude 3.5 for semantic structure analysis
 - Identifies headings, lists, tables, figures with confidence scores
 
 ### ✅ Accessibility Features
+
 - Alt text generation for figures using Bedrock Vision
 - PDF tagging with proper heading hierarchy
 - Reading order preservation
@@ -84,11 +96,13 @@ Upload PDF → Router → Step Functions → Accessible Outputs
 - CSV table extraction
 
 ### ✅ Validation & Compliance
+
 - PDF/UA compliance checking
 - WCAG 2.1 AA validation
 - Accessibility scoring with detailed issues report
 
 ### ✅ Infrastructure as Code
+
 - Complete Terraform configuration
 - ECR repositories for container deployment
 - CloudWatch monitoring and alerting
@@ -97,16 +111,18 @@ Upload PDF → Router → Step Functions → Accessible Outputs
 ## Input/Output Contracts
 
 ### Step Functions Input
+
 ```json
 {
   "docId": "test-doc-123",
-  "s3Key": "pdfs/document.pdf", 
+  "s3Key": "pdfs/document.pdf",
   "userId": "user-456",
   "priority": false
 }
 ```
 
 ### Final Output
+
 ```json
 {
   "doc_id": "test-doc-123",
@@ -114,7 +130,7 @@ Upload PDF → Router → Step Functions → Accessible Outputs
   "results": {
     "taggedPdfS3Key": "pdf-accessible/test-doc-123/document_tagged.pdf",
     "htmlS3Key": "pdf-accessible/test-doc-123/exports/document.html",
-    "epubS3Key": "pdf-accessible/test-doc-123/exports/document.epub", 
+    "epubS3Key": "pdf-accessible/test-doc-123/exports/document.epub",
     "csvZipS3Key": "pdf-accessible/test-doc-123/exports/tables.zip",
     "validationScore": 92.5,
     "validationIssues": [...]
@@ -123,6 +139,7 @@ Upload PDF → Router → Step Functions → Accessible Outputs
 ```
 
 ## S3 Structure
+
 ```
 pdf-originals/{docId}/          # Original PDFs
 pdf-derivatives/{docId}/        # Processing artifacts
@@ -130,7 +147,7 @@ pdf-derivatives/{docId}/        # Processing artifacts
 ├── structure/document.json    # Document structure
 └── alt-text/alt.json         # Figure descriptions
 
-pdf-accessible/{docId}/         # Final outputs  
+pdf-accessible/{docId}/         # Final outputs
 ├── document_tagged.pdf        # Tagged PDF
 └── exports/                   # Alternative formats
     ├── document.html
@@ -141,6 +158,7 @@ pdf-accessible/{docId}/         # Final outputs
 ## Deployment
 
 ### 1. Infrastructure
+
 ```bash
 cd infra/terraform
 terraform init
@@ -149,6 +167,7 @@ terraform apply
 ```
 
 ### 2. Build and Deploy Functions
+
 ```bash
 # Build all container images
 for service in ocr structure alt_text tag_pdf exports validate notify; do
@@ -159,6 +178,7 @@ done
 ```
 
 ### 3. Update Step Functions Definition
+
 ```bash
 aws stepfunctions update-state-machine \
   --state-machine-arn arn:aws:states:region:account:stateMachine:pdf-accessibility-dev-pdf-processing \
@@ -168,18 +188,20 @@ aws stepfunctions update-state-machine \
 ## Usage
 
 ### Trigger Processing
+
 ```bash
 aws stepfunctions start-execution \
   --state-machine-arn arn:aws:states:region:account:stateMachine:pdf-processing \
   --input '{
     "docId": "doc-123",
     "s3Key": "pdfs/document.pdf",
-    "userId": "user-456", 
+    "userId": "user-456",
     "priority": false
   }'
 ```
 
 ### Monitor Progress
+
 - CloudWatch dashboards for metrics
 - X-Ray distributed tracing
 - Step Functions execution logs

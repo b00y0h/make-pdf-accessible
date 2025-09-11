@@ -33,32 +33,42 @@ export interface DocumentResponse {
   filename?: string;
   created_at: string;
   updated_at: string;
+  completed_at?: string;
   user_id: string;
   metadata: { [key: string]: any };
   artifacts: { [key: string]: string };
+  error_message?: string;
 }
 
 export function useS3Upload(apiBaseUrl: string = '/api') {
-  const [uploadProgress, setUploadProgress] = useState<{ [fileId: string]: UploadProgress }>({});
+  const [uploadProgress, setUploadProgress] = useState<{
+    [fileId: string]: UploadProgress;
+  }>({});
   const [isUploading, setIsUploading] = useState(false);
 
-  const updateProgress = useCallback((fileId: string, update: Partial<UploadProgress>) => {
-    setUploadProgress(prev => ({
-      ...prev,
-      [fileId]: { ...prev[fileId], ...update }
-    }));
-  }, []);
+  const updateProgress = useCallback(
+    (fileId: string, update: Partial<UploadProgress>) => {
+      setUploadProgress((prev) => ({
+        ...prev,
+        [fileId]: { ...prev[fileId], ...update },
+      }));
+    },
+    []
+  );
 
   const getPresignedUploadUrl = async (
     filename: string,
     contentType: string,
     fileSize: number
   ): Promise<PreSignedUploadResponse> => {
-    const response = await axios.post(`${apiBaseUrl}/documents/upload/presigned`, {
-      filename,
-      content_type: contentType,
-      file_size: fileSize
-    });
+    const response = await axios.post(
+      `${apiBaseUrl}/documents/upload/presigned`,
+      {
+        filename,
+        content_type: contentType,
+        file_size: fileSize,
+      }
+    );
     return response.data;
   };
 
@@ -68,136 +78,142 @@ export function useS3Upload(apiBaseUrl: string = '/api') {
     onProgress?: (progress: number) => void
   ): Promise<void> => {
     const formData = new FormData();
-    
+
     // Add all the required fields from the pre-signed URL
     Object.entries(uploadData.fields).forEach(([key, value]) => {
       formData.append(key, value);
     });
-    
+
     // Add the file last (S3 requirement)
     formData.append('file', file);
 
     await axios.post(uploadData.upload_url, formData, {
       headers: {
-        'Content-Type': 'multipart/form-data'
+        'Content-Type': 'multipart/form-data',
       },
       onUploadProgress: (progressEvent: AxiosProgressEvent) => {
         if (progressEvent.total) {
-          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          const progress = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          );
           onProgress?.(progress);
         }
-      }
+      },
     });
   };
 
   const createDocument = async (
     request: DocumentCreateRequest
   ): Promise<DocumentResponse> => {
-    const response = await axios.post(`${apiBaseUrl}/documents/create`, request);
+    const response = await axios.post(
+      `${apiBaseUrl}/documents/create`,
+      request
+    );
     return response.data;
   };
 
-  const uploadFiles = useCallback(async (
-    files: File[],
-    options: {
-      priority?: boolean;
-      webhookUrl?: string;
-      metadata?: { [key: string]: any };
-    } = {}
-  ): Promise<DocumentResponse[]> => {
-    setIsUploading(true);
-    const results: DocumentResponse[] = [];
-    const errors: string[] = [];
+  const uploadFiles = useCallback(
+    async (
+      files: File[],
+      options: {
+        priority?: boolean;
+        webhookUrl?: string;
+        metadata?: { [key: string]: any };
+      } = {}
+    ): Promise<DocumentResponse[]> => {
+      setIsUploading(true);
+      const results: DocumentResponse[] = [];
+      const errors: string[] = [];
 
-    try {
-      // Initialize progress tracking for all files
-      files.forEach(file => {
-        const fileId = `${file.name}-${file.size}-${Date.now()}`;
-        updateProgress(fileId, {
-          fileId,
-          progress: 0,
-          status: 'pending'
+      try {
+        // Initialize progress tracking for all files
+        files.forEach((file) => {
+          const fileId = `${file.name}-${file.size}-${Date.now()}`;
+          updateProgress(fileId, {
+            fileId,
+            progress: 0,
+            status: 'pending',
+          });
         });
-      });
 
-      // Upload files sequentially to avoid overwhelming the server
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const fileId = `${file.name}-${file.size}-${Date.now()}-${i}`;
+        // Upload files sequentially to avoid overwhelming the server
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const fileId = `${file.name}-${file.size}-${Date.now()}-${i}`;
 
-        try {
-          // Step 1: Get pre-signed upload URL
-          updateProgress(fileId, { status: 'uploading', progress: 0 });
-          
-          const uploadData = await getPresignedUploadUrl(
-            file.name,
-            file.type || 'application/octet-stream',
-            file.size
-          );
+          try {
+            // Step 1: Get pre-signed upload URL
+            updateProgress(fileId, { status: 'uploading', progress: 0 });
 
-          // Step 2: Upload to S3 with progress tracking
-          await uploadToS3(file, uploadData, (progress) => {
-            updateProgress(fileId, { progress });
-          });
+            const uploadData = await getPresignedUploadUrl(
+              file.name,
+              file.type || 'application/octet-stream',
+              file.size
+            );
 
-          updateProgress(fileId, { progress: 95, status: 'uploading' });
+            // Step 2: Upload to S3 with progress tracking
+            await uploadToS3(file, uploadData, (progress) => {
+              updateProgress(fileId, { progress });
+            });
 
-          // Step 3: Create document record
-          const documentRequest: DocumentCreateRequest = {
-            doc_id: uploadData.doc_id,
-            s3_key: uploadData.s3_key,
-            source: 'upload',
-            metadata: {
-              ...options.metadata,
-              originalFilename: file.name,
-              fileSize: file.size,
-              contentType: file.type
-            },
-            priority: options.priority || false,
-            webhook_url: options.webhookUrl
-          };
+            updateProgress(fileId, { progress: 95, status: 'uploading' });
 
-          const document = await createDocument(documentRequest);
-          
-          updateProgress(fileId, { 
-            progress: 100, 
-            status: 'success'
-          });
+            // Step 3: Create document record
+            const documentRequest: DocumentCreateRequest = {
+              doc_id: uploadData.doc_id,
+              s3_key: uploadData.s3_key,
+              source: 'upload',
+              metadata: {
+                ...options.metadata,
+                originalFilename: file.name,
+                fileSize: file.size,
+                contentType: file.type,
+              },
+              priority: options.priority || false,
+              webhook_url: options.webhookUrl,
+            };
 
-          results.push(document);
+            const document = await createDocument(documentRequest);
 
-        } catch (error) {
-          console.error(`Failed to upload ${file.name}:`, error);
-          
-          let errorMessage = 'Upload failed';
-          if (axios.isAxiosError(error)) {
-            if (error.response?.status === 413) {
-              errorMessage = 'File too large';
-            } else if (error.response?.status === 400) {
-              errorMessage = 'Invalid file type or format';
-            } else if (error.response?.data?.message) {
-              errorMessage = error.response.data.message;
+            updateProgress(fileId, {
+              progress: 100,
+              status: 'success',
+            });
+
+            results.push(document);
+          } catch (error) {
+            console.error(`Failed to upload ${file.name}:`, error);
+
+            let errorMessage = 'Upload failed';
+            if (axios.isAxiosError(error)) {
+              if (error.response?.status === 413) {
+                errorMessage = 'File too large';
+              } else if (error.response?.status === 400) {
+                errorMessage = 'Invalid file type or format';
+              } else if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+              }
             }
+
+            updateProgress(fileId, {
+              status: 'error',
+              error: errorMessage,
+            });
+
+            errors.push(`${file.name}: ${errorMessage}`);
           }
-
-          updateProgress(fileId, { 
-            status: 'error',
-            error: errorMessage
-          });
-
-          errors.push(`${file.name}: ${errorMessage}`);
         }
+
+        return results;
+      } catch (error) {
+        console.error('Upload process failed:', error);
+        throw error;
+      } finally {
+        setIsUploading(false);
       }
-
-      return results;
-
-    } catch (error) {
-      console.error('Upload process failed:', error);
-      throw error;
-    } finally {
-      setIsUploading(false);
-    }
-  }, [updateProgress]);
+    },
+    [updateProgress]
+  );
 
   const resetProgress = useCallback(() => {
     setUploadProgress({});
@@ -208,6 +224,6 @@ export function useS3Upload(apiBaseUrl: string = '/api') {
     uploadProgress,
     isUploading,
     resetProgress,
-    updateProgress
+    updateProgress,
   };
 }

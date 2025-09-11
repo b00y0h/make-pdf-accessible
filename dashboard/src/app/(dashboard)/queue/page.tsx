@@ -1,12 +1,18 @@
-'use client'
+'use client';
 
-import React, { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Skeleton } from '@/components/ui/skeleton'
-import { useRouter, useSearchParams } from 'next/navigation'
+import React, { useState } from 'react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Clock,
   FileText,
@@ -19,17 +25,17 @@ import {
   Eye,
   Download,
   Plus,
-} from 'lucide-react'
+} from 'lucide-react';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { formatRelativeTime, formatBytes } from '@/lib/utils'
-import { useDocuments, useUploadDocument } from '@/hooks/useApi'
-import toast from 'react-hot-toast'
+} from '@/components/ui/select';
+import { formatRelativeTime, formatBytes } from '@/lib/utils';
+import { useDocuments, useUploadDocument } from '@/hooks/useApi';
+import toast from 'react-hot-toast';
 
 function DocumentSkeleton() {
   return (
@@ -54,132 +60,154 @@ function DocumentSkeleton() {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 function getStatusIcon(status: string) {
   switch (status) {
     case 'processing':
-      return <Clock className="h-4 w-4 text-yellow-500" />
+      return <Clock className="h-4 w-4 text-yellow-500" />;
     case 'completed':
-      return <CheckCircle className="h-4 w-4 text-green-500" />
+      return <CheckCircle className="h-4 w-4 text-green-500" />;
     case 'failed':
-      return <AlertCircle className="h-4 w-4 text-red-500" />
+      return <AlertCircle className="h-4 w-4 text-red-500" />;
     case 'pending':
-      return <Clock className="h-4 w-4 text-blue-500" />
+      return <Clock className="h-4 w-4 text-blue-500" />;
     default:
-      return <FileText className="h-4 w-4 text-gray-500" />
+      return <FileText className="h-4 w-4 text-gray-500" />;
   }
 }
 
 function getStatusBadge(status: string) {
   switch (status) {
     case 'processing':
-      return <Badge variant="warning">Processing</Badge>
+      return <Badge variant="warning">Processing</Badge>;
     case 'completed':
-      return <Badge variant="success">Completed</Badge>
+      return <Badge variant="success">Completed</Badge>;
     case 'failed':
-      return <Badge variant="error">Failed</Badge>
+      return <Badge variant="error">Failed</Badge>;
     case 'pending':
-      return <Badge variant="secondary">Pending</Badge>
+      return <Badge variant="secondary">Pending</Badge>;
     default:
-      return <Badge>Unknown</Badge>
+      return <Badge>Unknown</Badge>;
   }
 }
 
 function getPriorityBadge(priority: boolean) {
   return priority ? (
-    <Badge variant="error" className="text-xs">High Priority</Badge>
-  ) : null
+    <Badge variant="error" className="text-xs">
+      High Priority
+    </Badge>
+  ) : null;
 }
 
 export default function QueuePage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'all')
-  const [showUploadDialog, setShowUploadDialog] = useState(false)
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState(
+    searchParams.get('status') || 'all'
+  );
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
 
-  const { 
-    data: documentsData, 
-    isLoading, 
+  const {
+    data: documentsData,
+    isLoading,
     error,
-    refetch 
-  } = useDocuments({ 
+    refetch,
+  } = useDocuments({
     status: statusFilter === 'all' ? undefined : statusFilter,
-    per_page: 20 
-  })
+    per_page: 20,
+  });
 
-  const uploadMutation = useUploadDocument()
+  const uploadMutation = useUploadDocument();
 
   React.useEffect(() => {
     if (error) {
-      toast.error('Failed to load documents')
+      toast.error('Failed to load documents');
     }
-  }, [error])
+  }, [error]);
 
   React.useEffect(() => {
     if (uploadMutation.isSuccess) {
-      toast.success('Document uploaded successfully')
-      setShowUploadDialog(false)
+      toast.success('Document uploaded successfully');
+      setShowUploadDialog(false);
     }
     if (uploadMutation.error) {
-      toast.error('Failed to upload document')
+      toast.error('Failed to upload document');
     }
-  }, [uploadMutation.isSuccess, uploadMutation.error])
+  }, [uploadMutation.isSuccess, uploadMutation.error]);
 
   const filteredDocuments = React.useMemo(() => {
-    if (!documentsData?.documents) return []
-    
-    return documentsData.documents.filter(doc => 
-      searchTerm === '' || 
-      doc.filename.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  }, [documentsData?.documents, searchTerm])
+    if (!documentsData?.documents) return [];
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+    return documentsData.documents.filter(
+      (doc) =>
+        searchTerm === '' ||
+        doc.filename.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [documentsData?.documents, searchTerm]);
+
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
     if (file) {
-      uploadMutation.mutate({ file })
+      uploadMutation.mutate({ file });
     }
-  }
+  };
+
+  const handleDOMFileUpload = async (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
+    if (file) {
+      uploadMutation.mutate({ file });
+    }
+  };
 
   const statusCounts = React.useMemo(() => {
-    if (!documentsData?.documents) return {}
-    
-    return documentsData.documents.reduce((acc, doc) => {
-      acc[doc.status] = (acc[doc.status] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
-  }, [documentsData?.documents])
+    if (!documentsData?.documents) return {};
+
+    return documentsData.documents.reduce(
+      (acc, doc) => {
+        acc[doc.status] = (acc[doc.status] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+  }, [documentsData?.documents]);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Processing Queue</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Processing Queue
+          </h1>
           <p className="text-muted-foreground">
             Manage and monitor your document processing pipeline
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => refetch()}
             disabled={isLoading}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`}
+            />
             Refresh
           </Button>
-          <Button 
+          <Button
             size="sm"
             onClick={() => {
-              const input = document.createElement('input')
-              input.type = 'file'
-              input.accept = '.pdf'
-              input.onchange = handleFileUpload
-              input.click()
+              const input = document.createElement('input');
+              input.type = 'file';
+              input.accept = '.pdf';
+              input.onchange = handleDOMFileUpload;
+              input.click();
             }}
             disabled={uploadMutation.isPending}
           >
@@ -193,25 +221,33 @@ export default function QueuePage() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{documentsData?.total || 0}</div>
+            <div className="text-2xl font-bold">
+              {documentsData?.total || 0}
+            </div>
             <p className="text-xs text-muted-foreground">Total Documents</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-yellow-600">{statusCounts.processing || 0}</div>
+            <div className="text-2xl font-bold text-yellow-600">
+              {statusCounts.processing || 0}
+            </div>
             <p className="text-xs text-muted-foreground">Processing</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-green-600">{statusCounts.completed || 0}</div>
+            <div className="text-2xl font-bold text-green-600">
+              {statusCounts.completed || 0}
+            </div>
             <p className="text-xs text-muted-foreground">Completed</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-red-600">{statusCounts.failed || 0}</div>
+            <div className="text-2xl font-bold text-red-600">
+              {statusCounts.failed || 0}
+            </div>
             <p className="text-xs text-muted-foreground">Failed</p>
           </CardContent>
         </Card>
@@ -259,27 +295,25 @@ export default function QueuePage() {
       {/* Documents List */}
       <div className="space-y-4">
         {isLoading ? (
-          Array.from({ length: 5 }).map((_, i) => (
-            <DocumentSkeleton key={i} />
-          ))
+          Array.from({ length: 5 }).map((_, i) => <DocumentSkeleton key={i} />)
         ) : filteredDocuments.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <FileText className="h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No documents found</h3>
               <p className="text-muted-foreground text-center mb-4">
-                {searchTerm || statusFilter !== 'all' 
+                {searchTerm || statusFilter !== 'all'
                   ? 'Try adjusting your search or filters'
                   : 'Upload your first document to get started'}
               </p>
-              {(!searchTerm && statusFilter === 'all') && (
+              {!searchTerm && statusFilter === 'all' && (
                 <Button
                   onClick={() => {
-                    const input = document.createElement('input')
-                    input.type = 'file'
-                    input.accept = '.pdf'
-                    input.onchange = handleFileUpload
-                    input.click()
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.pdf';
+                    input.onchange = handleDOMFileUpload;
+                    input.click();
                   }}
                   disabled={uploadMutation.isPending}
                 >
@@ -291,19 +325,30 @@ export default function QueuePage() {
           </Card>
         ) : (
           filteredDocuments.map((document) => (
-            <Card key={document.doc_id} className="hover:bg-muted/50 transition-colors">
+            <Card
+              key={document.doc_id}
+              className="hover:bg-muted/50 transition-colors"
+            >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3 flex-1">
                     {getStatusIcon(document.status)}
                     <div className="flex-1 space-y-1">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium truncate">{document.filename}</p>
+                        <p className="text-sm font-medium truncate">
+                          {document.filename}
+                        </p>
                         {getPriorityBadge(document.priority)}
                       </div>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>Created {formatRelativeTime(new Date(document.created_at))}</span>
-                        <span>Updated {formatRelativeTime(new Date(document.updated_at))}</span>
+                        <span>
+                          Created{' '}
+                          {formatRelativeTime(new Date(document.created_at))}
+                        </span>
+                        <span>
+                          Updated{' '}
+                          {formatRelativeTime(new Date(document.updated_at))}
+                        </span>
                         {document.metadata && (
                           <span>ID: {document.doc_id.slice(-8)}</span>
                         )}
@@ -315,7 +360,9 @@ export default function QueuePage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => router.push(`/documents/${document.doc_id}`)}
+                      onClick={() =>
+                        router.push(`/documents/${document.doc_id}`)
+                      }
                     >
                       <Eye className="h-4 w-4 mr-1" />
                       View
@@ -332,7 +379,8 @@ export default function QueuePage() {
       {documentsData && documentsData.total > documentsData.per_page && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Showing {filteredDocuments.length} of {documentsData.total} documents
+            Showing {filteredDocuments.length} of {documentsData.total}{' '}
+            documents
           </p>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" disabled>
@@ -345,5 +393,5 @@ export default function QueuePage() {
         </div>
       )}
     </div>
-  )
+  );
 }

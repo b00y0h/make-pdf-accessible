@@ -34,12 +34,14 @@ tracer = Tracer(service="pdf-router")
 metrics = Metrics(namespace="PDF-Accessibility", service="pdf-router")
 
 # Environment variables
-DOCUMENTS_TABLE = os.environ.get('DOCUMENTS_TABLE', 'pdf-accessibility-documents')
-JOBS_TABLE = os.environ.get('JOBS_TABLE', 'pdf-accessibility-jobs')
-PDF_ORIGINALS_BUCKET = os.environ.get('PDF_ORIGINALS_BUCKET', 'pdf-accessibility-pdf-originals')
-PROCESS_QUEUE_URL = os.environ.get('PROCESS_QUEUE_URL', '')
-PRIORITY_PROCESS_QUEUE_URL = os.environ.get('PRIORITY_PROCESS_QUEUE_URL', '')
-AWS_REGION = os.environ.get('AWS_REGION', 'us-east-1')
+DOCUMENTS_TABLE = os.environ.get("DOCUMENTS_TABLE", "pdf-accessibility-documents")
+JOBS_TABLE = os.environ.get("JOBS_TABLE", "pdf-accessibility-jobs")
+PDF_ORIGINALS_BUCKET = os.environ.get(
+    "PDF_ORIGINALS_BUCKET", "pdf-accessibility-pdf-originals"
+)
+PROCESS_QUEUE_URL = os.environ.get("PROCESS_QUEUE_URL", "")
+PRIORITY_PROCESS_QUEUE_URL = os.environ.get("PRIORITY_PROCESS_QUEUE_URL", "")
+AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 
 # Initialize service
 router_service = RouterService(
@@ -48,7 +50,7 @@ router_service = RouterService(
     pdf_originals_bucket=PDF_ORIGINALS_BUCKET,
     process_queue_url=PROCESS_QUEUE_URL,
     priority_process_queue_url=PRIORITY_PROCESS_QUEUE_URL,
-    region=AWS_REGION
+    region=AWS_REGION,
 )
 
 
@@ -56,7 +58,7 @@ router_service = RouterService(
 async def process_document(ingest_message: IngestMessage) -> Dict[str, Any]:
     """
     Process a single document from ingest queue.
-    
+
     Returns:
         Dict containing processing results and metrics
     """
@@ -68,7 +70,7 @@ async def process_document(ingest_message: IngestMessage) -> Dict[str, Any]:
         "doc_id": doc_id,
         "status": "success",
         "actions_performed": [],
-        "error": None
+        "error": None,
     }
 
     try:
@@ -90,7 +92,7 @@ async def process_document(ingest_message: IngestMessage) -> Dict[str, Any]:
             s3_key_original = router_service.copy_uploaded_file(
                 doc_id=doc_id,
                 source_s3_key=ingest_message.s3_key,
-                filename=ingest_message.filename
+                filename=ingest_message.filename,
             )
             result["actions_performed"].append("file_copied_to_originals")
 
@@ -99,7 +101,7 @@ async def process_document(ingest_message: IngestMessage) -> Dict[str, Any]:
             s3_key_original = await router_service.download_and_store_from_url(
                 doc_id=doc_id,
                 source_url=ingest_message.source_url,
-                filename=ingest_message.filename
+                filename=ingest_message.filename,
             )
             result["actions_performed"].append("file_downloaded_from_url")
 
@@ -113,7 +115,7 @@ async def process_document(ingest_message: IngestMessage) -> Dict[str, Any]:
             s3_key_original=s3_key_original,
             source_url=ingest_message.source_url,
             webhook_url=ingest_message.webhook_url,
-            metadata=ingest_message.metadata or {}
+            metadata=ingest_message.metadata or {},
         )
 
         router_service.save_document_record(document_record)
@@ -129,8 +131,8 @@ async def process_document(ingest_message: IngestMessage) -> Dict[str, Any]:
                 "s3_bucket": PDF_ORIGINALS_BUCKET,
                 "s3_key": s3_key_original,
                 "filename": ingest_message.filename,
-                "source": ingest_message.source.value
-            }
+                "source": ingest_message.source.value,
+            },
         )
 
         router_service.create_job_record(ocr_job)
@@ -142,7 +144,7 @@ async def process_document(ingest_message: IngestMessage) -> Dict[str, Any]:
             doc_id=doc_id,
             step=JobStep.OCR,
             priority=ingest_message.priority,
-            input_data=ocr_job.input_data
+            input_data=ocr_job.input_data,
         )
 
         router_service.enqueue_process_message(process_message)
@@ -155,7 +157,9 @@ async def process_document(ingest_message: IngestMessage) -> Dict[str, Any]:
         result["s3_key_original"] = s3_key_original
 
         metrics.add_metric(name="DocumentsProcessed", unit="Count", value=1)
-        metrics.add_metric(name="ProcessingTime", unit="Milliseconds", value=processing_time)
+        metrics.add_metric(
+            name="ProcessingTime", unit="Milliseconds", value=processing_time
+        )
 
         if ingest_message.priority:
             metrics.add_metric(name="PriorityDocumentsProcessed", unit="Count", value=1)
@@ -166,15 +170,17 @@ async def process_document(ingest_message: IngestMessage) -> Dict[str, Any]:
                 "doc_id": doc_id,
                 "job_id": ocr_job.job_id,
                 "processing_time_ms": processing_time,
-                "actions": result["actions_performed"]
-            }
+                "actions": result["actions_performed"],
+            },
         )
 
         return result
 
     except ValidationError as e:
         error_msg = f"Validation error for document {doc_id}: {e}"
-        logger.error(error_msg, extra={"doc_id": doc_id, "validation_errors": e.errors()})
+        logger.error(
+            error_msg, extra={"doc_id": doc_id, "validation_errors": e.errors()}
+        )
         result["status"] = "failed"
         result["error"] = error_msg
         metrics.add_metric(name="ValidationErrors", unit="Count", value=1)
@@ -204,18 +210,13 @@ async def process_document(ingest_message: IngestMessage) -> Dict[str, Any]:
 def lambda_handler(event: SQSEvent, context: LambdaContext) -> Dict[str, Any]:
     """
     Lambda handler for processing SQS messages from ingest-queue.
-    
+
     Processes documents with idempotency, stores originals, creates jobs,
     and enqueues to process-queue.
     """
     logger.info(f"Processing {len(event.records)} messages from ingest queue")
 
-    results = {
-        "processed": 0,
-        "skipped": 0,
-        "failed": 0,
-        "results": []
-    }
+    results = {"processed": 0, "skipped": 0, "failed": 0, "results": []}
 
     for record in event.records:
         try:
@@ -242,11 +243,13 @@ def lambda_handler(event: SQSEvent, context: LambdaContext) -> Dict[str, Any]:
             error_msg = f"Failed to process SQS record: {e}"
             logger.exception(error_msg)
             results["failed"] += 1
-            results["results"].append({
-                "status": "failed",
-                "error": error_msg,
-                "message_id": record.message_id
-            })
+            results["results"].append(
+                {
+                    "status": "failed",
+                    "error": error_msg,
+                    "message_id": record.message_id,
+                }
+            )
             metrics.add_metric(name="RecordProcessingErrors", unit="Count", value=1)
 
     # Log final results
@@ -256,8 +259,8 @@ def lambda_handler(event: SQSEvent, context: LambdaContext) -> Dict[str, Any]:
             "total_records": len(event.records),
             "processed": results["processed"],
             "skipped": results["skipped"],
-            "failed": results["failed"]
-        }
+            "failed": results["failed"],
+        },
     )
 
     # Add batch metrics
@@ -274,15 +277,17 @@ if __name__ == "__main__":
         "Records": [
             {
                 "messageId": "test-message-1",
-                "body": json.dumps({
-                    "doc_id": "test-doc-123",
-                    "source": "upload",
-                    "s3_key": "temp/test-doc-123/document.pdf",
-                    "filename": "test-document.pdf",
-                    "user_id": "user-123",
-                    "priority": False,
-                    "metadata": {"test": True}
-                })
+                "body": json.dumps(
+                    {
+                        "doc_id": "test-doc-123",
+                        "source": "upload",
+                        "s3_key": "temp/test-doc-123/document.pdf",
+                        "filename": "test-document.pdf",
+                        "user_id": "user-123",
+                        "priority": False,
+                        "metadata": {"test": True},
+                    }
+                ),
             }
         ]
     }

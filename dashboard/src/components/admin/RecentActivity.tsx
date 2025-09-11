@@ -1,6 +1,6 @@
-'use client'
+'use client';
 
-import React from 'react'
+import React from 'react';
 
 export function RecentActivity() {
   return (
@@ -10,5 +10,5 @@ export function RecentActivity() {
         Recent user actions and system events will appear here
       </p>
     </div>
-  )
+  );
 }

@@ -10,38 +10,35 @@ from moto import mock_s3
 def aws_credentials():
     """Mock AWS Credentials for moto."""
     import os
-    os.environ['AWS_ACCESS_KEY_ID'] = 'testing'
-    os.environ['AWS_SECRET_ACCESS_KEY'] = 'testing'
-    os.environ['AWS_SECURITY_TOKEN'] = 'testing'
-    os.environ['AWS_SESSION_TOKEN'] = 'testing'
-    os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
+
+    os.environ["AWS_ACCESS_KEY_ID"] = "testing"
+    os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
+    os.environ["AWS_SECURITY_TOKEN"] = "testing"
+    os.environ["AWS_SESSION_TOKEN"] = "testing"
+    os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
 
 
 @pytest.fixture
 def s3_setup(aws_credentials):
     """Set up S3 buckets for testing."""
     with mock_s3():
-        s3 = boto3.client('s3', region_name='us-east-1')
+        s3 = boto3.client("s3", region_name="us-east-1")
 
         # Create test buckets
-        buckets = [
-            'test-pdf-originals',
-            'test-pdf-derivatives',
-            'test-pdf-accessible'
-        ]
+        buckets = ["test-pdf-originals", "test-pdf-derivatives", "test-pdf-accessible"]
 
         for bucket in buckets:
             s3.create_bucket(Bucket=bucket)
 
         # Upload sample document structure
-        with open('tests/fixtures/sample_document_structure.json') as f:
+        with open("tests/fixtures/sample_document_structure.json") as f:
             sample_structure = f.read()
 
         s3.put_object(
-            Bucket='test-pdf-derivatives',
-            Key='pdf-derivatives/test-doc-123/structure/document.json',
+            Bucket="test-pdf-derivatives",
+            Key="pdf-derivatives/test-doc-123/structure/document.json",
             Body=sample_structure,
-            ContentType='application/json'
+            ContentType="application/json",
         )
 
         yield s3
@@ -54,14 +51,14 @@ def sample_step_function_input():
         "docId": "test-doc-123",
         "s3Key": "pdfs/test-document.pdf",
         "userId": "user-456",
-        "priority": False
+        "priority": False,
     }
 
 
 @pytest.fixture
 def sample_document_structure():
     """Sample document structure for testing."""
-    with open('tests/fixtures/sample_document_structure.json') as f:
+    with open("tests/fixtures/sample_document_structure.json") as f:
         return json.load(f)
 
 
@@ -70,40 +67,40 @@ class TestPipelineIntegration:
 
     def test_step_functions_workflow_definition(self):
         """Test that Step Functions workflow definition is valid."""
-        with open('infra/step-functions/pdf-processing-workflow.json') as f:
+        with open("infra/step-functions/pdf-processing-workflow.json") as f:
             workflow = json.load(f)
 
         # Validate basic structure
-        assert 'Comment' in workflow
-        assert 'StartAt' in workflow
-        assert 'States' in workflow
+        assert "Comment" in workflow
+        assert "StartAt" in workflow
+        assert "States" in workflow
 
         # Validate all expected states exist
         expected_states = [
-            'OCRProcessing',
-            'StructureProcessing',
-            'AltTextProcessing',
-            'TagPDFProcessing',
-            'ExportsProcessing',
-            'ValidationProcessing',
-            'NotifyCompletion'
+            "OCRProcessing",
+            "StructureProcessing",
+            "AltTextProcessing",
+            "TagPDFProcessing",
+            "ExportsProcessing",
+            "ValidationProcessing",
+            "NotifyCompletion",
         ]
 
         for state in expected_states:
-            assert state in workflow['States']
+            assert state in workflow["States"]
 
         # Validate error handling states
         error_states = [
-            'HandleOCRFailure',
-            'HandleStructureFailure',
-            'HandleAltTextFailure',
-            'HandleTagFailure',
-            'HandleExportsFailure',
-            'HandleValidationFailure'
+            "HandleOCRFailure",
+            "HandleStructureFailure",
+            "HandleAltTextFailure",
+            "HandleTagFailure",
+            "HandleExportsFailure",
+            "HandleValidationFailure",
         ]
 
         for state in error_states:
-            assert state in workflow['States']
+            assert state in workflow["States"]
 
     def test_ocr_lambda_input_output_contract(self):
         """Test OCR Lambda input/output contract."""
@@ -114,7 +111,7 @@ class TestPipelineIntegration:
             "doc_id": "test-doc-123",
             "s3_key": "pdfs/test-document.pdf",
             "user_id": "user-456",
-            "priority": False
+            "priority": False,
         }
 
         request = OCRRequest(**ocr_input)
@@ -128,7 +125,7 @@ class TestPipelineIntegration:
             "textract_s3_key": "pdf-derivatives/test-doc-123/textract/raw_output.json",
             "is_image_based": True,
             "page_count": 5,
-            "processing_time_seconds": 45.2
+            "processing_time_seconds": 45.2,
         }
 
         result = OCRResult(**ocr_output)
@@ -147,7 +144,7 @@ class TestPipelineIntegration:
             "doc_id": "test-doc-123",
             "textract_s3_key": "pdf-derivatives/test-doc-123/textract/raw_output.json",
             "original_s3_key": "pdfs/test-document.pdf",
-            "user_id": "user-456"
+            "user_id": "user-456",
         }
 
         request = StructureRequest(**structure_input)
@@ -160,7 +157,7 @@ class TestPipelineIntegration:
             "status": "completed",
             "document_json_s3_key": "pdf-derivatives/test-doc-123/structure/document.json",
             "elements_count": 15,
-            "processing_time_seconds": 30.1
+            "processing_time_seconds": 30.1,
         }
 
         result = StructureResult(**structure_output)
@@ -188,7 +185,7 @@ class TestPipelineIntegration:
         assert "figure" in element_types
         assert "table" in element_types
 
-    @patch('boto3.client')
+    @patch("boto3.client")
     def test_s3_file_operations(self, mock_boto_client, s3_setup):
         """Test S3 file operations for the pipeline."""
 
@@ -200,7 +197,7 @@ class TestPipelineIntegration:
             "pdf-accessible/{doc_id}/document_tagged.pdf",
             "pdf-accessible/{doc_id}/exports/document.html",
             "pdf-accessible/{doc_id}/exports/document.epub",
-            "pdf-accessible/{doc_id}/exports/tables.zip"
+            "pdf-accessible/{doc_id}/exports/tables.zip",
         ]
 
         doc_id = "test-doc-123"
@@ -217,7 +214,7 @@ class TestPipelineIntegration:
         error_response = {
             "doc_id": "test-doc-123",
             "status": "failed",
-            "error_message": "Textract job failed: InvalidDocumentFormat"
+            "error_message": "Textract job failed: InvalidDocumentFormat",
         }
 
         # Validate error response can be parsed
@@ -233,7 +230,7 @@ class TestPipelineIntegration:
             level=ValidationLevel.ERROR,
             message="Figure 1 is missing alternative text description",
             location="page 2, figure-1",
-            rule="WCAG 2.1 - 1.1.1 Non-text Content"
+            rule="WCAG 2.1 - 1.1.1 Non-text Content",
         )
 
         assert issue.level == ValidationLevel.ERROR
@@ -249,7 +246,7 @@ class TestPipelineIntegration:
             "status": "completed",
             "textract_s3_key": "pdf-derivatives/test-doc-123/textract/raw_output.json",
             "is_image_based": True,
-            "page_count": 3
+            "page_count": 3,
         }
 
         # Step 2: Structure (uses OCR output)
@@ -257,14 +254,14 @@ class TestPipelineIntegration:
             "doc_id": ocr_output["doc_id"],
             "textract_s3_key": ocr_output["textract_s3_key"],
             "original_s3_key": sample_step_function_input["s3Key"],
-            "user_id": sample_step_function_input["userId"]
+            "user_id": sample_step_function_input["userId"],
         }
 
         structure_output = {
             "doc_id": structure_input["doc_id"],
             "status": "completed",
             "document_json_s3_key": "pdf-derivatives/test-doc-123/structure/document.json",
-            "elements_count": 9
+            "elements_count": 9,
         }
 
         # Step 3: Alt Text (uses Structure output)
@@ -272,7 +269,7 @@ class TestPipelineIntegration:
             "doc_id": structure_output["doc_id"],
             "document_json_s3_key": structure_output["document_json_s3_key"],
             "original_s3_key": sample_step_function_input["s3Key"],
-            "user_id": sample_step_function_input["userId"]
+            "user_id": sample_step_function_input["userId"],
         }
 
         # Verify the data flow chain is consistent
@@ -281,14 +278,21 @@ class TestPipelineIntegration:
         assert alt_text_input["doc_id"] == structure_output["doc_id"]
 
     @pytest.mark.integration
-    def test_full_pipeline_with_mocked_services(self, s3_setup, sample_step_function_input):
+    def test_full_pipeline_with_mocked_services(
+        self, s3_setup, sample_step_function_input
+    ):
         """Integration test with mocked AWS services."""
         # This test would require actual Lambda function deployments
         # For now, we test the contract compatibility
 
         pipeline_steps = [
-            "ocr", "structure", "alt_text", "tag_pdf",
-            "exports", "validate", "notify"
+            "ocr",
+            "structure",
+            "alt_text",
+            "tag_pdf",
+            "exports",
+            "validate",
+            "notify",
         ]
 
         current_data = sample_step_function_input.copy()
@@ -300,18 +304,26 @@ class TestPipelineIntegration:
 
             # Simulate step processing
             if step == "ocr":
-                current_data.update({
-                    "textract_s3_key": f"pdf-derivatives/{current_data['docId']}/textract/raw_output.json"
-                })
+                current_data.update(
+                    {
+                        "textract_s3_key": f"pdf-derivatives/{current_data['docId']}/textract/raw_output.json"
+                    }
+                )
             elif step == "structure":
-                current_data.update({
-                    "document_json_s3_key": f"pdf-derivatives/{current_data['docId']}/structure/document.json"
-                })
+                current_data.update(
+                    {
+                        "document_json_s3_key": f"pdf-derivatives/{current_data['docId']}/structure/document.json"
+                    }
+                )
             # ... other steps would follow similar patterns
 
         # Final output should contain all expected keys
         expected_final_keys = [
-            "docId", "s3Key", "userId", "textract_s3_key", "document_json_s3_key"
+            "docId",
+            "s3Key",
+            "userId",
+            "textract_s3_key",
+            "document_json_s3_key",
         ]
 
         for key in expected_final_keys:

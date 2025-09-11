@@ -309,10 +309,44 @@ output "resource_names" {
   }
 }
 
-# Cognito Outputs
-output "cognito_user_pool_id" {
-  description = "ID of the Cognito User Pool"
-  value       = aws_cognito_user_pool.main.id
+# Domain URLs (from domains.tf)
+output "application_urls" {
+  value = {
+    marketing_site = "https://makepdfaccessible.com"
+    www_site      = "https://www.makepdfaccessible.com"
+    dashboard     = "https://dashboard.makepdfaccessible.com"
+    api          = "https://api.makepdfaccessible.com"
+  }
+  description = "Application URLs after DNS configuration"
+}
+
+# CloudFront Distributions (from domains.tf)
+output "cloudfront_distributions_domains" {
+  value = {
+    marketing = {
+      id          = aws_cloudfront_distribution.marketing.id
+      domain_name = aws_cloudfront_distribution.marketing.domain_name
+      status      = aws_cloudfront_distribution.marketing.status
+    }
+    dashboard = {
+      id          = aws_cloudfront_distribution.dashboard.id
+      domain_name = aws_cloudfront_distribution.dashboard.domain_name
+      status      = aws_cloudfront_distribution.dashboard.status
+    }
+  }
+  description = "CloudFront distribution information for custom domains"
+}
+
+# Certificate ARNs (from domains.tf)
+output "certificates" {
+  value = {
+    cloudfront_cert_arn = aws_acm_certificate.main.arn
+    cloudfront_cert_status = aws_acm_certificate.main.status
+    api_cert_arn = aws_acm_certificate.api_regional.arn
+    api_cert_status = aws_acm_certificate.api_regional.status
+  }
+  description = "SSL certificate information"
+  sensitive = false
 }
 
 output "cognito_user_pool_arn" {

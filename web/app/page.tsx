@@ -12,8 +12,9 @@ export default function Home() {
             <span className="block text-blue-600">Accessible</span>
           </h1>
           <p className="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
-            Transform your PDFs into accessible formats with automated processing. 
-            Upload, process, and download accessible documents in seconds.
+            Transform your PDFs into accessible formats with automated
+            processing. Upload, process, and download accessible documents in
+            seconds.
           </p>
           <div className="mt-8 max-w-md mx-auto sm:flex sm:justify-center md:mt-12">
             <div className="rounded-md shadow">
@@ -50,7 +51,8 @@ export default function Home() {
                     Upload Files
                   </h3>
                   <p className="mt-2 text-base text-gray-500">
-                    Drag and drop your PDF, Word, or text files. Direct upload to secure cloud storage with progress tracking.
+                    Drag and drop your PDF, Word, or text files. Direct upload
+                    to secure cloud storage with progress tracking.
                   </p>
                 </div>
 
@@ -62,7 +64,8 @@ export default function Home() {
                     AI Processing
                   </h3>
                   <p className="mt-2 text-base text-gray-500">
-                    Automated accessibility processing using OCR, structure analysis, and AI-powered improvements.
+                    Automated accessibility processing using OCR, structure
+                    analysis, and AI-powered improvements.
                   </p>
                 </div>
 
@@ -74,7 +77,8 @@ export default function Home() {
                     Download Results
                   </h3>
                   <p className="mt-2 text-base text-gray-500">
-                    Get accessible PDFs, HTML, and alternative formats. Track progress with live updates.
+                    Get accessible PDFs, HTML, and alternative formats. Track
+                    progress with live updates.
                   </p>
                 </div>
               </div>

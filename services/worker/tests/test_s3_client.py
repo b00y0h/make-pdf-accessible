@@ -24,8 +24,8 @@ class TestS3Client:
     def mock_s3_setup(self):
         """Set up mock S3 environment."""
         with mock_s3():
-            s3 = boto3.client('s3', region_name='us-east-1')
-            s3.create_bucket(Bucket='test-bucket')
+            s3 = boto3.client("s3", region_name="us-east-1")
+            s3.create_bucket(Bucket="test-bucket")
             yield s3
 
     def test_upload_bytes_success(self, s3_client, mock_s3_setup):
@@ -35,10 +35,7 @@ class TestS3Client:
         key = "test-file.txt"
 
         result = s3_client.upload_bytes(
-            data=test_data,
-            bucket=bucket,
-            key=key,
-            content_type="text/plain"
+            data=test_data, bucket=bucket, key=key, content_type="text/plain"
         )
 
         assert result == f"s3://{bucket}/{key}"
@@ -53,11 +50,7 @@ class TestS3Client:
         bucket = "test-bucket"
         key = "test-data.json"
 
-        result = s3_client.upload_json(
-            data=test_data,
-            bucket=bucket,
-            key=key
-        )
+        result = s3_client.upload_json(data=test_data, bucket=bucket, key=key)
 
         assert result == f"s3://{bucket}/{key}"
 
@@ -71,11 +64,7 @@ class TestS3Client:
         key = "invalid.json"
 
         # Upload invalid JSON
-        s3_client.upload_bytes(
-            data=b"invalid json content",
-            bucket=bucket,
-            key=key
-        )
+        s3_client.upload_bytes(data=b"invalid json content", bucket=bucket, key=key)
 
         with pytest.raises(S3Error, match="Failed to parse JSON"):
             s3_client.download_json(bucket, key)
@@ -107,14 +96,14 @@ class TestS3Client:
             bucket=bucket,
             key=key,
             content_type="text/plain",
-            metadata={"test-key": "test-value"}
+            metadata={"test-key": "test-value"},
         )
 
         metadata = s3_client.get_object_metadata(bucket, key)
 
-        assert metadata['size'] == len(content)
-        assert metadata['content_type'] == "text/plain"
-        assert metadata['metadata']['test-key'] == "test-value"
+        assert metadata["size"] == len(content)
+        assert metadata["content_type"] == "text/plain"
+        assert metadata["metadata"]["test-key"] == "test-value"
 
     def test_copy_object(self, s3_client, mock_s3_setup):
         """Test copying S3 object."""
@@ -132,7 +121,7 @@ class TestS3Client:
             source_bucket=source_bucket,
             source_key=source_key,
             dest_bucket=dest_bucket,
-            dest_key=dest_key
+            dest_key=dest_key,
         )
 
         assert result == f"s3://{dest_bucket}/{dest_key}"
@@ -154,7 +143,7 @@ class TestS3Client:
         objects = s3_client.list_objects(bucket, prefix="prefix/")
 
         assert len(objects) == 2
-        object_keys = [obj['key'] for obj in objects]
+        object_keys = [obj["key"] for obj in objects]
         assert "prefix/file1.txt" in object_keys
         assert "prefix/file2.txt" in object_keys
         assert "other/file3.txt" not in object_keys
@@ -187,14 +176,13 @@ class TestS3Client:
         assert bucket in url
         assert key in url
 
-    @patch('boto3.client')
+    @patch("boto3.client")
     def test_client_error_handling(self, mock_boto_client):
         """Test handling of AWS client errors."""
         # Mock client that raises errors
         mock_client = MagicMock()
         mock_client.get_object.side_effect = ClientError(
-            error_response={'Error': {'Code': 'NoSuchKey'}},
-            operation_name='GetObject'
+            error_response={"Error": {"Code": "NoSuchKey"}}, operation_name="GetObject"
         )
         mock_boto_client.return_value = mock_client
 
@@ -211,12 +199,7 @@ class TestS3Client:
         tags = {"environment": "test", "type": "document"}
 
         # Note: moto might not fully support tagging, so we just test that it doesn't error
-        result = s3_client.upload_bytes(
-            data=content,
-            bucket=bucket,
-            key=key,
-            tags=tags
-        )
+        result = s3_client.upload_bytes(data=content, bucket=bucket, key=key, tags=tags)
 
         assert result == f"s3://{bucket}/{key}"
 
@@ -227,20 +210,15 @@ class TestS3Client:
         content = b"content with metadata"
         metadata = {"custom-field": "custom-value", "version": "1.0"}
 
-        s3_client.upload_bytes(
-            data=content,
-            bucket=bucket,
-            key=key,
-            metadata=metadata
-        )
+        s3_client.upload_bytes(data=content, bucket=bucket, key=key, metadata=metadata)
 
         object_metadata = s3_client.get_object_metadata(bucket, key)
 
         # Check that our metadata is present along with default metadata
-        assert "custom-field" in object_metadata['metadata']
-        assert object_metadata['metadata']['custom-field'] == "custom-value"
-        assert "uploaded_by" in object_metadata['metadata']
-        assert object_metadata['metadata']['uploaded_by'] == "pdf-accessibility-worker"
+        assert "custom-field" in object_metadata["metadata"]
+        assert object_metadata["metadata"]["custom-field"] == "custom-value"
+        assert "uploaded_by" in object_metadata["metadata"]
+        assert object_metadata["metadata"]["uploaded_by"] == "pdf-accessibility-worker"
 
 
 @pytest.mark.integration

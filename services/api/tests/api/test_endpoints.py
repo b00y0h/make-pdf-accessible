@@ -64,6 +64,7 @@ class TestAPIEndpoints:
     def test_endpoint_response_time(self, endpoint):
         """Test endpoint response time is reasonable."""
         import time
+
         start_time = time.time()
         response = client.get(endpoint)
         end_time = time.time()

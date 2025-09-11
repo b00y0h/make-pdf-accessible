@@ -12,58 +12,63 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List
 
 # Add services to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'services', 'api'))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'services', 'shared'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "services", "api"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "services", "shared"))
+
 
 def setup_environment():
     """Setup environment variables for local development."""
-    os.environ.update({
-        'PERSISTENCE_PROVIDER': 'mongo',
-        'MONGODB_URI': 'mongodb://localhost:27017/pdf_accessibility?replicaSet=rs0',
-        'MONGODB_DATABASE': 'pdf_accessibility',
-        'ENABLE_QUERY_LOGGING': 'true',
-        'DEBUG_MODE': 'true',
-        'AWS_ENDPOINT_URL': 'http://localhost:4566',
-        'AWS_DEFAULT_REGION': 'us-east-1',
-        'AWS_ACCESS_KEY_ID': 'test',
-        'AWS_SECRET_ACCESS_KEY': 'test',
-    })
+    os.environ.update(
+        {
+            "PERSISTENCE_PROVIDER": "mongo",
+            "MONGODB_URI": "mongodb://localhost:27017/pdf_accessibility?replicaSet=rs0",
+            "MONGODB_DATABASE": "pdf_accessibility",
+            "ENABLE_QUERY_LOGGING": "true",
+            "DEBUG_MODE": "true",
+            "AWS_ENDPOINT_URL": "http://localhost:4566",
+            "AWS_DEFAULT_REGION": "us-east-1",
+            "AWS_ACCESS_KEY_ID": "test",
+            "AWS_SECRET_ACCESS_KEY": "test",
+        }
+    )
+
 
 def generate_sample_users() -> List[Dict[str, Any]]:
     """Generate sample users (BetterAuth format - sub only)."""
     users = [
         {
-            'sub': 'user_alice_developer',
-            'email': 'alice@example.com',
-            'name': 'Alice Johnson',
-            'role': 'developer'
+            "sub": "user_alice_developer",
+            "email": "alice@example.com",
+            "name": "Alice Johnson",
+            "role": "developer",
         },
         {
-            'sub': 'user_bob_designer',
-            'email': 'bob@example.com',
-            'name': 'Bob Smith',
-            'role': 'designer'
+            "sub": "user_bob_designer",
+            "email": "bob@example.com",
+            "name": "Bob Smith",
+            "role": "designer",
         },
         {
-            'sub': 'user_carol_admin',
-            'email': 'carol@example.com',
-            'name': 'Carol Wilson',
-            'role': 'admin'
+            "sub": "user_carol_admin",
+            "email": "carol@example.com",
+            "name": "Carol Wilson",
+            "role": "admin",
         },
         {
-            'sub': 'user_david_client',
-            'email': 'david@client.com',
-            'name': 'David Brown',
-            'role': 'client'
+            "sub": "user_david_client",
+            "email": "david@client.com",
+            "name": "David Brown",
+            "role": "client",
         },
         {
-            'sub': 'user_eve_tester',
-            'email': 'eve@example.com',
-            'name': 'Eve Davis',
-            'role': 'tester'
-        }
+            "sub": "user_eve_tester",
+            "email": "eve@example.com",
+            "name": "Eve Davis",
+            "role": "tester",
+        },
     ]
     return users
+
 
 def generate_document_data(users: List[Dict]) -> List[Dict[str, Any]]:
     """Generate sample documents with realistic data."""
@@ -80,7 +85,7 @@ def generate_document_data(users: List[Dict]) -> List[Dict[str, Any]]:
         "research-paper.pdf",
         "company-policy.pdf",
         "training-materials.pdf",
-        "project-proposal.pdf"
+        "project-proposal.pdf",
     ]
 
     statuses = [
@@ -89,7 +94,7 @@ def generate_document_data(users: List[Dict]) -> List[Dict[str, Any]]:
         ("completed", 0.6),
         ("failed", 0.05),
         ("validation_failed", 0.03),
-        ("notification_failed", 0.02)
+        ("notification_failed", 0.02),
     ]
 
     documents = []
@@ -108,19 +113,16 @@ def generate_document_data(users: List[Dict]) -> List[Dict[str, Any]]:
         created_at = datetime.utcnow() - timedelta(
             days=random.randint(0, 30),
             hours=random.randint(0, 23),
-            minutes=random.randint(0, 59)
+            minutes=random.randint(0, 59),
         )
 
         updated_at = created_at + timedelta(
-            hours=random.randint(1, 48),
-            minutes=random.randint(0, 59)
+            hours=random.randint(1, 48), minutes=random.randint(0, 59)
         )
 
         completed_at = None
         if status == "completed":
-            completed_at = updated_at + timedelta(
-                minutes=random.randint(5, 120)
-            )
+            completed_at = updated_at + timedelta(minutes=random.randint(5, 120))
 
         # Generate artifacts for completed documents
         artifacts = {}
@@ -130,7 +132,7 @@ def generate_document_data(users: List[Dict]) -> List[Dict[str, Any]]:
                 "html_version": f"processed/{doc_id}/{doc_id}.html",
                 "accessibility_report": f"reports/{doc_id}/accessibility_report.json",
                 "structured_data": f"processed/{doc_id}/structure.json",
-                "ocr_data": f"processed/{doc_id}/ocr.json"
+                "ocr_data": f"processed/{doc_id}/ocr.json",
             }
 
         # Generate metadata
@@ -139,7 +141,7 @@ def generate_document_data(users: List[Dict]) -> List[Dict[str, Any]]:
             "pages": random.randint(1, 50),
             "language": random.choice(["en", "es", "fr", "de"]),
             "source": random.choice(["upload", "url", "email"]),
-            "priority": random.choice([True, False])
+            "priority": random.choice([True, False]),
         }
 
         # Add webhook URL occasionally
@@ -149,14 +151,14 @@ def generate_document_data(users: List[Dict]) -> List[Dict[str, Any]]:
 
         document = {
             "docId": doc_id,
-            "ownerId": owner['sub'],
+            "ownerId": owner["sub"],
             "status": status,
             "filename": filename,
             "createdAt": created_at,
             "updatedAt": updated_at,
             "completedAt": completed_at,
             "metadata": metadata,
-            "artifacts": artifacts
+            "artifacts": artifacts,
         }
 
         if webhook_url:
@@ -169,13 +171,14 @@ def generate_document_data(users: List[Dict]) -> List[Dict[str, Any]]:
                 "OCR processing timeout after 5 minutes",
                 "Invalid PDF format: Cannot extract text",
                 "Network error: Unable to download from source URL",
-                "Validation failed: Document contains no readable text"
+                "Validation failed: Document contains no readable text",
             ]
             document["errorMessage"] = random.choice(error_messages)
 
         documents.append(document)
 
     return documents
+
 
 def generate_job_data(documents: List[Dict]) -> List[Dict[str, Any]]:
     """Generate jobs for the documents."""
@@ -187,7 +190,7 @@ def generate_job_data(documents: List[Dict]) -> List[Dict[str, Any]]:
         ("completed", 0.7),
         ("failed", 0.05),
         ("retry", 0.03),
-        ("timeout", 0.02)
+        ("timeout", 0.02),
     ]
 
     jobs = []
@@ -229,9 +232,7 @@ def generate_job_data(documents: List[Dict]) -> List[Dict[str, Any]]:
 
             # Generate timestamps relative to document
             created_at = document["createdAt"] + timedelta(minutes=i * 5)
-            updated_at = created_at + timedelta(
-                minutes=random.randint(1, 30)
-            )
+            updated_at = created_at + timedelta(minutes=random.randint(1, 30))
 
             started_at = None
             completed_at = None
@@ -240,9 +241,7 @@ def generate_job_data(documents: List[Dict]) -> List[Dict[str, Any]]:
                 started_at = created_at + timedelta(minutes=random.randint(1, 5))
 
             if job_status in ["completed", "failed"]:
-                completed_at = started_at + timedelta(
-                    minutes=random.randint(2, 20)
-                )
+                completed_at = started_at + timedelta(minutes=random.randint(2, 20))
                 updated_at = completed_at
 
             # Generate job details
@@ -256,10 +255,7 @@ def generate_job_data(documents: List[Dict]) -> List[Dict[str, Any]]:
                 "createdAt": created_at,
                 "updatedAt": updated_at,
                 "attempts": 1 if job_status != "retry" else random.randint(2, 4),
-                "worker": {
-                    "id": f"worker-{random.randint(1, 5)}",
-                    "version": "1.0.0"
-                }
+                "worker": {"id": f"worker-{random.randint(1, 5)}", "version": "1.0.0"},
             }
 
             if started_at:
@@ -275,21 +271,34 @@ def generate_job_data(documents: List[Dict]) -> List[Dict[str, Any]]:
                     "tagger": "Tagging failed: Unsupported document format",
                     "validator": "Validation failed: Accessibility issues found",
                     "exporter": "Export failed: Insufficient disk space",
-                    "notifier": "Notification failed: Invalid webhook URL"
+                    "notifier": "Notification failed: Invalid webhook URL",
                 }
                 job["error"] = error_messages.get(step, "Unknown error occurred")
 
             # Add processing logs
             if job_status in ["completed", "failed"]:
                 job["logs"] = [
-                    {"timestamp": created_at.isoformat(), "level": "INFO", "message": f"Starting {step} processing"},
-                    {"timestamp": (started_at or created_at).isoformat(), "level": "INFO", "message": f"{step} worker assigned"},
-                    {"timestamp": updated_at.isoformat(), "level": "INFO" if job_status == "completed" else "ERROR", "message": f"{step} processing {'completed' if job_status == 'completed' else 'failed'}"}
+                    {
+                        "timestamp": created_at.isoformat(),
+                        "level": "INFO",
+                        "message": f"Starting {step} processing",
+                    },
+                    {
+                        "timestamp": (started_at or created_at).isoformat(),
+                        "level": "INFO",
+                        "message": f"{step} worker assigned",
+                    },
+                    {
+                        "timestamp": updated_at.isoformat(),
+                        "level": "INFO" if job_status == "completed" else "ERROR",
+                        "message": f"{step} processing {'completed' if job_status == 'completed' else 'failed'}",
+                    },
                 ]
 
             jobs.append(job)
 
     return jobs
+
 
 async def seed_database():
     """Seed the database with sample data."""
@@ -309,7 +318,9 @@ async def seed_database():
         documents = generate_document_data(users)
         jobs = generate_job_data(documents)
 
-        print(f"Generated {len(users)} users, {len(documents)} documents, {len(jobs)} jobs")
+        print(
+            f"Generated {len(users)} users, {len(documents)} documents, {len(jobs)} jobs"
+        )
 
         # Clear existing data (be careful in production!)
         print("🧹 Clearing existing data...")
@@ -352,7 +363,7 @@ async def seed_database():
         print("\n📈 Document Status Distribution:")
         status_counts = {}
         for doc in documents:
-            status = doc['status']
+            status = doc["status"]
             status_counts[status] = status_counts.get(status, 0) + 1
 
         for status, count in sorted(status_counts.items()):
@@ -370,8 +381,10 @@ async def seed_database():
     except Exception as e:
         print(f"❌ Seeding failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 def create_sample_files():
     """Create sample PDF files in LocalStack S3."""
@@ -382,35 +395,35 @@ def create_sample_files():
         from botocore.config import Config
 
         s3 = boto3.client(
-            's3',
-            endpoint_url='http://localhost:4566',
-            aws_access_key_id='test',
-            aws_secret_access_key='test',
-            region_name='us-east-1',
-            config=Config(signature_version='s3v4')
+            "s3",
+            endpoint_url="http://localhost:4566",
+            aws_access_key_id="test",
+            aws_secret_access_key="test",
+            region_name="us-east-1",
+            config=Config(signature_version="s3v4"),
         )
 
         # Create sample PDF content
         sample_files = [
             {
-                'key': 'uploads/annual-report-2023.pdf',
-                'content': b'%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /Contents 4 0 R >>\nendobj\n4 0 obj\n<< /Length 44 >>\nstream\nBT\n/F1 12 Tf\n100 700 Td\n(Sample Annual Report) Tj\nET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000174 00000 n \ntrailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n265\n%%EOF'
+                "key": "uploads/annual-report-2023.pdf",
+                "content": b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /Contents 4 0 R >>\nendobj\n4 0 obj\n<< /Length 44 >>\nstream\nBT\n/F1 12 Tf\n100 700 Td\n(Sample Annual Report) Tj\nET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000174 00000 n \ntrailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n265\n%%EOF",
             },
             {
-                'key': 'uploads/employee-handbook.pdf',
-                'content': b'%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /Contents 4 0 R >>\nendobj\n4 0 obj\n<< /Length 44 >>\nstream\nBT\n/F1 12 Tf\n100 700 Td\n(Employee Handbook) Tj\nET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000174 00000 n \ntrailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n265\n%%EOF'
-            }
+                "key": "uploads/employee-handbook.pdf",
+                "content": b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /Contents 4 0 R >>\nendobj\n4 0 obj\n<< /Length 44 >>\nstream\nBT\n/F1 12 Tf\n100 700 Td\n(Employee Handbook) Tj\nET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000174 00000 n \ntrailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n265\n%%EOF",
+            },
         ]
 
-        bucket = 'pdf-accessibility-uploads'
+        bucket = "pdf-accessibility-uploads"
 
         for file_info in sample_files:
             try:
                 s3.put_object(
                     Bucket=bucket,
-                    Key=file_info['key'],
-                    Body=file_info['content'],
-                    ContentType='application/pdf'
+                    Key=file_info["key"],
+                    Body=file_info["content"],
+                    ContentType="application/pdf",
                 )
                 print(f"  ✅ Uploaded {file_info['key']}")
             except Exception as e:
@@ -420,6 +433,7 @@ def create_sample_files():
 
     except Exception as e:
         print(f"❌ Failed to create sample files: {e}")
+
 
 async def main():
     """Main seeding function."""
@@ -440,8 +454,11 @@ async def main():
     max_retries = 30
     for i in range(max_retries):
         try:
-            client = pymongo.MongoClient('mongodb://localhost:27017/?replicaSet=rs0', serverSelectionTimeoutMS=1000)
-            client.admin.command('ismaster')
+            client = pymongo.MongoClient(
+                "mongodb://localhost:27017/?replicaSet=rs0",
+                serverSelectionTimeoutMS=1000,
+            )
+            client.admin.command("ismaster")
             client.close()
             print("✅ MongoDB is ready")
             break
@@ -456,7 +473,10 @@ async def main():
     for i in range(max_retries):
         try:
             import requests
-            response = requests.get('http://localhost:4566/_localstack/health', timeout=1)
+
+            response = requests.get(
+                "http://localhost:4566/_localstack/health", timeout=1
+            )
             if response.status_code == 200:
                 print("✅ LocalStack is ready")
                 break
@@ -479,7 +499,9 @@ async def main():
         print("\n❌ Seeding failed")
         return False
 
+
 if __name__ == "__main__":
     import asyncio
+
     success = asyncio.run(main())
     sys.exit(0 if success else 1)

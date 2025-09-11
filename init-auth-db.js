@@ -1,11 +1,11 @@
 // Initialize BetterAuth database with admin user
-const Database = require("better-sqlite3");
-const bcrypt = require("bcryptjs");
+const Database = require('better-sqlite3');
+const bcrypt = require('bcryptjs');
 
 // Connect to the shared database
-const db = new Database("./auth_data/sqlite.db");
+const db = new Database('./auth_data/sqlite.db');
 
-console.log("🔄 Initializing BetterAuth database...");
+console.log('🔄 Initializing BetterAuth database...');
 
 // Create user table
 db.exec(`
@@ -68,15 +68,15 @@ db.exec(`
   );
 `);
 
-console.log("✅ Database schema created");
+console.log('✅ Database schema created');
 
 // Hash the admin password
-const adminEmail = "admin@accesspdf.com";
-const adminPassword = "admin123ssggtg$23543DDEFFG32hf";
+const adminEmail = 'admin@accesspdf.com';
+const adminPassword = 'admin123ssggtg$23543DDEFFG32hf';
 const hashedPassword = bcrypt.hashSync(adminPassword, 10);
 
 // Generate admin user ID
-const adminId = "df34b00c-536b-4bab-807f-17ccee6a5345"; // Use same ID as before for consistency
+const adminId = 'df34b00c-536b-4bab-807f-17ccee6a5345'; // Use same ID as before for consistency
 
 // Insert admin user
 const insertUser = db.prepare(`
@@ -84,7 +84,7 @@ const insertUser = db.prepare(`
   VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 `);
 
-insertUser.run(adminId, adminEmail, "admin", "admin", 1);
+insertUser.run(adminId, adminEmail, 'admin', 'admin', 1);
 
 // Insert admin account with password
 const insertAccount = db.prepare(`
@@ -93,21 +93,23 @@ const insertAccount = db.prepare(`
 `);
 
 insertAccount.run(
-  "admin-account-id", 
-  adminId, 
-  adminId, 
-  "credential", 
+  'admin-account-id',
+  adminId,
+  adminId,
+  'credential',
   hashedPassword
 );
 
-console.log("✅ Admin user created:");
+console.log('✅ Admin user created:');
 console.log(`   Email: ${adminEmail}`);
 console.log(`   Role: admin`);
 
 // Verify the user was created
-const getUser = db.prepare("SELECT id, email, name, role FROM user WHERE email = ?");
+const getUser = db.prepare(
+  'SELECT id, email, name, role FROM user WHERE email = ?'
+);
 const user = getUser.get(adminEmail);
-console.log("👤 Admin user data:", user);
+console.log('👤 Admin user data:', user);
 
 db.close();
-console.log("✅ Database initialization complete!");
+console.log('✅ Database initialization complete!');

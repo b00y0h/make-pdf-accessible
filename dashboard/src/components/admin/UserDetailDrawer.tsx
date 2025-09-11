@@ -436,7 +436,7 @@ export function UserDetailDrawer({
                                   ) : (
                                     <div className="space-y-3">
                                       <p className="text-sm font-medium text-red-800">
-                                        Type "DELETE" to confirm:
+                                        Type &quot;DELETE&quot; to confirm:
                                       </p>
                                       <input
                                         type="text"

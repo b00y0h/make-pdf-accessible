@@ -1,14 +1,30 @@
-'use client'
+'use client';
 
-import React, { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import React, { useState } from 'react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   BarChart3,
   TrendingUp,
@@ -23,9 +39,9 @@ import {
   Activity,
   Filter,
   CalendarDays,
-} from 'lucide-react'
-import { useReportsSummary, useDocuments, useExportCSV } from '@/hooks/useApi'
-import toast from 'react-hot-toast'
+} from 'lucide-react';
+import { useReportsSummary, useDocuments, useExportCSV } from '@/hooks/useApi';
+import toast from 'react-hot-toast';
 
 function StatSkeleton() {
   return (
@@ -41,7 +57,7 @@ function StatSkeleton() {
         <Skeleton className="h-3 w-20" />
       </CardContent>
     </Card>
-  )
+  );
 }
 
 function RecentDocumentsSkeleton() {
@@ -68,36 +84,52 @@ function RecentDocumentsSkeleton() {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 function getStatusIcon(status: string) {
   switch (status) {
     case 'processing':
-      return <Clock className="h-4 w-4 text-yellow-500" />
+      return <Clock className="h-4 w-4 text-yellow-500" />;
     case 'completed':
-      return <CheckCircle className="h-4 w-4 text-green-500" />
+      return <CheckCircle className="h-4 w-4 text-green-500" />;
     case 'failed':
-      return <AlertCircle className="h-4 w-4 text-red-500" />
+      return <AlertCircle className="h-4 w-4 text-red-500" />;
     case 'pending':
-      return <Clock className="h-4 w-4 text-blue-500" />
+      return <Clock className="h-4 w-4 text-blue-500" />;
     default:
-      return <FileText className="h-4 w-4 text-gray-500" />
+      return <FileText className="h-4 w-4 text-gray-500" />;
   }
 }
 
 function getStatusBadge(status: string) {
   switch (status) {
     case 'processing':
-      return <Badge variant="warning" className="text-xs">Processing</Badge>
+      return (
+        <Badge variant="warning" className="text-xs">
+          Processing
+        </Badge>
+      );
     case 'completed':
-      return <Badge variant="success" className="text-xs">Completed</Badge>
+      return (
+        <Badge variant="success" className="text-xs">
+          Completed
+        </Badge>
+      );
     case 'failed':
-      return <Badge variant="error" className="text-xs">Failed</Badge>
+      return (
+        <Badge variant="error" className="text-xs">
+          Failed
+        </Badge>
+      );
     case 'pending':
-      return <Badge variant="secondary" className="text-xs">Pending</Badge>
+      return (
+        <Badge variant="secondary" className="text-xs">
+          Pending
+        </Badge>
+      );
     default:
-      return <Badge className="text-xs">Unknown</Badge>
+      return <Badge className="text-xs">Unknown</Badge>;
   }
 }
 
@@ -106,93 +138,100 @@ export default function ReportsPage() {
     start_date: '',
     end_date: '',
     status_filter: '',
-    owner_filter: ''
-  })
-  const [filtersOpen, setFiltersOpen] = useState(false)
+    owner_filter: '',
+  });
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const { 
-    data: summary, 
-    isLoading: summaryLoading, 
+  const {
+    data: summary,
+    isLoading: summaryLoading,
     error: summaryError,
-    refetch: refetchSummary 
-  } = useReportsSummary()
-  
-  const { 
-    data: recentDocs, 
-    isLoading: docsLoading, 
-    error: docsError 
-  } = useDocuments({ per_page: 10 })
+    refetch: refetchSummary,
+  } = useReportsSummary();
 
-  const exportMutation = useExportCSV()
+  const {
+    data: recentDocs,
+    isLoading: docsLoading,
+    error: docsError,
+  } = useDocuments({ per_page: 10 });
+
+  const exportMutation = useExportCSV();
 
   React.useEffect(() => {
     if (summaryError) {
-      toast.error('Failed to load reports summary')
+      toast.error('Failed to load reports summary');
     }
     if (docsError) {
-      toast.error('Failed to load recent documents')
+      toast.error('Failed to load recent documents');
     }
-  }, [summaryError, docsError])
+  }, [summaryError, docsError]);
 
   const handleExportCSV = async () => {
     try {
       // Filter out empty values
       const filters = Object.fromEntries(
         Object.entries(exportFilters).filter(([_, value]) => value !== '')
-      )
-      
-      await exportMutation.mutateAsync(filters)
-      toast.success('CSV export downloaded successfully')
-      setFiltersOpen(false)
+      );
+
+      await exportMutation.mutateAsync(filters);
+      toast.success('CSV export downloaded successfully');
+      setFiltersOpen(false);
     } catch (error) {
-      toast.error('Failed to export CSV')
+      toast.error('Failed to export CSV');
     }
-  }
+  };
 
   const handleQuickExport = async () => {
     try {
-      await exportMutation.mutateAsync()
-      toast.success('Full CSV export downloaded successfully')
+      await exportMutation.mutateAsync({});
+      toast.success('Full CSV export downloaded successfully');
     } catch (error) {
-      toast.error('Failed to export CSV')
+      toast.error('Failed to export CSV');
     }
-  }
+  };
 
-  const successRate = summary ? Math.round(summary.completion_rate * 100) : 0
-  const avgProcessingTime = summary?.avg_processing_time_hours 
+  const successRate = summary ? Math.round(summary.completion_rate * 100) : 0;
+  const avgProcessingTime = summary?.avg_processing_time_hours
     ? `${Math.round(summary.avg_processing_time_hours * 60)} min`
-    : 'N/A'
+    : 'N/A';
 
   const statusCounts = React.useMemo(() => {
-    if (!recentDocs?.documents) return {}
-    
-    return recentDocs.documents.reduce((acc, doc) => {
-      acc[doc.status] = (acc[doc.status] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
-  }, [recentDocs?.documents])
+    if (!recentDocs?.documents) return {};
+
+    return recentDocs.documents.reduce(
+      (acc, doc) => {
+        acc[doc.status] = (acc[doc.status] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+  }, [recentDocs?.documents]);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Reports & Analytics</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Reports & Analytics
+          </h1>
           <p className="text-muted-foreground">
             Comprehensive insights into your PDF accessibility processing
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => refetchSummary()}
             disabled={summaryLoading}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${summaryLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`h-4 w-4 mr-2 ${summaryLoading ? 'animate-spin' : ''}`}
+            />
             Refresh
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             onClick={handleQuickExport}
             disabled={exportMutation.isPending}
@@ -222,7 +261,12 @@ export default function ReportsPage() {
                       id="start-date"
                       type="date"
                       value={exportFilters.start_date}
-                      onChange={(e) => setExportFilters(prev => ({ ...prev, start_date: e.target.value }))}
+                      onChange={(e) =>
+                        setExportFilters((prev) => ({
+                          ...prev,
+                          start_date: e.target.value,
+                        }))
+                      }
                     />
                   </div>
                   <div className="grid gap-2">
@@ -231,14 +275,24 @@ export default function ReportsPage() {
                       id="end-date"
                       type="date"
                       value={exportFilters.end_date}
-                      onChange={(e) => setExportFilters(prev => ({ ...prev, end_date: e.target.value }))}
+                      onChange={(e) =>
+                        setExportFilters((prev) => ({
+                          ...prev,
+                          end_date: e.target.value,
+                        }))
+                      }
                     />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="status-filter">Status</Label>
-                    <Select 
-                      value={exportFilters.status_filter} 
-                      onValueChange={(value) => setExportFilters(prev => ({ ...prev, status_filter: value }))}
+                    <Select
+                      value={exportFilters.status_filter}
+                      onValueChange={(value) =>
+                        setExportFilters((prev) => ({
+                          ...prev,
+                          status_filter: value,
+                        }))
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="All statuses" />
@@ -258,13 +312,18 @@ export default function ReportsPage() {
                       id="owner-filter"
                       placeholder="Filter by specific owner..."
                       value={exportFilters.owner_filter}
-                      onChange={(e) => setExportFilters(prev => ({ ...prev, owner_filter: e.target.value }))}
+                      onChange={(e) =>
+                        setExportFilters((prev) => ({
+                          ...prev,
+                          owner_filter: e.target.value,
+                        }))
+                      }
                     />
                   </div>
                 </div>
                 <div className="flex gap-2 pt-2">
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     onClick={handleExportCSV}
                     disabled={exportMutation.isPending}
                     className="flex-1"
@@ -272,10 +331,17 @@ export default function ReportsPage() {
                     <Download className="h-4 w-4 mr-2" />
                     {exportMutation.isPending ? 'Exporting...' : 'Export CSV'}
                   </Button>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
-                    onClick={() => setExportFilters({ start_date: '', end_date: '', status_filter: '', owner_filter: '' })}
+                    onClick={() =>
+                      setExportFilters({
+                        start_date: '',
+                        end_date: '',
+                        status_filter: '',
+                        owner_filter: '',
+                      })
+                    }
                   >
                     Clear
                   </Button>
@@ -299,11 +365,15 @@ export default function ReportsPage() {
           <>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Documents</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Total Documents
+                </CardTitle>
                 <FileText className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{summary.total_documents.toLocaleString()}</div>
+                <div className="text-2xl font-bold">
+                  {summary.total_documents.toLocaleString()}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   All-time processed
                 </p>
@@ -312,37 +382,43 @@ export default function ReportsPage() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Success Rate
+                </CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">{successRate}%</div>
-                <p className="text-xs text-muted-foreground">
-                  Completion rate
-                </p>
+                <div className="text-2xl font-bold text-green-600">
+                  {successRate}%
+                </div>
+                <p className="text-xs text-muted-foreground">Completion rate</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Avg. Processing Time</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Avg. Processing Time
+                </CardTitle>
                 <Clock className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{avgProcessingTime}</div>
-                <p className="text-xs text-muted-foreground">
-                  Per document
-                </p>
+                <p className="text-xs text-muted-foreground">Per document</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Processing</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Active Processing
+                </CardTitle>
                 <Activity className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-yellow-600">{summary.processing_documents}</div>
+                <div className="text-2xl font-bold text-yellow-600">
+                  {summary.processing_documents}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Currently in queue
                 </p>
@@ -388,28 +464,36 @@ export default function ReportsPage() {
                     <CheckCircle className="h-4 w-4 text-green-500" />
                     <span className="text-sm">Completed</span>
                   </div>
-                  <span className="font-medium">{summary.completed_documents}</span>
+                  <span className="font-medium">
+                    {summary.completed_documents}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-yellow-500" />
                     <span className="text-sm">Processing</span>
                   </div>
-                  <span className="font-medium">{summary.processing_documents}</span>
+                  <span className="font-medium">
+                    {summary.processing_documents}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-blue-500" />
                     <span className="text-sm">Pending</span>
                   </div>
-                  <span className="font-medium">{summary.pending_documents}</span>
+                  <span className="font-medium">
+                    {summary.pending_documents}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <AlertCircle className="h-4 w-4 text-red-500" />
                     <span className="text-sm">Failed</span>
                   </div>
-                  <span className="font-medium">{summary.failed_documents}</span>
+                  <span className="font-medium">
+                    {summary.failed_documents}
+                  </span>
                 </div>
               </div>
             ) : (
@@ -444,7 +528,10 @@ export default function ReportsPage() {
               ) : (
                 <div className="space-y-3">
                   {recentDocs.documents.slice(0, 5).map((doc) => (
-                    <div key={doc.doc_id} className="flex items-center justify-between">
+                    <div
+                      key={doc.doc_id}
+                      className="flex items-center justify-between"
+                    >
                       <div className="flex items-center gap-3">
                         {getStatusIcon(doc.status)}
                         <div className="flex-1">
@@ -481,8 +568,8 @@ export default function ReportsPage() {
           <div className="grid gap-4">
             {/* Quick Export Actions */}
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={handleQuickExport}
                 disabled={exportMutation.isPending}
                 className="justify-start"
@@ -490,30 +577,36 @@ export default function ReportsPage() {
                 <Download className="h-4 w-4 mr-2" />
                 {exportMutation.isPending ? 'Exporting...' : 'All Documents'}
               </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => exportMutation.mutate({ status_filter: 'completed' })}
+              <Button
+                variant="outline"
+                onClick={() =>
+                  exportMutation.mutate({ status_filter: 'completed' })
+                }
                 disabled={exportMutation.isPending}
                 className="justify-start"
               >
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Completed Only
               </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => exportMutation.mutate({ status_filter: 'failed' })}
+              <Button
+                variant="outline"
+                onClick={() =>
+                  exportMutation.mutate({ status_filter: 'failed' })
+                }
                 disabled={exportMutation.isPending}
                 className="justify-start"
               >
                 <AlertCircle className="h-4 w-4 mr-2" />
                 Failed Only
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
-                  const thirtyDaysAgo = new Date()
-                  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-                  exportMutation.mutate({ start_date: thirtyDaysAgo.toISOString().split('T')[0] })
+                  const thirtyDaysAgo = new Date();
+                  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                  exportMutation.mutate({
+                    start_date: thirtyDaysAgo.toISOString().split('T')[0],
+                  });
                 }}
                 disabled={exportMutation.isPending}
                 className="justify-start"
@@ -522,13 +615,16 @@ export default function ReportsPage() {
                 Last 30 Days
               </Button>
             </div>
-            
+
             {/* Advanced Filtering */}
             <div className="border-t pt-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <h4 className="font-medium">Custom Filters</h4>
-                  <p className="text-sm text-muted-foreground">Use the "Filtered Export" button above for advanced filtering options</p>
+                  <p className="text-sm text-muted-foreground">
+                    Use the &quot;Filtered Export&quot; button above for
+                    advanced filtering options
+                  </p>
                 </div>
                 <Popover>
                   <PopoverTrigger asChild>
@@ -542,39 +638,51 @@ export default function ReportsPage() {
                       <div>
                         <h4 className="font-medium mb-2">Quick Date Ranges</h4>
                         <div className="grid gap-2">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => {
-                              const lastWeek = new Date()
-                              lastWeek.setDate(lastWeek.getDate() - 7)
-                              exportMutation.mutate({ start_date: lastWeek.toISOString().split('T')[0] })
+                              const lastWeek = new Date();
+                              lastWeek.setDate(lastWeek.getDate() - 7);
+                              exportMutation.mutate({
+                                start_date: lastWeek
+                                  .toISOString()
+                                  .split('T')[0],
+                              });
                             }}
                             disabled={exportMutation.isPending}
                             className="justify-start"
                           >
                             Last 7 Days
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => {
-                              const lastMonth = new Date()
-                              lastMonth.setMonth(lastMonth.getMonth() - 1)
-                              exportMutation.mutate({ start_date: lastMonth.toISOString().split('T')[0] })
+                              const lastMonth = new Date();
+                              lastMonth.setMonth(lastMonth.getMonth() - 1);
+                              exportMutation.mutate({
+                                start_date: lastMonth
+                                  .toISOString()
+                                  .split('T')[0],
+                              });
                             }}
                             disabled={exportMutation.isPending}
                             className="justify-start"
                           >
                             Last Month
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => {
-                              const lastQuarter = new Date()
-                              lastQuarter.setMonth(lastQuarter.getMonth() - 3)
-                              exportMutation.mutate({ start_date: lastQuarter.toISOString().split('T')[0] })
+                              const lastQuarter = new Date();
+                              lastQuarter.setMonth(lastQuarter.getMonth() - 3);
+                              exportMutation.mutate({
+                                start_date: lastQuarter
+                                  .toISOString()
+                                  .split('T')[0],
+                              });
                             }}
                             disabled={exportMutation.isPending}
                             className="justify-start"
@@ -592,5 +700,5 @@ export default function ReportsPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

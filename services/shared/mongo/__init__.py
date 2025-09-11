@@ -23,28 +23,24 @@ from .repository import BaseRepository, QueryPlan
 
 __all__ = [
     # Connection
-    'MongoConnection',
-    'MongoConnectionError',
-    'get_mongo_connection',
-    'get_database',
-    'get_collection',
-    'close_connection',
-    'health_check',
-
+    "MongoConnection",
+    "MongoConnectionError",
+    "get_mongo_connection",
+    "get_database",
+    "get_collection",
+    "close_connection",
+    "health_check",
     # Repository
-    'BaseRepository',
-    'QueryPlan',
-
+    "BaseRepository",
+    "QueryPlan",
     # Document repository
-    'DocumentRepository',
-    'get_document_repository',
-
+    "DocumentRepository",
+    "get_document_repository",
     # Job repository
-    'JobRepository',
-    'get_job_repository',
-
+    "JobRepository",
+    "get_job_repository",
     # Index management
-    'IndexManager',
-    'get_index_manager',
-    'setup_mongodb_indexes'
+    "IndexManager",
+    "get_index_manager",
+    "setup_mongodb_indexes",
 ]

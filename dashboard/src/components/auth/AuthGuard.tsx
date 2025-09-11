@@ -1,25 +1,25 @@
-'use client'
+'use client';
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { useSession } from '@/lib/auth-client'
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSession } from '@/lib/auth-client';
 
 interface AuthGuardProps {
-  children: React.ReactNode
+  children: React.ReactNode;
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
-  const router = useRouter()
-  const { data: session, isLoading } = useSession()
+  const router = useRouter();
+  const { data: session, isPending } = useSession();
 
   useEffect(() => {
-    if (!isLoading && !session?.user) {
-      router.push('/sign-in')
+    if (!isPending && !session?.user) {
+      router.push('/sign-in');
     }
-  }, [session, isLoading, router])
+  }, [session, isPending, router]);
 
   // Show loading state while checking authentication
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center space-x-2">
@@ -27,14 +27,14 @@ export function AuthGuard({ children }: AuthGuardProps) {
           <span>Loading...</span>
         </div>
       </div>
-    )
+    );
   }
 
   // If user is not authenticated, show nothing (redirect will happen)
   if (!session?.user) {
-    return null
+    return null;
   }
 
   // User is authenticated, show protected content
-  return <>{children}</>
+  return <>{children}</>;
 }

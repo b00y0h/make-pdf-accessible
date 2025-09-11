@@ -27,13 +27,11 @@ const queryClient = new QueryClient({
 });
 
 interface ProvidersProps {
-  children: React.ReactNode;
+  children: any;
 }
 
 export function Providers({ children }: ProvidersProps) {
   return (
-    <QueryClientProvider client={queryClient}>
-      {children}
-    </QueryClientProvider>
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
 }

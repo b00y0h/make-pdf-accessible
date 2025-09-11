@@ -6,8 +6,8 @@ Your better-auth configuration is now properly set up with social providers. Her
 
 ### ✅ Completed Setup
 
-1. **Better-Auth Configuration**: Updated both `better-auth.config.ts` and `auth-server.ts` with social providers
-2. **Client Configuration**: Updated `auth-client.ts` to use the official better-auth React client
+1. **Better-Auth Configuration**: Updated `src/lib/auth-server.ts` with social providers
+2. **Client Configuration**: Updated `src/lib/auth-client.ts` to use the official better-auth React client
 3. **Environment Variables**: Added required environment variables to `.env.local` and `.env.example`
 4. **API Routes**: The catch-all route `[...all]/route.ts` is properly configured
 

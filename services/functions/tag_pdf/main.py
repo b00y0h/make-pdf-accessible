@@ -16,7 +16,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
     start_time = time.time()
 
     try:
-        doc_id = event.get('docId') or event.get('doc_id')
+        doc_id = event.get("docId") or event.get("doc_id")
         logger.info(f"Starting PDF tagging for document {doc_id}")
 
         # Mock PDF tagging - in real implementation:
@@ -44,13 +44,13 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
             "status": "completed",
             "tagged_pdf_s3_key": tagged_pdf_s3_key,
             "tags_applied": tags_applied,
-            "processing_time_seconds": processing_time
+            "processing_time_seconds": processing_time,
         }
 
     except Exception as e:
         logger.error(f"PDF tagging failed: {str(e)}")
         return {
-            "doc_id": event.get('docId', 'unknown'),
+            "doc_id": event.get("docId", "unknown"),
             "status": "failed",
-            "error_message": str(e)
+            "error_message": str(e),
         }

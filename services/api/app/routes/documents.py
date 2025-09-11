@@ -15,8 +15,6 @@ from fastapi import (
 
 from ..auth import User, get_current_user, require_roles
 from ..config import settings
-from ..security import security_service, VirusDetectedError, VirusScanError
-from ..quota import quota_service, QuotaType
 from ..models import (
     DocumentCreateRequest,
     DocumentListResponse,
@@ -29,6 +27,8 @@ from ..models import (
     PreSignedUploadResponse,
     UserRole,
 )
+from ..quota import QuotaType, quota_service
+from ..security import VirusDetectedError, VirusScanError, security_service
 from ..services import AWSServiceError, document_service
 
 logger = Logger()
@@ -43,51 +43,46 @@ router = APIRouter(prefix="/documents", tags=["documents"])
     response_model=PreSignedUploadResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Get pre-signed upload URL",
-    description="Generate a pre-signed S3 upload URL for direct client-side file upload with progress tracking."
+    description="Generate a pre-signed S3 upload URL for direct client-side file upload with progress tracking.",
 )
 @tracer.capture_method
 async def get_presigned_upload_url(
-    request: PreSignedUploadRequest,
-    current_user: User = Depends(get_current_user)
+    request: PreSignedUploadRequest, current_user: User = Depends(get_current_user)
 ) -> PreSignedUploadResponse:
     """Get pre-signed S3 upload URL for direct client upload"""
 
     # Enforce quota limits
     if current_user.org_id:
         await quota_service.enforce_quota(
-            current_user.org_id, 
-            QuotaType.PROCESSING_MONTHLY, 
-            1
+            current_user.org_id, QuotaType.PROCESSING_MONTHLY, 1
         )
         await quota_service.enforce_quota(
-            current_user.org_id, 
-            QuotaType.STORAGE_TOTAL, 
-            request.file_size
+            current_user.org_id, QuotaType.STORAGE_TOTAL, request.file_size
         )
 
     # Validate file size
     if request.file_size > settings.max_file_size:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"File size exceeds maximum allowed size of {settings.max_file_size} bytes"
+            detail=f"File size exceeds maximum allowed size of {settings.max_file_size} bytes",
         )
 
     # Enhanced file metadata validation
     security_service.validate_file_metadata(
         filename=request.filename,
         content_type=request.content_type,
-        metadata={"size": request.file_size}
+        metadata={"size": request.file_size},
     )
-    
+
     # Validate file extension
     filename_lower = request.filename.lower()
     file_extension = f".{filename_lower.split('.')[-1]}"
     if file_extension not in settings.allowed_file_types:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File type not allowed. Supported types: {settings.allowed_file_types}"
+            detail=f"File type not allowed. Supported types: {settings.allowed_file_types}",
         )
-    
+
     # Security audit logging
     security_service.audit_security_event(
         "PRESIGNED_UPLOAD_REQUEST",
@@ -95,8 +90,8 @@ async def get_presigned_upload_url(
         {
             "filename": request.filename,
             "file_size": request.file_size,
-            "org_id": current_user.org_id
-        }
+            "org_id": current_user.org_id,
+        },
     )
 
     try:
@@ -105,7 +100,7 @@ async def get_presigned_upload_url(
             user_id=current_user.sub,
             filename=request.filename,
             content_type=request.content_type,
-            file_size=request.file_size
+            file_size=request.file_size,
         )
 
         metrics.add_metric(name="PreSignedUploadRequests", unit="Count", value=1)
@@ -116,8 +111,8 @@ async def get_presigned_upload_url(
                 "doc_id": str(upload_response.doc_id),
                 "user_id": current_user.sub,
                 "filename": request.filename,
-                "file_size": request.file_size
-            }
+                "file_size": request.file_size,
+            },
         )
 
         return upload_response
@@ -126,7 +121,7 @@ async def get_presigned_upload_url(
         logger.error(f"Failed to generate pre-signed upload URL: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate upload URL"
+            detail="Failed to generate upload URL",
         )
 
 
@@ -135,37 +130,37 @@ async def get_presigned_upload_url(
     response_model=DocumentResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create document after successful upload",
-    description="Create document record and enqueue for processing after successful S3 upload."
+    description="Create document record and enqueue for processing after successful S3 upload.",
 )
 @tracer.capture_method
 async def create_document_after_upload(
-    request: DocumentCreateRequest,
-    current_user: User = Depends(get_current_user)
+    request: DocumentCreateRequest, current_user: User = Depends(get_current_user)
 ) -> DocumentResponse:
     """Create document record and enqueue for processing after S3 upload"""
 
     # Validate webhook URL if provided
     if request.webhook_url:
-        if not (request.webhook_url.startswith('http://') or request.webhook_url.startswith('https://')):
+        if not (
+            request.webhook_url.startswith("http://")
+            or request.webhook_url.startswith("https://")
+        ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="webhook_url must be a valid HTTP/HTTPS URL"
+                detail="webhook_url must be a valid HTTP/HTTPS URL",
             )
 
     try:
         # Validate processing request for security
         file_info = {
-            "filename": request.s3_key.split('/')[-1],
+            "filename": request.s3_key.split("/")[-1],
             "s3_key": request.s3_key,
-            "size": 0  # Will be determined from S3 file
+            "size": 0,  # Will be determined from S3 file
         }
-        
+
         await security_service.validate_processing_request(
-            current_user.sub,
-            current_user.org_id or "default",
-            file_info
+            current_user.sub, current_user.org_id or "default", file_info
         )
-        
+
         # First validate the uploaded file for security
         try:
             # Get S3 client from document service for validation
@@ -173,16 +168,16 @@ async def create_document_after_upload(
             await security_service.validate_s3_file(
                 s3_client=document_service.s3_client,
                 bucket="pdf-accessibility-uploads",  # TODO: Get from settings
-                key=request.s3_key
+                key=request.s3_key,
             )
-            
+
             logger.info(
                 "S3 file security validation passed",
                 extra={
                     "doc_id": str(request.doc_id),
                     "s3_key": request.s3_key,
-                    "user_id": current_user.sub
-                }
+                    "user_id": current_user.sub,
+                },
             )
         except VirusDetectedError as e:
             logger.error(
@@ -191,12 +186,12 @@ async def create_document_after_upload(
                     "doc_id": str(request.doc_id),
                     "s3_key": request.s3_key,
                     "user_id": current_user.sub,
-                    "virus_name": e.virus_name
-                }
+                    "virus_name": e.virus_name,
+                },
             )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File rejected: virus detected ({e.virus_name})"
+                detail=f"File rejected: virus detected ({e.virus_name})",
             )
         except VirusScanError as e:
             logger.error(
@@ -204,12 +199,12 @@ async def create_document_after_upload(
                 extra={
                     "doc_id": str(request.doc_id),
                     "s3_key": request.s3_key,
-                    "user_id": current_user.sub
-                }
+                    "user_id": current_user.sub,
+                },
             )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="File security validation failed. Please try again."
+                detail="File security validation failed. Please try again.",
             )
 
         # Create document record and enqueue for processing
@@ -220,21 +215,21 @@ async def create_document_after_upload(
             source=request.source,
             metadata=request.metadata,
             priority=request.priority,
-            webhook_url=request.webhook_url
+            webhook_url=request.webhook_url,
         )
 
         # Increment quota usage after successful document creation
         if current_user.org_id:
             await quota_service.increment_usage(
-                current_user.org_id, 
-                QuotaType.PROCESSING_MONTHLY, 
-                1
+                current_user.org_id, QuotaType.PROCESSING_MONTHLY, 1
             )
             # TODO: Get actual file size for storage quota
             # For now, we'll increment storage quota in the worker
 
         metrics.add_metric(name="DocumentsCreated", unit="Count", value=1)
-        metrics.add_metric(name="PriorityDocuments", unit="Count", value=1 if request.priority else 0)
+        metrics.add_metric(
+            name="PriorityDocuments", unit="Count", value=1 if request.priority else 0
+        )
 
         logger.info(
             "Document created and enqueued for processing",
@@ -243,8 +238,8 @@ async def create_document_after_upload(
                 "user_id": current_user.sub,
                 "s3_key": request.s3_key,
                 "source": request.source,
-                "priority": request.priority
-            }
+                "priority": request.priority,
+            },
         )
 
         return document
@@ -254,11 +249,11 @@ async def create_document_after_upload(
         if "not found" in str(e).lower():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Uploaded file not found in S3"
+                detail="Uploaded file not found in S3",
             )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create document record"
+            detail="Failed to create document record",
         )
 
 
@@ -267,7 +262,7 @@ async def create_document_after_upload(
     response_model=DocumentResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Upload document for processing",
-    description="Upload a document file or provide URL for processing. Returns document ID and queues for processing."
+    description="Upload a document file or provide URL for processing. Returns document ID and queues for processing.",
 )
 @tracer.capture_method
 async def upload_document(
@@ -277,7 +272,7 @@ async def upload_document(
     priority: bool = Form(False),
     webhook_url: Optional[str] = Form(None),
     metadata: Optional[str] = Form("{}"),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ) -> DocumentResponse:
     """Upload document for accessibility processing"""
 
@@ -285,13 +280,13 @@ async def upload_document(
     if not file and not source_url:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Either file upload or source_url must be provided"
+            detail="Either file upload or source_url must be provided",
         )
 
     if file and source_url:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot provide both file upload and source_url"
+            detail="Cannot provide both file upload and source_url",
         )
 
     # Process file upload
@@ -299,31 +294,27 @@ async def upload_document(
         # Enforce quota limits before processing
         if current_user.org_id:
             await quota_service.enforce_quota(
-                current_user.org_id, 
-                QuotaType.PROCESSING_MONTHLY, 
-                1
+                current_user.org_id, QuotaType.PROCESSING_MONTHLY, 1
             )
             # We'll check storage quota after reading the file
-        
+
         # Perform comprehensive security validation
         try:
             file_content = await security_service.validate_upload_file(file)
-            
+
             # Enforce storage quota after getting file size
             if current_user.org_id:
                 await quota_service.enforce_quota(
-                    current_user.org_id, 
-                    QuotaType.STORAGE_TOTAL, 
-                    len(file_content)
+                    current_user.org_id, QuotaType.STORAGE_TOTAL, len(file_content)
                 )
-            
+
             logger.info(
                 "File security validation passed",
                 extra={
                     "filename": file.filename,
                     "size": len(file_content),
-                    "user_id": current_user.sub
-                }
+                    "user_id": current_user.sub,
+                },
             )
         except VirusDetectedError as e:
             logger.error(
@@ -331,44 +322,44 @@ async def upload_document(
                 extra={
                     "filename": file.filename,
                     "user_id": current_user.sub,
-                    "virus_name": e.virus_name
-                }
+                    "virus_name": e.virus_name,
+                },
             )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File rejected: virus detected ({e.virus_name})"
+                detail=f"File rejected: virus detected ({e.virus_name})",
             )
         except VirusScanError as e:
             logger.error(
                 f"Virus scanning failed: {str(e)}",
-                extra={
-                    "filename": file.filename,
-                    "user_id": current_user.sub
-                }
+                extra={"filename": file.filename, "user_id": current_user.sub},
             )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="File security validation failed. Please try again."
+                detail="File security validation failed. Please try again.",
             )
 
         filename = filename or file.filename
 
     # Parse metadata
     import json
+
     try:
         metadata_dict = json.loads(metadata) if metadata != "{}" else {}
     except json.JSONDecodeError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid JSON in metadata field"
+            detail="Invalid JSON in metadata field",
         )
 
     # Validate webhook URL if provided
     if webhook_url:
-        if not (webhook_url.startswith('http://') or webhook_url.startswith('https://')):
+        if not (
+            webhook_url.startswith("http://") or webhook_url.startswith("https://")
+        ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="webhook_url must be a valid HTTP/HTTPS URL"
+                detail="webhook_url must be a valid HTTP/HTTPS URL",
             )
 
     try:
@@ -379,7 +370,7 @@ async def upload_document(
             source_url=source_url,
             metadata=metadata_dict,
             priority=priority,
-            webhook_url=webhook_url
+            webhook_url=webhook_url,
         )
 
         # If file was uploaded, we would upload it to S3 here
@@ -388,19 +379,17 @@ async def upload_document(
         # Increment quota usage after successful document creation
         if current_user.org_id:
             await quota_service.increment_usage(
-                current_user.org_id, 
-                QuotaType.PROCESSING_MONTHLY, 
-                1
+                current_user.org_id, QuotaType.PROCESSING_MONTHLY, 1
             )
             if file:
                 await quota_service.increment_usage(
-                    current_user.org_id, 
-                    QuotaType.STORAGE_TOTAL, 
-                    len(file_content)
+                    current_user.org_id, QuotaType.STORAGE_TOTAL, len(file_content)
                 )
 
         metrics.add_metric(name="DocumentUploads", unit="Count", value=1)
-        metrics.add_metric(name="PriorityUploads", unit="Count", value=1 if priority else 0)
+        metrics.add_metric(
+            name="PriorityUploads", unit="Count", value=1 if priority else 0
+        )
 
         logger.info(
             "Document uploaded successfully",
@@ -409,8 +398,8 @@ async def upload_document(
                 "user_id": current_user.sub,
                 "priority": priority,
                 "has_file": file is not None,
-                "has_source_url": source_url is not None
-            }
+                "has_source_url": source_url is not None,
+            },
         )
 
         return document
@@ -419,7 +408,7 @@ async def upload_document(
         logger.error(f"Failed to upload document: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to process document upload"
+            detail="Failed to process document upload",
         )
 
 
@@ -427,14 +416,16 @@ async def upload_document(
     "",
     response_model=DocumentListResponse,
     summary="List user documents",
-    description="List documents for the authenticated user with pagination and optional status filtering."
+    description="List documents for the authenticated user with pagination and optional status filtering.",
 )
 @tracer.capture_method
 async def list_documents(
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(10, ge=1, le=100, description="Items per page"),
-    status: Optional[DocumentStatus] = Query(None, description="Filter by document status"),
-    current_user: User = Depends(get_current_user)
+    status: Optional[DocumentStatus] = Query(
+        None, description="Filter by document status"
+    ),
+    current_user: User = Depends(get_current_user),
 ) -> DocumentListResponse:
     """List documents for the authenticated user"""
 
@@ -445,7 +436,7 @@ async def list_documents(
             user_id=current_user.sub,
             limit=pagination.per_page,
             offset=pagination.offset,
-            status_filter=status
+            status_filter=status,
         )
 
         metrics.add_metric(name="DocumentListRequests", unit="Count", value=1)
@@ -454,14 +445,14 @@ async def list_documents(
             documents=documents,
             total=total,
             page=pagination.page,
-            per_page=pagination.per_page
+            per_page=pagination.per_page,
         )
 
     except AWSServiceError as e:
         logger.error(f"Failed to list documents: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve documents"
+            detail="Failed to retrieve documents",
         )
 
 
@@ -469,32 +460,32 @@ async def list_documents(
     "/{document_id}",
     response_model=DocumentResponse,
     summary="Get document details",
-    description="Get detailed information about a specific document including status, metadata, and available artifacts."
+    description="Get detailed information about a specific document including status, metadata, and available artifacts.",
 )
 @tracer.capture_method
 async def get_document(
-    document_id: UUID,
-    current_user: User = Depends(get_current_user)
+    document_id: UUID, current_user: User = Depends(get_current_user)
 ) -> DocumentResponse:
     """Get document by ID"""
 
     try:
         document = await document_service.get_document(
             doc_id=str(document_id),
-            user_id=current_user.sub if not current_user.is_admin() else None
+            user_id=current_user.sub if not current_user.is_admin() else None,
         )
 
         if not document:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Document not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
             )
 
         # Check access permissions for non-admin users
-        if not current_user.is_admin() and not current_user.can_access_resource(document.user_id):
+        if not current_user.is_admin() and not current_user.can_access_resource(
+            document.user_id
+        ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied to this document"
+                detail="Access denied to this document",
             )
 
         metrics.add_metric(name="DocumentRetrievals", unit="Count", value=1)
@@ -505,7 +496,7 @@ async def get_document(
         logger.error(f"Failed to get document {document_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve document"
+            detail="Failed to retrieve document",
         )
 
 
@@ -513,14 +504,18 @@ async def get_document(
     "/{document_id}/downloads",
     response_model=DownloadResponse,
     summary="Get document download URL",
-    description="Generate pre-signed URL for downloading processed documents in various formats."
+    description="Generate pre-signed URL for downloading processed documents in various formats.",
 )
 @tracer.capture_method
 async def get_download_url(
     document_id: UUID,
-    document_type: DocumentType = Query(..., description="Type of document to download"),
-    expires_in: int = Query(3600, ge=300, le=86400, description="URL expiration time in seconds"),
-    current_user: User = Depends(get_current_user)
+    document_type: DocumentType = Query(
+        ..., description="Type of document to download"
+    ),
+    expires_in: int = Query(
+        3600, ge=300, le=86400, description="URL expiration time in seconds"
+    ),
+    current_user: User = Depends(get_current_user),
 ) -> DownloadResponse:
     """Get pre-signed download URL for document"""
 
@@ -528,42 +523,47 @@ async def get_download_url(
         # First, verify the document exists and user has access
         document = await document_service.get_document(
             doc_id=str(document_id),
-            user_id=current_user.sub if not current_user.is_admin() else None
+            user_id=current_user.sub if not current_user.is_admin() else None,
         )
 
         if not document:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Document not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
             )
 
         # Check access permissions
-        if not current_user.is_admin() and not current_user.can_access_resource(document.user_id):
+        if not current_user.is_admin() and not current_user.can_access_resource(
+            document.user_id
+        ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied to this document"
+                detail="Access denied to this document",
             )
 
         # Check if document is completed
         if document.status != DocumentStatus.COMPLETED:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Document is not ready for download. Current status: {document.status.value}"
+                detail=f"Document is not ready for download. Current status: {document.status.value}",
             )
 
         # Generate pre-signed URL
         from datetime import datetime, timedelta
 
-        presigned_url, content_type, filename = await document_service.generate_presigned_url(
-            doc_id=str(document_id),
-            document_type=document_type,
-            expires_in=expires_in
+        presigned_url, content_type, filename = (
+            await document_service.generate_presigned_url(
+                doc_id=str(document_id),
+                document_type=document_type,
+                expires_in=expires_in,
+            )
         )
 
         expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
 
         metrics.add_metric(name="DownloadUrls", unit="Count", value=1)
-        metrics.add_metric(name=f"Downloads{document_type.value.title()}", unit="Count", value=1)
+        metrics.add_metric(
+            name=f"Downloads{document_type.value.title()}", unit="Count", value=1
+        )
 
         logger.info(
             "Generated download URL",
@@ -571,15 +571,15 @@ async def get_download_url(
                 "doc_id": str(document_id),
                 "user_id": current_user.sub,
                 "document_type": document_type.value,
-                "expires_in": expires_in
-            }
+                "expires_in": expires_in,
+            },
         )
 
         return DownloadResponse(
             download_url=presigned_url,
             expires_at=expires_at,
             content_type=content_type,
-            filename=filename
+            filename=filename,
         )
 
     except AWSServiceError as e:
@@ -587,11 +587,11 @@ async def get_download_url(
         if "not available" in str(e):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Document {document_type.value} not available"
+                detail=f"Document {document_type.value} not available",
             )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate download URL"
+            detail="Failed to generate download URL",
         )
 
 
@@ -599,12 +599,11 @@ async def get_download_url(
     "/{document_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete document",
-    description="Delete a document and all associated files (admin only)."
+    description="Delete a document and all associated files (admin only).",
 )
 @tracer.capture_method
 async def delete_document(
-    document_id: UUID,
-    current_user: User = Depends(require_roles([UserRole.ADMIN]))
+    document_id: UUID, current_user: User = Depends(require_roles([UserRole.ADMIN]))
 ) -> None:
     """Delete document (admin only)"""
 
@@ -614,8 +613,7 @@ async def delete_document(
 
         if not document:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Document not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
             )
 
         # TODO: Implement document deletion logic
@@ -628,15 +626,12 @@ async def delete_document(
 
         logger.info(
             "Document deleted",
-            extra={
-                "doc_id": str(document_id),
-                "admin_user": current_user.sub
-            }
+            extra={"doc_id": str(document_id), "admin_user": current_user.sub},
         )
 
     except AWSServiceError as e:
         logger.error(f"Failed to delete document {document_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete document"
+            detail="Failed to delete document",
         )

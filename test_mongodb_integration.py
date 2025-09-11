@@ -10,21 +10,25 @@ import uuid
 from datetime import datetime
 
 # Add services directory to Python path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'services', 'api'))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'services', 'shared'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "services", "api"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "services", "shared"))
+
 
 def setup_test_environment():
     """Setup test environment variables."""
-    os.environ.update({
-        'PERSISTENCE_PROVIDER': 'mongo',
-        'MONGODB_URI': 'mongodb://localhost:27017/pdf_accessibility_test',
-        'MONGODB_DATABASE': 'pdf_accessibility_test',
-        'ENABLE_QUERY_LOGGING': 'true',
-        'DEBUG_MODE': 'true',
-        'AWS_REGION': 'us-east-1',  # Mock for S3 operations
-        'AWS_ACCESS_KEY_ID': 'test',  # Mock credentials
-        'AWS_SECRET_ACCESS_KEY': 'test',
-    })
+    os.environ.update(
+        {
+            "PERSISTENCE_PROVIDER": "mongo",
+            "MONGODB_URI": "mongodb://localhost:27017/pdf_accessibility_test",
+            "MONGODB_DATABASE": "pdf_accessibility_test",
+            "ENABLE_QUERY_LOGGING": "true",
+            "DEBUG_MODE": "true",
+            "AWS_REGION": "us-east-1",  # Mock for S3 operations
+            "AWS_ACCESS_KEY_ID": "test",  # Mock credentials
+            "AWS_SECRET_ACCESS_KEY": "test",
+        }
+    )
+
 
 async def test_persistence_layer():
     """Test the persistence layer functionality."""
@@ -55,8 +59,10 @@ async def test_persistence_layer():
     except Exception as e:
         print(f"❌ Persistence layer test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return None
+
 
 async def test_document_operations(pm):
     """Test document CRUD operations."""
@@ -66,14 +72,14 @@ async def test_document_operations(pm):
         # Create a test document
         doc_id = str(uuid.uuid4())
         test_doc = {
-            'docId': doc_id,
-            'ownerId': 'test-user-123',
-            'status': 'pending',
-            'createdAt': datetime.utcnow(),
-            'updatedAt': datetime.utcnow(),
-            'filename': 'test-document.pdf',
-            'metadata': {'source': 'test'},
-            'artifacts': {}
+            "docId": doc_id,
+            "ownerId": "test-user-123",
+            "status": "pending",
+            "createdAt": datetime.utcnow(),
+            "updatedAt": datetime.utcnow(),
+            "filename": "test-document.pdf",
+            "metadata": {"source": "test"},
+            "artifacts": {},
         }
 
         # Create document
@@ -89,11 +95,13 @@ async def test_document_operations(pm):
             return False
 
         # List documents by owner
-        docs_result = pm.document_repository.get_documents_by_owner('test-user-123')
-        print(f"✅ Documents by owner: {docs_result['total']} total, {len(docs_result['documents'])} returned")
+        docs_result = pm.document_repository.get_documents_by_owner("test-user-123")
+        print(
+            f"✅ Documents by owner: {docs_result['total']} total, {len(docs_result['documents'])} returned"
+        )
 
         # Update document status
-        success = pm.update_document_status(doc_id, 'processing')
+        success = pm.update_document_status(doc_id, "processing")
         print(f"✅ Document status updated: {success}")
 
         return True
@@ -101,8 +109,10 @@ async def test_document_operations(pm):
     except Exception as e:
         print(f"❌ Document operations test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 async def test_job_operations(pm):
     """Test job CRUD operations."""
@@ -113,14 +123,14 @@ async def test_job_operations(pm):
         job_id = str(uuid.uuid4())
         doc_id = str(uuid.uuid4())
         test_job = {
-            'jobId': job_id,
-            'docId': doc_id,
-            'ownerId': 'test-user-123',
-            'step': 'structure',
-            'status': 'pending',
-            'priority': False,
-            'createdAt': datetime.utcnow(),
-            'updatedAt': datetime.utcnow()
+            "jobId": job_id,
+            "docId": doc_id,
+            "ownerId": "test-user-123",
+            "step": "structure",
+            "status": "pending",
+            "priority": False,
+            "createdAt": datetime.utcnow(),
+            "updatedAt": datetime.utcnow(),
         }
 
         # Create job
@@ -140,7 +150,7 @@ async def test_job_operations(pm):
         print(f"✅ Pending jobs: {len(pending_jobs)} found")
 
         # Update job status
-        success = pm.update_job_status(job_id, 'running')
+        success = pm.update_job_status(job_id, "running")
         print(f"✅ Job status updated: {success}")
 
         return True
@@ -148,8 +158,10 @@ async def test_job_operations(pm):
     except Exception as e:
         print(f"❌ Job operations test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 async def test_service_layer():
     """Test the service layer integration."""
@@ -160,22 +172,28 @@ async def test_service_layer():
 
         # Test DocumentService
         doc_service = DocumentService()
-        print(f"✅ DocumentService initialized: {type(doc_service.persistence_manager).__name__}")
+        print(
+            f"✅ DocumentService initialized: {type(doc_service.persistence_manager).__name__}"
+        )
 
         # Test ReportsService
         reports_service = ReportsService()
-        print(f"✅ ReportsService initialized: {type(reports_service.persistence_manager).__name__}")
+        print(
+            f"✅ ReportsService initialized: {type(reports_service.persistence_manager).__name__}"
+        )
 
         # Test create document
         doc_response = await doc_service.create_document(
-            user_id='test-user-456',
-            filename='service-test.pdf',
-            metadata={'test': True}
+            user_id="test-user-456",
+            filename="service-test.pdf",
+            metadata={"test": True},
         )
         print(f"✅ Service document created: {doc_response.doc_id}")
 
         # Test get document
-        retrieved_doc = await doc_service.get_document(str(doc_response.doc_id), 'test-user-456')
+        retrieved_doc = await doc_service.get_document(
+            str(doc_response.doc_id), "test-user-456"
+        )
         if retrieved_doc:
             print(f"✅ Service document retrieved: {retrieved_doc.doc_id}")
         else:
@@ -183,7 +201,7 @@ async def test_service_layer():
             return False
 
         # Test list documents
-        docs_list, total = await doc_service.list_user_documents('test-user-456')
+        docs_list, total = await doc_service.list_user_documents("test-user-456")
         print(f"✅ Service documents listed: {total} total, {len(docs_list)} returned")
 
         return True
@@ -191,8 +209,10 @@ async def test_service_layer():
     except Exception as e:
         print(f"❌ Service layer test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 async def test_health_check(pm):
     """Test health check functionality."""
@@ -205,11 +225,12 @@ async def test_health_check(pm):
         print(f"  Status: {health_status.get('status', 'Unknown')}")
         print(f"  Dual write: {health_status.get('dual_write', False)}")
 
-        return health_status.get('status') == 'healthy'
+        return health_status.get("status") == "healthy"
 
     except Exception as e:
         print(f"❌ Health check failed: {e}")
         return False
+
 
 async def cleanup_test_data(pm):
     """Clean up test data."""
@@ -224,6 +245,7 @@ async def cleanup_test_data(pm):
     except Exception as e:
         print(f"❌ Cleanup failed: {e}")
         return False
+
 
 async def main():
     """Run all tests."""
@@ -266,6 +288,7 @@ async def main():
     else:
         print("❌ Some tests failed. Check the logs above.")
         return False
+
 
 if __name__ == "__main__":
     success = asyncio.run(main())

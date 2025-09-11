@@ -16,11 +16,12 @@ def setup_test_environment():
         "TEXTRACT_REGION": "us-east-1",
         "SOURCE_BUCKET": "test-source-bucket",
         "RESULTS_BUCKET": "test-results-bucket",
-        "STRUCTURE_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789/test-structure"
+        "STRUCTURE_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789/test-structure",
     }
 
     with patch.dict(os.environ, test_env):
         yield
+
 
 @pytest.fixture
 def sample_document_structure():
@@ -31,7 +32,7 @@ def sample_document_structure():
                 "page_number": 1,
                 "headings": [
                     {"text": "Chapter 1: Introduction", "level": 1, "confidence": 98.5},
-                    {"text": "1.1 Overview", "level": 2, "confidence": 97.2}
+                    {"text": "1.1 Overview", "level": 2, "confidence": 97.2},
                 ],
                 "paragraphs": [
                     {"text": "This is the introduction paragraph.", "confidence": 95.0}
@@ -42,13 +43,13 @@ def sample_document_structure():
                         "columns": 2,
                         "cells": [
                             {"row": 0, "col": 0, "text": "Header 1"},
-                            {"row": 0, "col": 1, "text": "Header 2"}
-                        ]
+                            {"row": 0, "col": 1, "text": "Header 2"},
+                        ],
                     }
                 ],
                 "images": [
                     {"description": "Figure 1: Sample chart", "confidence": 90.0}
-                ]
+                ],
             }
         ]
     }

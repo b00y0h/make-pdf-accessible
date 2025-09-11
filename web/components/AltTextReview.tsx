@@ -1,19 +1,19 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Edit3, 
-  History, 
-  Check, 
-  X, 
-  Eye, 
+import {
+  Edit3,
+  History,
+  Check,
+  X,
+  Eye,
   Filter,
   ChevronDown,
   ChevronUp,
   Save,
   Undo,
   Keyboard,
-  Search
+  Search,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -58,47 +58,50 @@ interface AltTextReviewProps {
 }
 
 const STATUS_CONFIG = {
-  pending: { 
-    label: 'Pending', 
-    color: 'text-gray-500', 
+  pending: {
+    label: 'Pending',
+    color: 'text-gray-500',
     bgColor: 'bg-gray-100',
-    icon: '⏳'
+    icon: '⏳',
   },
-  needs_review: { 
-    label: 'Needs Review', 
-    color: 'text-yellow-600', 
+  needs_review: {
+    label: 'Needs Review',
+    color: 'text-yellow-600',
     bgColor: 'bg-yellow-100',
-    icon: '⚠️'
+    icon: '⚠️',
   },
-  edited: { 
-    label: 'Edited', 
-    color: 'text-blue-600', 
+  edited: {
+    label: 'Edited',
+    color: 'text-blue-600',
     bgColor: 'bg-blue-100',
-    icon: '✏️'
+    icon: '✏️',
   },
-  approved: { 
-    label: 'Approved', 
-    color: 'text-green-600', 
+  approved: {
+    label: 'Approved',
+    color: 'text-green-600',
     bgColor: 'bg-green-100',
-    icon: '✅'
+    icon: '✅',
   },
-  rejected: { 
-    label: 'Rejected', 
-    color: 'text-red-600', 
+  rejected: {
+    label: 'Rejected',
+    color: 'text-red-600',
     bgColor: 'bg-red-100',
-    icon: '❌'
-  }
+    icon: '❌',
+  },
 };
 
 export function AltTextReview({ documentId, className }: AltTextReviewProps) {
-  const [altTextData, setAltTextData] = useState<AltTextDocumentResponse | null>(null);
+  const [altTextData, setAltTextData] =
+    useState<AltTextDocumentResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [editingFigure, setEditingFigure] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [editComment, setEditComment] = useState('');
-  const [selectedFigures, setSelectedFigures] = useState<Set<string>>(new Set());
+  const [selectedFigures, setSelectedFigures] = useState<Set<string>>(
+    new Set()
+  );
   const [showHistory, setShowHistory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
@@ -108,7 +111,7 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
     try {
       setIsLoading(true);
       const response = await fetch(`/api/documents/${documentId}/alt-text`);
-      
+
       if (!response.ok) {
         if (response.status === 404) {
           // No alt-text data available yet
@@ -133,13 +136,13 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
       const response = await fetch(`/api/documents/${documentId}/alt-text`, {
         method: 'PATCH',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           figure_id: figureId,
           text: text.trim(),
-          comment: comment?.trim() || undefined
-        })
+          comment: comment?.trim() || undefined,
+        }),
       });
 
       if (!response.ok) {
@@ -157,31 +160,39 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
   };
 
   // Bulk status update
-  const updateStatus = async (figureIds: string[], status: string, comment?: string) => {
-    try {
-      const response = await fetch(`/api/documents/${documentId}/alt-text/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          figure_ids: figureIds,
-          status,
-          comment: comment?.trim() || undefined
-        })
-      });
+  const updateStatus = useCallback(
+    async (figureIds: string[], status: string, comment?: string) => {
+      try {
+        const response = await fetch(
+          `/api/documents/${documentId}/alt-text/status`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              figure_ids: figureIds,
+              status,
+              comment: comment?.trim() || undefined,
+            }),
+          }
+        );
 
-      if (!response.ok) {
-        throw new Error('Failed to update status');
+        if (!response.ok) {
+          throw new Error('Failed to update status');
+        }
+
+        // Reload data
+        await loadAltTextData();
+        setSelectedFigures(new Set());
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : 'Failed to update status'
+        );
       }
-
-      // Reload data
-      await loadAltTextData();
-      setSelectedFigures(new Set());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update status');
-    }
-  };
+    },
+    [documentId, loadAltTextData]
+  );
 
   // Start editing
   const startEdit = (figure: AltTextFigure) => {
@@ -200,26 +211,36 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
   // Get current text for a figure
   const getCurrentText = (figure: AltTextFigure): string => {
     if (figure.versions.length === 0) return figure.ai_text || '';
-    
-    const currentVersion = figure.versions.find(v => v.version === figure.current_version);
+
+    const currentVersion = figure.versions.find(
+      (v) => v.version === figure.current_version
+    );
     return currentVersion?.text || figure.ai_text || '';
   };
 
   // Filter figures based on status and search
-  const filteredFigures = altTextData?.figures.filter(figure => {
-    const matchesStatus = statusFilter === 'all' || figure.status === statusFilter;
-    const matchesSearch = !searchQuery || 
-      getCurrentText(figure).toLowerCase().includes(searchQuery.toLowerCase()) ||
-      figure.figure_id.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    return matchesStatus && matchesSearch;
-  }) || [];
+  const filteredFigures =
+    altTextData?.figures.filter((figure) => {
+      const matchesStatus =
+        statusFilter === 'all' || figure.status === statusFilter;
+      const matchesSearch =
+        !searchQuery ||
+        getCurrentText(figure)
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
+        figure.figure_id.toLowerCase().includes(searchQuery.toLowerCase());
+
+      return matchesStatus && matchesSearch;
+    }) || [];
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Only handle shortcuts when not in input fields
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
         return;
       }
 
@@ -252,7 +273,13 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [editingFigure, showHistory, showKeyboardHelp, selectedFigures]);
+  }, [
+    editingFigure,
+    showHistory,
+    showKeyboardHelp,
+    selectedFigures,
+    updateStatus,
+  ]);
 
   // Load data on mount
   useEffect(() => {
@@ -276,7 +303,7 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="h-6 bg-gray-200 rounded mb-4"></div>
           <div className="space-y-4">
-            {[1, 2, 3].map(i => (
+            {[1, 2, 3].map((i) => (
               <div key={i} className="h-20 bg-gray-100 rounded"></div>
             ))}
           </div>
@@ -287,7 +314,12 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
 
   if (error) {
     return (
-      <div className={clsx('bg-red-50 border border-red-200 rounded-lg p-4', className)}>
+      <div
+        className={clsx(
+          'bg-red-50 border border-red-200 rounded-lg p-4',
+          className
+        )}
+      >
         <div className="flex items-center space-x-2 text-red-600">
           <X className="w-5 h-5" />
           <span>Error loading alt-text data: {error}</span>
@@ -298,22 +330,31 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
 
   if (!altTextData || altTextData.figures.length === 0) {
     return (
-      <div className={clsx('bg-gray-50 border border-gray-200 rounded-lg p-6 text-center', className)}>
+      <div
+        className={clsx(
+          'bg-gray-50 border border-gray-200 rounded-lg p-6 text-center',
+          className
+        )}
+      >
         <Eye className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-        <p className="text-gray-600">No alt-text data available for this document yet.</p>
-        <p className="text-sm text-gray-500 mt-1">Alt-text will appear here after processing is complete.</p>
+        <p className="text-gray-600">
+          No alt-text data available for this document yet.
+        </p>
+        <p className="text-sm text-gray-500 mt-1">
+          Alt-text will appear here after processing is complete.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className={clsx('bg-white rounded-lg border border-gray-200', className)}>
+    <div
+      className={clsx('bg-white rounded-lg border border-gray-200', className)}
+    >
       {/* Header */}
       <div className="border-b border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium text-gray-900">
-            Alt-Text Review
-          </h3>
+          <h3 className="text-lg font-medium text-gray-900">Alt-Text Review</h3>
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setShowKeyboardHelp(!showKeyboardHelp)}
@@ -328,19 +369,27 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
         {/* Stats */}
         <div className="grid grid-cols-4 gap-4 mb-4">
           <div className="text-center">
-            <div className="text-2xl font-bold text-gray-900">{altTextData.total_figures}</div>
+            <div className="text-2xl font-bold text-gray-900">
+              {altTextData.total_figures}
+            </div>
             <div className="text-sm text-gray-500">Total</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-yellow-600">{altTextData.pending_review}</div>
+            <div className="text-2xl font-bold text-yellow-600">
+              {altTextData.pending_review}
+            </div>
             <div className="text-sm text-gray-500">Needs Review</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-blue-600">{altTextData.edited}</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {altTextData.edited}
+            </div>
             <div className="text-sm text-gray-500">Edited</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-green-600">{altTextData.approved}</div>
+            <div className="text-2xl font-bold text-green-600">
+              {altTextData.approved}
+            </div>
             <div className="text-sm text-gray-500">Approved</div>
           </div>
         </div>
@@ -379,18 +428,23 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
           <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
             <div className="flex items-center justify-between">
               <span className="text-sm text-blue-700">
-                {selectedFigures.size} figure{selectedFigures.size !== 1 ? 's' : ''} selected
+                {selectedFigures.size} figure
+                {selectedFigures.size !== 1 ? 's' : ''} selected
               </span>
               <div className="flex space-x-2">
                 <button
-                  onClick={() => updateStatus(Array.from(selectedFigures), 'approved')}
+                  onClick={() =>
+                    updateStatus(Array.from(selectedFigures), 'approved')
+                  }
                   className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <Check className="w-4 h-4 inline mr-1" />
                   Approve
                 </button>
                 <button
-                  onClick={() => updateStatus(Array.from(selectedFigures), 'rejected')}
+                  onClick={() =>
+                    updateStatus(Array.from(selectedFigures), 'rejected')
+                  }
                   className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
                 >
                   <X className="w-4 h-4 inline mr-1" />
@@ -423,18 +477,23 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
                       {figure.figure_id}
                     </h4>
                     {figure.page_number && (
-                      <span className="text-xs text-gray-500">Page {figure.page_number}</span>
+                      <span className="text-xs text-gray-500">
+                        Page {figure.page_number}
+                      </span>
                     )}
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     {/* Status badge */}
-                    <span className={clsx(
-                      'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium',
-                      STATUS_CONFIG[figure.status].color,
-                      STATUS_CONFIG[figure.status].bgColor
-                    )}>
-                      {STATUS_CONFIG[figure.status].icon} {STATUS_CONFIG[figure.status].label}
+                    <span
+                      className={clsx(
+                        'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium',
+                        STATUS_CONFIG[figure.status].color,
+                        STATUS_CONFIG[figure.status].bgColor
+                      )}
+                    >
+                      {STATUS_CONFIG[figure.status].icon}{' '}
+                      {STATUS_CONFIG[figure.status].label}
                     </span>
 
                     {/* Action buttons */}
@@ -442,7 +501,9 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
                       {editingFigure === figure.figure_id ? (
                         <>
                           <button
-                            onClick={() => saveEdit(figure.figure_id, editText, editComment)}
+                            onClick={() =>
+                              saveEdit(figure.figure_id, editText, editComment)
+                            }
                             disabled={!editText.trim()}
                             className="p-1 text-green-600 hover:text-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 rounded disabled:opacity-50"
                             title="Save (Enter)"
@@ -467,7 +528,13 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
                             <Edit3 className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => setShowHistory(showHistory === figure.figure_id ? null : figure.figure_id)}
+                            onClick={() =>
+                              setShowHistory(
+                                showHistory === figure.figure_id
+                                  ? null
+                                  : figure.figure_id
+                              )
+                            }
                             className="p-1 text-gray-600 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 rounded"
                             title="Show history"
                           >
@@ -509,7 +576,9 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
                 ) : (
                   <div className="text-sm text-gray-700 leading-relaxed">
                     {getCurrentText(figure) || (
-                      <span className="text-gray-400 italic">No alt text available</span>
+                      <span className="text-gray-400 italic">
+                        No alt text available
+                      </span>
                     )}
                   </div>
                 )}
@@ -531,34 +600,45 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
                 )}
 
                 {/* Version history */}
-                {showHistory === figure.figure_id && figure.versions.length > 0 && (
-                  <div className="mt-4 p-3 bg-gray-50 rounded-md">
-                    <h5 className="text-sm font-medium text-gray-900 mb-2">Version History</h5>
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
-                      {figure.versions
-                        .sort((a, b) => b.version - a.version)
-                        .map((version) => (
-                          <div key={version.version} className="text-xs border-l-2 border-gray-300 pl-3">
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium">
-                                v{version.version} {version.is_ai_generated ? '(AI)' : ''}
-                              </span>
-                              <span className="text-gray-500">
-                                {new Date(version.timestamp).toLocaleString()}
-                              </span>
+                {showHistory === figure.figure_id &&
+                  figure.versions.length > 0 && (
+                    <div className="mt-4 p-3 bg-gray-50 rounded-md">
+                      <h5 className="text-sm font-medium text-gray-900 mb-2">
+                        Version History
+                      </h5>
+                      <div className="space-y-2 max-h-32 overflow-y-auto">
+                        {figure.versions
+                          .sort((a, b) => b.version - a.version)
+                          .map((version) => (
+                            <div
+                              key={version.version}
+                              className="text-xs border-l-2 border-gray-300 pl-3"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium">
+                                  v{version.version}{' '}
+                                  {version.is_ai_generated ? '(AI)' : ''}
+                                </span>
+                                <span className="text-gray-500">
+                                  {new Date(version.timestamp).toLocaleString()}
+                                </span>
+                              </div>
+                              <div className="text-gray-700 mt-1">
+                                {version.text}
+                              </div>
+                              {version.comment && (
+                                <div className="text-gray-500 mt-1 italic">
+                                  {version.comment}
+                                </div>
+                              )}
+                              <div className="text-gray-500 mt-1">
+                                by {version.editor_name || version.editor_id}
+                              </div>
                             </div>
-                            <div className="text-gray-700 mt-1">{version.text}</div>
-                            {version.comment && (
-                              <div className="text-gray-500 mt-1 italic">{version.comment}</div>
-                            )}
-                            <div className="text-gray-500 mt-1">
-                              by {version.editor_name || version.editor_id}
-                            </div>
-                          </div>
-                        ))}
+                          ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
             </div>
           </div>
@@ -569,7 +649,9 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
       {showKeyboardHelp && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md">
-            <h4 className="text-lg font-medium text-gray-900 mb-4">Keyboard Shortcuts</h4>
+            <h4 className="text-lg font-medium text-gray-900 mb-4">
+              Keyboard Shortcuts
+            </h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <kbd className="px-2 py-1 bg-gray-100 rounded">?</kbd>

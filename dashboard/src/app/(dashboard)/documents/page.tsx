@@ -1,8 +1,14 @@
-import React from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import React from 'react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Search,
   Filter,
@@ -14,8 +20,8 @@ import {
   CheckCircle,
   AlertCircle,
   ExternalLink,
-} from 'lucide-react'
-import { formatDate, formatBytes } from '@/lib/utils'
+} from 'lucide-react';
+import { formatDate, formatBytes } from '@/lib/utils';
 
 // Mock data for documents
 const documents = [
@@ -97,39 +103,42 @@ const documents = [
     issues: 0,
     wcagLevel: 'AAA' as const,
   },
-]
+];
 
 function getStatusBadge(status: string) {
   switch (status) {
     case 'completed':
-      return <Badge variant="success">Completed</Badge>
+      return <Badge variant="success">Completed</Badge>;
     case 'failed':
-      return <Badge variant="error">Failed</Badge>
+      return <Badge variant="error">Failed</Badge>;
     case 'processing':
-      return <Badge variant="warning">Processing</Badge>
+      return <Badge variant="warning">Processing</Badge>;
     default:
-      return <Badge>Unknown</Badge>
+      return <Badge>Unknown</Badge>;
   }
 }
 
 function getWcagBadge(level: string | null) {
-  if (!level) return null
-  
-  const variant = level === 'AAA' ? 'success' : level === 'AA' ? 'warning' : 'secondary'
-  return <Badge variant={variant}>WCAG {level}</Badge>
+  if (!level) return null;
+
+  const variant =
+    level === 'AAA' ? 'success' : level === 'AA' ? 'warning' : 'secondary';
+  return <Badge variant={variant}>WCAG {level}</Badge>;
 }
 
 function getAccessibilityScoreColor(score: number | null) {
-  if (score === null) return 'text-gray-500'
-  if (score >= 90) return 'text-green-600 dark:text-green-400'
-  if (score >= 70) return 'text-yellow-600 dark:text-yellow-400'
-  return 'text-red-600 dark:text-red-400'
+  if (score === null) return 'text-gray-500';
+  if (score >= 90) return 'text-green-600 dark:text-green-400';
+  if (score >= 70) return 'text-yellow-600 dark:text-yellow-400';
+  return 'text-red-600 dark:text-red-400';
 }
 
 export default function DocumentsPage() {
-  const completedDocs = documents.filter(doc => doc.status === 'completed')
-  const failedDocs = documents.filter(doc => doc.status === 'failed')
-  const avgScore = completedDocs.reduce((sum, doc) => sum + (doc.accessibilityScore || 0), 0) / completedDocs.length
+  const completedDocs = documents.filter((doc) => doc.status === 'completed');
+  const failedDocs = documents.filter((doc) => doc.status === 'failed');
+  const avgScore =
+    completedDocs.reduce((sum, doc) => sum + (doc.accessibilityScore || 0), 0) /
+    completedDocs.length;
 
   return (
     <div className="space-y-6">
@@ -150,7 +159,9 @@ export default function DocumentsPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Documents</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Documents
+            </CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -168,9 +179,7 @@ export default function DocumentsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{Math.round(avgScore)}%</div>
-            <p className="text-xs text-muted-foreground">
-              Accessibility score
-            </p>
+            <p className="text-xs text-muted-foreground">Accessibility score</p>
           </CardContent>
         </Card>
 
@@ -181,11 +190,13 @@ export default function DocumentsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {completedDocs.filter(doc => doc.wcagLevel === 'AA' || doc.wcagLevel === 'AAA').length}
+              {
+                completedDocs.filter(
+                  (doc) => doc.wcagLevel === 'AA' || doc.wcagLevel === 'AAA'
+                ).length
+              }
             </div>
-            <p className="text-xs text-muted-foreground">
-              Compliant documents
-            </p>
+            <p className="text-xs text-muted-foreground">Compliant documents</p>
           </CardContent>
         </Card>
 
@@ -211,10 +222,7 @@ export default function DocumentsPage() {
           <div className="flex gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search documents..."
-                className="pl-8"
-              />
+              <Input placeholder="Search documents..." className="pl-8" />
             </div>
             <Button variant="outline">
               <Filter className="mr-2 h-4 w-4" />
@@ -234,10 +242,13 @@ export default function DocumentsPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {documents.map(doc => (
-              <div key={doc.id} className="flex items-center gap-4 p-4 border rounded-lg hover:bg-accent/50 transition-colors">
+            {documents.map((doc) => (
+              <div
+                key={doc.id}
+                className="flex items-center gap-4 p-4 border rounded-lg hover:bg-accent/50 transition-colors"
+              >
                 <FileText className="h-8 w-8 text-blue-500 flex-shrink-0" />
-                
+
                 <div className="flex-1 min-w-0 space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -248,13 +259,17 @@ export default function DocumentsPage() {
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <span>{formatBytes(doc.originalSize)}</span>
                       {doc.accessibilityScore !== null && (
-                        <span className={getAccessibilityScoreColor(doc.accessibilityScore)}>
+                        <span
+                          className={getAccessibilityScoreColor(
+                            doc.accessibilityScore
+                          )}
+                        >
                           {doc.accessibilityScore}% accessible
                         </span>
                       )}
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <User className="h-3 w-3" />
@@ -278,7 +293,7 @@ export default function DocumentsPage() {
                     )}
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" size="sm">
                     <Eye className="h-4 w-4" />
@@ -300,5 +315,5 @@ export default function DocumentsPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

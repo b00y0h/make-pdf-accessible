@@ -1,36 +1,39 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { LogOut } from 'lucide-react'
-import { signOut } from '@/lib/auth-client'
-import toast from 'react-hot-toast'
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { LogOut } from 'lucide-react';
+import { signOut } from '@/lib/auth-client';
+import toast from 'react-hot-toast';
 
 interface SignOutButtonProps {
-  variant?: 'button' | 'menu-item'
-  className?: string
+  variant?: 'button' | 'menu-item';
+  className?: string;
 }
 
-export function SignOutButton({ variant = 'button', className = '' }: SignOutButtonProps) {
-  const [isSigningOut, setIsSigningOut] = useState(false)
-  const router = useRouter()
+export function SignOutButton({
+  variant = 'button',
+  className = '',
+}: SignOutButtonProps) {
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const router = useRouter();
 
   const handleSignOut = async () => {
-    setIsSigningOut(true)
-    
+    setIsSigningOut(true);
+
     try {
-      await signOut()
-      toast.success('Signed out successfully')
-      router.push('/sign-in')
+      await signOut();
+      toast.success('Signed out successfully');
+      router.push('/sign-in');
       // Refresh the page to clear any cached session state
-      window.location.reload()
+      window.location.reload();
     } catch (error) {
-      console.error('Sign out error:', error)
-      toast.error('Failed to sign out')
+      console.error('Sign out error:', error);
+      toast.error('Failed to sign out');
     } finally {
-      setIsSigningOut(false)
+      setIsSigningOut(false);
     }
-  }
+  };
 
   if (variant === 'menu-item') {
     return (
@@ -42,7 +45,7 @@ export function SignOutButton({ variant = 'button', className = '' }: SignOutBut
         <LogOut className="h-4 w-4" />
         <span>{isSigningOut ? 'Signing out...' : 'Sign Out'}</span>
       </button>
-    )
+    );
   }
 
   return (
@@ -54,5 +57,5 @@ export function SignOutButton({ variant = 'button', className = '' }: SignOutBut
       <LogOut className="h-4 w-4" />
       <span>{isSigningOut ? 'Signing out...' : 'Sign Out'}</span>
     </button>
-  )
+  );
 }

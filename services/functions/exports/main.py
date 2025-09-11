@@ -16,7 +16,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
     start_time = time.time()
 
     try:
-        doc_id = event.get('docId') or event.get('doc_id')
+        doc_id = event.get("docId") or event.get("doc_id")
         logger.info(f"Starting exports generation for document {doc_id}")
 
         # Mock exports generation - in real implementation:
@@ -46,13 +46,13 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
             "epub_s3_key": epub_s3_key,
             "csv_zip_s3_key": csv_zip_s3_key,
             "exports_generated": exports_generated,
-            "processing_time_seconds": processing_time
+            "processing_time_seconds": processing_time,
         }
 
     except Exception as e:
         logger.error(f"Exports generation failed: {str(e)}")
         return {
-            "doc_id": event.get('docId', 'unknown'),
+            "doc_id": event.get("docId", "unknown"),
             "status": "failed",
-            "error_message": str(e)
+            "error_message": str(e),
         }

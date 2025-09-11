@@ -63,13 +63,10 @@ class TestIntegrationEndpoints:
             test_payload = {
                 "event_type": "test.event",
                 "doc_id": "12345678-1234-1234-1234-123456789012",
-                "data": {"test": True}
+                "data": {"test": True},
             }
 
-            response = self.client.post(
-                "/webhooks/test",
-                json=test_payload
-            )
+            response = self.client.post("/webhooks/test", json=test_payload)
 
             assert response.status_code == 200
             data = response.json()
@@ -79,10 +76,7 @@ class TestIntegrationEndpoints:
     def test_webhook_test_endpoint_production(self):
         """Test webhook test endpoint blocked in production"""
         with patch("app.config.settings.environment", "production"):
-            response = self.client.post(
-                "/webhooks/test",
-                json={"test": True}
-            )
+            response = self.client.post("/webhooks/test", json={"test": True})
 
             assert response.status_code == 404
             assert "not available in production" in response.json()["message"]
@@ -132,10 +126,7 @@ class TestIntegrationEndpoints:
         """Test custom correlation ID is preserved"""
         custom_id = "custom-correlation-123"
 
-        response = self.client.get(
-            "/health",
-            headers={"x-correlation-id": custom_id}
-        )
+        response = self.client.get("/health", headers={"x-correlation-id": custom_id})
 
         assert response.status_code == 200
         assert response.headers["x-correlation-id"] == custom_id
@@ -160,8 +151,7 @@ class TestAuthenticationIntegration:
     def test_protected_endpoint_invalid_auth_scheme(self):
         """Test protected endpoint with invalid auth scheme"""
         response = self.client.get(
-            "/documents",
-            headers={"Authorization": "Basic invalid-token"}
+            "/documents", headers={"Authorization": "Basic invalid-token"}
         )
 
         assert response.status_code == 403
@@ -174,16 +164,11 @@ class TestAuthenticationIntegration:
             from app.auth import User
 
             # Setup viewer user (not admin)
-            viewer_user = User(
-                sub="viewer-123",
-                username="viewer",
-                roles=["viewer"]
-            )
+            viewer_user = User(sub="viewer-123", username="viewer", roles=["viewer"])
             mock_get_user.return_value = viewer_user
 
             response = self.client.get(
-                "/reports/summary",
-                headers={"Authorization": "Bearer fake-token"}
+                "/reports/summary", headers={"Authorization": "Bearer fake-token"}
             )
 
             assert response.status_code == 403
@@ -204,7 +189,7 @@ class TestWebhookIntegration:
             "event_type": "document.completed",
             "doc_id": "12345678-1234-1234-1234-123456789012",
             "status": "completed",
-            "timestamp": "2023-01-01T00:00:00Z"
+            "timestamp": "2023-01-01T00:00:00Z",
         }
 
         response = self.client.post("/webhooks", json=payload)
@@ -220,8 +205,8 @@ class TestWebhookIntegration:
             content="invalid-json",
             headers={
                 "Content-Type": "application/json",
-                "X-Hub-Signature-256": "sha256=test-signature"
-            }
+                "X-Hub-Signature-256": "sha256=test-signature",
+            },
         )
 
         assert response.status_code == 400
@@ -235,13 +220,15 @@ class TestWebhookIntegration:
             # Missing required fields: doc_id, status, timestamp
         }
 
-        with patch("app.services.webhook_service.verify_webhook_signature") as mock_verify:
+        with patch(
+            "app.services.webhook_service.verify_webhook_signature"
+        ) as mock_verify:
             mock_verify.return_value = True
 
             response = self.client.post(
                 "/webhooks",
                 json=incomplete_payload,
-                headers={"X-Hub-Signature-256": "sha256=valid-signature"}
+                headers={"X-Hub-Signature-256": "sha256=valid-signature"},
             )
 
             assert response.status_code == 400

@@ -14,17 +14,19 @@ This monorepo contains **separate Next.js applications** for optimal scalability
 ✅ **Scaling**: Independent resource allocation and deployment  
 ✅ **Security**: Complete isolation between public and admin  
 ✅ **Teams**: Frontend and admin teams can work independently  
-✅ **Performance**: Optimized bundles for each use case  
+✅ **Performance**: Optimized bundles for each use case
 
 ## 🏃‍♂️ Quick Start
 
 ### Prerequisites
+
 ```bash
 node >= 18.0.0
 pnpm >= 8.0.0
 ```
 
 ### Installation
+
 ```bash
 pnpm install
 ```
@@ -34,6 +36,7 @@ pnpm install
 **Universal Interface** - Always use `make` commands for consistency:
 
 ### 📋 Quick Start
+
 ```bash
 # See all available commands
 make help
@@ -41,7 +44,7 @@ make help
 # Start just the dashboard (recommended for dashboard development)
 make dev-dashboard
 
-# Start just the web app  
+# Start just the web app
 make dev-web
 
 # Start both frontend apps
@@ -55,6 +58,7 @@ make dev-full
 ```
 
 ### 🔧 Development Utilities
+
 ```bash
 # Check what's running
 make dev-status
@@ -67,6 +71,7 @@ make dev-stop
 ```
 
 ### 🏗️ Build & Test
+
 ```bash
 # Build all services
 make build
@@ -74,7 +79,7 @@ make build
 # Run all tests
 make test
 
-# Run development tests only  
+# Run development tests only
 make test-dev
 
 # Lint code
@@ -85,6 +90,7 @@ make format
 ```
 
 ### 🧹 Maintenance
+
 ```bash
 # Initialize development environment
 make init
@@ -95,16 +101,17 @@ make clean
 
 ## 🌐 Application URLs
 
-| Service | URL | Description |
-|---------|-----|-------------|
-| Web App | http://localhost:3000 | Public-facing website |
-| Dashboard | http://localhost:3001 | Admin dashboard |
-| API | http://localhost:8080 | Backend API |
-| Services | Various ports | Lambda functions & services |
+| Service   | URL                   | Description                 |
+| --------- | --------------------- | --------------------------- |
+| Web App   | http://localhost:3000 | Public-facing website       |
+| Dashboard | http://localhost:3001 | Admin dashboard             |
+| API       | http://localhost:8080 | Backend API                 |
+| Services  | Various ports         | Lambda functions & services |
 
 ## 🔐 Dashboard Access
 
 **Demo Credentials:**
+
 - Email: `admin@example.com`
 - Password: `demo123`
 
@@ -112,8 +119,8 @@ make clean
 
 ```
 ├── web/                 # Public Next.js app
-├── dashboard/           # Admin Next.js app  
-├── services/           
+├── dashboard/           # Admin Next.js app
+├── services/
 │   ├── functions/       # Lambda functions
 │   └── worker/         # Shared Python package
 ├── infra/              # Terraform infrastructure
@@ -153,18 +160,21 @@ make clean
 ## 🛠️ Development Workflow
 
 ### For Dashboard Development
+
 ```bash
 pnpm dev:dashboard
 # Visit http://localhost:3001
 ```
 
-### For Full Stack Development  
+### For Full Stack Development
+
 ```bash
 pnpm dev:full
 # Starts all services + both frontend apps
 ```
 
 ### For Backend Only
+
 ```bash
 pnpm dev
 # Starts just the Docker services
@@ -173,6 +183,7 @@ pnpm dev
 ## 📝 Common Tasks
 
 ### Adding New Dependencies
+
 ```bash
 # Dashboard
 pnpm --filter dashboard add <package>
@@ -185,6 +196,7 @@ pnpm add -w <package>
 ```
 
 ### Running Tests
+
 ```bash
 pnpm test          # All tests
 pnpm test:dashboard # Dashboard tests only
@@ -192,6 +204,7 @@ pnpm test:web      # Web tests only
 ```
 
 ### Building for Production
+
 ```bash
 pnpm build         # Build all applications
 ```

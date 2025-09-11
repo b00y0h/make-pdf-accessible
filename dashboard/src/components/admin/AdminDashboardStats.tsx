@@ -1,22 +1,46 @@
-'use client'
+'use client';
 
-import React from 'react'
-import { 
-  Users as UsersIcon, 
-  FileText as DocumentTextIcon, 
+import React from 'react';
+import {
+  Users as UsersIcon,
+  FileText as DocumentTextIcon,
   CheckCircle as CheckCircleIcon,
-  AlertTriangle as ExclamationTriangleIcon
-} from 'lucide-react'
+  AlertTriangle as ExclamationTriangleIcon,
+} from 'lucide-react';
 
 const stats = [
-  { name: 'Total Users', value: '0', icon: UsersIcon, change: '+0%', changeType: 'increase' },
-  { name: 'Total Documents', value: '0', icon: DocumentTextIcon, change: '+0%', changeType: 'increase' },
-  { name: 'Completed Processing', value: '0', icon: CheckCircleIcon, change: '+0%', changeType: 'increase' },
-  { name: 'Failed Processing', value: '0', icon: ExclamationTriangleIcon, change: '0%', changeType: 'decrease' },
-]
+  {
+    name: 'Total Users',
+    value: '0',
+    icon: UsersIcon,
+    change: '+0%',
+    changeType: 'increase',
+  },
+  {
+    name: 'Total Documents',
+    value: '0',
+    icon: DocumentTextIcon,
+    change: '+0%',
+    changeType: 'increase',
+  },
+  {
+    name: 'Completed Processing',
+    value: '0',
+    icon: CheckCircleIcon,
+    change: '+0%',
+    changeType: 'increase',
+  },
+  {
+    name: 'Failed Processing',
+    value: '0',
+    icon: ExclamationTriangleIcon,
+    change: '0%',
+    changeType: 'decrease',
+  },
+];
 
 function classNames(...classes: string[]) {
-  return classes.filter(Boolean).join(' ')
+  return classes.filter(Boolean).join(' ');
 }
 
 export function AdminDashboardStats() {
@@ -32,13 +56,19 @@ export function AdminDashboardStats() {
               <div className="absolute bg-indigo-500 rounded-md p-3">
                 <item.icon className="h-6 w-6 text-white" aria-hidden="true" />
               </div>
-              <p className="ml-16 text-sm font-medium text-gray-500 truncate">{item.name}</p>
+              <p className="ml-16 text-sm font-medium text-gray-500 truncate">
+                {item.name}
+              </p>
             </dt>
             <dd className="ml-16 pb-6 flex items-baseline sm:pb-7">
-              <p className="text-2xl font-semibold text-gray-900">{item.value}</p>
+              <p className="text-2xl font-semibold text-gray-900">
+                {item.value}
+              </p>
               <p
                 className={classNames(
-                  item.changeType === 'increase' ? 'text-green-600' : 'text-red-600',
+                  item.changeType === 'increase'
+                    ? 'text-green-600'
+                    : 'text-red-600',
                   'ml-2 flex items-baseline text-sm font-semibold'
                 )}
               >
@@ -69,12 +99,18 @@ export function AdminDashboardStats() {
                     />
                   </svg>
                 )}
-                <span className="sr-only">{item.changeType === 'increase' ? 'Increased' : 'Decreased'} by</span>
+                <span className="sr-only">
+                  {item.changeType === 'increase' ? 'Increased' : 'Decreased'}{' '}
+                  by
+                </span>
                 {item.change}
               </p>
               <div className="absolute bottom-0 inset-x-0 bg-gray-50 px-4 py-4 sm:px-6">
                 <div className="text-sm">
-                  <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500">
+                  <a
+                    href="#"
+                    className="font-medium text-indigo-600 hover:text-indigo-500"
+                  >
                     View all<span className="sr-only"> {item.name} stats</span>
                   </a>
                 </div>
@@ -84,5 +120,5 @@ export function AdminDashboardStats() {
         ))}
       </dl>
     </div>
-  )
+  );
 }

@@ -1,34 +1,40 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useSession } from '@/lib/auth-client'
-import { ApiService, Document, DocumentListResponse, ReportsSummary, UserProfile } from '@/lib/api'
-import { useMemo } from 'react'
-import axios from 'axios'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSession } from '@/lib/auth-client';
+import {
+  ApiService,
+  Document,
+  DocumentListResponse,
+  ReportsSummary,
+  UserProfile,
+} from '@/lib/api';
+import { useMemo } from 'react';
+import axios from 'axios';
 
 // Create API service instance using the auth session
 export function useApiService() {
-  const { data: session, isLoading } = useSession()
-  
+  const { data: session, isPending } = useSession();
+
   return useMemo(() => {
     // Return null during loading to prevent issues
-    if (isLoading) return null
-    
+    if (isPending) return null;
+
     // Create authenticated axios instance
     const apiClient = axios.create({
       baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
       withCredentials: true,
-    })
-    
+    });
+
     // Add auth interceptor if we have a session
     if (session?.user) {
       apiClient.interceptors.request.use((config) => {
         // BetterAuth uses cookies for authentication - no need for Authorization header
         // The cookies will be sent automatically with withCredentials: true
-        return config
-      })
+        return config;
+      });
     }
-    
-    return new ApiService(apiClient)
-  }, [session, isLoading])
+
+    return new ApiService(apiClient);
+  }, [session, isPending]);
 }
 
 // Query keys
@@ -48,230 +54,258 @@ export const queryKeys = {
     all: ['auth'] as const,
     user: () => [...queryKeys.auth.all, 'user'] as const,
   },
-}
+};
 
 // Documents hooks
 export function useDocuments(params?: {
-  page?: number
-  per_page?: number
-  status?: string
+  page?: number;
+  per_page?: number;
+  status?: string;
 }) {
-  const apiService = useApiService()
-  
+  const apiService = useApiService();
+
   return useQuery({
     queryKey: queryKeys.documents.list(params),
     queryFn: () => apiService!.getDocuments(params),
     enabled: !!apiService,
     staleTime: 30 * 1000, // 30 seconds
-  })
+  });
 }
 
 export function useDocument(docId: string) {
-  const apiService = useApiService()
-  
+  const apiService = useApiService();
+
   return useQuery({
     queryKey: queryKeys.documents.detail(docId),
     queryFn: () => apiService!.getDocument(docId),
     enabled: !!docId && !!apiService,
     staleTime: 30 * 1000,
-  })
+  });
 }
 
 export function useUploadDocument() {
-  const apiService = useApiService()
-  const queryClient = useQueryClient()
-  
+  const apiService = useApiService();
+  const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: (data: Parameters<typeof apiService.uploadDocument>[0]) => 
-      apiService!.uploadDocument(data),
+    mutationFn: async (data: any) => {
+      if (!apiService) throw new Error('API service not available');
+      return apiService.uploadDocument(data);
+    },
     onSuccess: () => {
       // Invalidate and refetch documents list
-      queryClient.invalidateQueries({ queryKey: queryKeys.documents.lists() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.reports.summary() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.documents.lists() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reports.summary() });
     },
-  })
+  });
 }
 
 export function useDownloadUrl() {
-  const apiService = useApiService()
-  
+  const apiService = useApiService();
+
   return useMutation({
-    mutationFn: ({ docId, type, expiresIn }: { 
-      docId: string; 
-      type: string; 
-      expiresIn?: number 
+    mutationFn: ({
+      docId,
+      type,
+      expiresIn,
+    }: {
+      docId: string;
+      type: string;
+      expiresIn?: number;
     }) => apiService!.getDownloadUrl(docId, type, expiresIn),
-  })
+  });
 }
 
 export function useUpdateAltText() {
-  const apiService = useApiService()
-  const queryClient = useQueryClient()
-  
+  const apiService = useApiService();
+  const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: ({ docId, altText }: { docId: string; altText: Record<string, any> }) => 
-      apiService!.updateAltText(docId, altText),
+    mutationFn: ({
+      docId,
+      altText,
+    }: {
+      docId: string;
+      altText: Record<string, any>;
+    }) => apiService!.updateAltText(docId, altText),
     onSuccess: (_, variables) => {
       // Invalidate the specific document
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.documents.detail(variables.docId) 
-      })
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.documents.detail(variables.docId),
+      });
       // Also invalidate the list since the document status might change
-      queryClient.invalidateQueries({ queryKey: queryKeys.documents.lists() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.documents.lists() });
     },
-  })
+  });
 }
 
 // Alt-text review hooks
 export function useDocumentAltText(docId: string, statusFilter?: string) {
-  const apiService = useApiService()
-  
+  const apiService = useApiService();
+
   return useQuery({
     queryKey: ['alt-text', docId, statusFilter],
     queryFn: () => apiService!.getDocumentAltText(docId, statusFilter),
     enabled: !!docId && !!apiService,
     staleTime: 30 * 1000,
-  })
+  });
 }
 
 export function useEditFigureAltText() {
-  const apiService = useApiService()
-  const queryClient = useQueryClient()
-  
+  const apiService = useApiService();
+  const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: ({ docId, figureId, text, comment }: { 
-      docId: string; 
-      figureId: string; 
-      text: string; 
-      comment?: string 
+    mutationFn: ({
+      docId,
+      figureId,
+      text,
+      comment,
+    }: {
+      docId: string;
+      figureId: string;
+      text: string;
+      comment?: string;
     }) => apiService!.editFigureAltText(docId, figureId, text, comment),
     onSuccess: (_, variables) => {
       // Invalidate alt-text queries for this document
-      queryClient.invalidateQueries({ 
-        queryKey: ['alt-text', variables.docId]
-      })
+      queryClient.invalidateQueries({
+        queryKey: ['alt-text', variables.docId],
+      });
     },
-  })
+  });
 }
 
 export function useUpdateFigureStatus() {
-  const apiService = useApiService()
-  const queryClient = useQueryClient()
-  
+  const apiService = useApiService();
+  const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: ({ docId, figureIds, status, comment }: { 
-      docId: string; 
-      figureIds: string[]; 
-      status: string; 
-      comment?: string 
+    mutationFn: ({
+      docId,
+      figureIds,
+      status,
+      comment,
+    }: {
+      docId: string;
+      figureIds: string[];
+      status: string;
+      comment?: string;
     }) => apiService!.updateFigureStatus(docId, figureIds, status, comment),
     onSuccess: (_, variables) => {
       // Invalidate alt-text queries for this document
-      queryClient.invalidateQueries({ 
-        queryKey: ['alt-text', variables.docId]
-      })
+      queryClient.invalidateQueries({
+        queryKey: ['alt-text', variables.docId],
+      });
     },
-  })
+  });
 }
 
 export function useFigureHistory(docId: string, figureId: string) {
-  const apiService = useApiService()
-  
+  const apiService = useApiService();
+
   return useQuery({
     queryKey: ['alt-text-history', docId, figureId],
     queryFn: () => apiService!.getFigureHistory(docId, figureId),
     enabled: !!docId && !!figureId && !!apiService,
     staleTime: 60 * 1000, // History doesn't change often
-  })
+  });
 }
 
 export function useRevertFigureToVersion() {
-  const apiService = useApiService()
-  const queryClient = useQueryClient()
-  
+  const apiService = useApiService();
+  const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: ({ docId, figureId, version }: { 
-      docId: string; 
-      figureId: string; 
-      version: number 
+    mutationFn: ({
+      docId,
+      figureId,
+      version,
+    }: {
+      docId: string;
+      figureId: string;
+      version: number;
     }) => apiService!.revertFigureToVersion(docId, figureId, version),
     onSuccess: (_, variables) => {
       // Invalidate alt-text queries for this document
-      queryClient.invalidateQueries({ 
-        queryKey: ['alt-text', variables.docId]
-      })
+      queryClient.invalidateQueries({
+        queryKey: ['alt-text', variables.docId],
+      });
       // Also invalidate history for this figure
-      queryClient.invalidateQueries({ 
-        queryKey: ['alt-text-history', variables.docId, variables.figureId]
-      })
+      queryClient.invalidateQueries({
+        queryKey: ['alt-text-history', variables.docId, variables.figureId],
+      });
     },
-  })
+  });
 }
 
 // Reports hooks
 export function useReportsSummary() {
-  const apiService = useApiService()
-  
+  const apiService = useApiService();
+
   return useQuery({
     queryKey: queryKeys.reports.summary(),
     queryFn: () => apiService!.getReportsSummary(),
     enabled: !!apiService,
     staleTime: 60 * 1000, // 1 minute
-  })
+  });
 }
 
 // Auth hooks
 export function useUserProfile() {
-  const apiService = useApiService()
-  
+  const apiService = useApiService();
+
   return useQuery({
     queryKey: queryKeys.auth.user(),
     queryFn: () => apiService!.getUserProfile(),
     enabled: !!apiService,
     staleTime: 5 * 60 * 1000, // 5 minutes
-  })
+  });
 }
 
 // CSV Export hook
 export function useExportCSV() {
-  const apiService = useApiService()
-  
+  const apiService = useApiService();
+
   return useMutation({
     mutationFn: (params?: {
-      start_date?: string
-      end_date?: string
-      owner_filter?: string
-      status_filter?: string
+      start_date?: string;
+      end_date?: string;
+      owner_filter?: string;
+      status_filter?: string;
     }) => apiService!.exportDocumentsCSV(params),
     onSuccess: (blob, variables) => {
       // Create download link
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+
       // Generate filename with filters
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')
-      let filename = `documents_export_${timestamp}`
-      
+      const timestamp = new Date()
+        .toISOString()
+        .slice(0, 19)
+        .replace(/[:-]/g, '');
+      let filename = `documents_export_${timestamp}`;
+
       if (variables?.start_date) {
-        filename += `_from_${variables.start_date.replace(/-/g, '')}`
+        filename += `_from_${variables.start_date.replace(/-/g, '')}`;
       }
       if (variables?.end_date) {
-        filename += `_to_${variables.end_date.replace(/-/g, '')}`
+        filename += `_to_${variables.end_date.replace(/-/g, '')}`;
       }
       if (variables?.status_filter) {
-        filename += `_status_${variables.status_filter}`
+        filename += `_status_${variables.status_filter}`;
       }
-      
-      filename += '.csv'
-      link.download = filename
-      
-      document.body.appendChild(link)
-      link.click()
-      
+
+      filename += '.csv';
+      link.download = filename;
+
+      document.body.appendChild(link);
+      link.click();
+
       // Cleanup
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
     },
-  })
+  });
 }

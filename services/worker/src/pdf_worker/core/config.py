@@ -13,7 +13,9 @@ class WorkerConfig:
     """Central configuration for PDF worker components."""
 
     # AWS Configuration
-    aws_region: str = field(default_factory=lambda: os.getenv("AWS_REGION", "us-east-1"))
+    aws_region: str = field(
+        default_factory=lambda: os.getenv("AWS_REGION", "us-east-1")
+    )
 
     # S3 Buckets
     pdf_originals_bucket: str | None = field(
@@ -33,9 +35,7 @@ class WorkerConfig:
     documents_table: str | None = field(
         default_factory=lambda: os.getenv("DOCUMENTS_TABLE")
     )
-    jobs_table: str | None = field(
-        default_factory=lambda: os.getenv("JOBS_TABLE")
-    )
+    jobs_table: str | None = field(default_factory=lambda: os.getenv("JOBS_TABLE"))
 
     # SQS Queues
     ingest_queue_url: str | None = field(
@@ -47,9 +47,7 @@ class WorkerConfig:
     priority_process_queue_url: str | None = field(
         default_factory=lambda: os.getenv("PRIORITY_PROCESS_QUEUE_URL")
     )
-    dlq_url: str | None = field(
-        default_factory=lambda: os.getenv("DLQ_URL")
-    )
+    dlq_url: str | None = field(default_factory=lambda: os.getenv("DLQ_URL"))
 
     # SNS Topics
     notifications_topic_arn: str | None = field(
@@ -65,8 +63,7 @@ class WorkerConfig:
     )
     bedrock_model_id: str = field(
         default_factory=lambda: os.getenv(
-            "BEDROCK_MODEL_ID",
-            "anthropic.claude-3-5-sonnet-20241022-v2:0"
+            "BEDROCK_MODEL_ID", "anthropic.claude-3-5-sonnet-20241022-v2:0"
         )
     )
     bedrock_max_tokens: int = field(
@@ -96,22 +93,20 @@ class WorkerConfig:
     )
 
     # Environment
-    environment: str = field(
-        default_factory=lambda: os.getenv("ENVIRONMENT", "dev")
-    )
-    log_level: str = field(
-        default_factory=lambda: os.getenv("LOG_LEVEL", "INFO")
-    )
+    environment: str = field(default_factory=lambda: os.getenv("ENVIRONMENT", "dev"))
+    log_level: str = field(default_factory=lambda: os.getenv("LOG_LEVEL", "INFO"))
 
     def __post_init__(self) -> None:
         """Validate configuration after initialization."""
         logger.info(f"Initializing WorkerConfig for environment: {self.environment}")
 
         # Log bucket configuration (without sensitive details)
-        logger.debug(f"S3 buckets configured: "
-                    f"originals={'set' if self.pdf_originals_bucket else 'unset'}, "
-                    f"derivatives={'set' if self.pdf_derivatives_bucket else 'unset'}, "
-                    f"accessible={'set' if self.pdf_accessible_bucket else 'unset'}")
+        logger.debug(
+            f"S3 buckets configured: "
+            f"originals={'set' if self.pdf_originals_bucket else 'unset'}, "
+            f"derivatives={'set' if self.pdf_derivatives_bucket else 'unset'}, "
+            f"accessible={'set' if self.pdf_accessible_bucket else 'unset'}"
+        )
 
     def get_s3_key_prefix(self, doc_id: str, key_type: str) -> str:
         """Generate standardized S3 key prefixes."""
@@ -121,7 +116,7 @@ class WorkerConfig:
             "alt_text": f"pdf-derivatives/{doc_id}/alt-text/",
             "tagged_pdf": f"pdf-accessible/{doc_id}/",
             "exports": f"pdf-accessible/{doc_id}/exports/",
-            "temp": f"temp/{doc_id}/"
+            "temp": f"temp/{doc_id}/",
         }
 
         if key_type not in prefixes:
@@ -138,7 +133,7 @@ class WorkerConfig:
             "alt_text": self.pdf_derivatives_bucket,
             "tagged_pdf": self.pdf_accessible_bucket,
             "exports": self.pdf_accessible_bucket,
-            "temp": self.pdf_temp_bucket
+            "temp": self.pdf_temp_bucket,
         }
 
         return bucket_mapping.get(key_type)

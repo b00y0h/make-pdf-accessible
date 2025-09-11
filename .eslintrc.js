@@ -10,7 +10,7 @@ module.exports = {
     '**/*.pyc',
     '__pycache__/',
     'venv/',
-    '.venv/'
+    '.venv/',
   ],
   overrides: [
     {
@@ -18,14 +18,14 @@ module.exports = {
       extends: [
         'eslint:recommended',
         '@typescript-eslint/recommended',
-        'prettier'
+        'prettier',
       ],
       parser: '@typescript-eslint/parser',
       plugins: ['@typescript-eslint'],
       env: {
         node: true,
-        es2022: true
-      }
-    }
-  ]
-}
+        es2022: true,
+      },
+    },
+  ],
+};

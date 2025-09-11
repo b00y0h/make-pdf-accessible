@@ -20,7 +20,7 @@ metrics = Metrics(namespace="PDF-Accessibility", service="pdf-structure")
 def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, Any]:
     """
     Lambda handler for document structure analysis.
-    
+
     Combines Textract OCR results with PDF text extraction and uses Bedrock Claude
     to analyze document structure and create a logical document model.
     """
@@ -42,7 +42,9 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         textract_data = None
         if request.textract_s3_key:
             logger.info("Loading Textract OCR results")
-            textract_data = structure_service.load_textract_results(request.textract_s3_key)
+            textract_data = structure_service.load_textract_results(
+                request.textract_s3_key
+            )
 
         # Analyze document structure with Bedrock
         logger.info("Analyzing document structure with Bedrock Claude")
@@ -60,19 +62,25 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
 
         processing_time = time.time() - start_time
 
-        logger.info(f"Structure analysis completed for {request.doc_id} in {processing_time:.2f} seconds")
+        logger.info(
+            f"Structure analysis completed for {request.doc_id} in {processing_time:.2f} seconds"
+        )
         logger.info(f"Detected {len(document_structure.elements)} structural elements")
 
         metrics.add_metric(name="StructureAnalysisSuccess", unit="Count", value=1)
         metrics.add_metric(name="ProcessingTime", unit="Seconds", value=processing_time)
-        metrics.add_metric(name="ElementsDetected", unit="Count", value=len(document_structure.elements))
+        metrics.add_metric(
+            name="ElementsDetected",
+            unit="Count",
+            value=len(document_structure.elements),
+        )
 
         return StructureResult(
             doc_id=request.doc_id,
             status="completed",
             document_json_s3_key=document_json_s3_key,
             processing_time_seconds=processing_time,
-            elements_count=len(document_structure.elements)
+            elements_count=len(document_structure.elements),
         ).dict()
 
     except StructureServiceError as e:
@@ -80,9 +88,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         metrics.add_metric(name="ServiceErrors", unit="Count", value=1)
 
         return StructureResult(
-            doc_id=event.get('doc_id', 'unknown'),
-            status="failed",
-            error_message=str(e)
+            doc_id=event.get("doc_id", "unknown"), status="failed", error_message=str(e)
         ).dict()
 
     except Exception as e:
@@ -90,7 +96,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         metrics.add_metric(name="UnexpectedErrors", unit="Count", value=1)
 
         return StructureResult(
-            doc_id=event.get('doc_id', 'unknown'),
+            doc_id=event.get("doc_id", "unknown"),
             status="failed",
-            error_message=f"Unexpected error: {str(e)}"
+            error_message=f"Unexpected error: {str(e)}",
         ).dict()

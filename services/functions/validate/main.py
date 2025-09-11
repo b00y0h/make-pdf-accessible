@@ -16,7 +16,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
     start_time = time.time()
 
     try:
-        doc_id = event.get('docId') or event.get('doc_id')
+        doc_id = event.get("docId") or event.get("doc_id")
         logger.info(f"Starting accessibility validation for document {doc_id}")
 
         # Mock validation - in real implementation:
@@ -39,15 +39,15 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
                 "level": "warning",
                 "message": "Figure 2 could benefit from more descriptive alt text",
                 "location": "page 2, figure-2",
-                "rule": "WCAG 2.1 - 1.1.1 Non-text Content"
+                "rule": "WCAG 2.1 - 1.1.1 Non-text Content",
             },
             {
                 "type": "color_contrast",
                 "level": "info",
                 "message": "Text contrast ratio is 4.8:1 (exceeds minimum 4.5:1)",
                 "location": "page 1, paragraph-2",
-                "rule": "WCAG 2.1 - 1.4.3 Contrast"
-            }
+                "rule": "WCAG 2.1 - 1.4.3 Contrast",
+            },
         ]
 
         validation_score = 92.5  # Out of 100
@@ -64,13 +64,13 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
             "validation_issues": validation_issues,
             "pdf_ua_compliant": pdf_ua_compliant,
             "wcag_level": wcag_level,
-            "processing_time_seconds": processing_time
+            "processing_time_seconds": processing_time,
         }
 
     except Exception as e:
         logger.error(f"Accessibility validation failed: {str(e)}")
         return {
-            "doc_id": event.get('docId', 'unknown'),
+            "doc_id": event.get("docId", "unknown"),
             "status": "failed",
-            "error_message": str(e)
+            "error_message": str(e),
         }

@@ -22,12 +22,26 @@
       "step": {
         "bsonType": "string",
         "description": "Processing step name",
-        "enum": ["structure", "ocr", "tagger", "validator", "exporter", "notifier"]
+        "enum": [
+          "structure",
+          "ocr",
+          "tagger",
+          "validator",
+          "exporter",
+          "notifier"
+        ]
       },
       "status": {
         "bsonType": "string",
         "description": "Current job status",
-        "enum": ["pending", "running", "completed", "failed", "retry", "timeout"]
+        "enum": [
+          "pending",
+          "running",
+          "completed",
+          "failed",
+          "retry",
+          "timeout"
+        ]
       },
       "priority": {
         "bsonType": "int",

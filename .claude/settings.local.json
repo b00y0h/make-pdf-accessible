@@ -65,7 +65,11 @@
       "mcp__playwright__browser_type",
       "mcp__playwright__browser_snapshot",
       "mcp__playwright__browser_evaluate",
-      "mcp__playwright__browser_close"
+      "mcp__playwright__browser_close",
+      "Bash(for dir in services/functions/*/)",
+      "Bash(head:*)",
+      "Bash(./venv/bin/ruff check services/shared/quota_enforcement.py --fix)",
+      "Bash(./venv/bin/ruff check services/shared/timeout_enforcement.py --fix)"
     ],
     "deny": [],
     "ask": []

@@ -23,7 +23,7 @@ def lambda_handler(event: dict[str, Any], context: LambdaContext) -> dict[str, A
     start_time = time.time()
 
     try:
-        doc_id = event.get('docId') or event.get('doc_id')
+        doc_id = event.get("docId") or event.get("doc_id")
         logger.info(f"Starting alt text generation for document {doc_id}")
 
         # Mock alt text generation - in real implementation:
@@ -47,7 +47,7 @@ def lambda_handler(event: dict[str, Any], context: LambdaContext) -> dict[str, A
                 "generation_method": "bedrock_vision",
                 "context": {"page": 5, "section": "Compliance Overview"},
                 "bounding_box": {"left": 0.1, "top": 0.3, "width": 0.8, "height": 0.4},
-                "page_number": 5
+                "page_number": 5,
             },
             {
                 "figure_id": "figure-2",
@@ -55,8 +55,13 @@ def lambda_handler(event: dict[str, Any], context: LambdaContext) -> dict[str, A
                 "confidence": 0.87,
                 "generation_method": "bedrock_vision",
                 "context": {"page": 8, "section": "Yearly Progress"},
-                "bounding_box": {"left": 0.15, "top": 0.2, "width": 0.7, "height": 0.35},
-                "page_number": 8
+                "bounding_box": {
+                    "left": 0.15,
+                    "top": 0.2,
+                    "width": 0.7,
+                    "height": 0.35,
+                },
+                "page_number": 8,
             },
             {
                 "figure_id": "figure-3",
@@ -65,8 +70,8 @@ def lambda_handler(event: dict[str, Any], context: LambdaContext) -> dict[str, A
                 "generation_method": "bedrock_vision",
                 "context": {"page": 12, "section": "Issue Analysis"},
                 "bounding_box": {"left": 0.2, "top": 0.25, "width": 0.6, "height": 0.5},
-                "page_number": 12
-            }
+                "page_number": 12,
+            },
         ]
 
         # Store alt text data in MongoDB if repository is available
@@ -80,7 +85,6 @@ def lambda_handler(event: dict[str, Any], context: LambdaContext) -> dict[str, A
                 logger.error(f"Failed to store alt text in MongoDB: {e}")
                 # Continue with S3 fallback
 
-
         # Save to S3 (mocked)
         logger.info(f"Saved alt text data to {alt_text_s3_key}")
 
@@ -89,13 +93,13 @@ def lambda_handler(event: dict[str, Any], context: LambdaContext) -> dict[str, A
             "status": "completed",
             "alt_text_json_s3_key": alt_text_s3_key,
             "figures_processed": figures_processed,
-            "processing_time_seconds": processing_time
+            "processing_time_seconds": processing_time,
         }
 
     except Exception as e:
         logger.error(f"Alt text generation failed: {str(e)}")
         return {
-            "doc_id": event.get('docId', 'unknown'),
+            "doc_id": event.get("docId", "unknown"),
             "status": "failed",
-            "error_message": str(e)
+            "error_message": str(e),
         }

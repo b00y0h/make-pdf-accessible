@@ -15,11 +15,13 @@ from .connection import get_collection
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 @dataclass
 class QueryPlan:
     """Query execution plan for performance monitoring."""
+
     collection: str
     operation: str
     filter_doc: dict
@@ -40,7 +42,8 @@ class BaseRepository(Generic[T], ABC):
     def _should_enable_query_logging(self) -> bool:
         """Check if query logging should be enabled."""
         import os
-        return os.getenv('ENABLE_QUERY_LOGGING', 'false').lower() == 'true'
+
+        return os.getenv("ENABLE_QUERY_LOGGING", "false").lower() == "true"
 
     @property
     def collection(self) -> Collection:
@@ -49,7 +52,9 @@ class BaseRepository(Generic[T], ABC):
             self._collection = get_collection(self.collection_name)
         return self._collection
 
-    def _log_query_plan(self, operation: str, filter_doc: dict, hint: Optional[dict] = None):
+    def _log_query_plan(
+        self, operation: str, filter_doc: dict, hint: Optional[dict] = None
+    ):
         """Log query execution plan for performance monitoring."""
         if not self.enable_query_logging:
             return
@@ -57,15 +62,15 @@ class BaseRepository(Generic[T], ABC):
         try:
             # Get query plan
             explain_result = self.collection.find(filter_doc).hint(hint or {}).explain()
-            execution_stats = explain_result.get('executionStats', {})
+            execution_stats = explain_result.get("executionStats", {})
 
             query_plan = QueryPlan(
                 collection=self.collection_name,
                 operation=operation,
                 filter_doc=filter_doc,
                 execution_stats=execution_stats,
-                index_used=execution_stats.get('indexName'),
-                execution_time_ms=execution_stats.get('executionTimeMillis')
+                index_used=execution_stats.get("indexName"),
+                execution_time_ms=execution_stats.get("executionTimeMillis"),
             )
 
             logger.info(f"Query Plan: {query_plan}")
@@ -96,8 +101,8 @@ class BaseRepository(Generic[T], ABC):
             return doc
 
         # Convert ObjectId to string for API compatibility
-        if '_id' in doc and isinstance(doc['_id'], ObjectId):
-            doc['_id'] = str(doc['_id'])
+        if "_id" in doc and isinstance(doc["_id"], ObjectId):
+            doc["_id"] = str(doc["_id"])
 
         return doc
 
@@ -106,8 +111,8 @@ class BaseRepository(Generic[T], ABC):
         try:
             # Add timestamps
             now = datetime.utcnow()
-            document['createdAt'] = document.get('createdAt', now)
-            document['updatedAt'] = document.get('updatedAt', now)
+            document["createdAt"] = document.get("createdAt", now)
+            document["updatedAt"] = document.get("updatedAt", now)
 
             # Serialize document
             serialized_doc = self._serialize_document(document)
@@ -116,9 +121,11 @@ class BaseRepository(Generic[T], ABC):
             result: InsertOneResult = self.collection.insert_one(serialized_doc)
 
             # Return document with generated ID
-            document['_id'] = str(result.inserted_id)
+            document["_id"] = str(result.inserted_id)
 
-            logger.info(f"Created document in {self.collection_name}: {result.inserted_id}")
+            logger.info(
+                f"Created document in {self.collection_name}: {result.inserted_id}"
+            )
             return document
 
         except DuplicateKeyError as e:
@@ -131,10 +138,14 @@ class BaseRepository(Generic[T], ABC):
     def get_by_id(self, doc_id: str, hint: Optional[dict] = None) -> Optional[dict]:
         """Get document by ID."""
         try:
-            filter_doc = {'_id': ObjectId(doc_id)} if ObjectId.is_valid(doc_id) else {'docId': doc_id}
+            filter_doc = (
+                {"_id": ObjectId(doc_id)}
+                if ObjectId.is_valid(doc_id)
+                else {"docId": doc_id}
+            )
 
             # Log query plan
-            self._log_query_plan('find_by_id', filter_doc, hint)
+            self._log_query_plan("find_by_id", filter_doc, hint)
 
             # Find document
             cursor = self.collection.find(filter_doc)
@@ -160,30 +171,34 @@ class BaseRepository(Generic[T], ABC):
         doc_id: str,
         update: dict,
         upsert: bool = False,
-        hint: Optional[dict] = None
+        hint: Optional[dict] = None,
     ) -> bool:
         """Update document by ID."""
         try:
-            filter_doc = {'_id': ObjectId(doc_id)} if ObjectId.is_valid(doc_id) else {'docId': doc_id}
-
-            # Add updated timestamp
-            update.setdefault('$set', {})['updatedAt'] = datetime.utcnow()
-
-            # Log query plan
-            self._log_query_plan('update_by_id', filter_doc, hint)
-
-            # Update document
-            update_kwargs = {'upsert': upsert}
-            if hint:
-                update_kwargs['hint'] = hint
-
-            result: UpdateResult = self.collection.update_one(
-                filter_doc,
-                update,
-                **update_kwargs
+            filter_doc = (
+                {"_id": ObjectId(doc_id)}
+                if ObjectId.is_valid(doc_id)
+                else {"docId": doc_id}
             )
 
-            success = result.modified_count > 0 or (upsert and result.upserted_id is not None)
+            # Add updated timestamp
+            update.setdefault("$set", {})["updatedAt"] = datetime.utcnow()
+
+            # Log query plan
+            self._log_query_plan("update_by_id", filter_doc, hint)
+
+            # Update document
+            update_kwargs = {"upsert": upsert}
+            if hint:
+                update_kwargs["hint"] = hint
+
+            result: UpdateResult = self.collection.update_one(
+                filter_doc, update, **update_kwargs
+            )
+
+            success = result.modified_count > 0 or (
+                upsert and result.upserted_id is not None
+            )
 
             if success:
                 logger.info(f"Updated document in {self.collection_name}: {doc_id}")
@@ -197,17 +212,23 @@ class BaseRepository(Generic[T], ABC):
     def delete_by_id(self, doc_id: str, hint: Optional[dict] = None) -> bool:
         """Delete document by ID."""
         try:
-            filter_doc = {'_id': ObjectId(doc_id)} if ObjectId.is_valid(doc_id) else {'docId': doc_id}
+            filter_doc = (
+                {"_id": ObjectId(doc_id)}
+                if ObjectId.is_valid(doc_id)
+                else {"docId": doc_id}
+            )
 
             # Log query plan
-            self._log_query_plan('delete_by_id', filter_doc, hint)
+            self._log_query_plan("delete_by_id", filter_doc, hint)
 
             # Delete document
             delete_kwargs = {}
             if hint:
-                delete_kwargs['hint'] = hint
+                delete_kwargs["hint"] = hint
 
-            result: DeleteResult = self.collection.delete_one(filter_doc, **delete_kwargs)
+            result: DeleteResult = self.collection.delete_one(
+                filter_doc, **delete_kwargs
+            )
 
             success = result.deleted_count > 0
 
@@ -227,12 +248,12 @@ class BaseRepository(Generic[T], ABC):
         limit: Optional[int] = None,
         skip: Optional[int] = None,
         hint: Optional[dict] = None,
-        projection: Optional[dict] = None
+        projection: Optional[dict] = None,
     ) -> List[dict]:
         """Find documents with filtering, sorting, and pagination."""
         try:
             # Log query plan
-            self._log_query_plan('find', filter_doc, hint)
+            self._log_query_plan("find", filter_doc, hint)
 
             # Build query
             cursor = self.collection.find(filter_doc, projection)
@@ -263,17 +284,17 @@ class BaseRepository(Generic[T], ABC):
         self,
         filter_doc: dict,
         hint: Optional[dict] = None,
-        projection: Optional[dict] = None
+        projection: Optional[dict] = None,
     ) -> Optional[dict]:
         """Find single document."""
         try:
             # Log query plan
-            self._log_query_plan('find_one', filter_doc, hint)
+            self._log_query_plan("find_one", filter_doc, hint)
 
             # Build query
             find_kwargs = {}
             if hint:
-                find_kwargs['hint'] = hint
+                find_kwargs["hint"] = hint
 
             doc = self.collection.find_one(filter_doc, projection, **find_kwargs)
 
@@ -290,11 +311,11 @@ class BaseRepository(Generic[T], ABC):
         """Count documents matching filter."""
         try:
             # Log query plan
-            self._log_query_plan('count', filter_doc, hint)
+            self._log_query_plan("count", filter_doc, hint)
 
             count_kwargs = {}
             if hint:
-                count_kwargs['hint'] = hint
+                count_kwargs["hint"] = hint
 
             count = self.collection.count_documents(filter_doc, **count_kwargs)
 
@@ -312,7 +333,7 @@ class BaseRepository(Generic[T], ABC):
         limit: int = 10,
         sort: Optional[List[tuple]] = None,
         hint: Optional[dict] = None,
-        projection: Optional[dict] = None
+        projection: Optional[dict] = None,
     ) -> dict:
         """Paginate query results."""
         try:
@@ -329,7 +350,7 @@ class BaseRepository(Generic[T], ABC):
                 limit=limit,
                 skip=skip,
                 hint=hint,
-                projection=projection
+                projection=projection,
             )
 
             # Calculate pagination metadata
@@ -338,43 +359,49 @@ class BaseRepository(Generic[T], ABC):
             has_prev = page > 1
 
             return {
-                'documents': documents,
-                'total': total,
-                'page': page,
-                'limit': limit,
-                'total_pages': total_pages,
-                'has_next': has_next,
-                'has_prev': has_prev
+                "documents": documents,
+                "total": total,
+                "page": page,
+                "limit": limit,
+                "total_pages": total_pages,
+                "has_next": has_next,
+                "has_prev": has_prev,
             }
 
         except Exception as e:
             logger.error(f"Error paginating documents in {self.collection_name}: {e}")
             return {
-                'documents': [],
-                'total': 0,
-                'page': page,
-                'limit': limit,
-                'total_pages': 0,
-                'has_next': False,
-                'has_prev': False
+                "documents": [],
+                "total": 0,
+                "page": page,
+                "limit": limit,
+                "total_pages": 0,
+                "has_next": False,
+                "has_prev": False,
             }
 
-    def aggregate(self, pipeline: List[dict], hint: Optional[dict] = None) -> List[dict]:
+    def aggregate(
+        self, pipeline: List[dict], hint: Optional[dict] = None
+    ) -> List[dict]:
         """Execute aggregation pipeline."""
         try:
             # Log pipeline
             if self.enable_query_logging:
-                logger.info(f"Aggregation pipeline on {self.collection_name}: {pipeline}")
+                logger.info(
+                    f"Aggregation pipeline on {self.collection_name}: {pipeline}"
+                )
 
             # Execute aggregation
             agg_kwargs = {}
             if hint:
-                agg_kwargs['hint'] = hint
+                agg_kwargs["hint"] = hint
 
             cursor = self.collection.aggregate(pipeline, **agg_kwargs)
             results = list(cursor)
 
-            logger.debug(f"Aggregation returned {len(results)} results from {self.collection_name}")
+            logger.debug(
+                f"Aggregation returned {len(results)} results from {self.collection_name}"
+            )
             return results
 
         except Exception as e:
@@ -385,20 +412,22 @@ class BaseRepository(Generic[T], ABC):
         """Execute bulk write operations."""
         try:
             if not operations:
-                return {'inserted_count': 0, 'modified_count': 0, 'deleted_count': 0}
+                return {"inserted_count": 0, "modified_count": 0, "deleted_count": 0}
 
             result = self.collection.bulk_write(operations)
 
-            logger.info(f"Bulk write completed in {self.collection_name}: "
-                       f"inserted={result.inserted_count}, "
-                       f"modified={result.modified_count}, "
-                       f"deleted={result.deleted_count}")
+            logger.info(
+                f"Bulk write completed in {self.collection_name}: "
+                f"inserted={result.inserted_count}, "
+                f"modified={result.modified_count}, "
+                f"deleted={result.deleted_count}"
+            )
 
             return {
-                'inserted_count': result.inserted_count,
-                'modified_count': result.modified_count,
-                'deleted_count': result.deleted_count,
-                'upserted_count': result.upserted_count
+                "inserted_count": result.inserted_count,
+                "modified_count": result.modified_count,
+                "deleted_count": result.deleted_count,
+                "upserted_count": result.upserted_count,
             }
 
         except BulkWriteError as e:
@@ -432,12 +461,14 @@ class BaseRepository(Generic[T], ABC):
         try:
             stats = self.collection.database.command("collStats", self.collection_name)
             return {
-                'count': stats.get('count', 0),
-                'size': stats.get('size', 0),
-                'storage_size': stats.get('storageSize', 0),
-                'total_index_size': stats.get('totalIndexSize', 0),
-                'index_count': stats.get('nindexes', 0)
+                "count": stats.get("count", 0),
+                "size": stats.get("size", 0),
+                "storage_size": stats.get("storageSize", 0),
+                "total_index_size": stats.get("totalIndexSize", 0),
+                "index_count": stats.get("nindexes", 0),
             }
         except Exception as e:
-            logger.error(f"Error getting collection stats for {self.collection_name}: {e}")
+            logger.error(
+                f"Error getting collection stats for {self.collection_name}: {e}"
+            )
             return {}

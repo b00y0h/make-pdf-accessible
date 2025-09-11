@@ -26,7 +26,7 @@ class TestDocumentModels:
             filename="test.pdf",
             metadata={"source": "test"},
             priority=True,
-            webhook_url="https://webhook.example.com"
+            webhook_url="https://webhook.example.com",
         )
 
         assert request.source_url == "https://example.com/doc.pdf"
@@ -52,7 +52,7 @@ class TestDocumentModels:
             updated_at=datetime(2023, 1, 1, 1, 0, 0),
             user_id="test-user",
             metadata={"key": "value"},
-            artifacts={"pdf": "s3://bucket/key"}
+            artifacts={"pdf": "s3://bucket/key"},
         )
 
         data = response.model_dump()
@@ -86,10 +86,7 @@ class TestValidationModels:
 
     def test_download_request_valid(self):
         """Test valid download request"""
-        request = DownloadRequest(
-            document_type=DocumentType.PDF,
-            expires_in=7200
-        )
+        request = DownloadRequest(document_type=DocumentType.PDF, expires_in=7200)
 
         assert request.document_type == DocumentType.PDF
         assert request.expires_in == 7200
@@ -98,14 +95,12 @@ class TestValidationModels:
         """Test invalid expiration time"""
         with pytest.raises(ValidationError):
             DownloadRequest(
-                document_type=DocumentType.PDF,
-                expires_in=100  # Too short (< 300)
+                document_type=DocumentType.PDF, expires_in=100  # Too short (< 300)
             )
 
         with pytest.raises(ValidationError):
             DownloadRequest(
-                document_type=DocumentType.PDF,
-                expires_in=90000  # Too long (> 86400)
+                document_type=DocumentType.PDF, expires_in=90000  # Too long (> 86400)
             )
 
 
@@ -119,7 +114,7 @@ class TestWebhookModels:
             doc_id=UUID("12345678-1234-1234-1234-123456789012"),
             status=DocumentStatus.COMPLETED,
             timestamp=datetime(2023, 1, 1, 0, 0, 0),
-            data={"processing_time": 30}
+            data={"processing_time": 30},
         )
 
         assert payload.event_type == "document.completed"
@@ -132,7 +127,7 @@ class TestWebhookModels:
             event_type="document.failed",
             doc_id=UUID("12345678-1234-1234-1234-123456789012"),
             status=DocumentStatus.FAILED,
-            timestamp=datetime(2023, 1, 1, 0, 0, 0)
+            timestamp=datetime(2023, 1, 1, 0, 0, 0),
         )
 
         data = payload.model_dump()
@@ -170,8 +165,7 @@ class TestErrorModel:
     def test_error_response_basic(self):
         """Test basic error response"""
         error = ErrorResponse(
-            error="validation_error",
-            message="Invalid input provided"
+            error="validation_error", message="Invalid input provided"
         )
 
         assert error.error == "validation_error"
@@ -186,7 +180,7 @@ class TestErrorModel:
             error="validation_error",
             message="Invalid input",
             details={"field": "source_url", "issue": "invalid format"},
-            request_id="req-123"
+            request_id="req-123",
         )
 
         assert error.details["field"] == "source_url"

@@ -1,28 +1,32 @@
-'use client'
+'use client';
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { useSession } from '@/lib/auth-client'
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSession } from '@/lib/auth-client';
 
 interface AdminGuardProps {
-  children: React.ReactNode
+  children: React.ReactNode;
 }
 
 export function AdminGuard({ children }: AdminGuardProps) {
-  const router = useRouter()
-  const { data: session, isLoading } = useSession()
+  const router = useRouter();
+  const { data: session, isPending } = useSession();
 
   useEffect(() => {
-    if (!isLoading && !session?.user) {
-      router.push('/sign-in')
-    } else if (!isLoading && session?.user && session.user.role !== 'admin') {
+    if (!isPending && !session?.user) {
+      router.push('/sign-in');
+    } else if (
+      !isPending &&
+      session?.user &&
+      (session.user as any).role !== 'admin'
+    ) {
       // Redirect non-admin users to regular dashboard
-      router.push('/dashboard')
+      router.push('/dashboard');
     }
-  }, [session, isLoading, router])
+  }, [session, isPending, router]);
 
   // Show loading state while checking authentication
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center space-x-2">
@@ -30,14 +34,14 @@ export function AdminGuard({ children }: AdminGuardProps) {
           <span>Loading...</span>
         </div>
       </div>
-    )
+    );
   }
 
   // If user is not authenticated or not admin, show nothing (redirect will happen)
-  if (!session?.user || session.user.role !== 'admin') {
-    return null
+  if (!session?.user || (session.user as any).role !== 'admin') {
+    return null;
   }
 
   // User is admin, show protected content
-  return <>{children}</>
+  return <>{children}</>;
 }

@@ -72,9 +72,7 @@ class TestDocumentElement:
     def test_create_basic_element(self):
         """Test creating basic document element."""
         element = DocumentElement(
-            type=ElementType.PARAGRAPH,
-            page_number=1,
-            text="Test paragraph text"
+            type=ElementType.PARAGRAPH, page_number=1, text="Test paragraph text"
         )
 
         assert element.type == ElementType.PARAGRAPH
@@ -91,7 +89,7 @@ class TestDocumentElement:
             page_number=1,
             text="Heading Text",
             bounding_box=bbox,
-            confidence=0.95
+            confidence=0.95,
         )
 
         assert element.bounding_box == bbox
@@ -100,15 +98,11 @@ class TestDocumentElement:
     def test_add_child(self):
         """Test adding child elements."""
         parent = DocumentElement(
-            type=ElementType.LIST,
-            page_number=1,
-            text="List container"
+            type=ElementType.LIST, page_number=1, text="List container"
         )
 
         child = DocumentElement(
-            type=ElementType.LIST_ITEM,
-            page_number=1,
-            text="List item"
+            type=ElementType.LIST_ITEM, page_number=1, text="List item"
         )
 
         parent.add_child(child)
@@ -118,22 +112,14 @@ class TestDocumentElement:
 
     def test_get_all_text(self):
         """Test getting all text including children."""
-        parent = DocumentElement(
-            type=ElementType.LIST,
-            page_number=1,
-            text="List:"
-        )
+        parent = DocumentElement(type=ElementType.LIST, page_number=1, text="List:")
 
         child1 = DocumentElement(
-            type=ElementType.LIST_ITEM,
-            page_number=1,
-            text="Item 1"
+            type=ElementType.LIST_ITEM, page_number=1, text="Item 1"
         )
 
         child2 = DocumentElement(
-            type=ElementType.LIST_ITEM,
-            page_number=1,
-            text="Item 2"
+            type=ElementType.LIST_ITEM, page_number=1, text="Item 2"
         )
 
         parent.add_child(child1)
@@ -146,28 +132,18 @@ class TestDocumentElement:
 
     def test_find_elements_by_type(self):
         """Test finding elements by type."""
-        root = DocumentElement(
-            type=ElementType.LIST,
-            page_number=1,
-            text="Root list"
-        )
+        root = DocumentElement(type=ElementType.LIST, page_number=1, text="Root list")
 
         item1 = DocumentElement(
-            type=ElementType.LIST_ITEM,
-            page_number=1,
-            text="Item 1"
+            type=ElementType.LIST_ITEM, page_number=1, text="Item 1"
         )
 
         item2 = DocumentElement(
-            type=ElementType.LIST_ITEM,
-            page_number=1,
-            text="Item 2"
+            type=ElementType.LIST_ITEM, page_number=1, text="Item 2"
         )
 
         nested_para = DocumentElement(
-            type=ElementType.PARAGRAPH,
-            page_number=1,
-            text="Nested paragraph"
+            type=ElementType.PARAGRAPH, page_number=1, text="Nested paragraph"
         )
 
         root.add_child(item1)
@@ -190,7 +166,7 @@ class TestHeading:
             page_number=1,
             text="Chapter 1: Introduction",
             level=HeadingLevel.H1,
-            confidence=0.9
+            confidence=0.9,
         )
 
         assert heading.type == ElementType.HEADING
@@ -200,20 +176,12 @@ class TestHeading:
     def test_heading_validation(self):
         """Test heading validation."""
         # Valid heading
-        heading = Heading(
-            page_number=1,
-            text="Valid Heading",
-            level=HeadingLevel.H2
-        )
+        heading = Heading(page_number=1, text="Valid Heading", level=HeadingLevel.H2)
         assert heading.text == "Valid Heading"
 
         # Empty text should raise error
         with pytest.raises(ValidationError, match="Heading must have text content"):
-            Heading(
-                page_number=1,
-                text="",
-                level=HeadingLevel.H1
-            )
+            Heading(page_number=1, text="", level=HeadingLevel.H1)
 
 
 class TestListElement:
@@ -222,9 +190,7 @@ class TestListElement:
     def test_create_unordered_list(self):
         """Test creating unordered list."""
         list_elem = ListElement(
-            page_number=1,
-            text="Bullet list",
-            list_type=ListType.UNORDERED
+            page_number=1, text="Bullet list", list_type=ListType.UNORDERED
         )
 
         assert list_elem.type == ElementType.LIST
@@ -237,7 +203,7 @@ class TestListElement:
             page_number=1,
             text="Numbered list",
             list_type=ListType.ORDERED,
-            start_number=5
+            start_number=5,
         )
 
         assert list_elem.list_type == ListType.ORDERED
@@ -246,9 +212,7 @@ class TestListElement:
     def test_ordered_list_default_start(self):
         """Test ordered list with default start number."""
         list_elem = ListElement(
-            page_number=1,
-            text="Numbered list",
-            list_type=ListType.ORDERED
+            page_number=1, text="Numbered list", list_type=ListType.ORDERED
         )
 
         # Should get default start number of 1
@@ -266,7 +230,7 @@ class TestTableElement:
             rows=3,
             columns=4,
             has_header=True,
-            caption="Sample data table"
+            caption="Sample data table",
         )
 
         assert table.type == ElementType.TABLE
@@ -277,12 +241,7 @@ class TestTableElement:
 
     def test_table_with_cells(self):
         """Test table with cell children."""
-        table = TableElement(
-            page_number=1,
-            text="Table with cells",
-            rows=2,
-            columns=2
-        )
+        table = TableElement(page_number=1, text="Table with cells", rows=2, columns=2)
 
         # Add cells
         cell1 = TableCell(
@@ -291,7 +250,7 @@ class TestTableElement:
             row_index=0,
             column_index=0,
             is_header=True,
-            scope="col"
+            scope="col",
         )
 
         cell2 = TableCell(
@@ -300,7 +259,7 @@ class TestTableElement:
             row_index=0,
             column_index=1,
             is_header=True,
-            scope="col"
+            scope="col",
         )
 
         table.add_child(cell1)
@@ -319,10 +278,7 @@ class TestTableCell:
     def test_create_regular_cell(self):
         """Test creating regular table cell."""
         cell = TableCell(
-            page_number=1,
-            text="Regular cell",
-            row_index=1,
-            column_index=2
+            page_number=1, text="Regular cell", row_index=1, column_index=2
         )
 
         assert cell.type == ElementType.TABLE_CELL
@@ -339,7 +295,7 @@ class TestTableCell:
             row_index=0,
             column_index=0,
             is_header=True,
-            scope="row"
+            scope="row",
         )
 
         assert cell.is_header is True
@@ -354,18 +310,20 @@ class TestTableCell:
             row_index=0,
             column_index=0,
             is_header=True,
-            scope="col"
+            scope="col",
         )
 
         # Invalid: scope on non-header cell
-        with pytest.raises(ValidationError, match="scope can only be set for header cells"):
+        with pytest.raises(
+            ValidationError, match="scope can only be set for header cells"
+        ):
             TableCell(
                 page_number=1,
                 text="Regular cell",
                 row_index=1,
                 column_index=0,
                 is_header=False,
-                scope="row"
+                scope="row",
             )
 
 
@@ -379,7 +337,7 @@ class TestFigure:
             text="Chart showing sales data",
             figure_type=FigureType.CHART,
             alt_text="Bar chart showing quarterly sales increases",
-            caption="Figure 1: Quarterly Sales Data"
+            caption="Figure 1: Quarterly Sales Data",
         )
 
         assert figure.type == ElementType.FIGURE
@@ -390,20 +348,14 @@ class TestFigure:
     def test_alt_text_validation(self):
         """Test alt text length validation."""
         # Valid alt text
-        Figure(
-            page_number=1,
-            text="Figure",
-            alt_text="Short alt text"
-        )
+        Figure(page_number=1, text="Figure", alt_text="Short alt text")
 
         # Alt text too long
         long_alt_text = "x" * 300  # Over 250 character limit
-        with pytest.raises(ValidationError, match="Alt text should be under 250 characters"):
-            Figure(
-                page_number=1,
-                text="Figure",
-                alt_text=long_alt_text
-            )
+        with pytest.raises(
+            ValidationError, match="Alt text should be under 250 characters"
+        ):
+            Figure(page_number=1, text="Figure", alt_text=long_alt_text)
 
 
 class TestDocumentStructure:
@@ -412,10 +364,7 @@ class TestDocumentStructure:
     def test_create_document_structure(self):
         """Test creating document structure."""
         doc = DocumentStructure(
-            doc_id="test-doc-123",
-            title="Test Document",
-            language="en",
-            total_pages=3
+            doc_id="test-doc-123", title="Test Document", language="en", total_pages=3
         )
 
         assert doc.doc_id == "test-doc-123"
@@ -427,16 +376,9 @@ class TestDocumentStructure:
 
     def test_add_element(self):
         """Test adding elements to document."""
-        doc = DocumentStructure(
-            doc_id="test-doc",
-            total_pages=1
-        )
+        doc = DocumentStructure(doc_id="test-doc", total_pages=1)
 
-        heading = Heading(
-            page_number=1,
-            text="Test Heading",
-            level=HeadingLevel.H1
-        )
+        heading = Heading(page_number=1, text="Test Heading", level=HeadingLevel.H1)
 
         doc.add_element(heading)
 
@@ -446,21 +388,11 @@ class TestDocumentStructure:
 
     def test_get_elements_by_type(self):
         """Test getting elements by type."""
-        doc = DocumentStructure(
-            doc_id="test-doc",
-            total_pages=1
-        )
+        doc = DocumentStructure(doc_id="test-doc", total_pages=1)
 
-        heading = Heading(
-            page_number=1,
-            text="Heading",
-            level=HeadingLevel.H1
-        )
+        heading = Heading(page_number=1, text="Heading", level=HeadingLevel.H1)
 
-        paragraph = Paragraph(
-            page_number=1,
-            text="Paragraph text"
-        )
+        paragraph = Paragraph(page_number=1, text="Paragraph text")
 
         doc.add_element(heading)
         doc.add_element(paragraph)
@@ -474,10 +406,7 @@ class TestDocumentStructure:
 
     def test_get_elements_by_page(self):
         """Test getting elements by page number."""
-        doc = DocumentStructure(
-            doc_id="test-doc",
-            total_pages=2
-        )
+        doc = DocumentStructure(doc_id="test-doc", total_pages=2)
 
         elem1 = Paragraph(page_number=1, text="Page 1 content")
         elem2 = Paragraph(page_number=2, text="Page 2 content")
@@ -495,10 +424,7 @@ class TestDocumentStructure:
 
     def test_generate_toc(self):
         """Test generating table of contents."""
-        doc = DocumentStructure(
-            doc_id="test-doc",
-            total_pages=2
-        )
+        doc = DocumentStructure(doc_id="test-doc", total_pages=2)
 
         h1 = Heading(page_number=1, text="Chapter 1", level=HeadingLevel.H1)
         h2 = Heading(page_number=1, text="Section 1.1", level=HeadingLevel.H2)
@@ -511,28 +437,21 @@ class TestDocumentStructure:
         toc = doc.generate_toc()
 
         assert len(toc) == 3
-        assert toc[0]['title'] == "Chapter 1"
-        assert toc[0]['level'] == 1
-        assert toc[1]['title'] == "Section 1.1"
-        assert toc[1]['level'] == 2
+        assert toc[0]["title"] == "Chapter 1"
+        assert toc[0]["level"] == 1
+        assert toc[1]["title"] == "Section 1.1"
+        assert toc[1]["level"] == 2
 
     def test_validate_accessibility(self):
         """Test basic accessibility validation."""
-        doc = DocumentStructure(
-            doc_id="test-doc",
-            total_pages=1
-        )
+        doc = DocumentStructure(doc_id="test-doc", total_pages=1)
 
         # Add heading with skip from H1 to H3 (accessibility issue)
         h1 = Heading(page_number=1, text="Title", level=HeadingLevel.H1)
         h3 = Heading(page_number=1, text="Subsection", level=HeadingLevel.H3)  # Skip H2
 
         # Add figure without alt text
-        figure = Figure(
-            page_number=1,
-            text="Chart",
-            alt_text=None  # Missing alt text
-        )
+        figure = Figure(page_number=1, text="Chart", alt_text=None)  # Missing alt text
 
         doc.add_element(h1)
         doc.add_element(h3)
@@ -540,16 +459,13 @@ class TestDocumentStructure:
 
         validation = doc.validate_accessibility()
 
-        assert validation['is_accessible'] is False
-        assert len(validation['issues']) >= 2  # Heading skip + missing alt text
-        assert validation['score'] < 100
+        assert validation["is_accessible"] is False
+        assert len(validation["issues"]) >= 2  # Heading skip + missing alt text
+        assert validation["score"] < 100
 
     def test_reading_order_validation(self):
         """Test reading order validation."""
-        doc = DocumentStructure(
-            doc_id="test-doc",
-            total_pages=1
-        )
+        doc = DocumentStructure(doc_id="test-doc", total_pages=1)
 
         element = Paragraph(page_number=1, text="Test")
         doc.add_element(element)
@@ -559,21 +475,20 @@ class TestDocumentStructure:
         # Should not raise error
 
         # Invalid reading order (non-existent ID)
-        with pytest.raises(ValidationError, match="Reading order contains invalid element IDs"):
+        with pytest.raises(
+            ValidationError, match="Reading order contains invalid element IDs"
+        ):
             DocumentStructure(
                 doc_id="test-doc",
                 total_pages=1,
                 elements=[element],
-                reading_order=["non-existent-id"]
+                reading_order=["non-existent-id"],
             )
 
     def test_page_number_validation(self):
         """Test page number validation."""
         # Valid page numbers
-        doc = DocumentStructure(
-            doc_id="test-doc",
-            total_pages=2
-        )
+        doc = DocumentStructure(doc_id="test-doc", total_pages=2)
 
         elem1 = Paragraph(page_number=1, text="Page 1")
         elem2 = Paragraph(page_number=2, text="Page 2")
@@ -583,11 +498,15 @@ class TestDocumentStructure:
         # Should not raise error
 
         # Invalid page number (exceeds total)
-        with pytest.raises(ValidationError, match="Elements reference pages beyond total_pages"):
+        with pytest.raises(
+            ValidationError, match="Elements reference pages beyond total_pages"
+        ):
             DocumentStructure(
                 doc_id="test-doc",
                 total_pages=1,
                 elements=[
-                    Paragraph(page_number=2, text="Invalid page")  # Page 2 but total is 1
-                ]
+                    Paragraph(
+                        page_number=2, text="Invalid page"
+                    )  # Page 2 but total is 1
+                ],
             )

@@ -5,17 +5,19 @@ const nextConfig = {
   experimental: {
     appDir: true,
   },
-  
+
   // API rewrites for development and production
   async rewrites() {
     return [
       {
         source: '/api/:path*',
-        destination: process.env.API_BASE_URL ? `${process.env.API_BASE_URL}/:path*` : 'http://localhost:8000/:path*'
-      }
-    ]
+        destination: process.env.API_BASE_URL
+          ? `${process.env.API_BASE_URL}/:path*`
+          : 'http://localhost:8000/:path*',
+      },
+    ];
   },
-  
+
   // Security headers
   async headers() {
     return [
@@ -24,20 +26,20 @@ const nextConfig = {
         headers: [
           {
             key: 'X-Frame-Options',
-            value: 'DENY'
+            value: 'DENY',
           },
           {
             key: 'X-Content-Type-Options',
-            value: 'nosniff'
+            value: 'nosniff',
           },
           {
             key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin'
-          }
-        ]
-      }
-    ]
-  }
+            value: 'strict-origin-when-cross-origin',
+          },
+        ],
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

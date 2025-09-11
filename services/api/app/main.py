@@ -10,15 +10,18 @@ from fastapi.responses import JSONResponse
 from mangum import Mangum
 
 from .config import settings
-from .models import ErrorResponse, HealthResponse
-from .routes import auth, documents, reports, webhooks, quotas, api_keys, admin
 from .middleware import APIKeyAuthMiddleware
+from .models import ErrorResponse, HealthResponse
+from .routes import admin, api_keys, auth, documents, quotas, reports, webhooks
 from .services import AWSServiceError
 
 # Initialize Powertools
 logger = Logger(service=settings.powertools_service_name)
 tracer = Tracer(service=settings.powertools_service_name)
-metrics = Metrics(namespace=settings.powertools_metrics_namespace, service=settings.powertools_service_name)
+metrics = Metrics(
+    namespace=settings.powertools_metrics_namespace,
+    service=settings.powertools_service_name,
+)
 
 
 @asynccontextmanager
@@ -39,39 +42,18 @@ app = FastAPI(
     debug=settings.debug,
     lifespan=lifespan,
     openapi_tags=[
-        {
-            "name": "health",
-            "description": "Health check and service status endpoints"
-        },
+        {"name": "health", "description": "Health check and service status endpoints"},
         {
             "name": "documents",
-            "description": "Document upload, processing, and management"
+            "description": "Document upload, processing, and management",
         },
-        {
-            "name": "webhooks",
-            "description": "Webhook endpoints for external callbacks"
-        },
-        {
-            "name": "reports",
-            "description": "Analytics and reporting endpoints"
-        },
-        {
-            "name": "auth",
-            "description": "Authentication and user profile endpoints"
-        },
-        {
-            "name": "quotas",
-            "description": "Tenant quota management and monitoring"
-        },
-        {
-            "name": "API Keys",
-            "description": "API key generation and management"
-        },
-        {
-            "name": "admin",
-            "description": "Admin-only endpoints for user management"
-        }
-    ]
+        {"name": "webhooks", "description": "Webhook endpoints for external callbacks"},
+        {"name": "reports", "description": "Analytics and reporting endpoints"},
+        {"name": "auth", "description": "Authentication and user profile endpoints"},
+        {"name": "quotas", "description": "Tenant quota management and monitoring"},
+        {"name": "API Keys", "description": "API key generation and management"},
+        {"name": "admin", "description": "Admin-only endpoints for user management"},
+    ],
 )
 
 # Add CORS middleware
@@ -92,13 +74,15 @@ app.add_middleware(
         "/health",
         "/ping",
         "/auth",  # BetterAuth endpoints
-    ]
+    ],
 )
 
 
 # Custom exception handlers
 @app.exception_handler(AWSServiceError)
-async def aws_service_exception_handler(request: Request, exc: AWSServiceError) -> JSONResponse:
+async def aws_service_exception_handler(
+    request: Request, exc: AWSServiceError
+) -> JSONResponse:
     """Handle AWS service errors"""
     logger.error(f"AWS service error: {exc}")
 
@@ -107,13 +91,15 @@ async def aws_service_exception_handler(request: Request, exc: AWSServiceError) 
         content=ErrorResponse(
             error="service_error",
             message="Internal service error",
-            details={"service": "aws"}
-        ).model_dump()
+            details={"service": "aws"},
+        ).model_dump(),
     )
 
 
 @app.exception_handler(HTTPException)
-async def custom_http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+async def custom_http_exception_handler(
+    request: Request, exc: HTTPException
+) -> JSONResponse:
     """Custom HTTP exception handler with structured error response"""
 
     # Log the error
@@ -123,8 +109,8 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException) ->
             "status_code": exc.status_code,
             "detail": exc.detail,
             "path": request.url.path,
-            "method": request.method
-        }
+            "method": request.method,
+        },
     )
 
     # Increment error metrics
@@ -135,12 +121,11 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException) ->
         error=f"http_{exc.status_code}",
         message=exc.detail if isinstance(exc.detail, str) else "HTTP error",
         details=exc.detail if isinstance(exc.detail, dict) else None,
-        request_id=getattr(request.state, 'request_id', None)
+        request_id=getattr(request.state, "request_id", None),
     )
 
     return JSONResponse(
-        status_code=exc.status_code,
-        content=error_response.model_dump()
+        status_code=exc.status_code, content=error_response.model_dump()
     )
 
 
@@ -154,12 +139,12 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     error_response = ErrorResponse(
         error="internal_error",
         message="Internal server error",
-        request_id=getattr(request.state, 'request_id', None)
+        request_id=getattr(request.state, "request_id", None),
     )
 
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content=error_response.model_dump()
+        content=error_response.model_dump(),
     )
 
 
@@ -187,7 +172,7 @@ async def add_correlation_id(request: Request, call_next):
     response_model=HealthResponse,
     tags=["health"],
     summary="Service health check",
-    description="Get service health status and version information."
+    description="Get service health status and version information.",
 )
 @tracer.capture_method
 async def health_check() -> HealthResponse:
@@ -199,7 +184,8 @@ async def health_check() -> HealthResponse:
     try:
         # Test AWS connectivity (simplified check)
         import boto3
-        sts = boto3.client('sts', region_name=settings.aws_region)
+
+        sts = boto3.client("sts", region_name=settings.aws_region)
         sts.get_caller_identity()
         dependencies["aws"] = "healthy"
     except Exception as e:
@@ -207,16 +193,16 @@ async def health_check() -> HealthResponse:
         dependencies["aws"] = "unhealthy"
 
     # Determine overall status
-    overall_status = "healthy" if all(
-        status == "healthy" for status in dependencies.values()
-    ) else "degraded"
+    overall_status = (
+        "healthy"
+        if all(status == "healthy" for status in dependencies.values())
+        else "degraded"
+    )
 
     metrics.add_metric(name="HealthChecks", unit="Count", value=1)
 
     return HealthResponse(
-        status=overall_status,
-        version=settings.api_version,
-        dependencies=dependencies
+        status=overall_status, version=settings.api_version, dependencies=dependencies
     )
 
 
@@ -225,7 +211,7 @@ async def health_check() -> HealthResponse:
     "/",
     tags=["health"],
     summary="API root",
-    description="API root endpoint with basic information."
+    description="API root endpoint with basic information.",
 )
 async def root() -> Dict[str, str]:
     """API root endpoint"""
@@ -234,7 +220,7 @@ async def root() -> Dict[str, str]:
         "version": settings.api_version,
         "status": "running",
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
     }
 
 
@@ -256,7 +242,7 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
     """Lambda handler with Powertools integration"""
 
     # Log incoming event (excluding sensitive data)
-    safe_event = {k: v for k, v in event.items() if k not in ['headers', 'body']}
+    safe_event = {k: v for k, v in event.items() if k not in ["headers", "body"]}
     logger.info("Lambda invocation", extra={"event": safe_event})
 
     # Create Mangum handler
@@ -268,7 +254,7 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
         # Log response status
         logger.info(
             "Lambda response",
-            extra={"status_code": response.get('statusCode', 'unknown')}
+            extra={"status_code": response.get("statusCode", "unknown")},
         )
 
         return response
@@ -279,13 +265,14 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
 
         # Return error response
         return {
-            'statusCode': 500,
-            'headers': {'Content-Type': 'application/json'},
-            'body': '{"error": "internal_error", "message": "Lambda execution failed"}'
+            "statusCode": 500,
+            "headers": {"Content-Type": "application/json"},
+            "body": '{"error": "internal_error", "message": "Lambda execution failed"}',
         }
 
 
 # For local development
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")

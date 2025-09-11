@@ -17,9 +17,9 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
     start_time = time.time()
 
     try:
-        doc_id = event.get('docId') or event.get('doc_id')
-        status = event.get('status', 'unknown')
-        user_id = event.get('userId') or event.get('user_id')
+        doc_id = event.get("docId") or event.get("doc_id")
+        status = event.get("status", "unknown")
+        user_id = event.get("userId") or event.get("user_id")
 
         logger.info(f"Sending notifications for document {doc_id} with status {status}")
 
@@ -35,7 +35,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
         processing_time = time.time() - start_time
 
         if status == "completed":
-            results = event.get('results', {})
+            results = event.get("results", {})
             logger.info(f"Document {doc_id} processing completed successfully")
             logger.info(f"Results: {json.dumps(results, indent=2)}")
 
@@ -44,19 +44,19 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
                 "docId": doc_id,
                 "status": "completed",
                 "completedAt": int(time.time()),
-                "accessibilityScore": results.get('validationScore', 0),
-                "taggedPdfUrl": results.get('taggedPdfS3Key'),
-                "htmlUrl": results.get('htmlS3Key'),
-                "epubUrl": results.get('epubS3Key'),
-                "csvZipUrl": results.get('csvZipS3Key')
+                "accessibilityScore": results.get("validationScore", 0),
+                "taggedPdfUrl": results.get("taggedPdfS3Key"),
+                "htmlUrl": results.get("htmlS3Key"),
+                "epubUrl": results.get("epubS3Key"),
+                "csvZipUrl": results.get("csvZipS3Key"),
             }
 
             metrics.add_metric(name="DocumentsCompleted", unit="Count", value=1)
 
         else:
             # Handle failure case
-            error = event.get('error', {})
-            step = event.get('step', 'unknown')
+            error = event.get("error", {})
+            step = event.get("step", "unknown")
 
             logger.error(f"Document {doc_id} processing failed at step {step}")
             logger.error(f"Error: {json.dumps(error, indent=2)}")
@@ -67,7 +67,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
                 "status": "failed",
                 "failedAt": int(time.time()),
                 "failedStep": step,
-                "errorMessage": error.get('Error', 'Unknown error')
+                "errorMessage": error.get("Error", "Unknown error"),
             }
 
             metrics.add_metric(name="DocumentsFailed", unit="Count", value=1)
@@ -79,7 +79,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
                 "doc_id": doc_id,
                 "user_id": user_id,
                 "timestamp": int(time.time()),
-                "results": event.get('results', {})
+                "results": event.get("results", {}),
             }
         else:
             webhook_payload = {
@@ -87,7 +87,7 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
                 "doc_id": doc_id,
                 "user_id": user_id,
                 "timestamp": int(time.time()),
-                "error": event.get('error', {})
+                "error": event.get("error", {}),
             }
 
         logger.info(f"Sent {notifications_sent} notifications for document {doc_id}")
@@ -96,13 +96,13 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
             "doc_id": doc_id,
             "status": "completed",
             "notifications_sent": notifications_sent,
-            "processing_time_seconds": processing_time
+            "processing_time_seconds": processing_time,
         }
 
     except Exception as e:
         logger.error(f"Notification failed: {str(e)}")
         return {
-            "doc_id": event.get('docId', 'unknown'),
+            "doc_id": event.get("docId", "unknown"),
             "status": "failed",
-            "error_message": str(e)
+            "error_message": str(e),
         }

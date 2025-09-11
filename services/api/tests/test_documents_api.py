@@ -22,11 +22,12 @@ class TestDocumentsAPI:
 
         # Setup default mock user
         from app.auth import User
+
         self.test_user = User(
             sub="test-user-123",
             username="testuser",
             email="test@example.com",
-            roles=["viewer"]
+            roles=["viewer"],
         )
         self.mock_get_current_user.return_value = self.test_user
 
@@ -50,7 +51,7 @@ class TestDocumentsAPI:
             updated_at=datetime.now(),
             user_id="test-user-123",
             metadata={"source": "url"},
-            artifacts={}
+            artifacts={},
         )
 
         self.mock_document_service.create_document.return_value = mock_document
@@ -61,8 +62,8 @@ class TestDocumentsAPI:
             data={
                 "source_url": "https://example.com/test.pdf",
                 "filename": "test.pdf",
-                "metadata": json.dumps({"source": "url"})
-            }
+                "metadata": json.dumps({"source": "url"}),
+            },
         )
 
         assert response.status_code == status.HTTP_201_CREATED
@@ -74,24 +75,27 @@ class TestDocumentsAPI:
     def test_upload_document_validation_error(self):
         """Test document upload validation error"""
         # No file or source_url provided
-        response = self.client.post(
-            "/documents",
-            data={"filename": "test.pdf"}
-        )
+        response = self.client.post("/documents", data={"filename": "test.pdf"})
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "Either file upload or source_url must be provided" in response.json()["message"]
+        assert (
+            "Either file upload or source_url must be provided"
+            in response.json()["message"]
+        )
 
     def test_upload_document_both_file_and_url(self):
         """Test upload with both file and URL (should fail)"""
         response = self.client.post(
             "/documents",
             data={"source_url": "https://example.com/test.pdf"},
-            files={"file": ("test.pdf", b"fake pdf content", "application/pdf")}
+            files={"file": ("test.pdf", b"fake pdf content", "application/pdf")},
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "Cannot provide both file upload and source_url" in response.json()["message"]
+        assert (
+            "Cannot provide both file upload and source_url"
+            in response.json()["message"]
+        )
 
     def test_upload_document_invalid_metadata(self):
         """Test upload with invalid JSON metadata"""
@@ -99,8 +103,8 @@ class TestDocumentsAPI:
             "/documents",
             data={
                 "source_url": "https://example.com/test.pdf",
-                "metadata": "invalid-json"
-            }
+                "metadata": "invalid-json",
+            },
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -122,7 +126,7 @@ class TestDocumentsAPI:
                 updated_at=datetime.now(),
                 user_id="test-user-123",
                 metadata={},
-                artifacts={}
+                artifacts={},
             ),
             DocumentResponse(
                 doc_id=UUID("12345678-1234-1234-1234-123456789013"),
@@ -132,11 +136,14 @@ class TestDocumentsAPI:
                 updated_at=datetime.now(),
                 user_id="test-user-123",
                 metadata={},
-                artifacts={}
-            )
+                artifacts={},
+            ),
         ]
 
-        self.mock_document_service.list_user_documents.return_value = (mock_documents, 2)
+        self.mock_document_service.list_user_documents.return_value = (
+            mock_documents,
+            2,
+        )
 
         # Test request
         response = self.client.get("/documents?page=1&per_page=10")
@@ -163,11 +170,14 @@ class TestDocumentsAPI:
                 updated_at=datetime.now(),
                 user_id="test-user-123",
                 metadata={},
-                artifacts={}
+                artifacts={},
             )
         ]
 
-        self.mock_document_service.list_user_documents.return_value = (mock_documents, 1)
+        self.mock_document_service.list_user_documents.return_value = (
+            mock_documents,
+            1,
+        )
 
         response = self.client.get("/documents?status=completed")
 
@@ -192,7 +202,7 @@ class TestDocumentsAPI:
             updated_at=datetime.now(),
             user_id="test-user-123",
             metadata={"source": "upload"},
-            artifacts={"pdf": "s3://bucket/key"}
+            artifacts={"pdf": "s3://bucket/key"},
         )
 
         self.mock_document_service.get_document.return_value = mock_document
@@ -233,7 +243,7 @@ class TestDocumentsAPI:
             updated_at=datetime.now(),
             user_id="other-user-123",  # Different user
             metadata={},
-            artifacts={}
+            artifacts={},
         )
 
         self.mock_document_service.get_document.return_value = mock_document
@@ -251,6 +261,7 @@ class TestDocumentsAPI:
 
         # Mock document exists and is completed
         from app.models import DocumentResponse
+
         mock_document = DocumentResponse(
             doc_id=UUID(doc_id),
             status=DocumentStatus.COMPLETED,
@@ -259,14 +270,14 @@ class TestDocumentsAPI:
             updated_at=datetime.now(),
             user_id="test-user-123",
             metadata={},
-            artifacts={}
+            artifacts={},
         )
 
         self.mock_document_service.get_document.return_value = mock_document
         self.mock_document_service.generate_presigned_url.return_value = (
             "https://s3.amazonaws.com/bucket/key?signature=abc123",
             "application/pdf",
-            "test.pdf"
+            "test.pdf",
         )
 
         response = self.client.get(f"/documents/{doc_id}/downloads?document_type=pdf")
@@ -295,7 +306,7 @@ class TestDocumentsAPI:
             updated_at=datetime.now(),
             user_id="test-user-123",
             metadata={},
-            artifacts={}
+            artifacts={},
         )
 
         self.mock_document_service.get_document.return_value = mock_document
@@ -324,11 +335,7 @@ class TestDocumentsAPI:
         from app.models import DocumentResponse
 
         # Setup admin user
-        admin_user = User(
-            sub="admin-user-123",
-            username="admin",
-            roles=["admin"]
-        )
+        admin_user = User(sub="admin-user-123", username="admin", roles=["admin"])
         self.mock_get_current_user.return_value = admin_user
 
         doc_id = "12345678-1234-1234-1234-123456789012"
@@ -342,7 +349,7 @@ class TestDocumentsAPI:
             updated_at=datetime.now(),
             user_id="other-user-123",
             metadata={},
-            artifacts={}
+            artifacts={},
         )
 
         self.mock_document_service.get_document.return_value = mock_document

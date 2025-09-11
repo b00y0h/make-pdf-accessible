@@ -1,29 +1,50 @@
-# AWS Configuration
-aws_region = "us-east-1"
+# Terraform Variables for MakePDFAccessible.com Infrastructure
+# Copy this file to terraform.tfvars and fill in your values
 
 # Project Configuration
 project_name = "pdf-accessibility"
-environment  = "dev"
+environment  = "production"  # or "staging", "dev"
+aws_region   = "us-east-1"
 
-# VPC Configuration
-vpc_cidr             = "10.0.0.0/16"
-private_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24"]
-public_subnet_cidrs  = ["10.0.101.0/24", "10.0.102.0/24"]
+# GitHub Configuration (for CI/CD)
+github_repo = "your-github-username/make-pdf-accessible"
 
-# GitHub Configuration for OIDC
-github_repo                  = "your-org/your-repo"
-github_branches              = ["main", "develop"]  # Deprecated - now handled per role
-github_oidc_session_duration = 3600  # Session duration in seconds (15 min - 12 hours)
+# Domain Configuration
+# Note: The domain is hardcoded in domains.tf as makepdfaccessible.com
+# These variables are for backwards compatibility
+domain_name     = "makepdfaccessible.com"
+certificate_arn = ""  # Leave empty - will be created automatically
 
-# Domain Configuration (optional)
-domain_name     = ""  # e.g., "myapp.example.com"
-certificate_arn = ""  # ACM certificate ARN in us-east-1
+# Security
+enable_waf = true  # Enable AWS WAF for CloudFront distributions
 
-# SAML Configuration
-saml_provider_name = "ExampleSAML"
+# Logging
+log_retention_days = 30  # How long to keep CloudWatch logs
 
-# Security Configuration
-enable_waf = true
+# API Configuration
+use_lambda_function_url = false  # Use API Gateway instead of direct Lambda URLs
 
-# Logging Configuration
-log_retention_days = 30
+# OAuth Configuration (optional - for social login)
+google_oauth_client_id     = ""  # From Google Cloud Console
+google_oauth_client_secret = ""  # From Google Cloud Console
+
+# JWT Configuration
+jwt_secret_key = ""  # Leave empty to auto-generate, or provide your own
+
+# DocumentDB Configuration
+documentdb_instance_count                = 2           # Number of database instances
+documentdb_instance_class                = "db.t3.medium"  # For production, use "db.r5.large"
+documentdb_performance_insights_enabled  = false       # Enable for production monitoring
+
+# Lambda Configuration
+router_max_concurrency = 100  # Maximum concurrent Lambda executions
+sqs_batch_size        = 10    # Messages per Lambda invocation
+sqs_batching_window   = 5     # Seconds to wait for batch
+log_level            = "INFO"  # DEBUG, INFO, WARN, ERROR
+
+# VPC Configuration (optional - for Lambda in VPC)
+# Uncomment and configure if you need Lambda functions in VPC
+# vpc_config = {
+#   subnet_ids         = ["subnet-xxx", "subnet-yyy"]
+#   security_group_ids = ["sg-xxx"]
+# }

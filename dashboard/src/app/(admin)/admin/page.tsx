@@ -1,11 +1,11 @@
-import React from 'react'
-import { AdminDashboardStats } from '@/components/admin/AdminDashboardStats'
-import { RecentActivity } from '@/components/admin/RecentActivity'
+import React from 'react';
+import { AdminDashboardStats } from '@/components/admin/AdminDashboardStats';
+import { RecentActivity } from '@/components/admin/RecentActivity';
 
 export const metadata = {
   title: 'Admin Dashboard - AccessPDF',
   description: 'Admin dashboard for managing users and system overview',
-}
+};
 
 export default function AdminDashboard() {
   return (
@@ -33,5 +33,5 @@ export default function AdminDashboard() {
         </div>
       </div>
     </div>
-  )
+  );
 }

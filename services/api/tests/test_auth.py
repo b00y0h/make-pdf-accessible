@@ -16,7 +16,7 @@ class TestUser:
             sub="user-123",
             username="testuser",
             email="test@example.com",
-            roles=["viewer", "admin"]
+            roles=["viewer", "admin"],
         )
 
         assert user.sub == "user-123"
@@ -26,28 +26,16 @@ class TestUser:
 
     def test_user_has_role(self):
         """Test role checking"""
-        user = User(
-            sub="user-123",
-            username="testuser",
-            roles=["viewer"]
-        )
+        user = User(sub="user-123", username="testuser", roles=["viewer"])
 
         assert user.has_role(UserRole.VIEWER)
         assert not user.has_role(UserRole.ADMIN)
 
     def test_user_is_admin(self):
         """Test admin role checking"""
-        admin_user = User(
-            sub="admin-123",
-            username="admin",
-            roles=["admin"]
-        )
+        admin_user = User(sub="admin-123", username="admin", roles=["admin"])
 
-        viewer_user = User(
-            sub="viewer-123",
-            username="viewer",
-            roles=["viewer"]
-        )
+        viewer_user = User(sub="viewer-123", username="viewer", roles=["viewer"])
 
         assert admin_user.is_admin()
         assert not viewer_user.is_admin()
@@ -78,7 +66,9 @@ class TestJWKSClient:
         mock_response.raise_for_status = Mock()
 
         with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.get.return_value = mock_response
+            mock_client.return_value.__aenter__.return_value.get.return_value = (
+                mock_response
+            )
 
             client = JWKSClient()
             jwks = await client.get_jwks()
@@ -120,18 +110,22 @@ class TestCognitoJWTBearer:
     @pytest.mark.asyncio
     async def test_valid_token_validation(self):
         """Test valid token validation"""
-        mock_jwks = {"keys": [{"kid": "test-kid", "kty": "RSA", "n": "test", "e": "AQAB"}]}
+        mock_jwks = {
+            "keys": [{"kid": "test-kid", "kty": "RSA", "n": "test", "e": "AQAB"}]
+        }
 
         # Mock JWT functions
-        with patch("app.auth.jwt.get_unverified_header") as mock_header, \
-             patch("app.auth.jwt.decode") as mock_decode:
+        with (
+            patch("app.auth.jwt.get_unverified_header") as mock_header,
+            patch("app.auth.jwt.decode") as mock_decode,
+        ):
 
             mock_header.return_value = {"kid": "test-kid"}
             mock_decode.return_value = {
                 "sub": "user-123",
                 "token_use": "access",
                 "aud": "test-client-id",
-                "iss": "test-issuer"
+                "iss": "test-issuer",
             }
 
             bearer = CognitoJWTBearer()
@@ -145,14 +139,16 @@ class TestCognitoJWTBearer:
         """Test invalid token type validation"""
         mock_jwks = {"keys": [{"kid": "test-kid", "kty": "RSA"}]}
 
-        with patch("app.auth.jwt.get_unverified_header") as mock_header, \
-             patch("app.auth.jwt.decode") as mock_decode:
+        with (
+            patch("app.auth.jwt.get_unverified_header") as mock_header,
+            patch("app.auth.jwt.decode") as mock_decode,
+        ):
 
             mock_header.return_value = {"kid": "test-kid"}
             mock_decode.return_value = {
                 "sub": "user-123",
                 "token_use": "id",  # Should be "access"
-                "aud": "test-client-id"
+                "aud": "test-client-id",
             }
 
             bearer = CognitoJWTBearer()
@@ -197,15 +193,14 @@ class TestGetCurrentUser:
         from fastapi.security import HTTPAuthorizationCredentials
 
         mock_credentials = HTTPAuthorizationCredentials(
-            scheme="Bearer",
-            credentials="test-token"
+            scheme="Bearer", credentials="test-token"
         )
 
         mock_payload = {
             "sub": "user-123",
             "username": "testuser",
             "email": "test@example.com",
-            "custom:roles": "viewer,admin"
+            "custom:roles": "viewer,admin",
         }
 
         with patch("app.auth.jwt.get_unverified_claims") as mock_claims:
@@ -224,14 +219,13 @@ class TestGetCurrentUser:
         from fastapi.security import HTTPAuthorizationCredentials
 
         mock_credentials = HTTPAuthorizationCredentials(
-            scheme="Bearer",
-            credentials="test-token"
+            scheme="Bearer", credentials="test-token"
         )
 
         mock_payload = {
             "sub": "user-123",
             "cognito:username": "testuser",
-            "cognito:groups": ["admin"]
+            "cognito:groups": ["admin"],
         }
 
         with patch("app.auth.jwt.get_unverified_claims") as mock_claims:
@@ -249,13 +243,12 @@ class TestGetCurrentUser:
         from fastapi.security import HTTPAuthorizationCredentials
 
         mock_credentials = HTTPAuthorizationCredentials(
-            scheme="Bearer",
-            credentials="test-token"
+            scheme="Bearer", credentials="test-token"
         )
 
         mock_payload = {
             "sub": "user-123",
-            "username": "testuser"
+            "username": "testuser",
             # No roles specified
         }
 
@@ -272,8 +265,7 @@ class TestGetCurrentUser:
         from fastapi.security import HTTPAuthorizationCredentials
 
         mock_credentials = HTTPAuthorizationCredentials(
-            scheme="Bearer",
-            credentials="invalid-token"
+            scheme="Bearer", credentials="invalid-token"
         )
 
         with patch("app.auth.jwt.get_unverified_claims") as mock_claims:

@@ -17,7 +17,7 @@ from pdf_worker.core.exceptions import IdempotencyError, WorkerConfigError
 logger = Logger()
 tracer = Tracer()
 
-F = TypeVar('F', bound=Callable[..., Any])
+F = TypeVar("F", bound=Callable[..., Any])
 
 
 class IdempotencyStore:
@@ -25,7 +25,7 @@ class IdempotencyStore:
 
     def __init__(self, table_name: str | None = None, ttl_seconds: int = 3600) -> None:
         """Initialize idempotency store.
-        
+
         Args:
             table_name: DynamoDB table name for idempotency records
             ttl_seconds: TTL for idempotency records in seconds
@@ -37,8 +37,7 @@ class IdempotencyStore:
             raise WorkerConfigError("Idempotency table not configured")
 
         self._repository = DynamoDBRepository(
-            table_name=self.table_name,
-            primary_key='idempotency_key'
+            table_name=self.table_name, primary_key="idempotency_key"
         )
 
         logger.debug(f"Initialized idempotency store with table: {self.table_name}")
@@ -46,10 +45,10 @@ class IdempotencyStore:
     @tracer.capture_method
     def get_record(self, idempotency_key: str) -> dict[str, Any] | None:
         """Get existing idempotency record.
-        
+
         Args:
             idempotency_key: Unique key for the operation
-            
+
         Returns:
             Existing record if found and not expired, None otherwise
         """
@@ -58,7 +57,7 @@ class IdempotencyStore:
 
             if record:
                 # Check if record is expired
-                expiry_time = datetime.fromisoformat(record['expires_at'])
+                expiry_time = datetime.fromisoformat(record["expires_at"])
                 if datetime.utcnow() > expiry_time:
                     # Record expired, delete it
                     self._repository.delete_item(idempotency_key)
@@ -73,9 +72,11 @@ class IdempotencyStore:
             return None
 
     @tracer.capture_method
-    def save_inprogress(self, idempotency_key: str, request_data: dict[str, Any]) -> None:
+    def save_inprogress(
+        self, idempotency_key: str, request_data: dict[str, Any]
+    ) -> None:
         """Save in-progress idempotency record.
-        
+
         Args:
             idempotency_key: Unique key for the operation
             request_data: Original request data
@@ -84,37 +85,33 @@ class IdempotencyStore:
             expiry_time = datetime.utcnow() + timedelta(seconds=self.ttl_seconds)
 
             record = {
-                'idempotency_key': idempotency_key,
-                'status': 'INPROGRESS',
-                'request_data': request_data,
-                'expires_at': expiry_time.isoformat(),
-                'created_at': datetime.utcnow().isoformat()
+                "idempotency_key": idempotency_key,
+                "status": "INPROGRESS",
+                "request_data": request_data,
+                "expires_at": expiry_time.isoformat(),
+                "created_at": datetime.utcnow().isoformat(),
             }
 
             # Use condition to prevent overwriting existing records
             self._repository.put_item(
                 item=record,
-                condition_expression='attribute_not_exists(idempotency_key)'
+                condition_expression="attribute_not_exists(idempotency_key)",
             )
 
             logger.debug(f"Saved INPROGRESS record for key: {idempotency_key}")
 
         except Exception as e:
-            if 'ConditionalCheckFailedException' in str(e):
+            if "ConditionalCheckFailedException" in str(e):
                 raise IdempotencyError(
                     f"Operation already in progress for key: {idempotency_key}",
-                    key=idempotency_key
+                    key=idempotency_key,
                 )
             raise IdempotencyError(f"Failed to save idempotency record: {e}")
 
     @tracer.capture_method
-    def save_success(
-        self,
-        idempotency_key: str,
-        response_data: dict[str, Any]
-    ) -> None:
+    def save_success(self, idempotency_key: str, response_data: dict[str, Any]) -> None:
         """Save successful operation result.
-        
+
         Args:
             idempotency_key: Unique key for the operation
             response_data: Operation response data
@@ -122,13 +119,13 @@ class IdempotencyStore:
         try:
             self._repository.update_item(
                 key=idempotency_key,
-                update_expression='SET #status = :status, response_data = :response, completed_at = :completed',
-                expression_attribute_names={'#status': 'status'},
+                update_expression="SET #status = :status, response_data = :response, completed_at = :completed",
+                expression_attribute_names={"#status": "status"},
                 expression_attribute_values={
-                    ':status': 'COMPLETED',
-                    ':response': response_data,
-                    ':completed': datetime.utcnow().isoformat()
-                }
+                    ":status": "COMPLETED",
+                    ":response": response_data,
+                    ":completed": datetime.utcnow().isoformat(),
+                },
             )
 
             logger.debug(f"Saved COMPLETED record for key: {idempotency_key}")
@@ -139,7 +136,7 @@ class IdempotencyStore:
     @tracer.capture_method
     def delete_record(self, idempotency_key: str) -> None:
         """Delete idempotency record (used for cleanup on error).
-        
+
         Args:
             idempotency_key: Unique key for the operation
         """
@@ -160,10 +157,10 @@ class IdempotencyConfig:
         payload_validation_jmespath: str | None = None,
         raise_on_no_idempotency_key: bool = True,
         expires_after_seconds: int = 3600,
-        use_local_cache: bool = False
+        use_local_cache: bool = False,
     ):
         """Initialize idempotency configuration.
-        
+
         Args:
             event_key_jmespath: JMESPath expression to extract idempotency key from event
             payload_validation_jmespath: JMESPath for payload validation hash
@@ -179,26 +176,24 @@ class IdempotencyConfig:
 
 
 def generate_idempotency_key(
-    event: dict[str, Any],
-    context: LambdaContext,
-    config: IdempotencyConfig
+    event: dict[str, Any], context: LambdaContext, config: IdempotencyConfig
 ) -> str:
     """Generate idempotency key from Lambda event.
-    
+
     Args:
         event: Lambda event data
         context: Lambda context
         config: Idempotency configuration
-        
+
     Returns:
         Generated idempotency key
-        
+
     Raises:
         IdempotencyError: If key cannot be generated
     """
     try:
         # Extract base key from event using simple key path
-        key_parts = config.event_key_jmespath.split('.')
+        key_parts = config.event_key_jmespath.split(".")
         base_key = event
 
         for part in key_parts:
@@ -206,19 +201,18 @@ def generate_idempotency_key(
                 base_key = base_key[part]
             else:
                 if config.raise_on_no_idempotency_key:
-                    raise IdempotencyError(f"Idempotency key not found: {config.event_key_jmespath}")
+                    raise IdempotencyError(
+                        f"Idempotency key not found: {config.event_key_jmespath}"
+                    )
                 base_key = "unknown"
                 break
 
         # Create hash components
-        hash_data = {
-            'function_name': context.function_name,
-            'key': str(base_key)
-        }
+        hash_data = {"function_name": context.function_name, "key": str(base_key)}
 
         # Add payload validation if configured
         if config.payload_validation_jmespath:
-            validation_parts = config.payload_validation_jmespath.split('.')
+            validation_parts = config.payload_validation_jmespath.split(".")
             validation_data = event
 
             for part in validation_parts:
@@ -229,7 +223,7 @@ def generate_idempotency_key(
                     break
 
             if validation_data:
-                hash_data['payload_hash'] = hashlib.md5(
+                hash_data["payload_hash"] = hashlib.md5(
                     json.dumps(validation_data, sort_keys=True).encode()
                 ).hexdigest()
 
@@ -245,17 +239,17 @@ def generate_idempotency_key(
 
 def idempotent(
     config: IdempotencyConfig | None = None,
-    persistence_store: IdempotencyStore | None = None
+    persistence_store: IdempotencyStore | None = None,
 ) -> Callable[[F], F]:
     """Decorator to make Lambda functions idempotent.
-    
+
     Args:
         config: Idempotency configuration
         persistence_store: Custom persistence store
-        
+
     Returns:
         Decorated function that handles idempotency
-        
+
     Example:
         @idempotent(config=IdempotencyConfig(event_key_jmespath="docId"))
         def lambda_handler(event, context):
@@ -267,16 +261,16 @@ def idempotent(
 
     # Use default store if none provided
     if persistence_store is None:
-        persistence_store = IdempotencyStore(
-            ttl_seconds=config.expires_after_seconds
-        )
+        persistence_store = IdempotencyStore(ttl_seconds=config.expires_after_seconds)
 
     def decorator(func: F) -> F:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Extract event and context from args
             if len(args) < 2:
-                raise IdempotencyError("Lambda function must have event and context parameters")
+                raise IdempotencyError(
+                    "Lambda function must have event and context parameters"
+                )
 
             event = args[0]
             context = args[1]
@@ -294,20 +288,19 @@ def idempotent(
                 existing_record = persistence_store.get_record(idempotency_key)
 
                 if existing_record:
-                    if existing_record['status'] == 'COMPLETED':
+                    if existing_record["status"] == "COMPLETED":
                         logger.info("Returning cached result for idempotent operation")
-                        return existing_record['response_data']
+                        return existing_record["response_data"]
 
-                    elif existing_record['status'] == 'INPROGRESS':
+                    elif existing_record["status"] == "INPROGRESS":
                         raise IdempotencyError(
                             f"Operation already in progress: {idempotency_key}",
-                            key=idempotency_key
+                            key=idempotency_key,
                         )
 
                 # Save in-progress record
                 persistence_store.save_inprogress(
-                    idempotency_key=idempotency_key,
-                    request_data=event
+                    idempotency_key=idempotency_key, request_data=event
                 )
 
                 try:
@@ -316,8 +309,7 @@ def idempotent(
 
                     # Save successful result
                     persistence_store.save_success(
-                        idempotency_key=idempotency_key,
-                        response_data=result
+                        idempotency_key=idempotency_key, response_data=result
                     )
 
                     logger.info("Successfully completed idempotent operation")
@@ -341,39 +333,33 @@ def idempotent(
 
 
 # Convenience decorators for common patterns
-def idempotent_by_doc_id(
-    expires_after_seconds: int = 3600
-) -> Callable[[F], F]:
+def idempotent_by_doc_id(expires_after_seconds: int = 3600) -> Callable[[F], F]:
     """Decorator for functions that should be idempotent by document ID.
-    
+
     Args:
         expires_after_seconds: Expiration time for idempotency records
-        
+
     Returns:
         Decorated function
     """
     return idempotent(
         config=IdempotencyConfig(
-            event_key_jmespath="docId",
-            expires_after_seconds=expires_after_seconds
+            event_key_jmespath="docId", expires_after_seconds=expires_after_seconds
         )
     )
 
 
-def idempotent_by_job_id(
-    expires_after_seconds: int = 3600
-) -> Callable[[F], F]:
+def idempotent_by_job_id(expires_after_seconds: int = 3600) -> Callable[[F], F]:
     """Decorator for functions that should be idempotent by job ID.
-    
+
     Args:
         expires_after_seconds: Expiration time for idempotency records
-        
+
     Returns:
         Decorated function
     """
     return idempotent(
         config=IdempotencyConfig(
-            event_key_jmespath="jobId",
-            expires_after_seconds=expires_after_seconds
+            event_key_jmespath="jobId", expires_after_seconds=expires_after_seconds
         )
     )

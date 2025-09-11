@@ -6,28 +6,28 @@
 import { ObjectId } from 'mongodb';
 
 // Base types and enums
-export type DocumentStatus = 
-  | 'pending' 
-  | 'processing' 
-  | 'completed' 
-  | 'failed' 
-  | 'validation_failed' 
+export type DocumentStatus =
+  | 'pending'
+  | 'processing'
+  | 'completed'
+  | 'failed'
+  | 'validation_failed'
   | 'notification_failed';
 
-export type JobStatus = 
-  | 'pending' 
-  | 'running' 
-  | 'completed' 
-  | 'failed' 
-  | 'retry' 
+export type JobStatus =
+  | 'pending'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'retry'
   | 'timeout';
 
-export type ProcessingStep = 
-  | 'structure' 
-  | 'ocr' 
-  | 'tagger' 
-  | 'validator' 
-  | 'exporter' 
+export type ProcessingStep =
+  | 'structure'
+  | 'ocr'
+  | 'tagger'
+  | 'validator'
+  | 'exporter'
   | 'notifier';
 
 export type ValidationLevel = 'error' | 'warning' | 'info';
@@ -82,10 +82,10 @@ export interface StepResult {
   errorMessage?: string | null;
   // Step-specific metrics
   elementsProcessed?: number | null; // structure
-  figuresProcessed?: number | null;   // alt text
-  tagsApplied?: number | null;        // tagging
-  issuesFound?: number | null;        // validation
-  exportsGenerated?: number | null;   // exports
+  figuresProcessed?: number | null; // alt text
+  tagsApplied?: number | null; // tagging
+  issuesFound?: number | null; // validation
+  exportsGenerated?: number | null; // exports
 }
 
 export interface AIManifest {

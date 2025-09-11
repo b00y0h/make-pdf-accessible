@@ -14,12 +14,14 @@ I've implemented a complete production-ready upload system with direct S3 upload
 ### Backend API Endpoints (`services/api/app/routes/documents.py`)
 
 #### 1. Pre-signed Upload URL Endpoint
+
 - **POST** `/documents/upload/presigned`
 - Validates file size, type, and generates secure S3 upload URL
 - Returns upload URL, fields, S3 key, and generated document ID
 - Includes proper error handling and validation
 
 #### 2. Document Creation Endpoint
+
 - **POST** `/documents/create`
 - Creates document record after successful S3 upload
 - Verifies S3 file existence and enqueues for processing
@@ -28,6 +30,7 @@ I've implemented a complete production-ready upload system with direct S3 upload
 ### Frontend Components
 
 #### 1. Accessible File Upload Component (`components/FileUpload.tsx`)
+
 - **Drag-and-drop** with keyboard navigation support
 - **Screen reader compatible** with proper ARIA labels
 - **Visual feedback** for drag states (accept/reject)
@@ -36,6 +39,7 @@ I've implemented a complete production-ready upload system with direct S3 upload
 - **File size and type validation** with user-friendly errors
 
 #### 2. S3 Upload Hook (`hooks/useS3Upload.ts`)
+
 - **Direct S3 uploads** with XMLHttpRequest progress tracking
 - **Error handling** with specific error messages
 - **Sequential uploads** to avoid server overload
@@ -43,6 +47,7 @@ I've implemented a complete production-ready upload system with direct S3 upload
 - **File metadata preservation** and validation
 
 #### 3. Document Polling Hook (`hooks/useDocumentPolling.ts`)
+
 - **React Query integration** for efficient data fetching
 - **Live polling** with configurable intervals (2 second default)
 - **Smart polling** that stops on completion/failure
@@ -50,6 +55,7 @@ I've implemented a complete production-ready upload system with direct S3 upload
 - **Background refresh** capabilities
 
 #### 4. Upload Page (`app/upload/page.tsx`)
+
 - **Multi-file upload support** with drag-and-drop
 - **Settings panel** for priority processing and webhooks
 - **Real-time progress tracking** for all files
@@ -57,6 +63,7 @@ I've implemented a complete production-ready upload system with direct S3 upload
 - **Comprehensive error handling** with retry options
 
 #### 5. Document Detail Page (`app/documents/[id]/page.tsx`)
+
 - **Live status polling** with visual indicators
 - **Processing duration tracking**
 - **Download links** for completed documents
@@ -66,12 +73,14 @@ I've implemented a complete production-ready upload system with direct S3 upload
 ## Key Features Implemented
 
 ### ✅ Direct S3 Upload with Progress
+
 - Files upload directly to S3 using pre-signed POST URLs
 - Real-time progress tracking with XMLHttpRequest
 - No server bandwidth usage for file transfers
 - Supports large files with chunked upload capability
 
 ### ✅ Accessible UI/UX
+
 - **WCAG 2.1 AA compliant** drag-and-drop interface
 - **Keyboard navigation** support throughout
 - **Screen reader announcements** for all state changes
@@ -79,6 +88,7 @@ I've implemented a complete production-ready upload system with direct S3 upload
 - **Focus management** and proper tab ordering
 
 ### ✅ File Validation
+
 - **Size limits** (100MB default, configurable)
 - **Type validation** (PDF, DOC, DOCX, TXT)
 - **Client-side validation** before upload
@@ -86,6 +96,7 @@ I've implemented a complete production-ready upload system with direct S3 upload
 - **Clear error messages** with resolution suggestions
 
 ### ✅ Error Handling
+
 - **Network error recovery** with exponential backoff
 - **File validation errors** with specific guidance
 - **Server error handling** with user-friendly messages
@@ -93,6 +104,7 @@ I've implemented a complete production-ready upload system with direct S3 upload
 - **Comprehensive logging** for debugging
 
 ### ✅ Live Status Polling
+
 - **React Query integration** with automatic refetching
 - **Configurable polling intervals** (2s default)
 - **Smart polling cessation** on completion
@@ -100,6 +112,7 @@ I've implemented a complete production-ready upload system with direct S3 upload
 - **Background polling** when tab is inactive
 
 ### ✅ Performance Optimizations
+
 - **Sequential uploads** to prevent server overload
 - **Connection reuse** in React Query
 - **Optimistic UI updates**
@@ -138,11 +151,12 @@ services/api/app/
 ## Usage Flow
 
 ### 1. Upload Process
+
 ```typescript
 // User drags file to upload area
 const files = await uploadFiles([file], {
   priority: false,
-  webhookUrl: 'https://example.com/webhook'
+  webhookUrl: 'https://example.com/webhook',
 });
 
 // Automatic redirect to document detail
@@ -150,17 +164,19 @@ router.push(`/documents/${files[0].doc_id}`);
 ```
 
 ### 2. Status Polling
+
 ```typescript
 // Automatic polling starts on document detail page
 const { document, isPolling } = useDocumentPolling(docId, {
   refetchInterval: 2000,
-  stopPollingOnStatus: ['completed', 'failed']
+  stopPollingOnStatus: ['completed', 'failed'],
 });
 ```
 
 ## Environment Configuration
 
 ### Backend Environment Variables
+
 ```bash
 # S3 Configuration
 PDF_ORIGINALS_BUCKET=pdf-originals-bucket
@@ -173,6 +189,7 @@ CORS_ORIGINS=["http://localhost:3000", "https://yourdomain.com"]
 ```
 
 ### Frontend Environment Variables
+
 ```bash
 # API Configuration
 API_BASE_URL=http://localhost:8000  # or production API URL
@@ -182,6 +199,7 @@ NEXT_PUBLIC_MAX_FILE_SIZE=104857600
 ## Testing & Accessibility
 
 ### Accessibility Features
+
 - **Screen reader support** with proper ARIA labels
 - **Keyboard navigation** throughout the interface
 - **High contrast mode** compatibility
@@ -189,6 +207,7 @@ NEXT_PUBLIC_MAX_FILE_SIZE=104857600
 - **Error announcements** via `aria-live` regions
 
 ### Browser Compatibility
+
 - **Modern browsers** (Chrome 90+, Firefox 88+, Safari 14+)
 - **Mobile responsive** design
 - **Progressive enhancement** for older browsers
@@ -197,6 +216,7 @@ NEXT_PUBLIC_MAX_FILE_SIZE=104857600
 ## Production Considerations
 
 ### Security
+
 - **Pre-signed URLs** with expiration and conditions
 - **File type validation** on both client and server
 - **CORS configuration** for cross-origin requests
@@ -204,6 +224,7 @@ NEXT_PUBLIC_MAX_FILE_SIZE=104857600
 - **XSS protection** with proper sanitization
 
 ### Performance
+
 - **CDN distribution** for static assets
 - **Gzip compression** enabled
 - **Tree shaking** for minimal bundle sizes
@@ -211,6 +232,7 @@ NEXT_PUBLIC_MAX_FILE_SIZE=104857600
 - **Image optimization** with Next.js Image component
 
 ### Monitoring
+
 - **Error tracking** with structured logging
 - **Performance metrics** via AWS Lambda Powertools
 - **Upload success rates** tracked in CloudWatch

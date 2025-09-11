@@ -4,19 +4,19 @@ import React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDocumentPolling } from '../../../hooks/useDocumentPolling';
 import { AltTextReview } from '../../../components/AltTextReview';
-import { 
-  ChevronLeft, 
-  File, 
-  Clock, 
-  CheckCircle, 
-  AlertCircle, 
+import {
+  ChevronLeft,
+  File,
+  Clock,
+  CheckCircle,
+  AlertCircle,
   Download,
   RefreshCw,
   Calendar,
   User,
   Tag,
   ExternalLink,
-  Eye
+  Eye,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -27,7 +27,7 @@ const STATUS_CONFIG = {
     bgColor: 'bg-yellow-50',
     borderColor: 'border-yellow-200',
     label: 'Pending',
-    description: 'Document is queued for processing'
+    description: 'Document is queued for processing',
   },
   processing: {
     icon: RefreshCw,
@@ -35,7 +35,7 @@ const STATUS_CONFIG = {
     bgColor: 'bg-blue-50',
     borderColor: 'border-blue-200',
     label: 'Processing',
-    description: 'Document is being processed for accessibility'
+    description: 'Document is being processed for accessibility',
   },
   completed: {
     icon: CheckCircle,
@@ -43,7 +43,7 @@ const STATUS_CONFIG = {
     bgColor: 'bg-green-50',
     borderColor: 'border-green-200',
     label: 'Completed',
-    description: 'Document processing completed successfully'
+    description: 'Document processing completed successfully',
   },
   failed: {
     icon: AlertCircle,
@@ -51,7 +51,7 @@ const STATUS_CONFIG = {
     bgColor: 'bg-red-50',
     borderColor: 'border-red-200',
     label: 'Failed',
-    description: 'Document processing failed'
+    description: 'Document processing failed',
   },
   validation_failed: {
     icon: AlertCircle,
@@ -59,8 +59,8 @@ const STATUS_CONFIG = {
     bgColor: 'bg-red-50',
     borderColor: 'border-red-200',
     label: 'Validation Failed',
-    description: 'Document validation failed'
-  }
+    description: 'Document validation failed',
+  },
 };
 
 export default function DocumentDetailPage() {
@@ -68,16 +68,16 @@ export default function DocumentDetailPage() {
   const router = useRouter();
   const docId = params.id as string;
 
-  const { 
-    document, 
-    isLoading, 
-    isError, 
-    error, 
-    isPolling, 
+  const {
+    document,
+    isLoading,
+    isError,
+    error,
+    isPolling,
     isProcessing,
     isCompleted,
     isFailed,
-    refetch 
+    refetch,
   } = useDocumentPolling(docId);
 
   const formatDate = (dateString: string) => {
@@ -86,11 +86,13 @@ export default function DocumentDetailPage() {
 
   const getProcessingDuration = () => {
     if (!document) return null;
-    
+
     const start = new Date(document.created_at);
-    const end = document.completed_at ? new Date(document.completed_at) : new Date();
+    const end = document.completed_at
+      ? new Date(document.completed_at)
+      : new Date();
     const duration = Math.floor((end.getTime() - start.getTime()) / 1000);
-    
+
     if (duration < 60) return `${duration} seconds`;
     if (duration < 3600) return `${Math.floor(duration / 60)} minutes`;
     return `${Math.floor(duration / 3600)} hours`;
@@ -116,7 +118,8 @@ export default function DocumentDetailPage() {
             Document Not Found
           </h2>
           <p className="text-gray-600 mb-4">
-            The document you're looking for doesn't exist or you don't have permission to view it.
+            The document you&apos;re looking for doesn&apos;t exist or you
+            don&apos;t have permission to view it.
           </p>
           <button
             onClick={() => router.back()}
@@ -129,7 +132,9 @@ export default function DocumentDetailPage() {
     );
   }
 
-  const statusConfig = STATUS_CONFIG[document.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pending;
+  const statusConfig =
+    STATUS_CONFIG[document.status as keyof typeof STATUS_CONFIG] ||
+    STATUS_CONFIG.pending;
   const StatusIcon = statusConfig.icon;
 
   return (
@@ -146,7 +151,7 @@ export default function DocumentDetailPage() {
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
-              
+
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 truncate max-w-md">
                   {document.filename || 'Untitled Document'}
@@ -185,18 +190,20 @@ export default function DocumentDetailPage() {
           {/* Main content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Status card */}
-            <div className={clsx(
-              'rounded-lg border-2 p-6',
-              statusConfig.bgColor,
-              statusConfig.borderColor
-            )}>
+            <div
+              className={clsx(
+                'rounded-lg border-2 p-6',
+                statusConfig.bgColor,
+                statusConfig.borderColor
+              )}
+            >
               <div className="flex items-center space-x-3">
-                <StatusIcon 
+                <StatusIcon
                   className={clsx(
                     'w-8 h-8',
                     statusConfig.color,
                     isProcessing && 'animate-spin'
-                  )} 
+                  )}
                 />
                 <div>
                   <h2 className="text-xl font-semibold text-gray-900">
@@ -220,7 +227,10 @@ export default function DocumentDetailPage() {
                     <span>Processing in progress...</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: '60%' }} />
+                    <div
+                      className="bg-blue-600 h-2 rounded-full animate-pulse"
+                      style={{ width: '60%' }}
+                    />
                   </div>
                 </div>
               )}
@@ -244,9 +254,7 @@ export default function DocumentDetailPage() {
             )}
 
             {/* Alt-text review */}
-            {isCompleted && (
-              <AltTextReview documentId={docId} />
-            )}
+            {isCompleted && <AltTextReview documentId={docId} />}
 
             {/* Available downloads */}
             {isCompleted && Object.keys(document.artifacts).length > 0 && (
@@ -302,7 +310,7 @@ export default function DocumentDetailPage() {
                     {formatDate(document.created_at)}
                   </dd>
                 </div>
-                
+
                 <div>
                   <dt className="flex items-center text-sm text-gray-500">
                     <RefreshCw className="w-4 h-4 mr-2" />
@@ -351,7 +359,9 @@ export default function DocumentDetailPage() {
                         {key}
                       </dt>
                       <dd className="text-sm text-gray-900">
-                        {typeof value === 'string' ? value : JSON.stringify(value)}
+                        {typeof value === 'string'
+                          ? value
+                          : JSON.stringify(value)}
                       </dd>
                     </div>
                   ))}
@@ -371,7 +381,7 @@ export default function DocumentDetailPage() {
                 >
                   Upload Another Document
                 </button>
-                
+
                 <button
                   onClick={() => router.push('/documents')}
                   className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"

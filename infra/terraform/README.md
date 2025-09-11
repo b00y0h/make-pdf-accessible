@@ -64,29 +64,29 @@ terraform apply
 
 ### Required Variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `aws_region` | AWS region for resources | `us-east-1` |
-| `project_name` | Name prefix for resources | `pdf-accessibility` |
-| `environment` | Environment name | `dev`, `staging`, `prod` |
-| `github_repo` | GitHub repo for OIDC | `owner/repository` |
+| Variable       | Description               | Example                  |
+| -------------- | ------------------------- | ------------------------ |
+| `aws_region`   | AWS region for resources  | `us-east-1`              |
+| `project_name` | Name prefix for resources | `pdf-accessibility`      |
+| `environment`  | Environment name          | `dev`, `staging`, `prod` |
+| `github_repo`  | GitHub repo for OIDC      | `owner/repository`       |
 
 ### Optional Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `domain_name` | Custom domain name | `""` |
-| `certificate_arn` | ACM certificate ARN | `""` |
-| `enable_waf` | Enable WAF protection | `true` |
-| `log_retention_days` | CloudWatch log retention | `30` |
+| Variable             | Description              | Default |
+| -------------------- | ------------------------ | ------- |
+| `domain_name`        | Custom domain name       | `""`    |
+| `certificate_arn`    | ACM certificate ARN      | `""`    |
+| `enable_waf`         | Enable WAF protection    | `true`  |
+| `log_retention_days` | CloudWatch log retention | `30`    |
 
 ### VPC Configuration
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `vpc_cidr` | VPC CIDR block | `10.0.0.0/16` |
-| `private_subnet_cidrs` | Private subnet CIDRs | `["10.0.1.0/24", "10.0.2.0/24"]` |
-| `public_subnet_cidrs` | Public subnet CIDRs | `["10.0.101.0/24", "10.0.102.0/24"]` |
+| Variable               | Description          | Default                              |
+| ---------------------- | -------------------- | ------------------------------------ |
+| `vpc_cidr`             | VPC CIDR block       | `10.0.0.0/16`                        |
+| `private_subnet_cidrs` | Private subnet CIDRs | `["10.0.1.0/24", "10.0.2.0/24"]`     |
+| `public_subnet_cidrs`  | Public subnet CIDRs  | `["10.0.101.0/24", "10.0.102.0/24"]` |
 
 ## GitHub Actions OIDC Setup
 
@@ -125,26 +125,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-      
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ~1.8
-      
+
       - name: Terraform Init
         run: terraform init
         working-directory: infra/terraform
-      
+
       - name: Terraform Plan
         run: terraform plan
         working-directory: infra/terraform
-      
+
       - name: Terraform Apply
         run: terraform apply -auto-approve
         working-directory: infra/terraform
@@ -190,18 +190,21 @@ terraform init
 ## Security Features
 
 ### Encryption
+
 - **S3**: KMS encryption for all buckets
 - **DynamoDB**: KMS encryption with point-in-time recovery
 - **SQS**: KMS encryption for all queues
 - **CloudWatch**: Encrypted log groups
 
 ### Network Security
+
 - **VPC**: Private subnets with NAT gateways
 - **VPC Endpoints**: Secure access to AWS services
 - **Security Groups**: Least privilege network access
 - **WAF**: Web application firewall for CloudFront
 
 ### Access Control
+
 - **IAM**: Least privilege roles and policies
 - **Cognito**: Multi-factor authentication support
 - **API Gateway**: JWT authorization
@@ -210,17 +213,20 @@ terraform init
 ## Monitoring and Logging
 
 ### CloudWatch Alarms
+
 - DynamoDB throttling
 - SQS queue depth and age
 - Dead letter queue messages
 
 ### Logging
+
 - API Gateway access logs
 - CloudFront access logs
 - Step Functions execution logs
 - WAF logs
 
 ### X-Ray Tracing
+
 - Lambda function tracing
 - Step Functions tracing
 
@@ -238,6 +244,7 @@ terraform output web_app_url
 ```
 
 Key outputs include:
+
 - `api_gateway_url`: API Gateway endpoint
 - `web_app_url`: Web application URL
 - `cognito_user_pool_id`: Cognito User Pool ID
@@ -248,6 +255,7 @@ Key outputs include:
 ### Adding Custom Domains
 
 1. Create ACM certificate in `us-east-1`:
+
 ```bash
 aws acm request-certificate \
   --domain-name myapp.example.com \
@@ -256,12 +264,14 @@ aws acm request-certificate \
 ```
 
 2. Update `terraform.tfvars`:
+
 ```hcl
 domain_name     = "myapp.example.com"
 certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/..."
 ```
 
 3. Apply changes:
+
 ```bash
 terraform apply
 ```
@@ -283,7 +293,7 @@ provider_details = {
 Customize the processing workflow in `state_machine_definition.json`:
 
 1. Add new states for additional processing steps
-2. Modify error handling and retry logic  
+2. Modify error handling and retry logic
 3. Update DynamoDB status tracking
 
 ## Troubleshooting
@@ -332,6 +342,7 @@ terraform refresh
 ## Support
 
 For issues and questions:
+
 - Check AWS service limits
 - Review CloudWatch logs
 - Validate IAM permissions
