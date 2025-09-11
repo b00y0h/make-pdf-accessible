@@ -15,7 +15,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from .config import settings
 from .middleware import APIKeyAuthMiddleware
 from .models import ErrorResponse, HealthResponse
-from .routes import admin, api_keys, auth, demo, documents, quotas, reports, webhooks, search
+from .routes import admin, api_keys, auth, demo, documents, quotas, reports, webhooks, search, embeddings, feedback, client, registration
 from .services import AWSServiceError
 
 # Initialize Powertools
@@ -314,6 +314,10 @@ app.include_router(quotas.router, prefix="/v1")
 app.include_router(api_keys.router, prefix="/v1")
 app.include_router(admin.router, prefix="/v1")
 app.include_router(search.router, prefix="/v1")
+app.include_router(feedback.router)
+app.include_router(client.router)
+app.include_router(registration.router)
+app.include_router(embeddings.router)  # No versioning for public API
 
 # Legacy routes (maintain backward compatibility)
 app.include_router(auth.router, tags=["legacy"])
