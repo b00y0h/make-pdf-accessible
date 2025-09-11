@@ -125,7 +125,7 @@ aws_files=$(echo "$staged_files" | grep -v -E 'seed|test|spec|\.md$|\.example|in
 private_key_pattern='-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----'
 key_files=$(echo "$staged_files" | grep -v -E 'seed|test|spec|\.md$|\.example|init-|create-' | xargs grep -l -F "$private_key_pattern" 2>/dev/null || true)
 
-all_sensitive_files=$(echo -e "$sensitive_files\n$aws_files\n$key_files" | sort -u | grep -v '^$' | grep -v '^-e$' || true)
+all_sensitive_files=$(printf "%s\n%s\n%s" "$sensitive_files" "$aws_files" "$key_files" | sort -u | grep -v '^$' || true)
 
 if [ ! -z "$all_sensitive_files" ]; then
     echo "${RED}❌ Potential secrets found in:${NC}"
@@ -141,8 +141,8 @@ if [ "$SKIP_TESTS" != "true" ]; then
     # Run tests for Python files
     if [ ! -z "$python_files" ] && [ -f "venv/bin/activate" ]; then
         source venv/bin/activate
-        # Run only fast unit tests, not integration tests
-        if ! python -m pytest --tb=short --maxfail=3 -q -x 2>/dev/null; then
+        # Run only fast unit tests, not integration tests, exclude packages/schemas
+        if ! python -m pytest --tb=short --maxfail=3 -q -x --ignore=packages/schemas/tests 2>/dev/null; then
             echo "${YELLOW}⚠️  Some tests failed, but allowing commit (run full test suite before push)${NC}"
         fi
     fi

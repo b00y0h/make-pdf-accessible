@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -53,15 +53,34 @@ class Settings(BaseSettings):
 
     # Security
     webhook_secret_key: str = Field("", env="WEBHOOK_SECRET_KEY")
-    cors_origins: list[str] = Field(
-        [
-            "http://localhost:3000",
-            "https://localhost:3000",
-            "http://localhost:3001",
-            "https://localhost:3001",
-        ],
-        env="CORS_ORIGINS",
-    )
+    cors_origins: Optional[list[str]] = None
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v):
+        # If not set, use defaults
+        if v is None:
+            return [
+                "http://localhost:3000",
+                "https://localhost:3000",
+                "http://localhost:3001",
+                "https://localhost:3001",
+            ]
+        # If it's a string from environment, split it
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
+
+    @field_validator("allowed_file_types", mode="before")
+    @classmethod
+    def parse_allowed_file_types(cls, v):
+        # If not set, use defaults
+        if v is None:
+            return [".pdf", ".doc", ".docx", ".txt"]
+        # If it's a string from environment, split it
+        if isinstance(v, str):
+            return [ext.strip() for ext in v.split(",") if ext.strip()]
+        return v
 
     # Virus Scanning Configuration
     enable_virus_scanning: bool = Field(True, env="ENABLE_VIRUS_SCANNING")
@@ -78,9 +97,7 @@ class Settings(BaseSettings):
 
     # File Upload Configuration
     max_file_size: int = Field(100 * 1024 * 1024, env="MAX_FILE_SIZE")  # 100MB
-    allowed_file_types: list[str] = Field(
-        [".pdf", ".doc", ".docx", ".txt"], env="ALLOWED_FILE_TYPES"
-    )
+    allowed_file_types: Optional[list[str]] = None
 
     # Rate Limiting
     rate_limit_per_minute: int = Field(60, env="RATE_LIMIT_PER_MINUTE")
