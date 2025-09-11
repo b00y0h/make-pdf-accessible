@@ -1,0 +1,113 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo "${YELLOW}🚀 Running pre-push checks...${NC}"
+
+# Get current branch
+current_branch=$(git branch --show-current)
+
+# Protected branches that require extra checks
+protected_branches="main develop"
+
+if echo "$protected_branches" | grep -w "$current_branch" > /dev/null; then
+    echo "${YELLOW}🛡️  Pushing to protected branch: $current_branch${NC}"
+    
+    # Run comprehensive tests
+    echo "${YELLOW}🧪 Running comprehensive test suite...${NC}"
+    
+    # Check if virtual environment exists and run Python tests
+    if [ -f "venv/bin/activate" ]; then
+        source venv/bin/activate
+        echo "${YELLOW}  Running Python tests...${NC}"
+        if ! python -m pytest services/api/tests/ services/worker/tests/ --tb=short; then
+            echo "${RED}❌ Python tests failed!${NC}"
+            exit 1
+        fi
+    fi
+    
+    # Check if pnpm is available and run Node.js tests
+    if command -v pnpm >/dev/null 2>&1 && [ -d "node_modules" ]; then
+        echo "${YELLOW}  Running TypeScript tests...${NC}"
+        if ! pnpm run test:unit; then
+            echo "${RED}❌ TypeScript tests failed!${NC}"
+            exit 1
+        fi
+        
+        # Run type checking
+        echo "${YELLOW}  Running type checks...${NC}"
+        if ! pnpm run type-check; then
+            echo "${RED}❌ Type checking failed!${NC}"
+            exit 1
+        fi
+        
+        # Run linting
+        echo "${YELLOW}  Running linting...${NC}"
+        if ! pnpm run lint; then
+            echo "${RED}❌ Linting failed!${NC}"
+            exit 1
+        fi
+    fi
+    
+    # Check for proper commit message format on main/develop
+    last_commit_msg=$(git log -1 --pretty=%B)
+    if ! echo "$last_commit_msg" | grep -E "^(feat|fix|docs|style|refactor|perf|test|chore|ci)(\(.+\))?: .+" > /dev/null; then
+        echo "${RED}❌ Invalid commit message format!${NC}"
+        echo "${YELLOW}💡 Use conventional commits: type(scope): description${NC}"
+        echo "${YELLOW}   Examples: feat(auth): add user login, fix(api): resolve 404 error${NC}"
+        exit 1
+    fi
+    
+else
+    echo "${YELLOW}📝 Pushing to feature branch: $current_branch${NC}"
+    
+    # Run lighter checks for feature branches
+    echo "${YELLOW}🔍 Running quick checks...${NC}"
+    
+    # Quick linting check
+    if command -v pnpm >/dev/null 2>&1 && [ -d "node_modules" ]; then
+        if ! pnpm run lint --quiet; then
+            echo "${RED}❌ Linting issues found!${NC}"
+            echo "${YELLOW}💡 Run: pnpm run lint --fix${NC}"
+            exit 1
+        fi
+    fi
+    
+    # Quick Python check
+    if [ -f "venv/bin/activate" ]; then
+        source venv/bin/activate
+        if ! ./venv/bin/ruff check .; then
+            echo "${RED}❌ Python linting issues found!${NC}"
+            echo "${YELLOW}💡 Run: ./venv/bin/ruff check --fix .${NC}"
+            exit 1
+        fi
+    fi
+fi
+
+# Check for large files (>10MB)
+echo "${YELLOW}📏 Checking for large files...${NC}"
+large_files=$(git diff --cached --name-only | xargs ls -la 2>/dev/null | awk '$5 > 10485760 {print $9 " (" $5 " bytes)"}')
+if [ ! -z "$large_files" ]; then
+    echo "${RED}❌ Large files detected:${NC}"
+    echo "$large_files"
+    echo "${YELLOW}💡 Consider using Git LFS for large files${NC}"
+    exit 1
+fi
+
+# Check for private/sensitive files
+echo "${YELLOW}🔒 Checking for sensitive files...${NC}"
+sensitive_files=$(git diff --cached --name-only | grep -E "\.(pem|key|p12|pfx|env\.local|\.env\..+)$" || true)
+if [ ! -z "$sensitive_files" ]; then
+    echo "${RED}❌ Sensitive files detected:${NC}"
+    echo "$sensitive_files"
+    echo "${YELLOW}💡 Add these files to .gitignore${NC}"
+    exit 1
+fi
+
+echo "${GREEN}✅ Pre-push checks completed successfully!${NC}"
+exit 0

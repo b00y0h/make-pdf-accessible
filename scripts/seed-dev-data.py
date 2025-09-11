@@ -9,7 +9,7 @@ import random
 import sys
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, List
+from typing import Any
 
 # Add services to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "services", "api"))
@@ -33,7 +33,7 @@ def setup_environment():
     )
 
 
-def generate_sample_users() -> List[Dict[str, Any]]:
+def generate_sample_users() -> list[dict[str, Any]]:
     """Generate sample users (BetterAuth format - sub only)."""
     users = [
         {
@@ -70,7 +70,7 @@ def generate_sample_users() -> List[Dict[str, Any]]:
     return users
 
 
-def generate_document_data(users: List[Dict]) -> List[Dict[str, Any]]:
+def generate_document_data(users: list[dict]) -> list[dict[str, Any]]:
     """Generate sample documents with realistic data."""
 
     sample_filenames = [
@@ -99,7 +99,7 @@ def generate_document_data(users: List[Dict]) -> List[Dict[str, Any]]:
 
     documents = []
 
-    for i in range(25):  # Generate 25 sample documents
+    for _i in range(25):  # Generate 25 sample documents
         doc_id = str(uuid.uuid4())
         owner = random.choice(users)
         filename = random.choice(sample_filenames)
@@ -180,7 +180,7 @@ def generate_document_data(users: List[Dict]) -> List[Dict[str, Any]]:
     return documents
 
 
-def generate_job_data(documents: List[Dict]) -> List[Dict[str, Any]]:
+def generate_job_data(documents: list[dict]) -> list[dict[str, Any]]:
     """Generate jobs for the documents."""
 
     steps = ["structure", "ocr", "tagger", "validator", "exporter", "notifier"]
@@ -334,7 +334,7 @@ async def seed_database():
         print("📄 Inserting documents...")
         for i, doc in enumerate(documents):
             try:
-                result = pm.create_document(doc)
+                pm.create_document(doc)
                 if (i + 1) % 5 == 0:
                     print(f"  Inserted {i + 1}/{len(documents)} documents")
             except Exception as e:
@@ -344,7 +344,7 @@ async def seed_database():
         print("⚙️  Inserting jobs...")
         for i, job in enumerate(jobs):
             try:
-                result = pm.create_job(job)
+                pm.create_job(job)
                 if (i + 1) % 10 == 0:
                     print(f"  Inserted {i + 1}/{len(jobs)} jobs")
             except Exception as e:

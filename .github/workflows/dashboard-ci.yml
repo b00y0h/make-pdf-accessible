@@ -1,0 +1,411 @@
+name: Dashboard CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'dashboard/**'
+      - '.github/workflows/dashboard-ci.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'dashboard/**'
+      - '.github/workflows/dashboard-ci.yml'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '18'
+  PNPM_VERSION: '8'
+
+jobs:
+  # Setup and dependency installation
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-dashboard-${{ hashFiles('dashboard/pnpm-lock.yaml', 'pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-dashboard-
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+  # Type checking and linting
+  lint-and-type-check:
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-dashboard-${{ hashFiles('dashboard/pnpm-lock.yaml', 'pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript type check
+        run: |
+          pnpm --filter=accesspdf-dashboard run type-check
+          # Fail if TypeScript errors exist
+          if [ $? -ne 0 ]; then
+            echo "❌ TypeScript type checking failed"
+            exit 1
+          fi
+          echo "✅ TypeScript type checking passed"
+
+      - name: ESLint
+        run: |
+          pnpm --filter=accesspdf-dashboard run lint
+          # Fail if linting errors exist
+          if [ $? -ne 0 ]; then
+            echo "❌ ESLint checking failed"
+            exit 1
+          fi
+          echo "✅ ESLint checking passed"
+
+  # Unit tests
+  test-unit:
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-dashboard-${{ hashFiles('dashboard/pnpm-lock.yaml', 'pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run unit tests
+        run: |
+          pnpm --filter=accesspdf-dashboard run test:unit
+          # Fail if tests fail
+          if [ $? -ne 0 ]; then
+            echo "❌ Unit tests failed"
+            exit 1
+          fi
+          echo "✅ Unit tests passed"
+
+  # Integration tests
+  test-integration:
+    runs-on: ubuntu-latest
+    needs: [setup, lint-and-type-check]
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_USER: postgres
+          POSTGRES_DB: better_auth
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5433:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-dashboard-${{ hashFiles('dashboard/pnpm-lock.yaml', 'pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm --filter=accesspdf-dashboard exec playwright install --with-deps chromium
+
+      - name: Run integration tests
+        env:
+          AUTH_DATABASE_URL: postgresql://postgres:password@localhost:5433/better_auth
+          BETTER_AUTH_SECRET: test-secret-for-ci
+          BETTER_AUTH_URL: http://localhost:3001
+        run: |
+          pnpm --filter=accesspdf-dashboard run test:integration
+          # Fail if tests fail
+          if [ $? -ne 0 ]; then
+            echo "❌ Integration tests failed"
+            exit 1
+          fi
+          echo "✅ Integration tests passed"
+
+  # E2E tests
+  test-e2e:
+    runs-on: ubuntu-latest
+    needs: [setup, lint-and-type-check]
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_USER: postgres
+          POSTGRES_DB: better_auth
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5433:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-dashboard-${{ hashFiles('dashboard/pnpm-lock.yaml', 'pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm --filter=accesspdf-dashboard exec playwright install --with-deps
+
+      - name: Run E2E tests
+        env:
+          AUTH_DATABASE_URL: postgresql://postgres:password@localhost:5433/better_auth
+          BETTER_AUTH_SECRET: test-secret-for-ci
+          BETTER_AUTH_URL: http://localhost:3001
+        run: |
+          pnpm --filter=accesspdf-dashboard run test:e2e
+          # Fail if tests fail
+          if [ $? -ne 0 ]; then
+            echo "❌ E2E tests failed"
+            exit 1
+          fi
+          echo "✅ E2E tests passed"
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: playwright-report
+          path: dashboard/test-results/
+          retention-days: 7
+
+  # Authentication smoke test
+  test-auth:
+    runs-on: ubuntu-latest
+    needs: [setup, lint-and-type-check]
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_USER: postgres
+          POSTGRES_DB: better_auth
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5433:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-dashboard-${{ hashFiles('dashboard/pnpm-lock.yaml', 'pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run authentication smoke test
+        env:
+          AUTH_DATABASE_URL: postgresql://postgres:password@localhost:5433/better_auth
+          BETTER_AUTH_SECRET: test-secret-for-ci
+          BETTER_AUTH_URL: http://localhost:3001
+        run: |
+          # Start the dev server in background
+          pnpm --filter=accesspdf-dashboard dev &
+          SERVER_PID=$!
+          
+          # Wait for server to be ready
+          echo "Waiting for server to start..."
+          for i in {1..30}; do
+            if curl -s http://localhost:3001/api/auth/get-session > /dev/null; then
+              echo "Server is ready!"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "❌ Server failed to start"
+              kill $SERVER_PID 2>/dev/null
+              exit 1
+            fi
+            sleep 2
+          done
+          
+          # Run auth test
+          pnpm --filter=accesspdf-dashboard run test:auth
+          TEST_RESULT=$?
+          
+          # Kill the server
+          kill $SERVER_PID 2>/dev/null
+          
+          # Check test result
+          if [ $TEST_RESULT -ne 0 ]; then
+            echo "❌ Authentication tests failed"
+            exit 1
+          fi
+          echo "✅ Authentication tests passed"
+
+  # Build verification
+  build:
+    runs-on: ubuntu-latest
+    needs: [test-unit, test-integration, test-e2e, test-auth]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-dashboard-${{ hashFiles('dashboard/pnpm-lock.yaml', 'pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build dashboard
+        run: |
+          pnpm --filter=accesspdf-dashboard run build
+          # Fail if build fails
+          if [ $? -ne 0 ]; then
+            echo "❌ Dashboard build failed"
+            exit 1
+          fi
+          echo "✅ Dashboard build succeeded"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: dashboard-build
+          path: dashboard/.next/
+          retention-days: 7
+
+  # All tests must pass - this job is used as a required status check
+  all-tests-pass:
+    runs-on: ubuntu-latest
+    needs: [lint-and-type-check, test-unit, test-integration, test-e2e, test-auth, build]
+    if: always()
+    steps:
+      - name: Check all test results
+        run: |
+          # This job will only succeed if all dependencies succeeded
+          if [ "${{ needs.lint-and-type-check.result }}" != "success" ]; then
+            echo "❌ Lint and type check failed"
+            exit 1
+          fi
+          if [ "${{ needs.test-unit.result }}" != "success" ]; then
+            echo "❌ Unit tests failed"
+            exit 1
+          fi
+          if [ "${{ needs.test-integration.result }}" != "success" ]; then
+            echo "❌ Integration tests failed"
+            exit 1
+          fi
+          if [ "${{ needs.test-e2e.result }}" != "success" ]; then
+            echo "❌ E2E tests failed"
+            exit 1
+          fi
+          if [ "${{ needs.test-auth.result }}" != "success" ]; then
+            echo "❌ Authentication tests failed"
+            exit 1
+          fi
+          if [ "${{ needs.build.result }}" != "success" ]; then
+            echo "❌ Build failed"
+            exit 1
+          fi
+          echo "✅ All dashboard tests and checks passed!"

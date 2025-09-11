@@ -1,0 +1,84 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+commit_file="$1"
+commit_msg=$(cat "$commit_file")
+
+echo "${YELLOW}📝 Validating commit message...${NC}"
+
+# Check for conventional commit format
+conventional_pattern="^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?: .{1,50}"
+
+if echo "$commit_msg" | grep -qE "$conventional_pattern"; then
+    # Check message length (first line should be <= 72 chars)
+    first_line=$(echo "$commit_msg" | head -n1)
+    if [ ${#first_line} -gt 72 ]; then
+        echo "${RED}❌ Commit message first line too long (${#first_line} > 72 chars)${NC}"
+        echo "${YELLOW}💡 Keep the first line under 72 characters${NC}"
+        exit 1
+    fi
+    
+    # Check for proper capitalization (should not start with capital after colon)
+    if echo "$first_line" | grep -qE ": [A-Z]"; then
+        echo "${RED}❌ Description should not start with capital letter${NC}"
+        echo "${YELLOW}💡 Example: 'feat(auth): add user login' not 'feat(auth): Add user login'${NC}"
+        exit 1
+    fi
+    
+    # Check for period at end (should not have period)
+    if echo "$first_line" | grep -qE "\.$"; then
+        echo "${RED}❌ Commit message should not end with a period${NC}"
+        exit 1
+    fi
+    
+    # Check for empty body if commit is complex
+    if echo "$commit_msg" | grep -qE "^(feat|fix|refactor|perf)" && [ $(echo "$commit_msg" | wc -l) -eq 1 ] && [ ${#first_line} -gt 60 ]; then
+        echo "${YELLOW}⚠️  Consider adding a body for this complex change${NC}"
+    fi
+    
+    # Check for breaking changes
+    if echo "$commit_msg" | grep -qiE "(breaking change|BREAKING CHANGE)" && ! echo "$first_line" | grep -qE "!:"; then
+        echo "${YELLOW}⚠️  Breaking change detected but not marked in subject line${NC}"
+        echo "${YELLOW}💡 Add '!' before colon for breaking changes: feat!: remove deprecated API${NC}"
+    fi
+    
+    echo "${GREEN}✅ Commit message format is valid${NC}"
+    
+else
+    echo "${RED}❌ Invalid commit message format!${NC}"
+    echo ""
+    echo "${YELLOW}Expected format: type(scope): description${NC}"
+    echo ""
+    echo "${YELLOW}Types:${NC}"
+    echo "  feat:     A new feature"
+    echo "  fix:      A bug fix"
+    echo "  docs:     Documentation only changes"
+    echo "  style:    Changes that do not affect the meaning of the code"
+    echo "  refactor: A code change that neither fixes a bug nor adds a feature"
+    echo "  perf:     A code change that improves performance"
+    echo "  test:     Adding missing tests or correcting existing tests"
+    echo "  chore:    Other changes that don't modify src or test files"
+    echo "  ci:       Changes to CI configuration files and scripts"
+    echo "  build:    Changes that affect the build system or external dependencies"
+    echo "  revert:   Reverts a previous commit"
+    echo ""
+    echo "${YELLOW}Examples:${NC}"
+    echo "  feat(auth): add OAuth2 integration"
+    echo "  fix(api): resolve database connection timeout"
+    echo "  docs(readme): update installation instructions"
+    echo "  test(user): add unit tests for user service"
+    echo "  chore(deps): update dependencies"
+    echo ""
+    echo "${YELLOW}For breaking changes, add '!' before the colon:${NC}"
+    echo "  feat!: remove deprecated v1 API endpoints"
+    echo ""
+    echo "${RED}Your commit message:${NC}"
+    echo "$commit_msg"
+    exit 1
+fi

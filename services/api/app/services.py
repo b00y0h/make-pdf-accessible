@@ -3,7 +3,7 @@ import hmac
 import json
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 from urllib.parse import quote
 
 import boto3
@@ -53,7 +53,7 @@ class DocumentService:
         user_id: str,
         filename: Optional[str] = None,
         source_url: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         priority: bool = False,
         webhook_url: Optional[str] = None,
     ) -> DocumentResponse:
@@ -80,7 +80,7 @@ class DocumentService:
 
         try:
             # Store document record using persistence layer
-            created_document = self.persistence_manager.create_document(document_data)
+            self.persistence_manager.create_document(document_data)
 
             # Create job record
             job_data = {
@@ -261,7 +261,7 @@ class DocumentService:
         user_id: str,
         s3_key: str,
         source: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         priority: bool = False,
         webhook_url: Optional[str] = None,
     ) -> DocumentResponse:
@@ -312,7 +312,7 @@ class DocumentService:
                 document_data["webhookUrl"] = webhook_url
 
             # Store document record using persistence layer
-            created_document = self.persistence_manager.create_document(document_data)
+            self.persistence_manager.create_document(document_data)
 
             # Create job record
             job_data = {
@@ -382,7 +382,7 @@ class DocumentService:
         limit: int = 10,
         offset: int = 0,
         status_filter: Optional[DocumentStatus] = None,
-    ) -> Tuple[List[DocumentResponse], int]:
+    ) -> tuple[list[DocumentResponse], int]:
         """List documents for a user with pagination"""
         try:
             # Prepare status filter for persistence layer
@@ -440,7 +440,7 @@ class DocumentService:
     @tracer.capture_method
     async def generate_presigned_url(
         self, doc_id: str, document_type: DocumentType, expires_in: int = 3600
-    ) -> Tuple[str, str, str]:
+    ) -> tuple[str, str, str]:
         """Generate pre-signed URL for document download"""
         try:
             # Determine bucket and key based on document type
@@ -519,7 +519,7 @@ class WebhookService:
             return False
 
     @tracer.capture_method
-    async def process_webhook(self, payload: Dict[str, Any]) -> bool:
+    async def process_webhook(self, payload: dict[str, Any]) -> bool:
         """Process incoming webhook"""
         try:
             # Send to callback queue for processing
@@ -611,7 +611,7 @@ class ReportsService:
         end_date: Optional[datetime] = None,
         owner_filter: Optional[str] = None,
         status_filter: Optional[str] = None,
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Export documents as CSV data with filtering"""
         try:
             # Build aggregation pipeline for CSV export
@@ -846,7 +846,7 @@ class AltTextService:
     async def bulk_update_status(
         self,
         doc_id: str,
-        figure_ids: List[str],
+        figure_ids: list[str],
         status: AltTextStatus,
         editor_id: str,
         editor_name: Optional[str] = None,
@@ -977,7 +977,7 @@ class AltTextService:
             return False
 
     @tracer.capture_method
-    async def get_dashboard_stats(self) -> Dict[str, Any]:
+    async def get_dashboard_stats(self) -> dict[str, Any]:
         """Get alt text dashboard statistics"""
         try:
             # Get documents that need review

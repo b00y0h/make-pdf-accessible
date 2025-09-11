@@ -71,8 +71,8 @@ db.exec(`
 console.log('✅ Database schema created');
 
 // Hash the admin password
-const adminEmail = 'admin@accesspdf.com';
-const adminPassword = 'admin123ssggtg$23543DDEFFG32hf';
+const adminEmail = '';
+const adminPassword = '';
 const hashedPassword = bcrypt.hashSync(adminPassword, 10);
 
 // Generate admin user ID

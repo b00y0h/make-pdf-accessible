@@ -1,0 +1,76 @@
+name: Dependency Updates
+
+on:
+  schedule:
+    # Run weekly on Mondays at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  update-python-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install pip-tools
+        run: |
+          pip install pip-tools
+
+      - name: Update Python dependencies
+        run: |
+          pip-compile --upgrade requirements.in
+          pip-compile --upgrade requirements-dev.in
+
+      - name: Create Pull Request for Python dependencies
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: update Python dependencies'
+          title: 'chore: Update Python dependencies'
+          body: |
+            This PR updates Python dependencies to their latest compatible versions.
+
+            Please review the changes and run tests before merging.
+          branch: update/python-dependencies
+          delete-branch: true
+
+  update-node-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: '8'
+
+      - name: Update Node.js dependencies
+        run: |
+          pnpm update --latest
+
+      - name: Create Pull Request for Node.js dependencies
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: update Node.js dependencies'
+          title: 'chore: Update Node.js dependencies'
+          body: |
+            This PR updates Node.js dependencies to their latest compatible versions.
+
+            Please review the changes and run tests before merging.
+          branch: update/nodejs-dependencies
+          delete-branch: true
