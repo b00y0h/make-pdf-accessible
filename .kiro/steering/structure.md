@@ -7,11 +7,16 @@ This is a monorepo containing multiple services, integrations, and shared packag
 ## Top-Level Structure
 
 ```
-├── infra/                  # Infrastructure as Code
+├── infra/                  # Infrastructure as Code (Terraform)
 ├── services/               # Backend services and functions
-├── web/                    # Frontend application
-├── integrations/           # Third-party integrations
+├── web/                    # Public frontend application (Next.js)
+├── dashboard/              # Admin dashboard application (Next.js)
+├── integrations/           # Third-party integrations (WordPress, LTI)
 ├── packages/               # Shared libraries and schemas
+├── scripts/                # Development and deployment scripts
+├── docs/                   # Documentation
+├── e2e/                    # End-to-end tests
+├── tests/                  # Shared test utilities
 └── .github/                # CI/CD workflows
 ```
 
@@ -19,8 +24,10 @@ This is a monorepo containing multiple services, integrations, and shared packag
 
 ### Core Services (`services/`)
 
-- **`api/`**: Main API gateway - handles authentication, routing, business logic
+- **`api/`**: Main API gateway - handles authentication, routing, business logic, BetterAuth integration
 - **`worker/`**: Background job processor using Celery for heavy tasks
+- **`shared/`**: Shared utilities, models, and authentication logic
+- **`timeout-monitor/`**: Service monitoring and timeout management
 
 ### Microservices (`services/functions/`)
 
@@ -30,7 +37,8 @@ Each function service is a standalone FastAPI application:
 - **`ocr/`**: Optical Character Recognition processing
 - **`structure/`**: Document structure analysis
 - **`tagger/`**: Content classification and metadata tagging
-- **`exporter/`**: Export to accessible formats
+- **`alt_text/`**: AI-powered alt text generation
+- **`exporter/`**: Export to accessible formats (HTML, EPUB, etc.)
 - **`validator/`**: WCAG compliance validation
 - **`notifier/`**: Notification service (email, webhooks, push)
 
@@ -47,9 +55,11 @@ service-name/
 └── __pycache__/           # Python bytecode (ignored)
 ```
 
-## Frontend (`web/`)
+## Frontend Applications
 
-Next.js application with standard structure:
+### Public Web App (`web/`)
+
+Next.js application for public-facing features:
 
 ```
 web/
@@ -58,6 +68,28 @@ web/
 ├── next.config.js         # Next.js configuration
 ├── Dockerfile             # Container configuration
 └── .next/                 # Build output (ignored)
+```
+
+### Admin Dashboard (`dashboard/`)
+
+Next.js application for administrative features with BetterAuth:
+
+```
+dashboard/
+├── src/
+│   ├── app/              # Next.js App Router pages
+│   ├── components/       # React components (UI library, auth, etc.)
+│   ├── lib/              # Utilities, auth configuration, API clients
+│   ├── hooks/            # Custom React hooks
+│   ├── contexts/         # React contexts
+│   └── types/            # TypeScript type definitions
+├── auth.ts               # BetterAuth configuration
+├── scripts/              # Database seeding and utility scripts
+├── tests/                # Unit, integration, and E2E tests
+├── package.json          # Dependencies and scripts
+├── next.config.js        # Next.js configuration
+├── tailwind.config.js    # Tailwind CSS configuration
+└── sqlite.db             # Local SQLite database for BetterAuth
 ```
 
 ## Infrastructure (`infra/`)
@@ -126,11 +158,25 @@ Third-party platform integrations:
 
 ## Port Allocation
 
-- **3000**: Web application (Next.js)
-- **8000**: Main API service
+### Frontend Applications
+
+- **3000**: Public web application (Next.js)
+- **3001**: Admin dashboard (Next.js)
+
+### Backend Services
+
+- **8000**: Main API service (FastAPI)
 - **8001-8007**: Function services (router, ocr, structure, tagger, exporter, validator, notifier)
-- **5432**: PostgreSQL database
+
+### Infrastructure Services
+
+- **5432**: PostgreSQL database (main app data)
+- **5433**: PostgreSQL database (BetterAuth)
 - **6379**: Redis cache/message broker
+- **27017**: MongoDB (document storage and jobs)
+- **4566**: LocalStack (local AWS services)
+- **8081**: Mongo Express (MongoDB web interface)
+- **3310**: ClamAV (virus scanning)
 
 ## Development Patterns
 
@@ -142,9 +188,11 @@ Third-party platform integrations:
 
 ### Database Access
 
-- Only API and Worker services access the database directly
+- **MongoDB**: Primary document storage (API and Worker services)
+- **PostgreSQL**: Application data and BetterAuth (API service)
 - Function services are stateless and communicate via APIs
-- Use SQLAlchemy with async support for database operations
+- Use SQLAlchemy with async support for PostgreSQL operations
+- Use Motor (async MongoDB driver) for MongoDB operations
 
 ### Error Handling
 
