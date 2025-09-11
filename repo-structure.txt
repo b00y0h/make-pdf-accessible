@@ -1,0 +1,259 @@
+[1;36m.[0m
+├── CLAUDE.md
+├── DEVELOPMENT.md
+├── DOCUMENTDB_SETUP.md
+├── Makefile
+├── PDF_PROCESSING_PIPELINE.md
+├── README.md
+├── STATUS.md
+├── UPLOAD_IMPLEMENTATION.md
+├── [1;36mauth_data[0m
+│   └── sqlite.db
+├── cookies.txt
+├── dangerfile.ts
+├── [1;36mdashboard[0m
+│   ├── Dockerfile
+│   ├── SOCIAL_AUTH_SETUP.md
+│   ├── [35mauth.ts[0m -> better-auth.config.ts
+│   ├── [1;36mauth_data[0m
+│   ├── [1;36mbetter-auth_migrations[0m
+│   │   └── 2025-09-10T23-40-38.411Z.sql
+│   ├── jest.config.js
+│   ├── jest.setup.js
+│   ├── next-env.d.ts
+│   ├── next.config.js
+│   ├── package.json
+│   ├── playwright.config.ts
+│   ├── postcss.config.js
+│   ├── [1;36mscripts[0m
+│   │   ├── init-auth-db.js
+│   │   ├── seed-admin.js
+│   │   ├── seed-env-admin.js
+│   │   └── test-auth-basic.js
+│   ├── sqlite.db
+│   ├── [1;36msrc[0m
+│   │   ├── [1;36mapp[0m
+│   │   ├── [1;36mcomponents[0m
+│   │   ├── [1;36mcontexts[0m
+│   │   ├── [1;36mhooks[0m
+│   │   ├── [1;36mlib[0m
+│   │   ├── middleware.ts
+│   │   └── [1;36mtypes[0m
+│   ├── tailwind.config.js
+│   ├── [1;36mtest[0m
+│   │   ├── [1;36mcomponents[0m
+│   │   ├── [1;36mmsw[0m
+│   │   └── setupTests.ts
+│   ├── [1;36mtests[0m
+│   │   ├── [1;36me2e[0m
+│   │   ├── [1;36mintegration[0m
+│   │   └── [1;36munit[0m
+│   ├── tsconfig.json
+│   └── tsconfig.tsbuildinfo
+├── docker-compose.test.yml
+├── docker-compose.yml
+├── [1;36mdocs[0m
+│   ├── gap-report.json
+│   ├── gap-report.md
+│   └── implementation-plan.md
+├── [1;36me2e[0m
+│   ├── [1;36mapi[0m
+│   ├── [1;36mdashboard[0m
+│   │   ├── [1;36madmin[0m
+│   │   ├── [1;36mauth[0m
+│   │   └── [1;36mmobile[0m
+│   ├── [1;36mfixtures[0m
+│   │   ├── README.md
+│   │   ├── corrupted.pdf
+│   │   ├── large-file.pdf
+│   │   ├── test-document-2.pdf
+│   │   ├── test-document-with-rich.pdf
+│   │   ├── test-document.pdf
+│   │   └── test-image.jpg.jpeg
+│   ├── [1;36msetup[0m
+│   │   ├── global.setup.ts
+│   │   └── global.teardown.ts
+│   ├── [1;36mshared[0m
+│   │   └── auth.ts
+│   └── [1;36mweb[0m
+│       ├── [1;36mauth[0m
+│       ├── [1;36mmobile[0m
+│       └── [1;36mupload[0m
+├── [1;36minfra[0m
+│   ├── [1;36mstep-functions[0m
+│   │   └── pdf-processing-workflow.json
+│   └── [1;36mterraform[0m
+│       ├── DNSIMPLE_SETUP.md
+│       ├── GITHUB_OIDC_SETUP.md
+│       ├── README.md
+│       ├── api_gateway.tf
+│       ├── cloudfront.tf
+│       ├── cognito.tf
+│       ├── documentdb-test.tf
+│       ├── documentdb.tf
+│       ├── domains.tf
+│       ├── dynamodb.tf
+│       ├── ecr.tf
+│       ├── github_oidc.tf
+│       ├── iam.tf
+│       ├── lambda-layers.tf
+│       ├── lambda.tf
+│       ├── main.tf
+│       ├── outputs.tf
+│       ├── processing-lambdas.tf
+│       ├── router.tf
+│       ├── s3.tf
+│       ├── secrets.tf
+│       ├── sqs.tf
+│       ├── state_machine_definition.json
+│       ├── step-functions.tf
+│       ├── step_functions.tf
+│       ├── terraform.tfstate
+│       ├── terraform.tfstate.backup
+│       ├── terraform.tfvars
+│       ├── terraform.tfvars.example
+│       ├── tfplan
+│       ├── variables.tf
+│       └── vpc.tf
+├── [1;36mintegrations[0m
+│   ├── [1;36mlit[0m
+│   ├── [1;36mlti[0m
+│   │   └── [1;36mtests[0m
+│   └── [1;36mwordpress[0m
+│       └── [1;36mtests[0m
+├── openapi.yaml
+├── package-lock.json
+├── package.json
+├── [1;36mpackages[0m
+│   ├── [1;36mschemas[0m
+│   │   ├── [1;36mmongo[0m
+│   │   └── [1;36mtests[0m
+│   ├── [1;36mscripts[0m
+│   │   ├── seed-admin-mongo.ts
+│   │   ├── seed-admin.ts
+│   │   └── [1;36mtests[0m
+│   └── [1;36mtest-utils[0m
+│       ├── fixtures.py
+│       └── testcontainers.py
+├── playwright.config.ts
+├── pnpm-lock.yaml
+├── pnpm-workspace.yaml
+├── pyproject.toml
+├── pytest.ini
+├── repo-structure.txt
+├── requirements-dev.txt
+├── [1;36mscripts[0m
+│   ├── [1;36mlocalstack-init[0m
+│   │   └── [31m01-init-aws-resources.sh[0m
+│   ├── [1;36mmongo-init[0m
+│   │   └── 01-init-replica-set.js
+│   ├── [1;36mpostgres-init[0m
+│   ├── [31mseed-dev-data.py[0m
+│   └── simple-seed.py
+├── [1;36mservices[0m
+│   ├── [1;36mapi[0m
+│   │   ├── Dockerfile
+│   │   ├── Dockerfile.dev
+│   │   ├── [1;36m__pycache__[0m
+│   │   ├── [1;36mapp[0m
+│   │   ├── main.py
+│   │   ├── [1;36mpackages[0m
+│   │   ├── pytest.ini
+│   │   ├── requirements.txt
+│   │   └── [1;36mtests[0m
+│   ├── [1;36mfunctions[0m
+│   │   ├── [1;36malt_text[0m
+│   │   ├── [1;36mexporter[0m
+│   │   ├── [1;36mexports[0m
+│   │   ├── [1;36mnotifier[0m
+│   │   ├── [1;36mnotify[0m
+│   │   ├── [1;36mocr[0m
+│   │   ├── [1;36mroouter[0m
+│   │   ├── [1;36mrouter[0m
+│   │   ├── [1;36mstructure[0m
+│   │   ├── [1;36mtag_pdf[0m
+│   │   ├── [1;36mtagger[0m
+│   │   ├── [1;36mvalidate[0m
+│   │   └── [1;36mvalidator[0m
+│   ├── [1;36mshared[0m
+│   │   ├── [1;36m__pycache__[0m
+│   │   ├── auth.py
+│   │   ├── auth_README.md
+│   │   ├── feature_flags.py
+│   │   ├── file_signature_validation.py
+│   │   ├── models.py
+│   │   ├── [1;36mmongo[0m
+│   │   ├── persistence.py
+│   │   ├── quarantine_system.py
+│   │   ├── quota_enforcement.py
+│   │   ├── security_validation.py
+│   │   ├── timeout_enforcement.py
+│   │   └── timeout_monitor.py
+│   ├── [1;36mtimeout-monitor[0m
+│   │   ├── Dockerfile
+│   │   └── requirements.txt
+│   └── [1;36mworker[0m
+│       ├── Dockerfile
+│       ├── README.md
+│       ├── WORKER_PACKAGE_SUMMARY.md
+│       ├── [1;36m__pycache__[0m
+│       ├── [1;36mauth[0m
+│       ├── celeryconfig.py
+│       ├── mypy.ini
+│       ├── [1;36mpackages[0m
+│       ├── pyproject.toml
+│       ├── requirements.txt
+│       ├── [1;36mservices[0m
+│       ├── [1;36msrc[0m
+│       ├── test-document-with-rich.pdf
+│       ├── test_pdf_extraction.py
+│       ├── [1;36mtests[0m
+│       └── worker.py
+├── test-document.pdf
+├── test_mongodb_integration.py
+├── test_pdf_extraction.py
+├── [1;36mtests[0m
+│   ├── [1;36mfixtures[0m
+│   │   └── sample_document_structure.json
+│   └── test_pipeline_integration.py
+├── tsconfig.json
+├── vitest.workspace.ts
+└── [1;36mweb[0m
+    ├── Dockerfile
+    ├── [1;36m__tests__[0m
+    │   ├── accessibility.test.tsx
+    │   ├── [1;36mcomponents[0m
+    │   ├── [1;36mfeatures[0m
+    │   ├── index.test.tsx
+    │   ├── [1;36mmsw[0m
+    │   └── setupTests.ts
+    ├── [1;36mapp[0m
+    │   ├── [1;36mdocuments[0m
+    │   ├── globals.css
+    │   ├── layout.tsx
+    │   ├── page.tsx
+    │   └── [1;36mupload[0m
+    ├── [1;36mcomponents[0m
+    │   ├── AltTextReview.tsx
+    │   ├── FileUpload.tsx
+    │   ├── PDFProcessor.tsx
+    │   ├── PDFUploader.tsx
+    │   ├── Providers.tsx
+    │   ├── SignInModal.tsx
+    │   └── UserAvatar.tsx
+    ├── [1;36mhooks[0m
+    │   ├── useDocumentPolling.ts
+    │   └── useS3Upload.ts
+    ├── jest.config.js
+    ├── jest.setup.js
+    ├── next-env.d.ts
+    ├── next.config.js
+    ├── package.json
+    ├── postcss.config.js
+    ├── tailwind.config.js
+    ├── tsconfig.json
+    ├── tsconfig.tsbuildinfo
+    └── [1;36mutils[0m
+        └── session.ts
+
+98 directories, 159 files

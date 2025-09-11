@@ -6,6 +6,7 @@ import {
   DocumentListResponse,
   ReportsSummary,
   UserProfile,
+  ProcessingStepsResponse,
 } from '@/lib/api';
 import { useMemo } from 'react';
 import axios from 'axios';
@@ -22,16 +23,25 @@ export function useApiService() {
     const apiClient = axios.create({
       baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
       withCredentials: true,
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
 
-    // Add auth interceptor if we have a session
-    if (session?.user) {
-      apiClient.interceptors.request.use((config) => {
-        // BetterAuth uses cookies for authentication - no need for Authorization header
-        // The cookies will be sent automatically with withCredentials: true
-        return config;
+    // Add request interceptor for debugging and auth
+    apiClient.interceptors.request.use((config) => {
+      // Debug log
+      console.log('Axios request:', {
+        url: config.url,
+        method: config.method,
+        data: config.data,
+        headers: config.headers,
       });
-    }
+      
+      // BetterAuth uses cookies for authentication - no need for Authorization header
+      // The cookies will be sent automatically with withCredentials: true
+      return config;
+    });
 
     return new ApiService(apiClient);
   }, [session, isPending]);
@@ -53,6 +63,10 @@ export const queryKeys = {
   auth: {
     all: ['auth'] as const,
     user: () => [...queryKeys.auth.all, 'user'] as const,
+  },
+  processing: {
+    all: ['processing'] as const,
+    steps: () => [...queryKeys.processing.all, 'steps'] as const,
   },
 };
 
@@ -307,5 +321,17 @@ export function useExportCSV() {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     },
+  });
+}
+
+// Processing steps hook
+export function useProcessingSteps() {
+  const apiService = useApiService();
+
+  return useQuery({
+    queryKey: queryKeys.processing.steps(),
+    queryFn: () => apiService!.getProcessingSteps(),
+    enabled: !!apiService,
+    staleTime: 5 * 60 * 1000, // 5 minutes - processing steps don't change often
   });
 }

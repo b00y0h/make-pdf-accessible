@@ -228,7 +228,7 @@ def lambda_handler(event: SQSEvent, context: LambdaContext) -> Dict[str, Any]:
             ingest_message = IngestMessage.model_validate(message_body)
 
             # Process the document
-            result = await process_document(ingest_message)
+            result = process_document(ingest_message)
             results["results"].append(result)
 
             # Update counters

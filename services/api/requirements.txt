@@ -24,3 +24,5 @@ pytest-asyncio>=0.21.0
 pytest-mock>=3.12.0
 pytest-cov>=4.1.0
 moto[s3,dynamodb,sqs]>=4.2.0
+# Task queue
+celery[redis]>=5.3.0

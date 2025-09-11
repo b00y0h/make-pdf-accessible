@@ -24,6 +24,7 @@ echo "📦 Creating S3 buckets..."
 awslocal s3 mb s3://pdf-accessibility-uploads
 awslocal s3 mb s3://pdf-accessibility-processed  
 awslocal s3 mb s3://pdf-accessibility-reports
+awslocal s3 mb s3://pdf-accessibility-dev-pdf-originals
 
 # Enable public read access for processed files (for development)
 awslocal s3api put-bucket-cors --bucket pdf-accessibility-processed --cors-configuration '{
@@ -33,6 +34,19 @@ awslocal s3api put-bucket-cors --bucket pdf-accessibility-processed --cors-confi
       "AllowedMethods": ["GET", "HEAD"],
       "AllowedHeaders": ["*"],
       "MaxAgeSeconds": 3600
+    }
+  ]
+}'
+
+# Enable CORS for demo uploads bucket (for browser uploads)
+awslocal s3api put-bucket-cors --bucket pdf-accessibility-dev-pdf-originals --cors-configuration '{
+  "CORSRules": [
+    {
+      "AllowedOrigins": ["http://localhost:3000", "https://localhost:3000"],
+      "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
+      "AllowedHeaders": ["*"],
+      "ExposeHeaders": ["ETag", "x-amz-meta-custom-header"],
+      "MaxAgeSeconds": 3000
     }
   ]
 }'

@@ -69,7 +69,10 @@
       "Bash(for dir in services/functions/*/)",
       "Bash(head:*)",
       "Bash(./venv/bin/ruff check services/shared/quota_enforcement.py --fix)",
-      "Bash(./venv/bin/ruff check services/shared/timeout_enforcement.py --fix)"
+      "Bash(./venv/bin/ruff check services/shared/timeout_enforcement.py --fix)",
+      "Bash(docker logs:*)",
+      "mcp__playwright__browser_file_upload",
+      "mcp__playwright__browser_press_key"
     ],
     "deny": [],
     "ask": []

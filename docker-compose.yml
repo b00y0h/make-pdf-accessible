@@ -160,7 +160,7 @@ services:
       # MongoDB configuration
       - PERSISTENCE_PROVIDER=mongo
       - MONGODB_HOST=mongo
-      - MONGODB_URI=mongodb://mongo:27017/pdf_accessibility?replicaSet=rs0
+      - MONGODB_URI=mongodb://mongo:27017/pdf_accessibility
       - MONGODB_DATABASE=pdf_accessibility
       - ENABLE_QUERY_LOGGING=true
       - DEBUG_MODE=true
@@ -193,6 +193,8 @@ services:
       - JWT_ISSUER=accesspdf-dashboard
       - JWT_AUDIENCE=accesspdf-api
       - BETTER_AUTH_DASHBOARD_URL=http://host.docker.internal:3001
+      # Development configuration
+      - DISABLE_RATE_LIMITING=true
       # CORS configuration
       - CORS_ORIGINS=http://localhost:3000,https://localhost:3000,http://localhost:3001,https://localhost:3001
     depends_on:
@@ -225,7 +227,7 @@ services:
       # MongoDB configuration
       - PERSISTENCE_PROVIDER=mongo
       - MONGODB_HOST=mongo
-      - MONGODB_URI=mongodb://mongo:27017/pdf_accessibility?replicaSet=rs0
+      - MONGODB_URI=mongodb://mongo:27017/pdf_accessibility
       - MONGODB_DATABASE=pdf_accessibility
       # AWS Local configuration
       - AWS_ENDPOINT_URL=http://localstack:4566

@@ -4,10 +4,11 @@ from typing import Dict
 from aws_lambda_powertools import Logger, Metrics, Tracer
 from aws_lambda_powertools.logging import correlation_paths
 from aws_lambda_powertools.utilities.typing import LambdaContext
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mangum import Mangum
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from .config import settings
 from .middleware import APIKeyAuthMiddleware
@@ -22,6 +23,37 @@ metrics = Metrics(
     namespace=settings.powertools_metrics_namespace,
     service=settings.powertools_service_name,
 )
+
+
+class CORSErrorMiddleware(BaseHTTPMiddleware):
+    """Middleware to ensure CORS headers are present even on error responses"""
+    
+    async def dispatch(self, request: Request, call_next):
+        try:
+            response = await call_next(request)
+        except Exception as exc:
+            # Create error response
+            response = JSONResponse(
+                status_code=500,
+                content={"detail": "Internal server error"}
+            )
+            # Log the actual error
+            logger.error(f"Unhandled error: {exc}")
+        
+        # Add CORS headers if not present
+        origin = request.headers.get("origin")
+        if origin and origin in (settings.cors_origins or ["*"]):
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "*"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+        elif not settings.cors_origins or "*" in settings.cors_origins:
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "*"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            
+        return response
 
 
 @asynccontextmanager
@@ -56,16 +88,22 @@ app = FastAPI(
     ],
 )
 
-# Add CORS middleware
+# Add middlewares in reverse order (last added is executed first)
+
+# 1. Add our custom CORS error middleware (executed last, ensures headers on all responses)
+app.add_middleware(CORSErrorMiddleware)
+
+# 2. Add standard CORS middleware for proper CORS handling
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=settings.cors_origins if settings.cors_origins else ["*"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
-# Add API Key authentication middleware
+# 3. Add API Key authentication middleware (executed first)
 app.add_middleware(
     APIKeyAuthMiddleware,
     excluded_paths=[

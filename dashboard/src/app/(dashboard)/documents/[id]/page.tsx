@@ -381,14 +381,14 @@ export default function DocumentDetailPage() {
             <CardContent className="space-y-3">
               <DownloadButton
                 docId={document.doc_id}
-                type="original"
+                type="pdf"
                 label="Original PDF"
                 description="The original uploaded document"
               />
 
               <DownloadButton
                 docId={document.doc_id}
-                type="accessible"
+                type="accessible_pdf"
                 label="Accessible PDF"
                 description="PDF with accessibility improvements"
                 disabled={document.status !== 'completed'}
@@ -396,7 +396,7 @@ export default function DocumentDetailPage() {
 
               <DownloadButton
                 docId={document.doc_id}
-                type="report"
+                type="analysis"
                 label="Processing Report"
                 description="Detailed report of accessibility improvements"
                 disabled={document.status !== 'completed'}

@@ -84,12 +84,15 @@ export function FileUpload({
   const onDrop = useCallback(
     (acceptedFiles: File[], rejectedFiles: any[]) => {
       // Process accepted files
-      const newFiles: FileUploadFile[] = acceptedFiles.map((file, index) => ({
-        ...file,
-        id: `${Date.now()}-${index}`,
-        progress: 0,
-        status: 'idle' as const,
-      }));
+      const newFiles: FileUploadFile[] = acceptedFiles.map((file, index) => {
+        // Create a new object that properly extends File
+        const uploadFile = Object.assign(file, {
+          id: `${Date.now()}-${index}`,
+          progress: 0,
+          status: 'idle' as const,
+        }) as FileUploadFile;
+        return uploadFile;
+      });
 
       setFiles((prev) => [...prev, ...newFiles]);
       onFilesSelected?.(newFiles);

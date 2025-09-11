@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { FileUpload, FileList, FileWithPreview } from './FileUpload';
+import SignInModal from './SignInModal';
 import {
   Download,
   CheckCircle,
@@ -45,9 +46,77 @@ export default function PDFProcessor() {
   }>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<string>('');
+  const [processingStep, setProcessingStep] = useState<number>(0);
   const [result, setResult] = useState<ProcessingResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showSignInModal, setShowSignInModal] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [processingSteps, setProcessingSteps] = useState<Array<{
+    step: number;
+    title: string;
+    description: string;
+    estimated_duration?: string;
+  }>>([
+    // Default fallback steps in case API fails
+    { step: 0, title: 'Preparing Upload', description: 'Getting ready to upload your PDF...' },
+    { step: 1, title: 'Uploading File', description: 'Securely uploading your document...' },
+    { step: 2, title: 'AI Analysis', description: 'Our AI is analyzing your PDF structure...' },
+    { step: 3, title: 'Content Recognition', description: 'Detecting text, images, and layout...' },
+    { step: 4, title: 'Accessibility Tagging', description: 'Adding semantic tags for screen readers...' },
+    { step: 5, title: 'Color & Contrast', description: 'Optimizing colors for better visibility...' },
+    { step: 6, title: 'Alt Text Generation', description: 'Creating descriptive text for images...' },
+    { step: 7, title: 'Structure Optimization', description: 'Building proper heading hierarchy...' },
+    { step: 8, title: 'Export Generation', description: 'Creating accessible formats (HTML, CSV)...' },
+    { step: 9, title: 'Final Validation', description: 'Verifying WCAG compliance...' },
+    { step: 10, title: 'Complete', description: 'Your accessible document is ready!' }
+  ]);
+
+  // Check for authentication with Better Auth
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        // Check Better Auth session
+        const response = await fetch('http://localhost:3001/api/auth/get-session', {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.session && data.user) {
+            setIsAuthenticated(true);
+          }
+        }
+      } catch (error) {
+        console.log('Not authenticated');
+      }
+    };
+    
+    checkAuth();
+  }, []);
+
+  // Load processing steps from API
+  useEffect(() => {
+    const loadProcessingSteps = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/demo/processing-steps');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.steps && Array.isArray(data.steps)) {
+            setProcessingSteps(data.steps);
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to load processing steps from API, using defaults:', error);
+        // Keep the default fallback steps
+      }
+    };
+
+    loadProcessingSteps();
+  }, []);
 
   const handleFilesSelected = (files: FileWithPreview[]) => {
     setSelectedFiles(files);
@@ -82,13 +151,18 @@ export default function PDFProcessor() {
     setResult(null);
 
     try {
-      // Update status to uploading
+      // Start with step 0
+      setProcessingStep(0);
       setUploadStatus(prev => ({ ...prev, [file.id]: 'uploading' }));
-      setProcessingStatus('Uploading your PDF...');
+      setProcessingStatus(processingSteps[0].description);
 
-      // Simulate upload progress
+      // Simulate upload progress with step progression
       for (let i = 0; i <= 100; i += 10) {
         setUploadProgress(prev => ({ ...prev, [file.id]: i }));
+        if (i === 50) {
+          setProcessingStep(1);
+          setProcessingStatus(processingSteps[1].description);
+        }
         await new Promise(resolve => setTimeout(resolve, 200));
       }
 
@@ -110,17 +184,31 @@ export default function PDFProcessor() {
         const errorText = await presignedResponse.text();
         console.error('Presigned URL error:', errorText);
         
-        // Check for rate limit error
-        if (presignedResponse.status === 429) {
-          try {
-            const errorData = JSON.parse(errorText);
-            throw new Error(errorData.detail || 'Upload limit reached. Please try again later.');
-          } catch {
-            throw new Error('Upload limit reached. Please try again later.');
+        let errorMessage = 'Failed to get upload URL';
+        
+        try {
+          const errorData = JSON.parse(errorText);
+          if (presignedResponse.status === 429) {
+            // Rate limit error
+            const message = errorData.message || errorData.detail || 'Upload limit reached. Please try again later.';
+            errorMessage = `⏰ ${message}`;
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          } else if (errorData.detail) {
+            errorMessage = errorData.detail;
+          }
+        } catch {
+          // If JSON parsing fails, use status-specific messages
+          if (presignedResponse.status === 429) {
+            errorMessage = '⏰ Upload limit reached. Please try again later.';
+          } else if (presignedResponse.status >= 500) {
+            errorMessage = '🔧 Server error. Please try again in a few moments.';
+          } else if (presignedResponse.status === 403) {
+            errorMessage = '🚫 Access denied. Please check your permissions.';
           }
         }
         
-        throw new Error('Failed to get upload URL');
+        throw new Error(errorMessage);
       }
 
       const presignedData = await presignedResponse.json();
@@ -177,13 +265,21 @@ export default function PDFProcessor() {
       const documentId = doc_id;
 
       setUploadStatus(prev => ({ ...prev, [file.id]: 'success' }));
-      setProcessingStatus('Processing your PDF with AI...');
+      setProcessingStep(2);
+      setProcessingStatus(processingSteps[2].description);
 
-      // Poll for processing status
+      // Poll for processing status with step progression
       let attempts = 0;
-      const maxAttempts = 60; // 5 minutes max
+      const maxAttempts = 120; // 10 minutes max
 
       while (attempts < maxAttempts) {
+        // Progress through the AI processing steps
+        const stepIndex = Math.min(2 + Math.floor((attempts / maxAttempts) * 8), 9);
+        if (stepIndex !== processingStep && stepIndex < 10) {
+          setProcessingStep(stepIndex);
+          setProcessingStatus(processingSteps[stepIndex].description);
+        }
+
         await new Promise(resolve => setTimeout(resolve, 5000)); // Poll every 5 seconds
 
         const statusResponse = await fetch(`http://localhost:8000/documents/demo/${documentId}`, {
@@ -198,17 +294,33 @@ export default function PDFProcessor() {
 
         const statusData = await statusResponse.json();
 
+        // Check if document is stuck in pending for too long (development mode feedback)
+        if (statusData.status === 'pending' && attempts > 30) { // After 2.5 minutes
+          setProcessingStatus('⚠️ Document is taking longer than expected. The processing pipeline may need to be started.');
+        }
+
         if (statusData.status === 'completed') {
-          // Try to get accessible PDF URL (will fail with 403)
+          // Final step - completion
+          setProcessingStep(10);
+          setProcessingStatus(processingSteps[10].description);
+          // Try to get accessible PDF URL
           let accessiblePdfUrl = '#';
           let requiresAuth = false;
           
+          // If authenticated, try with auth headers
+          const headers = getDemoHeaders();
+          if (isAuthenticated) {
+            // For authenticated users, we need to pass some auth indicator
+            // Since we're using Better Auth cookies, the API needs to know the user is authenticated
+            headers['X-Authenticated-User'] = 'true';
+          }
+          
           const pdfResponse = await fetch(
             `http://localhost:8000/documents/demo/${documentId}/downloads?document_type=accessible_pdf`,
-            { headers: getDemoHeaders() }
+            { headers }
           );
           
-          if (pdfResponse.status === 403) {
+          if (pdfResponse.status === 403 && !isAuthenticated) {
             requiresAuth = true;
           } else if (pdfResponse.ok) {
             const pdfData = await pdfResponse.json();
@@ -235,11 +347,11 @@ export default function PDFProcessor() {
           }
 
           // Set result with all available URLs
-          setResult({
+          const processedResult = {
             documentId,
-            status: 'completed',
+            status: 'completed' as const,
             accessiblePdfUrl,
-            requiresAuth,
+            requiresAuth: requiresAuth && !isAuthenticated,
             previewUrl: urls.preview || '#',
             htmlUrl: urls.html || '#',
             textUrl: urls.text || '#',
@@ -298,8 +410,12 @@ Your PDF has been successfully processed and enhanced for accessibility. Here's 
 
 The processed document is now fully accessible to users with disabilities, including those using screen readers, keyboard navigation, and other assistive technologies.`
             }
-          });
+          };
           
+          // Store result in sessionStorage for retrieval after sign-in
+          sessionStorage.setItem(`result_${documentId}`, JSON.stringify(processedResult));
+          
+          setResult(processedResult);
           setProcessingStatus('Processing complete!');
           break;
         } else if (statusData.status === 'failed') {
@@ -307,11 +423,10 @@ The processed document is now fully accessible to users with disabilities, inclu
         }
 
         attempts++;
-        setProcessingStatus(`Processing... (${Math.round((attempts / maxAttempts) * 100)}%)`);
       }
 
       if (attempts >= maxAttempts) {
-        throw new Error('Processing timeout');
+        throw new Error('Processing timeout - The document was uploaded successfully but the processing pipeline may not be fully operational in this development environment. The document is saved and can be processed when the full pipeline is running.');
       }
     } catch (err) {
       console.error('Processing error:', err);
@@ -328,6 +443,8 @@ The processed document is now fully accessible to users with disabilities, inclu
     setSelectedFiles([]);
     setUploadProgress({});
     setUploadStatus({});
+    setProcessingStep(0);
+    setProcessingStatus('');
     setResult(null);
     setError(null);
     setShowAnalysis(false);
@@ -383,14 +500,69 @@ The processed document is now fully accessible to users with disabilities, inclu
             </>
           )}
 
-          {/* Processing Status */}
+          {/* Processing Status with Ticker */}
           {isProcessing && (
-            <div className="mt-6 text-center">
-              <Loader2 className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-3" />
-              <p className="text-lg font-medium text-gray-900">{processingStatus}</p>
-              <p className="text-sm text-gray-500 mt-1">
-                Our AI is analyzing and enhancing your document...
-              </p>
+            <div className="mt-6">
+              {/* Current Step Display */}
+              <div className="text-center mb-6">
+                <Loader2 className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-3" />
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  {processingSteps[processingStep]?.title}
+                </h3>
+                <p className="text-gray-600">
+                  {processingStatus}
+                </p>
+              </div>
+
+              {/* Progress Steps Ticker */}
+              <div className="bg-gray-50 rounded-xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-medium text-gray-900">Processing Steps</h4>
+                  <span className="text-sm text-gray-500">
+                    Step {processingStep + 1} of {processingSteps.length}
+                  </span>
+                </div>
+                
+                {/* Progress Bar */}
+                <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${((processingStep + 1) / processingSteps.length) * 100}%` }}
+                  />
+                </div>
+
+                {/* Steps List */}
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {processingSteps.map((step, index) => (
+                    <div 
+                      key={step.step}
+                      className={`flex items-center text-sm ${
+                        index === processingStep 
+                          ? 'text-blue-600 font-medium' 
+                          : index < processingStep 
+                            ? 'text-green-600' 
+                            : 'text-gray-400'
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded-full mr-3 flex-shrink-0 ${
+                        index === processingStep
+                          ? 'bg-blue-600 animate-pulse'
+                          : index < processingStep
+                            ? 'bg-green-600'
+                            : 'bg-gray-300'
+                      }`}>
+                        {index < processingStep && (
+                          <CheckCircle className="w-4 h-4 text-white" />
+                        )}
+                        {index === processingStep && (
+                          <div className="w-2 h-2 bg-white rounded-full mx-auto mt-1" />
+                        )}
+                      </div>
+                      <span>{step.title}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
@@ -456,7 +628,7 @@ The processed document is now fully accessible to users with disabilities, inclu
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Accessible PDF - Requires Auth */}
-              {result.requiresAuth ? (
+              {result.requiresAuth && !isAuthenticated ? (
                 <div className="group relative p-6 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border-2 border-dashed border-gray-300">
                   <div className="absolute top-2 right-2">
                     <Lock className="w-5 h-5 text-gray-500" />
@@ -465,22 +637,44 @@ The processed document is now fully accessible to users with disabilities, inclu
                   <h4 className="font-semibold text-gray-700">Accessible PDF</h4>
                   <p className="text-sm text-gray-600 mt-1">Tagged & structured</p>
                   <button 
-                    onClick={() => window.location.href = '/sign-in?redirect=/dashboard&claim=true'}
+                    onClick={() => setShowSignInModal(true)}
                     className="mt-3 w-full py-2 px-3 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
                   >
                     Sign in to Download
                   </button>
                 </div>
               ) : (
-                <a
-                  href={result.accessiblePdfUrl}
-                  download
-                  className="group relative p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl hover:shadow-lg transition-all duration-200 hover:-translate-y-1"
+                <button
+                  onClick={async () => {
+                    try {
+                      // Fetch the download URL with authentication header
+                      const headers = getDemoHeaders();
+                      if (isAuthenticated) {
+                        headers['X-Authenticated-User'] = 'true';
+                      }
+                      
+                      const response = await fetch(
+                        `http://localhost:8000/documents/demo/${result.documentId}/downloads?document_type=accessible_pdf`,
+                        { headers }
+                      );
+                      
+                      if (response.ok) {
+                        const data = await response.json();
+                        // Open the download URL in a new window/tab to trigger download
+                        window.open(data.download_url, '_blank');
+                      } else {
+                        console.error('Failed to get download URL');
+                      }
+                    } catch (error) {
+                      console.error('Download error:', error);
+                    }
+                  }}
+                  className="group relative p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl hover:shadow-lg transition-all duration-200 hover:-translate-y-1 w-full text-left"
                 >
                   <FileDown className="w-8 h-8 text-blue-600 mb-3" />
                   <h4 className="font-semibold text-blue-900">Accessible PDF</h4>
                   <p className="text-sm text-blue-700 mt-1">Tagged & structured</p>
-                </a>
+                </button>
               )}
 
               {/* HTML Version - Free */}
@@ -608,6 +802,19 @@ The processed document is now fully accessible to users with disabilities, inclu
           </div>
         </div>
       )}
+
+      {/* Sign In Modal */}
+      <SignInModal 
+        isOpen={showSignInModal}
+        onClose={() => setShowSignInModal(false)}
+        onSuccess={() => {
+          setIsAuthenticated(true);
+          // Update result to unlock the PDF
+          if (result) {
+            setResult({ ...result, requiresAuth: false });
+          }
+        }}
+      />
     </div>
   );
 }

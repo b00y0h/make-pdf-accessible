@@ -47,7 +47,7 @@ class DemoSessionRepository(BaseRepository):
     """Repository for managing demo sessions"""
 
     def __init__(self, db_name: str = None):
-        super().__init__(collection_name="demo_sessions", db_name=db_name)
+        super().__init__(collection_name="demo_sessions")
         self._ensure_indexes()
 
     def _ensure_indexes(self):
@@ -111,6 +111,14 @@ class DemoSessionRepository(BaseRepository):
         Returns:
             (allowed, reason) - True if allowed, False with reason if not
         """
+        
+        # Check if rate limiting is disabled via environment variable
+        try:
+            import os
+            if os.getenv("DISABLE_RATE_LIMITING", "").lower() in ["true", "1", "yes"]:
+                return True, "Rate limiting disabled for development"
+        except:
+            pass
 
         now = datetime.utcnow()
 

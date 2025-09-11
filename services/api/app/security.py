@@ -181,7 +181,7 @@ class SecurityService:
                     logger.info(
                         "File signature validation completed",
                         extra={
-                            "filename": filename,
+                            "file_name": filename,
                             "expected_type": extension,
                             "detected_type": validation_result.detected_type,
                             "is_valid": validation_result.is_valid,
@@ -197,7 +197,7 @@ class SecurityService:
                             "INVALID_FILE_SIGNATURE",
                             "system",
                             {
-                                "filename": filename,
+                                "file_name": filename,
                                 "expected_type": extension,
                                 "detected_type": validation_result.detected_type,
                                 "issues": validation_result.issues,
@@ -237,7 +237,7 @@ class SecurityService:
                         logger.warning(
                             "File signature validation passed with warnings",
                             extra={
-                                "filename": filename,
+                                "file_name": filename,
                                 "issues": validation_result.issues,
                                 "confidence": validation_result.confidence,
                             },
@@ -247,7 +247,7 @@ class SecurityService:
                             "SUSPICIOUS_FILE_SIGNATURE",
                             "system",
                             {
-                                "filename": filename,
+                                "file_name": filename,
                                 "issues": validation_result.issues,
                                 "confidence": validation_result.confidence,
                             },
@@ -354,7 +354,7 @@ class SecurityService:
                     logger.info(
                         "PDF security validation completed",
                         extra={
-                            "filename": filename,
+                            "file_name": filename,
                             "is_valid": validation_result.is_valid,
                             "threat_level": validation_result.threat_level,
                             "issues_count": len(validation_result.issues),
@@ -368,7 +368,7 @@ class SecurityService:
                             "DANGEROUS_PDF_DETECTED",
                             "system",
                             {
-                                "filename": filename,
+                                "file_name": filename,
                                 "issues": validation_result.issues,
                                 "threat_level": validation_result.threat_level,
                             },
@@ -393,7 +393,7 @@ class SecurityService:
                             "SUSPICIOUS_PDF_DETECTED",
                             "system",
                             {
-                                "filename": filename,
+                                "file_name": filename,
                                 "issues": validation_result.issues,
                                 "threat_level": validation_result.threat_level,
                             },
@@ -470,7 +470,7 @@ class SecurityService:
                 self.audit_security_event(
                     "SUSPICIOUS_PDF_BASIC_VALIDATION",
                     "system",
-                    {"filename": filename, "patterns_found": found_suspicious},
+                    {"file_name": filename, "patterns_found": found_suspicious},
                 )
 
                 raise HTTPException(
@@ -527,7 +527,7 @@ class SecurityService:
         logger.info(
             "File validation completed successfully",
             extra={
-                "filename": file.filename,
+                "file_name": file.filename,
                 "size": len(content),
                 "content_type": file.content_type,
             },
@@ -693,7 +693,7 @@ class SecurityService:
                 user_id,
                 {
                     "org_id": org_id,
-                    "filename": file_info.get("filename"),
+                    "file_name": file_info.get("filename"),
                     "size": file_info.get("size"),
                     "processing_isolation_enabled": settings.enable_processing_isolation,
                 },

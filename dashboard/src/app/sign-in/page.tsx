@@ -44,15 +44,24 @@ export default function SignInPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
+  const isPopup = searchParams.get('popup') === 'true';
+  const callbackType = searchParams.get('callback');
 
   const { data: session, isPending } = useSession();
 
-  // Redirect if already authenticated
+  // Handle authentication success
   useEffect(() => {
     if (session && !isPending) {
-      router.push(callbackUrl);
+      if (isPopup && callbackType === 'marketing') {
+        // Send message to marketing site and close popup
+        window.opener?.postMessage({ type: 'auth-success' }, 'http://localhost:3000');
+        window.close();
+      } else {
+        // Normal redirect
+        router.push(callbackUrl);
+      }
     }
-  }, [session, isPending, router, callbackUrl]);
+  }, [session, isPending, router, callbackUrl, isPopup, callbackType]);
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();

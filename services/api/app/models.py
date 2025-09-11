@@ -272,6 +272,9 @@ class DocumentCreateRequest(BaseModel):
 
     doc_id: UUID = Field(..., description="Document ID from pre-signed upload")
     s3_key: str = Field(..., description="S3 key of uploaded file")
+    filename: str = Field(..., description="Original filename")
+    content_type: str = Field(..., description="MIME content type")
+    file_size: int = Field(..., description="File size in bytes")
     source: str = Field("upload", description="Source of document")
     metadata: Optional[dict[str, Any]] = Field(
         default_factory=dict, description="Additional metadata"

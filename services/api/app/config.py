@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     # AWS Configuration
     aws_region: str = Field("us-east-1", env="AWS_REGION")
     aws_account_id: Optional[str] = Field(None, env="AWS_ACCOUNT_ID")
+    aws_access_key_id: str = Field("test", env="AWS_ACCESS_KEY_ID")
+    aws_secret_access_key: str = Field("test", env="AWS_SECRET_ACCESS_KEY")
+    aws_endpoint_url: Optional[str] = Field("http://localstack:4566", env="AWS_ENDPOINT_URL")
+    s3_bucket: str = Field("pdf-accessibility-dev-pdf-originals", env="S3_BUCKET")
+    s3_bucket_name: str = Field("pdf-accessibility-dev-pdf-originals", env="S3_BUCKET_NAME")
+    app_env: str = Field("development", env="APP_ENV")
 
     # DynamoDB Tables
     documents_table: str = Field(
@@ -102,6 +108,7 @@ class Settings(BaseSettings):
     # Rate Limiting
     rate_limit_per_minute: int = Field(60, env="RATE_LIMIT_PER_MINUTE")
     rate_limit_per_hour: int = Field(1000, env="RATE_LIMIT_PER_HOUR")
+    disable_rate_limiting: bool = Field(False, env="DISABLE_RATE_LIMITING")
 
     # Pre-signed URL Configuration
     presigned_url_expiration: int = Field(

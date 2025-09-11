@@ -24,8 +24,29 @@ const adminRoutes = ['/admin'];
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip middleware for API routes and auth routes to prevent loops
-  if (pathname.startsWith('/api/') || pathname.startsWith('/_next/')) {
+  // Handle CORS for API routes
+  if (pathname.startsWith('/api/')) {
+    const response = NextResponse.next();
+    
+    // Allow requests from the marketing site
+    const origin = request.headers.get('origin');
+    if (origin === 'http://localhost:3000' || origin === 'https://localhost:3000') {
+      response.headers.set('Access-Control-Allow-Origin', origin);
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
+      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    }
+    
+    // Handle preflight requests
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 200, headers: response.headers });
+    }
+    
+    return response;
+  }
+
+  // Skip middleware for Next.js internals
+  if (pathname.startsWith('/_next/')) {
     return NextResponse.next();
   }
 
@@ -67,7 +88,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Match all routes except API, static assets, and public files
-    '/((?!api|_next/static|_next/image|favicon.ico|public).*)',
+    // Match all routes including API, but exclude static assets
+    '/((?!_next/static|_next/image|favicon.ico|public).*)',
   ],
 };

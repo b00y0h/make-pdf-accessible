@@ -4,15 +4,19 @@ Demo Session Management Routes
 Endpoints for managing demo sessions and claiming anonymous uploads after authentication.
 """
 
+from datetime import datetime, timedelta
 from typing import Optional
+import logging
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status, Query
 from pydantic import BaseModel, Field
 
 from services.shared.mongo.demo_sessions import get_demo_session_repository
 from services.shared.mongo.documents import get_document_repository
 
 from ..auth import User, get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/demo", tags=["demo"])
 
@@ -171,3 +175,88 @@ async def get_session_status(
         "documents": session.get("document_ids", []),
         "remaining_uploads": max(0, 5 - session.get("hourly_uploads", 0))
     }
+
+
+@router.get(
+    "/processing-steps",
+    summary="Get processing pipeline steps",
+    description="Get the list of processing steps for the PDF accessibility pipeline",
+)
+async def get_processing_steps():
+    """Get the actual processing pipeline steps"""
+    
+    return {
+        "steps": [
+            {
+                "step": 0,
+                "title": "Document Upload",
+                "description": "Securely uploading your PDF document...",
+                "estimated_duration": "5-10 seconds"
+            },
+            {
+                "step": 1,
+                "title": "File Validation",
+                "description": "Validating file format and security...",
+                "estimated_duration": "2-5 seconds"
+            },
+            {
+                "step": 2,
+                "title": "Content Extraction",
+                "description": "Extracting text, images, and structural elements...",
+                "estimated_duration": "10-30 seconds"
+            },
+            {
+                "step": 3,
+                "title": "OCR Processing",
+                "description": "Running OCR on images and scanned content...",
+                "estimated_duration": "20-60 seconds"
+            },
+            {
+                "step": 4,
+                "title": "Structure Analysis",
+                "description": "Analyzing document structure and layout...",
+                "estimated_duration": "15-30 seconds"
+            },
+            {
+                "step": 5,
+                "title": "AI Content Tagging",
+                "description": "Adding semantic tags using AI analysis...",
+                "estimated_duration": "30-90 seconds"
+            },
+            {
+                "step": 6,
+                "title": "Alt Text Generation",
+                "description": "Creating descriptive text for images with AI...",
+                "estimated_duration": "20-60 seconds"
+            },
+            {
+                "step": 7,
+                "title": "Color & Contrast",
+                "description": "Optimizing colors for accessibility compliance...",
+                "estimated_duration": "10-20 seconds"
+            },
+            {
+                "step": 8,
+                "title": "Accessibility Validation",
+                "description": "Verifying WCAG 2.1 AA compliance...",
+                "estimated_duration": "15-30 seconds"
+            },
+            {
+                "step": 9,
+                "title": "Export Generation",
+                "description": "Creating accessible formats (HTML, CSV, Text)...",
+                "estimated_duration": "20-45 seconds"
+            },
+            {
+                "step": 10,
+                "title": "Processing Complete",
+                "description": "Your accessible document is ready for download!",
+                "estimated_duration": "Complete"
+            }
+        ],
+        "total_estimated_time": "2-6 minutes",
+        "pipeline_version": "v2.1.0"
+    }
+
+
+# The demo download endpoint has been moved to documents.py as /documents/demo/{doc_id}/downloads

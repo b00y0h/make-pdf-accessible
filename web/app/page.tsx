@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { Upload, FileText, CheckCircle, Zap, ArrowDown } from 'lucide-react';
+import UserAvatar from '../components/UserAvatar';
 
 // Dynamically import PDFProcessor to avoid SSR issues
 const PDFProcessor = dynamic(() => import('../components/PDFProcessor'), {
@@ -11,6 +12,11 @@ const PDFProcessor = dynamic(() => import('../components/PDFProcessor'), {
 export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+      {/* Header with User Avatar */}
+      <header className="absolute top-0 right-0 p-4 z-10">
+        <UserAvatar />
+      </header>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Hero section */}
         <div className="pt-16 pb-8 text-center">

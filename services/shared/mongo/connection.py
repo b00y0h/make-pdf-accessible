@@ -52,6 +52,12 @@ class MongoConnection:
         # Check for full connection string first
         conn_string = os.getenv("MONGODB_URI") or os.getenv("MONGODB_CONNECTION_STRING")
         if conn_string:
+            # Add replica set if not already in the connection string
+            if "replicaSet" not in conn_string and "?" in conn_string:
+                conn_string += "&replicaSet=rs0"
+            elif "replicaSet" not in conn_string:
+                conn_string += "?replicaSet=rs0"
+            print(f"DEBUG: Using MONGODB_URI: {conn_string}")
             return conn_string
 
         # Build connection string from components
@@ -123,6 +129,7 @@ class MongoConnection:
                 )
 
                 options = self._get_connection_options()
+                print(f"DEBUG: Connecting with string: {self._connection_string}")
                 self._client = MongoClient(self._connection_string, **options)
 
                 # Test the connection

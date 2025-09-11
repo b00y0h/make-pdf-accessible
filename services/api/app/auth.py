@@ -28,7 +28,7 @@ class BetterAuthSessionValidator:
             )
             print(f"DEBUG: BetterAuth URL: {self.better_auth_url}")
 
-            auth_url = f"{self.better_auth_url}/api/auth/session"
+            auth_url = f"{self.better_auth_url}/api/auth/get-session"
             print(f"DEBUG: Making request to: {auth_url}")
 
             # Call BetterAuth session endpoint with all cookies
@@ -39,8 +39,27 @@ class BetterAuthSessionValidator:
                 print(f"DEBUG: BetterAuth response body: {response.text}")
                 return None
 
-            session_data = response.json()
+            # Better Auth returns null for no session, or {session: {...}, user: {...}} for valid session
+            response_text = response.text.strip()
+            print(f"DEBUG: BetterAuth raw response: {response_text}")
+            
+            if response_text == "null" or response_text == "":
+                print("DEBUG: No session (null response)")
+                return None
+                
+            try:
+                session_data = response.json()
+            except:
+                print(f"DEBUG: Failed to parse response as JSON: {response_text}")
+                return None
+                
             print(f"DEBUG: BetterAuth session data: {session_data}")
+            
+            # Check if we have both session and user data
+            if not session_data or not isinstance(session_data, dict):
+                print("DEBUG: Invalid session data format")
+                return None
+                
             if not session_data.get("user"):
                 print("DEBUG: No user in session data")
                 return None
