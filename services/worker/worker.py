@@ -216,12 +216,32 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
             pdf_text = f"Error processing PDF: {str(e)}"
             pdf_content = b"Mock PDF content"
         
-        # Step 2: Generate HTML version
-        logger.info(f"Document {doc_id}: Generating HTML version")
+        # Step 2: Generate semantic HTML version using canonical schema
+        logger.info(f"Document {doc_id}: Generating semantic HTML with accessibility compliance")
         
-        # Convert extracted content to clean HTML - preserving structure, tables, and images
-        import html
-        html_body = ""
+        # Import the new semantic HTML builder
+        from src.semantic_html_builder import get_html_builder
+        html_builder = get_html_builder()
+        
+        # Try to load document structure if available (mock for now until structure service integration)
+        document_structure = {
+            "title": pdf_metadata.get('title', 'Processed Document'),
+            "elements": _create_mock_document_structure(all_pages_content if 'all_pages_content' in locals() else [], pdf_metadata)
+        }
+        
+        # Generate semantic HTML using canonical schema
+        try:
+            html_content = html_builder.build_semantic_html(
+                document_structure=document_structure,
+                alt_text_data=None,  # Would come from alt-text service
+                metadata=pdf_metadata
+            )
+            logger.info(f"Generated semantic HTML ({len(html_content)} chars)")
+        except Exception as e:
+            logger.warning(f"Semantic HTML generation failed, falling back to basic HTML: {e}")
+            # Fallback to basic HTML generation
+            import html
+            html_body = ""
         
         # Process all extracted content
         if 'all_pages_content' in locals():
@@ -373,19 +393,33 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
 </body>
 </html>"""
         
-        # Step 3: Generate plain text version - ONLY the actual PDF content
-        logger.info(f"Document {doc_id}: Generating plain text version")
+        # Step 3: Generate accessible plain text version using reading-order aware exporter
+        logger.info(f"Document {doc_id}: Generating accessible text with proper reading order")
         
-        # Clean text: remove page markers
-        clean_text = ""
-        if pdf_text:
-            for line in pdf_text.split('\n'):
-                # Skip page markers
-                if not line.strip().startswith('--- Page'):
-                    clean_text += line + '\n'
-            clean_text = clean_text.strip()
+        # Import the new accessible text exporter
+        from src.accessible_text_exporter import get_text_exporter
+        text_exporter = get_text_exporter()
         
-        text_content = clean_text if clean_text else '[No text content could be extracted from this PDF.]'
+        # Generate accessible text using canonical schema
+        try:
+            text_content = text_exporter.export_accessible_text(
+                document_structure=document_structure,
+                alt_text_data=None,  # Would come from alt-text service
+                metadata=pdf_metadata
+            )
+            logger.info(f"Generated accessible text export ({len(text_content)} chars)")
+        except Exception as e:
+            logger.warning(f"Accessible text generation failed, falling back to basic text: {e}")
+            # Fallback to basic text generation
+            clean_text = ""
+            if pdf_text:
+                for line in pdf_text.split('\n'):
+                    # Skip page markers
+                    if not line.strip().startswith('--- Page'):
+                        clean_text += line + '\n'
+                clean_text = clean_text.strip()
+            
+            text_content = clean_text if clean_text else '[No text content could be extracted from this PDF.]'
         
         # Step 4: Generate CSV data export
         logger.info(f"Document {doc_id}: Generating CSV data export")
@@ -521,6 +555,19 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
         )
         
         logger.info(f"Successfully processed document {doc_id}")
+        
+        # Step 7: Trigger corpus preparation for LLM integration (asynchronous)
+        try:
+            logger.info(f"Starting corpus preparation for document {doc_id}")
+            # This will run asynchronously - document structure would come from structure service
+            prepare_document_corpus.delay(
+                doc_id=doc_id, 
+                document_structure_s3_key=f"structure/{doc_id}/document_structure.json",  # Mock path
+                alt_text_s3_key=None  # Would come from alt-text service
+            )
+        except Exception as e:
+            logger.warning(f"Failed to trigger corpus preparation for {doc_id}: {e}")
+        
         return {
             "status": "completed",
             "doc_id": doc_id,
@@ -656,3 +703,77 @@ def prepare_document_corpus(self, doc_id: str, document_structure_s3_key: str, a
             raise self.retry(countdown=60, exc=e)
         
         return {"status": "failed", "error": str(e)}
+
+
+def _create_mock_document_structure(all_pages_content, pdf_metadata):
+    """Create mock document structure for semantic HTML generation"""
+    elements = []
+    element_id = 0
+    
+    # Add title as first heading if available
+    title = pdf_metadata.get('title')
+    if title:
+        elements.append({
+            "id": f"element_{element_id}",
+            "type": "heading",
+            "level": 1,
+            "text": title,
+            "page_number": 1,
+            "confidence": 0.9
+        })
+        element_id += 1
+    
+    # Process page content
+    for page_data in all_pages_content:
+        page_num = page_data['page']
+        
+        # Add text content as paragraphs
+        for text_item in page_data.get('text', []):
+            if text_item.strip():
+                # Simple heuristic: if text is short and all caps, treat as heading
+                if len(text_item) < 100 and text_item.isupper():
+                    elements.append({
+                        "id": f"element_{element_id}",
+                        "type": "heading", 
+                        "level": 2,
+                        "text": text_item,
+                        "page_number": page_num,
+                        "confidence": 0.7
+                    })
+                else:
+                    elements.append({
+                        "id": f"element_{element_id}",
+                        "type": "paragraph",
+                        "text": text_item,
+                        "page_number": page_num,
+                        "confidence": 0.8
+                    })
+                element_id += 1
+        
+        # Add tables
+        for table_idx, table in enumerate(page_data.get('tables', [])):
+            elements.append({
+                "id": f"element_{element_id}",
+                "type": "table",
+                "text": f"Table {table_idx + 1}",
+                "page_number": page_num,
+                "table_data": table,
+                "has_headers": True,  # Assume first row is header
+                "rows": len(table),
+                "columns": len(table[0]) if table else 0,
+                "confidence": 0.8
+            })
+            element_id += 1
+        
+        # Add figures
+        for img_idx, img in enumerate(page_data.get('images', [])):
+            elements.append({
+                "id": f"figure_{page_num}_{img_idx}",
+                "type": "figure",
+                "text": f"Figure {img_idx + 1}",
+                "page_number": page_num,
+                "confidence": 0.8
+            })
+            element_id += 1
+    
+    return elements

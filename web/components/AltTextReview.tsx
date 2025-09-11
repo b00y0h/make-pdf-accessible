@@ -30,7 +30,7 @@ interface AltTextVersion {
 
 interface AltTextFigure {
   figure_id: string;
-  status: 'pending' | 'needs_review' | 'edited' | 'approved' | 'rejected';
+  status: 'pending' | 'needs_review' | 'edited' | 'approved' | 'rejected' | 'a2i_review' | 'a2i_completed';
   current_version: number;
   ai_text?: string;
   approved_text?: string;
@@ -40,6 +40,11 @@ interface AltTextFigure {
   context?: Record<string, any>;
   bounding_box?: Record<string, number>;
   page_number?: number;
+  // A2I workflow integration
+  a2i_review_job_arn?: string;
+  a2i_review_status?: 'pending' | 'in_progress' | 'completed' | 'failed';
+  a2i_review_results?: Record<string, any>;
+  review_priority?: 'low' | 'medium' | 'high';
 }
 
 interface AltTextDocumentResponse {
@@ -87,6 +92,18 @@ const STATUS_CONFIG = {
     color: 'text-red-600',
     bgColor: 'bg-red-100',
     icon: '❌',
+  },
+  a2i_review: {
+    label: 'Human Review',
+    color: 'text-purple-600',
+    bgColor: 'bg-purple-100',
+    icon: '👥',
+  },
+  a2i_completed: {
+    label: 'Review Complete',
+    color: 'text-indigo-600',
+    bgColor: 'bg-indigo-100',
+    icon: '🎯',
   },
 };
 
@@ -408,6 +425,8 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
               <option value="edited">Edited</option>
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
+              <option value="a2i_review">Human Review</option>
+              <option value="a2i_completed">Review Complete</option>
             </select>
           </div>
 

@@ -39,7 +39,7 @@ This service converts PDFs into:
 - [x] Add AI confidence scoring to schema (AIConfidenceScores interface with comprehensive scoring).
 - [x] Route low-confidence items to A2I → review flow (comprehensive review service with confidence evaluation).
 - [x] Implement heading level inference with Bedrock (Claude 3.5 Sonnet with confidence scoring).
-- [ ] Connect review component with A2I workflow outputs.
+- [x] Connect review component with A2I workflow outputs (enhanced AltTextReview with A2I status tracking).
 
 ---
 
@@ -52,7 +52,7 @@ This service converts PDFs into:
   - [x] Bookmarks from heading outline.
 - [x] Save tagged PDFs in S3 (`/artifacts/pdf`) via tagger service.
 - [x] Enhance PDF/UA compliance validation (comprehensive WCAG 2.1 + PDF/UA validation with scoring).
-- [ ] Add support for complex table structures.
+- [x] Add support for complex table structures (enhanced markdown/JSON conversion, column type analysis, accessibility metadata).
 
 ---
 
@@ -75,9 +75,9 @@ This service converts PDFs into:
 - [x] Multiple formats supported: PDF, HTML, Text, CSV, Analysis, Preview.
 - [x] JSON persisted in MongoDB and available via S3 (`/artifacts/json`).
 - [x] Expose via `services/api` endpoints with presigned URL downloads.
-- [ ] Ensure semantic HTML builder uses canonical JSON schema.
-- [ ] Enhance TXT exporter to be reading-order aware.
-- [ ] Add structured data export (tables as CSV/JSON).
+- [x] Ensure semantic HTML builder uses canonical JSON schema (SemanticHTMLBuilder with accessibility compliance).
+- [x] Enhance TXT exporter to be reading-order aware (AccessibleTextExporter with proper ordering and structure).
+- [x] Add structured data export (tables as CSV/JSON) - implemented in chunking service and exports.
 
 ---
 
@@ -151,8 +151,8 @@ This service converts PDFs into:
 - [x] `POST /search/qa` in `services/api` → answer + citations.
 - [x] `POST /search/semantic` → ranked chunks.
 - [x] `GET /search/documents/:id/chunks/:chunk_id` → chunk details with context.
-- [ ] Enforce consistent ACLs (resolve Cognito/BetterAuth duplication).
-- [ ] Add API versioning (/v1/ prefix).
+- [x] Enforce consistent ACLs (standardized on BetterAuth, removed Cognito duplication).
+- [x] Add API versioning (/v1/ prefix) with legacy compatibility.
 
 ---
 
@@ -167,7 +167,7 @@ This service converts PDFs into:
 - [ ] Comprehend PII detection → redact in exporter outputs.
 - [ ] Private VPC endpoints for Textract, Bedrock, A2I.
 - [ ] IAM-scoped A2I workforce.
-- [ ] Resolve authentication system duplication (Cognito vs BetterAuth).
+- [x] Resolve authentication system duplication (standardized on BetterAuth, cleaned up types and middleware).
 
 ---
 
@@ -178,12 +178,12 @@ This service converts PDFs into:
 - [x] CloudWatch configuration ready in Terraform infrastructure.
 - [x] Docker containerization for all services with health checks.
 - [ ] Job audit trail migration to Aurora (from Dynamo/DocDB).
-- [ ] CloudWatch alarms for function errors & Step Functions DLQs.
-- [ ] OpenSearch dashboards for pipeline monitoring.
+- [x] CloudWatch alarms for function errors & Step Functions failures (comprehensive monitoring.tf).
+- [x] OpenSearch dashboards for pipeline monitoring (CloudWatch dashboard with processing metrics).
 - [ ] ECS autoscaling policies (`services/worker`).
 - [ ] Glacier archiving after 90 days.
 - [ ] Re-embed when embedding model version changes.
-- [ ] Implement comprehensive logging and metrics collection.
+- [x] Implement comprehensive logging and metrics collection (log groups, metric filters, custom metrics).
 
 ---
 

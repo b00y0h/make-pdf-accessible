@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from typing import Dict
+import base64
 
 from aws_lambda_powertools import Logger, Metrics, Tracer
 from aws_lambda_powertools.logging import correlation_paths
@@ -7,6 +8,7 @@ from aws_lambda_powertools.utilities.typing import LambdaContext
 from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder, ENCODERS_BY_TYPE
 from mangum import Mangum
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -23,6 +25,25 @@ metrics = Metrics(
     namespace=settings.powertools_metrics_namespace,
     service=settings.powertools_service_name,
 )
+
+
+def safe_bytes_encoder(obj):
+    """
+    Safe bytes encoder that handles binary data properly.
+    
+    Instead of trying to decode bytes as UTF-8 (which fails for binary PDF data),
+    we encode them as base64 strings with a prefix to indicate the encoding type.
+    """
+    try:
+        # Try to decode as UTF-8 first for text data
+        return obj.decode('utf-8')
+    except UnicodeDecodeError:
+        # If it's binary data (like PDF), encode as base64
+        return f"<base64>{base64.b64encode(obj).decode('ascii')}"
+
+
+# Override FastAPI's default bytes encoder
+ENCODERS_BY_TYPE[bytes] = safe_bytes_encoder
 
 
 class CORSErrorMiddleware(BaseHTTPMiddleware):
@@ -118,6 +139,26 @@ app.add_middleware(
 
 
 # Custom exception handlers
+@app.exception_handler(UnicodeDecodeError)
+async def unicode_decode_error_handler(
+    request: Request, exc: UnicodeDecodeError
+) -> JSONResponse:
+    """Handle UnicodeDecodeError in request validation"""
+    logger.error(f"UnicodeDecodeError in request validation: {exc}")
+
+    # This typically happens when binary data (like PDF content) gets included
+    # in validation error messages and FastAPI tries to decode it as UTF-8
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content=ErrorResponse(
+            error="validation_error",
+            message="Invalid file content or encoding in request",
+            details={"error": "Binary content cannot be processed in request validation"},
+            request_id=getattr(request.state, "request_id", None),
+        ).model_dump(),
+    )
+
+
 @app.exception_handler(AWSServiceError)
 async def aws_service_exception_handler(
     request: Request, exc: AWSServiceError
@@ -263,16 +304,21 @@ async def root() -> Dict[str, str]:
     }
 
 
-# Include routers
-app.include_router(auth.router)
-app.include_router(documents.router)
-app.include_router(demo.router)
-app.include_router(webhooks.router)
-app.include_router(reports.router)
-app.include_router(quotas.router)
-app.include_router(api_keys.router)
-app.include_router(admin.router)
-app.include_router(search.router)
+# Include routers with versioning
+app.include_router(auth.router, prefix="/v1")
+app.include_router(documents.router, prefix="/v1")
+app.include_router(demo.router, prefix="/v1")
+app.include_router(webhooks.router, prefix="/v1")
+app.include_router(reports.router, prefix="/v1")
+app.include_router(quotas.router, prefix="/v1")
+app.include_router(api_keys.router, prefix="/v1")
+app.include_router(admin.router, prefix="/v1")
+app.include_router(search.router, prefix="/v1")
+
+# Legacy routes (maintain backward compatibility)
+app.include_router(auth.router, tags=["legacy"])
+app.include_router(documents.router, tags=["legacy"])
+app.include_router(demo.router, tags=["legacy"])
 
 
 # Lambda handler

@@ -184,8 +184,11 @@ class ChunkingService:
         text = element.get("text", "").strip()
         cleaned_text = self._clean_text_for_llm(text)
         
-        # Generate markdown representation (simplified)
+        # Generate markdown representation with enhanced structure support
         markdown_table = self._convert_table_to_markdown(element)
+        
+        # Create enhanced JSON representation
+        json_representation = self._enhance_table_json_representation(element)
         
         return {
             "id": f"{doc_id}_chunk_{index}",
@@ -204,6 +207,9 @@ class ChunkingService:
                 "columns": element.get("columns", 0),
                 "hasHeaders": element.get("has_headers", False),
                 "markdownRepresentation": markdown_table,
+                "jsonRepresentation": json_representation,
+                "columnTypes": json_representation.get("structure", {}).get("column_types", []),
+                "accessibility": json_representation.get("accessibility", {}),
             },
             "extractionMethod": "textract",
             "extractionConfidence": element.get("confidence", 0.8),
@@ -536,16 +542,210 @@ class ChunkingService:
         return False
 
     def _convert_table_to_markdown(self, element: Dict[str, Any]) -> Optional[str]:
-        """Convert table element to markdown representation."""
+        """Convert table element to markdown representation with enhanced structure support."""
         
-        # This would need actual table cell data from Textract
-        # For now, return a placeholder
         rows = element.get("rows", 0)
         cols = element.get("columns", 0)
         
         if rows == 0 or cols == 0:
             return None
-            
-        # Simple placeholder - in reality, would parse Textract table cells
+        
+        # Check if we have structured table data
+        table_data = element.get("table_data")
+        if table_data:
+            return self._build_markdown_table(table_data, element.get("has_headers", False))
+        
+        # Fall back to parsing from text content if available
         text = element.get("text", "")
-        return f"Table ({rows}x{cols}): {text[:200]}..."
+        if text:
+            return self._parse_table_from_text(text, rows, cols, element.get("has_headers", False))
+        
+        # Final fallback - basic placeholder
+        return f"| Table ({rows}x{cols}) |\n|{'---|' * cols}\n| Content not available |"
+
+    def _build_markdown_table(self, table_data: List[List[str]], has_headers: bool = False) -> str:
+        """Build markdown table from structured data."""
+        
+        if not table_data:
+            return "| Empty table |"
+        
+        markdown_rows = []
+        
+        for row_idx, row in enumerate(table_data):
+            # Clean and escape cell content
+            cleaned_cells = []
+            for cell in row:
+                if cell is None:
+                    cleaned_cells.append("")
+                else:
+                    # Clean cell content for markdown
+                    cell_str = str(cell).strip()
+                    # Escape markdown special characters in table cells
+                    cell_str = cell_str.replace("|", "\\|").replace("\n", " ").replace("\r", "")
+                    cleaned_cells.append(cell_str)
+            
+            # Build table row
+            markdown_row = "| " + " | ".join(cleaned_cells) + " |"
+            markdown_rows.append(markdown_row)
+            
+            # Add separator after header row
+            if row_idx == 0 and has_headers:
+                separator = "|" + "|".join(["---"] * len(cleaned_cells)) + "|"
+                markdown_rows.append(separator)
+        
+        return "\n".join(markdown_rows)
+
+    def _parse_table_from_text(self, text: str, rows: int, cols: int, has_headers: bool = False) -> str:
+        """Parse table structure from raw text content."""
+        
+        # Attempt to identify table structure from text
+        lines = text.split("\n")
+        table_lines = [line.strip() for line in lines if line.strip()]
+        
+        if not table_lines:
+            return f"| Table ({rows}x{cols}) - No content |\n|---|"
+        
+        # Simple heuristic: try to identify potential table rows
+        potential_rows = []
+        
+        for line in table_lines:
+            # Look for patterns that suggest tabular data
+            if any(separator in line for separator in ['\t', '  ', '|']):
+                # Split on common separators
+                if '\t' in line:
+                    cells = line.split('\t')
+                elif '|' in line:
+                    cells = [cell.strip() for cell in line.split('|') if cell.strip()]
+                else:
+                    # Split on multiple spaces
+                    cells = [cell.strip() for cell in line.split('  ') if cell.strip()]
+                
+                if len(cells) >= 2:  # At least 2 columns for a table
+                    potential_rows.append(cells)
+        
+        # Build markdown table from identified rows
+        if potential_rows:
+            return self._build_markdown_table(potential_rows[:rows], has_headers)
+        else:
+            # No clear structure - create a simple representation
+            return f"""
+| Table Content ({rows}x{cols}) |
+|---|
+| {text[:200]}... |
+"""
+
+    def _enhance_table_json_representation(self, element: Dict[str, Any]) -> Dict[str, Any]:
+        """Create enhanced JSON representation for complex tables."""
+        
+        table_json = {
+            "type": "table",
+            "metadata": {
+                "rows": element.get("rows", 0),
+                "columns": element.get("columns", 0),
+                "has_headers": element.get("has_headers", False),
+                "table_id": element.get("id"),
+                "page": element.get("page_number", 1),
+                "confidence": element.get("confidence", 0.8),
+            },
+            "structure": {},
+            "accessibility": {
+                "has_caption": bool(element.get("caption")),
+                "has_summary": bool(element.get("summary")),
+                "header_scope": "col" if element.get("has_headers") else None,
+            }
+        }
+        
+        # Add structured data if available
+        table_data = element.get("table_data")
+        if table_data:
+            table_json["data"] = {
+                "rows": table_data,
+                "headers": table_data[0] if element.get("has_headers") and table_data else None,
+                "body": table_data[1:] if element.get("has_headers") and len(table_data) > 1 else table_data,
+            }
+            
+            # Analyze column types
+            if table_data and len(table_data) > 1:
+                column_types = self._analyze_column_types(table_data, element.get("has_headers", False))
+                table_json["structure"]["column_types"] = column_types
+        
+        # Add relationships to other elements
+        table_json["relationships"] = {
+            "caption_element_id": element.get("caption_element_id"),
+            "following_elements": element.get("following_elements", []),
+            "preceding_elements": element.get("preceding_elements", []),
+        }
+        
+        return table_json
+
+    def _analyze_column_types(self, table_data: List[List[str]], has_headers: bool = False) -> List[Dict[str, Any]]:
+        """Analyze column data types and patterns."""
+        
+        if not table_data or len(table_data) < 2:
+            return []
+        
+        # Skip header row if present
+        data_rows = table_data[1:] if has_headers else table_data
+        num_columns = len(table_data[0]) if table_data else 0
+        
+        column_analysis = []
+        
+        for col_idx in range(num_columns):
+            column_values = []
+            
+            # Extract column values
+            for row in data_rows:
+                if col_idx < len(row) and row[col_idx]:
+                    column_values.append(str(row[col_idx]).strip())
+            
+            if not column_values:
+                column_analysis.append({"type": "empty", "pattern": None})
+                continue
+            
+            # Analyze column type
+            col_info = {
+                "type": "text",  # default
+                "pattern": None,
+                "numeric_percentage": 0.0,
+                "date_percentage": 0.0,
+                "sample_values": column_values[:3],  # First 3 values as examples
+            }
+            
+            # Count numeric values
+            numeric_count = 0
+            date_count = 0
+            
+            for value in column_values:
+                # Check if numeric
+                try:
+                    float(value.replace(",", "").replace("$", "").replace("%", ""))
+                    numeric_count += 1
+                except ValueError:
+                    pass
+                
+                # Check if date-like
+                if any(pattern in value.lower() for pattern in ["jan", "feb", "mar", "apr", "may", "jun", 
+                                                               "jul", "aug", "sep", "oct", "nov", "dec",
+                                                               "monday", "tuesday", "wednesday", "thursday", 
+                                                               "friday", "saturday", "sunday"]):
+                    date_count += 1
+                elif any(char in value for char in ["/", "-"]) and len(value) >= 6:
+                    date_count += 1
+            
+            # Calculate percentages
+            col_info["numeric_percentage"] = numeric_count / len(column_values)
+            col_info["date_percentage"] = date_count / len(column_values)
+            
+            # Determine primary type
+            if col_info["numeric_percentage"] > 0.7:
+                col_info["type"] = "numeric"
+            elif col_info["date_percentage"] > 0.5:
+                col_info["type"] = "date"
+            elif all(len(val) <= 10 and val.isalnum() for val in column_values):
+                col_info["type"] = "category"
+            else:
+                col_info["type"] = "text"
+            
+            column_analysis.append(col_info)
+        
+        return column_analysis

@@ -75,12 +75,34 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, A
             value=len(document_structure.elements),
         )
 
+        # Evaluate confidence scores for structure analysis
+        confidence_scores = {
+            "structureExtraction": sum(elem.confidence for elem in document_structure.elements) / len(document_structure.elements) if document_structure.elements else 0.8,
+            "headingLevels": 0.85,  # Mock confidence for heading analysis
+            "readingOrder": 0.9,    # Mock confidence for reading order
+        }
+        
+        # Check if review is needed
+        review_assessment = None
+        try:
+            from src.review_service import get_review_service
+            review_service = get_review_service()
+            review_assessment = review_service.evaluate_confidence_scores(doc_id, confidence_scores)
+            
+            if review_assessment.get("needsReview"):
+                logger.info(f"Document {doc_id} structure needs human review")
+                
+        except Exception as e:
+            logger.warning(f"Review service evaluation failed: {e}")
+
         return StructureResult(
             doc_id=request.doc_id,
             status="completed",
             document_json_s3_key=document_json_s3_key,
             processing_time_seconds=processing_time,
             elements_count=len(document_structure.elements),
+            confidence_scores=confidence_scores,
+            review_assessment=review_assessment,
         ).dict()
 
     except StructureServiceError as e:

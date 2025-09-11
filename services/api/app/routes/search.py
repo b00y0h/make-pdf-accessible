@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 # Add shared services to path
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../shared"))
 
-from auth import UserInfo, get_current_user
+from ..auth import User as UserInfo, get_current_user
 
 router = APIRouter(prefix="/search", tags=["semantic_search"])
 

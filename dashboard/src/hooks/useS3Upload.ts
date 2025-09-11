@@ -63,7 +63,7 @@ export function useS3Upload() {
         
         const preSignedResponse = await apiService
           .getClient()
-          .post('/documents/upload/presigned', uploadData);
+          .post('/v1/documents/upload/presigned', uploadData);
 
         const preSignedData: PreSignedUploadResponse = preSignedResponse.data;
 
@@ -114,7 +114,7 @@ export function useS3Upload() {
         // Step 3: Create document record in API
         const createResponse = await apiService
           .getClient()
-          .post('/documents/create', {
+          .post('/v1/documents/create', {
             doc_id: preSignedData.doc_id,
             s3_key: preSignedData.s3_key,
             filename: file.name,

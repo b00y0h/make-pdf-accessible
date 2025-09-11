@@ -61,20 +61,51 @@ async def validate_document(
                 detail="Processing quota exceeded. Please try again later.",
             )
 
-    # Perform validation logic here
-    # This is where actual PDF validation would occur
+    # Perform validation logic using enhanced PDF/UA validation service
     doc_id = document_data.get("doc_id")
+    tagged_pdf_s3_key = document_data.get("tagged_pdf_s3_key")
+    document_structure = document_data.get("document_structure", {})
+    alt_text_data = document_data.get("alt_text_data")
 
-    # Simulate validation processing
-    validation_result = {
-        "message": "Document validation initiated",
-        "user_id": current_user.sub,
-        "user_role": current_user.role,
-        "org_id": current_user.org_id,
-        "document_id": doc_id,
-        "validation_status": "in_progress",
-        "estimated_completion": "2-5 minutes",
-    }
+    # Import and use enhanced validation service
+    try:
+        from validation_service import get_validation_service
+        validation_service = get_validation_service()
+        
+        # Run comprehensive PDF/UA validation
+        validation_report = validation_service.validate_pdf_ua_compliance(
+            doc_id=doc_id,
+            tagged_pdf_s3_key=tagged_pdf_s3_key,
+            document_structure=document_structure,
+            alt_text_data=alt_text_data
+        )
+        
+        validation_result = {
+            "message": "Document validation completed",
+            "user_id": current_user.sub,
+            "user_role": current_user.role,
+            "org_id": current_user.org_id,
+            "document_id": doc_id,
+            "validation_status": "completed",
+            "overall_score": validation_report.get("overallScore", 0.0),
+            "pdf_ua_compliant": validation_report.get("pdfUaCompliant", False),
+            "wcag_level": validation_report.get("wcagLevel"),
+            "issues_count": len(validation_report.get("issues", [])),
+            "recommendations": validation_report.get("recommendations", []),
+        }
+        
+    except Exception as e:
+        logger.warning(f"Enhanced validation failed, using basic validation: {e}")
+        # Fallback to basic validation
+        validation_result = {
+            "message": "Document validation initiated (basic mode)",
+            "user_id": current_user.sub,
+            "user_role": current_user.role,
+            "org_id": current_user.org_id,
+            "document_id": doc_id,
+            "validation_status": "in_progress",
+            "estimated_completion": "2-5 minutes",
+        }
 
     # Record quota usage after successful validation start
     if current_user.org_id:

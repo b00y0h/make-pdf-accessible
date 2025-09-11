@@ -30,13 +30,13 @@ const socialProviders: Array<{
     bgColor: 'bg-gray-900 hover:bg-gray-800',
     textColor: 'text-white',
   },
-  {
-    provider: 'apple',
-    name: 'Apple',
-    icon: '🍎',
-    bgColor: 'bg-black hover:bg-gray-900',
-    textColor: 'text-white',
-  },
+  // {
+  //   provider: 'apple',
+  //   name: 'Apple',
+  //   icon: '🍎',
+  //   bgColor: 'bg-black hover:bg-gray-900',
+  //   textColor: 'text-white',
+  // },
   {
     provider: 'discord',
     name: 'Discord',
@@ -44,13 +44,13 @@ const socialProviders: Array<{
     bgColor: 'bg-indigo-600 hover:bg-indigo-700',
     textColor: 'text-white',
   },
-  {
-    provider: 'facebook',
-    name: 'Facebook',
-    icon: '📘',
-    bgColor: 'bg-blue-600 hover:bg-blue-700',
-    textColor: 'text-white',
-  },
+  // {
+  //   provider: 'facebook',
+  //   name: 'Facebook',
+  //   icon: '📘',
+  //   bgColor: 'bg-blue-600 hover:bg-blue-700',
+  //   textColor: 'text-white',
+  // },
 ];
 
 export function SocialLogin({ redirectTo, className }: SocialLoginProps) {

@@ -143,6 +143,8 @@ class StructureResult(BaseModel):
         None, description="Total processing time"
     )
     elements_count: int = Field(default=0, description="Number of elements detected")
+    confidence_scores: Optional[Dict[str, float]] = Field(None, description="AI confidence scores")
+    review_assessment: Optional[Dict[str, Any]] = Field(None, description="Review assessment results")
 
 
 class BedrockRequest(BaseModel):
