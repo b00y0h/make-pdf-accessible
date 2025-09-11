@@ -11,6 +11,8 @@
     "dev:full": "pnpm dev && pnpm dev:frontend",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
+    "test:unit": "pnpm -r test:unit",
+    "type-check": "pnpm -r type-check",
     "lint": "pnpm -r lint",
     "format": "pnpm -r format",
     "clean": "pnpm -r clean && docker-compose down -v",
