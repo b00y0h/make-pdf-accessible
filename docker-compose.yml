@@ -144,11 +144,12 @@ services:
   # API Service - Main FastAPI application
   api:
     build:
-      context: ./services/api
-      dockerfile: Dockerfile
+      context: ./services
+      dockerfile: api/Dockerfile.dev
     container_name: pdf-accessibility-api
     ports:
       - '8000:8000'
+    working_dir: /app
     environment:
       # Python configuration
       - PYTHONPATH=/app
@@ -158,6 +159,7 @@ services:
       - REDIS_URL=redis://redis:6379
       # MongoDB configuration
       - PERSISTENCE_PROVIDER=mongo
+      - MONGODB_HOST=mongo
       - MONGODB_URI=mongodb://mongo:27017/pdf_accessibility?replicaSet=rs0
       - MONGODB_DATABASE=pdf_accessibility
       - ENABLE_QUERY_LOGGING=true
@@ -191,6 +193,8 @@ services:
       - JWT_ISSUER=accesspdf-dashboard
       - JWT_AUDIENCE=accesspdf-api
       - BETTER_AUTH_DASHBOARD_URL=http://host.docker.internal:3001
+      # CORS configuration
+      - CORS_ORIGINS=http://localhost:3000,https://localhost:3000,http://localhost:3001,https://localhost:3001
     depends_on:
       mongo:
         condition: service_healthy
@@ -220,6 +224,7 @@ services:
       - REDIS_URL=redis://redis:6379
       # MongoDB configuration
       - PERSISTENCE_PROVIDER=mongo
+      - MONGODB_HOST=mongo
       - MONGODB_URI=mongodb://mongo:27017/pdf_accessibility?replicaSet=rs0
       - MONGODB_DATABASE=pdf_accessibility
       # AWS Local configuration

@@ -12,7 +12,7 @@ from mangum import Mangum
 from .config import settings
 from .middleware import APIKeyAuthMiddleware
 from .models import ErrorResponse, HealthResponse
-from .routes import admin, api_keys, auth, documents, quotas, reports, webhooks
+from .routes import admin, api_keys, auth, demo, documents, quotas, reports, webhooks
 from .services import AWSServiceError
 
 # Initialize Powertools
@@ -74,6 +74,7 @@ app.add_middleware(
         "/health",
         "/ping",
         "/auth",  # BetterAuth endpoints
+        "/documents",  # Temporarily excluded for demo
     ],
 )
 
@@ -227,6 +228,7 @@ async def root() -> Dict[str, str]:
 # Include routers
 app.include_router(auth.router)
 app.include_router(documents.router)
+app.include_router(demo.router)
 app.include_router(webhooks.router)
 app.include_router(reports.router)
 app.include_router(quotas.router)

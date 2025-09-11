@@ -316,6 +316,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^4.35.0
         version: 4.40.1(react-dom@18.2.0)(react@18.2.0)
+      '@types/uuid':
+        specifier: ^10.0.0
+        version: 10.0.0
       axios:
         specifier: ^1.5.0
         version: 1.11.0
@@ -337,6 +340,9 @@ importers:
       react-dropzone:
         specifier: ^14.2.3
         version: 14.3.8(react@18.2.0)
+      uuid:
+        specifier: ^13.0.0
+        version: 13.0.0
     devDependencies:
       '@axe-core/react':
         specifier: ^4.8.2

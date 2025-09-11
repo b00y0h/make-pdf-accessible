@@ -53,7 +53,7 @@ class Settings(BaseSettings):
 
     # Security
     webhook_secret_key: str = Field("", env="WEBHOOK_SECRET_KEY")
-    cors_origins: Optional[list[str]] = None
+    cors_origins: Optional[list[str]] = Field(None, env="CORS_ORIGINS")
 
     @field_validator("cors_origins", mode="before")
     @classmethod

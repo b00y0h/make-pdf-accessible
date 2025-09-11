@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
@@ -7,11 +8,15 @@ from fastapi import (
     Depends,
     File,
     Form,
+    Header,
     HTTPException,
     Query,
+    Request,
     UploadFile,
     status,
 )
+
+from services.shared.mongo.demo_sessions import get_demo_session_repository
 
 from ..auth import User, get_current_user, require_roles
 from ..config import settings
@@ -122,6 +127,154 @@ async def get_presigned_upload_url(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate upload URL",
+        )
+
+
+@router.post(
+    "/demo/upload",
+    response_model=PreSignedUploadResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Demo upload - Get pre-signed upload URL without authentication",
+    description="Public demo endpoint for testing PDF upload without authentication.",
+)
+@tracer.capture_method
+async def demo_presigned_upload(
+    request_obj: PreSignedUploadRequest,
+    request: Request,
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    user_agent: Optional[str] = Header(None, alias="User-Agent"),
+) -> PreSignedUploadResponse:
+    """Demo endpoint - Get pre-signed S3 upload URL without authentication"""
+
+    # Get client IP
+    client_ip = request.client.host if request.client else "unknown"
+
+    # Get or create session
+    if not x_session_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Session ID required in X-Session-ID header",
+        )
+
+    demo_repo = get_demo_session_repository()
+    demo_repo.get_or_create_session(
+        session_id=x_session_id,
+        ip_address=client_ip,
+        user_agent=user_agent or "unknown"
+    )
+
+    # Check rate limits
+    allowed, reason = demo_repo.check_rate_limit(
+        session_id=x_session_id,
+        ip_address=client_ip,
+        max_per_hour=5  # 5 uploads per hour for demo
+    )
+
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=reason,
+        )
+
+    # Validate file size (basic limits for demo)
+    MAX_DEMO_FILE_SIZE = 10 * 1024 * 1024  # 10MB for demo
+    if request_obj.file_size > MAX_DEMO_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Demo file size limit is 10MB",
+        )
+
+    # Validate file extension
+    filename_lower = request_obj.filename.lower()
+    if not filename_lower.endswith('.pdf'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Demo only supports PDF files",
+        )
+
+    try:
+        # Generate pre-signed upload URL using document_service
+        # Use session ID as the user ID for tracking
+        upload_response = await document_service.generate_presigned_upload_url(
+            user_id=f"demo-{x_session_id}",
+            filename=request_obj.filename,
+            content_type=request_obj.content_type or "application/pdf",
+            file_size=request_obj.file_size,
+        )
+
+        # Record the upload in the session
+        demo_repo.record_upload(
+            session_id=x_session_id,
+            document_id=str(upload_response.doc_id)
+        )
+
+        logger.info(
+            "Demo pre-signed upload URL generated",
+            extra={
+                "doc_id": str(upload_response.doc_id),
+                "file_name": request_obj.filename,
+                "file_size": request_obj.file_size,
+                "session_id": x_session_id,
+            },
+        )
+
+        return upload_response
+
+    except AWSServiceError as e:
+        logger.error(f"Failed to generate demo pre-signed upload URL: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate upload URL",
+        )
+
+
+@router.post(
+    "/demo/create",
+    response_model=DocumentResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Demo - Create document after successful upload",
+    description="Demo endpoint to create document record without authentication.",
+)
+@tracer.capture_method
+async def demo_create_document(
+    request_obj: DocumentCreateRequest,
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+) -> DocumentResponse:
+    """Demo endpoint - Create document record after S3 upload without authentication"""
+
+    if not x_session_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Session ID required in X-Session-ID header",
+        )
+
+    try:
+        # Create document record with session-specific user ID
+        document = await document_service.create_document_from_upload(
+            user_id=f"demo-{x_session_id}",
+            doc_id=request_obj.doc_id,
+            s3_key=request_obj.s3_key,
+            filename=request_obj.filename,
+            content_type=request_obj.content_type,
+            file_size=request_obj.file_size,
+            metadata={**(request_obj.metadata or {}), "session_id": x_session_id},
+        )
+
+        logger.info(
+            "Demo document created successfully",
+            extra={
+                "doc_id": str(document.doc_id),
+                "file_name": request_obj.filename,
+            },
+        )
+
+        return document
+
+    except AWSServiceError as e:
+        logger.error(f"Failed to create demo document: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create document",
         )
 
 
@@ -457,6 +610,45 @@ async def list_documents(
 
 
 @router.get(
+    "/demo/{document_id}",
+    response_model=DocumentResponse,
+    summary="Demo - Get document details without authentication",
+    description="Demo endpoint to get document status without authentication.",
+)
+@tracer.capture_method
+async def demo_get_document(
+    document_id: UUID,
+) -> DocumentResponse:
+    """Demo endpoint - Get document by ID without authentication"""
+
+    try:
+        document = await document_service.get_document(
+            doc_id=str(document_id),
+            user_id="demo-user",
+        )
+
+        if not document:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Document not found"
+            )
+
+        logger.info(
+            "Demo document retrieved",
+            extra={"doc_id": str(document_id)},
+        )
+
+        return document
+
+    except AWSServiceError as e:
+        logger.error(f"Failed to get demo document: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve document",
+        )
+
+
+@router.get(
     "/{document_id}",
     response_model=DocumentResponse,
     summary="Get document details",
@@ -497,6 +689,126 @@ async def get_document(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve document",
+        )
+
+
+@router.get(
+    "/demo/{document_id}/downloads",
+    response_model=DownloadResponse,
+    summary="Demo - Get document download URL without authentication",
+    description="Demo endpoint to download processed documents without authentication. Accessible PDF requires login.",
+)
+@tracer.capture_method
+async def demo_get_download_url(
+    document_id: UUID,
+    document_type: DocumentType = Query(
+        ..., description="Type of document to download"
+    ),
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    expires_in: int = Query(
+        3600, ge=300, le=86400, description="URL expiration time in seconds"
+    ),
+) -> DownloadResponse:
+    """Demo endpoint - Get pre-signed download URL without authentication"""
+
+    if not x_session_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Session ID required in X-Session-ID header",
+        )
+
+    # Restrict accessible PDF to authenticated users only
+    if document_type == DocumentType.ACCESSIBLE_PDF:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Please sign up or log in to download the accessible PDF. Other formats are available without login.",
+            headers={"X-Requires-Auth": "true"}
+        )
+
+    # Allow preview and other formats (HTML, text, CSV, analysis)
+    allowed_demo_types = [
+        DocumentType.PREVIEW,  # PNG preview of first page
+        DocumentType.HTML,      # HTML version
+        DocumentType.TEXT,      # Plain text
+        DocumentType.CSV,       # Data extract
+        DocumentType.ANALYSIS,  # AI analysis report
+    ]
+
+    if document_type not in allowed_demo_types:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Document type '{document_type.value}' requires authentication",
+        )
+
+    try:
+        # Verify the document exists for this session
+        demo_repo = get_demo_session_repository()
+        session_docs = demo_repo.get_session_documents(x_session_id)
+
+        if str(document_id) not in session_docs:
+            # Try with demo-user prefix for backwards compatibility
+            document = await document_service.get_document(
+                doc_id=str(document_id),
+                user_id=f"demo-{x_session_id}",
+            )
+
+            if not document:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Document not found or not associated with this session"
+                )
+        else:
+            document = await document_service.get_document(
+                doc_id=str(document_id),
+                user_id=f"demo-{x_session_id}",
+            )
+
+        # Check if document is completed
+        if document.status != DocumentStatus.COMPLETED:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Document is not ready for download. Current status: {document.status.value}",
+            )
+
+        # Generate pre-signed URL
+        from datetime import datetime, timedelta
+
+        presigned_url, content_type, filename = (
+            await document_service.generate_presigned_url(
+                doc_id=str(document_id),
+                document_type=document_type,
+                expires_in=expires_in,
+            )
+        )
+
+        expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+
+        logger.info(
+            "Demo download URL generated",
+            extra={
+                "doc_id": str(document_id),
+                "document_type": document_type.value,
+                "session_id": x_session_id,
+            },
+        )
+
+        return DownloadResponse(
+            download_url=presigned_url,
+            expires_at=expires_at,
+            content_type=content_type,
+            filename=filename,
+        )
+
+    except AWSServiceError as e:
+        logger.error(f"Failed to generate demo download URL: {e}")
+        if "not available" in str(e):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Document {document_type.value} not available",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate download URL",
         )
 
 
@@ -634,4 +946,87 @@ async def delete_document(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete document",
+        )
+
+
+@router.post(
+    "/{document_id}/generate-preview",
+    response_model=dict[str, str],
+    summary="Generate preview for document",
+    description="Generate a PNG preview of the first page of a PDF document",
+)
+@tracer.capture_method
+async def generate_document_preview(
+    document_id: UUID,
+    page_number: int = 1,
+    current_user: User = Depends(get_current_user),
+) -> dict[str, str]:
+    """Generate a preview image for a PDF document"""
+
+    try:
+        from ..services import preview_service
+        from services.shared.mongo.documents import get_document_repository
+        import boto3
+
+        # Get document metadata from MongoDB
+        doc_repo = get_document_repository()
+        document = doc_repo.get_document(
+            doc_id=str(document_id),
+            user_id=current_user.id
+        )
+
+        if not document:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Document not found"
+            )
+
+        # Generate preview from S3 PDF
+        original_s3_key = f"original/{document_id}.pdf"
+        preview_s3_key = preview_service.generate_preview_from_s3(
+            s3_key=original_s3_key,
+            page_number=page_number,
+            dpi=150,
+            format="PNG"
+        )
+
+        # Generate presigned URL for preview
+        s3_client = boto3.client(
+            "s3",
+            endpoint_url=settings.aws_endpoint_url,
+            region_name=settings.aws_region,
+            aws_access_key_id=settings.aws_access_key_id,
+            aws_secret_access_key=settings.aws_secret_access_key,
+        )
+
+        preview_url = s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": settings.s3_bucket, "Key": preview_s3_key},
+            ExpiresIn=3600,
+        )
+
+        # Update document with preview info
+        doc_repo.update_document(
+            doc_id=str(document_id),
+            user_id=current_user.id,
+            update_data={
+                "preview_url": preview_url,
+                "preview_s3_key": preview_s3_key,
+                "preview_generated_at": datetime.utcnow()
+            }
+        )
+
+        logger.info(f"Generated preview for document {document_id}")
+
+        return {
+            "preview_url": preview_url,
+            "s3_key": preview_s3_key,
+            "page_number": str(page_number)
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to generate preview for {document_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate preview"
         )

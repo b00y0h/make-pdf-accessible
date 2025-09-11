@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_serializer, field_validator
@@ -20,10 +20,22 @@ class DocumentStatus(str, Enum):
 class DocumentType(str, Enum):
     """Supported document types"""
 
-    PDF = "pdf"
-    HTML = "html"
-    JSON = "json"
-    CSV_ZIP = "csvzip"
+    # Main output formats
+    ACCESSIBLE_PDF = (
+        "accessible_pdf"  # The main accessible PDF (requires auth for demo)
+    )
+    PDF = "pdf"  # Original PDF
+    HTML = "html"  # HTML version
+    TEXT = "text"  # Plain text version
+
+    # Data and analysis
+    JSON = "json"  # Structured data
+    CSV = "csv"  # CSV data extract
+    CSV_ZIP = "csvzip"  # Multiple CSVs in ZIP
+    ANALYSIS = "analysis"  # AI analysis report
+
+    # Preview formats
+    PREVIEW = "preview"  # PNG preview of first page(s)
 
 
 class UserRole(str, Enum):
@@ -38,7 +50,7 @@ class DocumentUploadRequest(BaseModel):
 
     source_url: Optional[str] = Field(None, description="URL to download document from")
     filename: Optional[str] = Field(None, description="Original filename")
-    metadata: Optional[Dict[str, Any]] = Field(
+    metadata: Optional[dict[str, Any]] = Field(
         default_factory=dict, description="Additional metadata"
     )
     priority: bool = Field(False, description="High priority processing")
@@ -62,11 +74,11 @@ class DocumentResponse(BaseModel):
     updated_at: datetime = Field(..., description="Last update timestamp")
     completed_at: Optional[datetime] = Field(None, description="Completion timestamp")
     user_id: str = Field(..., description="User who uploaded the document")
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Document metadata"
     )
     error_message: Optional[str] = Field(None, description="Error message if failed")
-    artifacts: Dict[str, str] = Field(
+    artifacts: dict[str, str] = Field(
         default_factory=dict, description="Available artifacts"
     )
 
@@ -82,7 +94,7 @@ class DocumentResponse(BaseModel):
 class DocumentListResponse(BaseModel):
     """Response model for document list"""
 
-    documents: List[DocumentResponse] = Field(..., description="List of documents")
+    documents: list[DocumentResponse] = Field(..., description="List of documents")
     total: int = Field(..., description="Total number of documents")
     page: int = Field(..., description="Current page number")
     per_page: int = Field(..., description="Items per page")
@@ -117,7 +129,7 @@ class WebhookPayload(BaseModel):
     doc_id: UUID = Field(..., description="Document ID")
     status: DocumentStatus = Field(..., description="Document status")
     timestamp: datetime = Field(..., description="Event timestamp")
-    data: Dict[str, Any] = Field(
+    data: dict[str, Any] = Field(
         default_factory=dict, description="Additional event data"
     )
 
@@ -134,7 +146,7 @@ class WebhookRequest(BaseModel):
     """Webhook request model"""
 
     signature: str = Field(..., description="HMAC signature")
-    payload: Dict[str, Any] = Field(..., description="Webhook payload")
+    payload: dict[str, Any] = Field(..., description="Webhook payload")
 
 
 class ReportsSummaryResponse(BaseModel):
@@ -153,7 +165,7 @@ class ReportsSummaryResponse(BaseModel):
     avg_processing_time_hours: float = Field(
         ..., description="Average processing time in hours"
     )
-    weekly_stats: List[Dict[str, Any]] = Field(
+    weekly_stats: list[dict[str, Any]] = Field(
         ..., description="Weekly statistics with aggregated data"
     )
 
@@ -163,7 +175,7 @@ class ErrorResponse(BaseModel):
 
     error: str = Field(..., description="Error type")
     message: str = Field(..., description="Error message")
-    details: Optional[Dict[str, Any]] = Field(
+    details: Optional[dict[str, Any]] = Field(
         None, description="Additional error details"
     )
     timestamp: datetime = Field(
@@ -184,7 +196,7 @@ class HealthResponse(BaseModel):
     timestamp: datetime = Field(
         default_factory=datetime.utcnow, description="Health check timestamp"
     )
-    dependencies: Dict[str, str] = Field(
+    dependencies: dict[str, str] = Field(
         default_factory=dict, description="Dependency status"
     )
 
@@ -241,7 +253,7 @@ class PreSignedUploadResponse(BaseModel):
     """Response model for pre-signed upload URL"""
 
     upload_url: str = Field(..., description="Pre-signed S3 upload URL")
-    fields: Dict[str, str] = Field(..., description="Required form fields for upload")
+    fields: dict[str, str] = Field(..., description="Required form fields for upload")
     expires_at: datetime = Field(..., description="URL expiration timestamp")
     s3_key: str = Field(..., description="S3 key for the uploaded file")
     doc_id: UUID = Field(..., description="Generated document ID")
@@ -261,7 +273,7 @@ class DocumentCreateRequest(BaseModel):
     doc_id: UUID = Field(..., description="Document ID from pre-signed upload")
     s3_key: str = Field(..., description="S3 key of uploaded file")
     source: str = Field("upload", description="Source of document")
-    metadata: Optional[Dict[str, Any]] = Field(
+    metadata: Optional[dict[str, Any]] = Field(
         default_factory=dict, description="Additional metadata"
     )
     priority: bool = Field(False, description="High priority processing")
@@ -323,13 +335,13 @@ class AltTextFigure(BaseModel):
     generation_method: Optional[str] = Field(
         None, description="How alt text was generated"
     )
-    versions: List[AltTextVersion] = Field(
+    versions: list[AltTextVersion] = Field(
         default_factory=list, description="Version history"
     )
-    context: Optional[Dict[str, Any]] = Field(
+    context: Optional[dict[str, Any]] = Field(
         default_factory=dict, description="Figure context metadata"
     )
-    bounding_box: Optional[Dict[str, float]] = Field(
+    bounding_box: Optional[dict[str, float]] = Field(
         None, description="Figure location"
     )
     page_number: Optional[int] = Field(
@@ -349,7 +361,7 @@ class AltTextDocumentResponse(BaseModel):
     """Alt text data for a document"""
 
     doc_id: UUID = Field(..., description="Document ID")
-    figures: List[AltTextFigure] = Field(
+    figures: list[AltTextFigure] = Field(
         default_factory=list, description="Figures with alt text"
     )
     total_figures: int = Field(0, description="Total number of figures")
@@ -401,7 +413,7 @@ class AltTextEditResponse(BaseModel):
 class AltTextBulkStatusRequest(BaseModel):
     """Request to update status for multiple figures"""
 
-    figure_ids: List[str] = Field(..., min_items=1, description="Figure IDs to update")
+    figure_ids: list[str] = Field(..., min_items=1, description="Figure IDs to update")
     status: AltTextStatus = Field(..., description="New status for all figures")
     comment: Optional[str] = Field(
         None, max_length=200, description="Comment for bulk action"
@@ -419,7 +431,7 @@ class AltTextHistoryResponse(BaseModel):
     """History for a specific figure"""
 
     figure_id: str = Field(..., description="Figure ID")
-    versions: List[AltTextVersion] = Field(
+    versions: list[AltTextVersion] = Field(
         ..., description="All versions of this figure"
     )
     current_version: int = Field(..., description="Current active version")
@@ -463,7 +475,7 @@ class UserListParams(BaseModel):
 class UserListResponse(BaseModel):
     """Response for user list"""
 
-    users: List[UserSummary] = Field(..., description="List of users")
+    users: list[UserSummary] = Field(..., description="List of users")
     total: int = Field(..., description="Total number of users")
     total_pages: int = Field(..., description="Total number of pages")
     current_page: int = Field(..., description="Current page number")
