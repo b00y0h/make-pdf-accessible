@@ -9,19 +9,25 @@ async function getCostForecastHandler(
   try {
     // Extract query parameters
     const { searchParams } = new URL(request.url);
-    const metric = (searchParams.get('metric') || 'UNBLENDED_COST') as 'UNBLENDED_COST' | 'BLENDED_COST';
-    const granularity = (searchParams.get('granularity') || 'MONTHLY') as 'MONTHLY' | 'DAILY';
-    const predictionIntervalLevel = parseInt(searchParams.get('predictionInterval') || '80');
+    const metric = (searchParams.get('metric') || 'UNBLENDED_COST') as
+      | 'UNBLENDED_COST'
+      | 'BLENDED_COST';
+    const granularity = (searchParams.get('granularity') || 'MONTHLY') as
+      | 'MONTHLY'
+      | 'DAILY';
+    const predictionIntervalLevel = parseInt(
+      searchParams.get('predictionInterval') || '80'
+    );
 
     const costExplorer = new CostExplorerService();
-    
+
     // Get cost forecast (automatically calculates next 3 months)
     const forecastData = await costExplorer.getCostForecast({
       granularity,
       metric,
       predictionIntervalLevel,
     });
-    
+
     return NextResponse.json({
       ok: true,
       data: {
@@ -30,7 +36,10 @@ async function getCostForecastHandler(
         predictionIntervalLevel,
         timePeriod: {
           start: forecastData.forecastResults[0]?.timePeriod.start || '',
-          end: forecastData.forecastResults[forecastData.forecastResults.length - 1]?.timePeriod.end || '',
+          end:
+            forecastData.forecastResults[
+              forecastData.forecastResults.length - 1
+            ]?.timePeriod.end || '',
         },
         forecastResultsByTime: forecastData.forecastResults,
         total: forecastData.total,
@@ -39,7 +48,7 @@ async function getCostForecastHandler(
     });
   } catch (error) {
     console.error('Error in getCostForecastHandler:', error);
-    
+
     if (error instanceof CostExplorerError) {
       return NextResponse.json(
         {
@@ -51,7 +60,7 @@ async function getCostForecastHandler(
         { status: error.statusCode || 500 }
       );
     }
-    
+
     return NextResponse.json(
       {
         ok: false,

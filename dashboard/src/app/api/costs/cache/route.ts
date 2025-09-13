@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   try {
     // Check authentication and admin role
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -30,9 +30,8 @@ export async function GET(request: NextRequest) {
       data: {
         stats,
         timestamp: new Date().toISOString(),
-      }
+      },
     });
-
   } catch (error) {
     console.error('Cache stats error:', error);
     return NextResponse.json(
@@ -46,7 +45,7 @@ export async function DELETE(request: NextRequest) {
   try {
     // Check authentication and admin role
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -66,7 +65,7 @@ export async function DELETE(request: NextRequest) {
     const cache = getCacheInstance();
 
     let clearedCount = 0;
-    
+
     if (pattern) {
       // Clear specific pattern
       clearedCount = await cache.clearPattern(pattern);
@@ -82,9 +81,8 @@ export async function DELETE(request: NextRequest) {
         clearedCount,
         pattern: pattern || 'all',
         timestamp: new Date().toISOString(),
-      }
+      },
     });
-
   } catch (error) {
     console.error('Cache clear error:', error);
     return NextResponse.json(
@@ -98,7 +96,7 @@ export async function POST(request: NextRequest) {
   try {
     // Check authentication and admin role
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -128,7 +126,7 @@ export async function POST(request: NextRequest) {
             data: {
               message: `Invalidated cache entry: ${key}`,
               timestamp: new Date().toISOString(),
-            }
+            },
           });
         }
         break;
@@ -144,7 +142,7 @@ export async function POST(request: NextRequest) {
               params,
               metadata,
               timestamp: new Date().toISOString(),
-            }
+            },
           });
         }
         break;
@@ -156,12 +154,15 @@ export async function POST(request: NextRequest) {
           data: {
             message: 'Cache warmup triggered',
             timestamp: new Date().toISOString(),
-          }
+          },
         });
 
       default:
         return NextResponse.json(
-          { error: 'Invalid action. Supported actions: invalidate, metadata, warmup' },
+          {
+            error:
+              'Invalid action. Supported actions: invalidate, metadata, warmup',
+          },
           { status: 400 }
         );
     }
@@ -170,7 +171,6 @@ export async function POST(request: NextRequest) {
       { error: 'Missing required parameters' },
       { status: 400 }
     );
-
   } catch (error) {
     console.error('Cache management error:', error);
     return NextResponse.json(

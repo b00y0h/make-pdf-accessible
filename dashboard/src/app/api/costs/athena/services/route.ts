@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   try {
     // Check authentication and admin role
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -25,14 +25,17 @@ export async function GET(request: NextRequest) {
 
     // Parse query parameters
     const { searchParams } = new URL(request.url);
-    
+
     const filters: CostFilters = {
       dateRange: {
         preset: (searchParams.get('preset') as any) || '12months',
-        custom: searchParams.get('start') && searchParams.get('end') ? {
-          start: searchParams.get('start')!,
-          end: searchParams.get('end')!,
-        } : undefined,
+        custom:
+          searchParams.get('start') && searchParams.get('end')
+            ? {
+                start: searchParams.get('start')!,
+                end: searchParams.get('end')!,
+              }
+            : undefined,
       },
       metric: (searchParams.get('metric') as any) || 'UnblendedCost',
       granularity: (searchParams.get('granularity') as any) || 'MONTHLY',
@@ -48,13 +51,15 @@ export async function GET(request: NextRequest) {
 
     // Add cache headers
     const response = NextResponse.json(data);
-    response.headers.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=1800'); // 1 hour cache
-    
-    return response;
+    response.headers.set(
+      'Cache-Control',
+      'public, max-age=3600, stale-while-revalidate=1800'
+    ); // 1 hour cache
 
+    return response;
   } catch (error) {
     console.error('Athena service costs error:', error);
-    
+
     // Handle specific Athena errors
     if (error instanceof Error) {
       if (error.message.includes('Query failed')) {
@@ -63,7 +68,7 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         );
       }
-      
+
       if (error.message.includes('timed out')) {
         return NextResponse.json(
           { error: 'Query execution timed out' },

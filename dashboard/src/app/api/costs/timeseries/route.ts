@@ -9,14 +9,18 @@ async function getCostTimeseriesHandler(
   try {
     // Extract query parameters
     const { searchParams } = new URL(request.url);
-    const metric = (searchParams.get('metric') || 'UnblendedCost') as 'UnblendedCost' | 'AmortizedCost';
-    const granularity = (searchParams.get('granularity') || 'MONTHLY') as 'MONTHLY' | 'DAILY';
+    const metric = (searchParams.get('metric') || 'UnblendedCost') as
+      | 'UnblendedCost'
+      | 'AmortizedCost';
+    const granularity = (searchParams.get('granularity') || 'MONTHLY') as
+      | 'MONTHLY'
+      | 'DAILY';
     const preset = searchParams.get('preset') || '12months';
-    
+
     // Use preset or custom date range
     let startDate = searchParams.get('startDate');
     let endDate = searchParams.get('endDate');
-    
+
     if (!startDate || !endDate) {
       const dateRange = CostExplorerService.getDateRange(preset as any);
       startDate = dateRange.start;
@@ -24,14 +28,14 @@ async function getCostTimeseriesHandler(
     }
 
     const costExplorer = new CostExplorerService();
-    
+
     // Get timeseries data (total monthly cost with no grouping)
     const costSeries = await costExplorer.getTimeseries({
       timePeriod: { start: startDate, end: endDate },
       granularity,
       metric,
     });
-    
+
     return NextResponse.json({
       ok: true,
       data: {
@@ -47,7 +51,7 @@ async function getCostTimeseriesHandler(
     });
   } catch (error) {
     console.error('Error in getCostTimeseriesHandler:', error);
-    
+
     if (error instanceof CostExplorerError) {
       return NextResponse.json(
         {
@@ -59,7 +63,7 @@ async function getCostTimeseriesHandler(
         { status: error.statusCode || 500 }
       );
     }
-    
+
     return NextResponse.json(
       {
         ok: false,
@@ -72,4 +76,6 @@ async function getCostTimeseriesHandler(
 }
 
 // Apply RBAC middleware requiring admin role
-export const GET = withRBAC(getCostTimeseriesHandler, { requiredRole: 'admin' });
+export const GET = withRBAC(getCostTimeseriesHandler, {
+  requiredRole: 'admin',
+});

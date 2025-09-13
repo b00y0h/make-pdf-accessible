@@ -114,31 +114,35 @@ export default function DocumentsPage() {
       toast.error('Failed to load documents');
     }
   }, [error]);
-  
+
   // Delete document handler
   const handleDeleteDocument = async (doc: Document) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/documents/${doc.doc_id}?confirm_deletion=true`, {
-        method: 'DELETE',
-        headers: {
-          'X-Dashboard-Internal': 'true',
-          'X-Dashboard-Secret': 'dashboard_internal_secret_123',
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/documents/${doc.doc_id}?confirm_deletion=true`,
+        {
+          method: 'DELETE',
+          headers: {
+            'X-Dashboard-Internal': 'true',
+            'X-Dashboard-Secret': 'dashboard_internal_secret_123',
+          },
         }
-      });
-      
+      );
+
       if (!response.ok) {
         throw new Error('Failed to delete document');
       }
-      
+
       const result = await response.json();
-      toast.success(`Document deleted successfully. Removed ${result.deletion_summary.total_artifacts_removed} artifacts.`);
-      
+      toast.success(
+        `Document deleted successfully. Removed ${result.deletion_summary.total_artifacts_removed} artifacts.`
+      );
+
       // Refresh the list
       refetch();
-      
+
       // Close confirmation modal
       setDeleteConfirmation({ isOpen: false });
-      
     } catch (error) {
       console.error('Delete failed:', error);
       toast.error('Failed to delete document');
@@ -432,7 +436,9 @@ export default function DocumentsPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setDeleteConfirmation({ isOpen: true, document: doc })}
+                      onClick={() =>
+                        setDeleteConfirmation({ isOpen: true, document: doc })
+                      }
                       className="text-red-600 hover:text-red-800 hover:bg-red-50"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -444,7 +450,7 @@ export default function DocumentsPage() {
           )}
         </CardContent>
       </Card>
-      
+
       {/* Delete Confirmation Modal */}
       {deleteConfirmation.isOpen && deleteConfirmation.document && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -455,7 +461,8 @@ export default function DocumentsPage() {
                 Delete Document?
               </CardTitle>
               <CardDescription>
-                This action cannot be undone. This will permanently delete the document and all associated files.
+                This action cannot be undone. This will permanently delete the
+                document and all associated files.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -476,13 +483,12 @@ export default function DocumentsPage() {
                       • Processing artifacts
                       <br />
                       • Alt-text and metadata
-                      <br />
-                      • Vector embeddings
+                      <br />• Vector embeddings
                     </p>
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex gap-3">
                 <Button
                   variant="outline"
@@ -493,7 +499,9 @@ export default function DocumentsPage() {
                 </Button>
                 <Button
                   variant="destructive"
-                  onClick={() => handleDeleteDocument(deleteConfirmation.document!)}
+                  onClick={() =>
+                    handleDeleteDocument(deleteConfirmation.document!)
+                  }
                   className="flex-1"
                 >
                   <Trash2 className="h-4 w-4 mr-2" />

@@ -27,14 +27,14 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { Checkbox } from '@/components/ui/checkbox';
-import { 
-  CalendarIcon, 
-  ChevronDown, 
-  X, 
+import {
+  CalendarIcon,
+  ChevronDown,
+  X,
   Plus,
   Settings2,
   RefreshCw,
-  RotateCcw
+  RotateCcw,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { CostFilters, ServiceDimension } from '@/lib/costs/types';
@@ -73,9 +73,12 @@ export function AdvancedFilters({
     });
   };
 
-  const handleCustomDateChange = (field: 'start' | 'end', date: Date | undefined) => {
+  const handleCustomDateChange = (
+    field: 'start' | 'end',
+    date: Date | undefined
+  ) => {
     if (!date) return;
-    
+
     const customRange = filters.dateRange.custom || { start: '', end: '' };
     onChange({
       ...filters,
@@ -98,7 +101,7 @@ export function AdvancedFilters({
     const currentValues = filters[field] || [];
     const newValues = checked
       ? [...currentValues, value]
-      : currentValues.filter(v => v !== value);
+      : currentValues.filter((v) => v !== value);
 
     onChange({
       ...filters,
@@ -127,12 +130,12 @@ export function AdvancedFilters({
 
   const removeTagFilter = (key: string, value?: string) => {
     const currentTags = filters.tags || {};
-    
+
     if (value) {
       // Remove specific value
-      const updatedValues = (currentTags[key] || []).filter(v => v !== value);
+      const updatedValues = (currentTags[key] || []).filter((v) => v !== value);
       const newTags = { ...currentTags };
-      
+
       if (updatedValues.length === 0) {
         delete newTags[key];
       } else {
@@ -147,7 +150,7 @@ export function AdvancedFilters({
       // Remove entire key
       const newTags = { ...currentTags };
       delete newTags[key];
-      
+
       onChange({
         ...filters,
         tags: newTags,
@@ -189,7 +192,10 @@ export function AdvancedFilters({
         {/* Date Range */}
         <div className="flex items-center space-x-2">
           <Label className="text-sm font-medium">Date Range:</Label>
-          <Select value={filters.dateRange.preset} onValueChange={handleDateRangeChange}>
+          <Select
+            value={filters.dateRange.preset}
+            onValueChange={handleDateRangeChange}
+          >
             <SelectTrigger className="w-[160px]">
               <SelectValue />
             </SelectTrigger>
@@ -210,41 +216,59 @@ export function AdvancedFilters({
               <Label className="text-sm">From:</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-[140px] justify-start text-left font-normal">
+                  <Button
+                    variant="outline"
+                    className="w-[140px] justify-start text-left font-normal"
+                  >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {filters.dateRange.custom?.start 
-                      ? format(new Date(filters.dateRange.custom.start), 'MMM dd, yyyy')
-                      : 'Pick date'
-                    }
+                    {filters.dateRange.custom?.start
+                      ? format(
+                          new Date(filters.dateRange.custom.start),
+                          'MMM dd, yyyy'
+                        )
+                      : 'Pick date'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
                   <Calendar
                     mode="single"
-                    selected={filters.dateRange.custom?.start ? new Date(filters.dateRange.custom.start) : undefined}
+                    selected={
+                      filters.dateRange.custom?.start
+                        ? new Date(filters.dateRange.custom.start)
+                        : undefined
+                    }
                     onSelect={(date) => handleCustomDateChange('start', date)}
                     initialFocus
                   />
                 </PopoverContent>
               </Popover>
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <Label className="text-sm">To:</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-[140px] justify-start text-left font-normal">
+                  <Button
+                    variant="outline"
+                    className="w-[140px] justify-start text-left font-normal"
+                  >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {filters.dateRange.custom?.end 
-                      ? format(new Date(filters.dateRange.custom.end), 'MMM dd, yyyy')
-                      : 'Pick date'
-                    }
+                    {filters.dateRange.custom?.end
+                      ? format(
+                          new Date(filters.dateRange.custom.end),
+                          'MMM dd, yyyy'
+                        )
+                      : 'Pick date'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
                   <Calendar
                     mode="single"
-                    selected={filters.dateRange.custom?.end ? new Date(filters.dateRange.custom.end) : undefined}
+                    selected={
+                      filters.dateRange.custom?.end
+                        ? new Date(filters.dateRange.custom.end)
+                        : undefined
+                    }
                     onSelect={(date) => handleCustomDateChange('end', date)}
                     initialFocus
                   />
@@ -257,9 +281,11 @@ export function AdvancedFilters({
         {/* Metric Type */}
         <div className="flex items-center space-x-2">
           <Label className="text-sm font-medium">Cost Type:</Label>
-          <Select 
-            value={filters.metric} 
-            onValueChange={(value) => onChange({ ...filters, metric: value as any })}
+          <Select
+            value={filters.metric}
+            onValueChange={(value) =>
+              onChange({ ...filters, metric: value as any })
+            }
           >
             <SelectTrigger className="w-[130px]">
               <SelectValue />
@@ -274,9 +300,11 @@ export function AdvancedFilters({
         {/* Granularity */}
         <div className="flex items-center space-x-2">
           <Label className="text-sm font-medium">View:</Label>
-          <Select 
-            value={filters.granularity} 
-            onValueChange={(value) => onChange({ ...filters, granularity: value as any })}
+          <Select
+            value={filters.granularity}
+            onValueChange={(value) =>
+              onChange({ ...filters, granularity: value as any })
+            }
           >
             <SelectTrigger className="w-[100px]">
               <SelectValue />
@@ -297,7 +325,12 @@ export function AdvancedFilters({
         >
           <Settings2 className="h-4 w-4" />
           Advanced
-          <ChevronDown className={cn("h-4 w-4 transition-transform", showAdvanced && "rotate-180")} />
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 transition-transform',
+              showAdvanced && 'rotate-180'
+            )}
+          />
         </Button>
 
         {/* Refresh */}
@@ -309,7 +342,7 @@ export function AdvancedFilters({
             disabled={loading}
             className="flex items-center gap-2"
           >
-            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
             Refresh
           </Button>
         )}
@@ -339,8 +372,7 @@ export function AdvancedFilters({
                 <Button variant="outline" className="w-full justify-between">
                   {filters.services && filters.services.length > 0
                     ? `${filters.services.length} service(s)`
-                    : 'All services'
-                  }
+                    : 'All services'}
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </PopoverTrigger>
@@ -351,11 +383,20 @@ export function AdvancedFilters({
                     <CommandEmpty>No services found.</CommandEmpty>
                     <CommandGroup>
                       {availableServices.map((service) => (
-                        <CommandItem key={service.value} className="flex items-center space-x-2">
+                        <CommandItem
+                          key={service.value}
+                          className="flex items-center space-x-2"
+                        >
                           <Checkbox
-                            checked={filters.services?.includes(service.value) || false}
+                            checked={
+                              filters.services?.includes(service.value) || false
+                            }
                             onCheckedChange={(checked) =>
-                              handleMultiSelectChange('services', service.value, checked as boolean)
+                              handleMultiSelectChange(
+                                'services',
+                                service.value,
+                                checked as boolean
+                              )
                             }
                           />
                           <span className="text-sm">{service.displayName}</span>
@@ -376,8 +417,7 @@ export function AdvancedFilters({
                 <Button variant="outline" className="w-full justify-between">
                   {filters.accounts && filters.accounts.length > 0
                     ? `${filters.accounts.length} account(s)`
-                    : 'All accounts'
-                  }
+                    : 'All accounts'}
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </PopoverTrigger>
@@ -388,11 +428,20 @@ export function AdvancedFilters({
                     <CommandEmpty>No accounts found.</CommandEmpty>
                     <CommandGroup>
                       {availableAccounts.map((account) => (
-                        <CommandItem key={account} className="flex items-center space-x-2">
+                        <CommandItem
+                          key={account}
+                          className="flex items-center space-x-2"
+                        >
                           <Checkbox
-                            checked={filters.accounts?.includes(account) || false}
+                            checked={
+                              filters.accounts?.includes(account) || false
+                            }
                             onCheckedChange={(checked) =>
-                              handleMultiSelectChange('accounts', account, checked as boolean)
+                              handleMultiSelectChange(
+                                'accounts',
+                                account,
+                                checked as boolean
+                              )
                             }
                           />
                           <span className="text-sm">{account}</span>
@@ -413,8 +462,7 @@ export function AdvancedFilters({
                 <Button variant="outline" className="w-full justify-between">
                   {filters.regions && filters.regions.length > 0
                     ? `${filters.regions.length} region(s)`
-                    : 'All regions'
-                  }
+                    : 'All regions'}
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </PopoverTrigger>
@@ -425,11 +473,18 @@ export function AdvancedFilters({
                     <CommandEmpty>No regions found.</CommandEmpty>
                     <CommandGroup>
                       {availableRegions.map((region) => (
-                        <CommandItem key={region} className="flex items-center space-x-2">
+                        <CommandItem
+                          key={region}
+                          className="flex items-center space-x-2"
+                        >
                           <Checkbox
                             checked={filters.regions?.includes(region) || false}
                             onCheckedChange={(checked) =>
-                              handleMultiSelectChange('regions', region, checked as boolean)
+                              handleMultiSelectChange(
+                                'regions',
+                                region,
+                                checked as boolean
+                              )
                             }
                           />
                           <span className="text-sm">{region}</span>
@@ -459,7 +514,7 @@ export function AdvancedFilters({
                   <SelectItem value="custom">Custom...</SelectItem>
                 </SelectContent>
               </Select>
-              
+
               {newTagKey && (
                 <>
                   <Input
@@ -469,7 +524,11 @@ export function AdvancedFilters({
                     onKeyDown={(e) => e.key === 'Enter' && addTagFilter()}
                     className="w-[150px]"
                   />
-                  <Button size="sm" onClick={addTagFilter} disabled={!newTagKey || !newTagValue}>
+                  <Button
+                    size="sm"
+                    onClick={addTagFilter}
+                    disabled={!newTagKey || !newTagValue}
+                  >
                     <Plus className="h-4 w-4" />
                   </Button>
                 </>
@@ -482,20 +541,23 @@ export function AdvancedFilters({
       {/* Active Filters Summary */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm text-gray-600">Active filters:</span>
-        
+
         {/* Date Range Badge */}
         <Badge variant="secondary">
           {filters.dateRange.preset === 'custom' && filters.dateRange.custom
             ? `${filters.dateRange.custom.start} to ${filters.dateRange.custom.end}`
-            : filters.dateRange.preset === '3months' ? 'Last 3 months'
-            : filters.dateRange.preset === '6months' ? 'Last 6 months'
-            : filters.dateRange.preset === '12months' ? 'Last 12 months'
-            : 'Last 18 months'
-          }
+            : filters.dateRange.preset === '3months'
+              ? 'Last 3 months'
+              : filters.dateRange.preset === '6months'
+                ? 'Last 6 months'
+                : filters.dateRange.preset === '12months'
+                  ? 'Last 12 months'
+                  : 'Last 18 months'}
         </Badge>
 
         <Badge variant="secondary">
-          {filters.metric === 'UnblendedCost' ? 'Unblended' : 'Amortized'} • {filters.granularity}
+          {filters.metric === 'UnblendedCost' ? 'Unblended' : 'Amortized'} •{' '}
+          {filters.granularity}
         </Badge>
 
         {/* Services */}
@@ -532,9 +594,13 @@ export function AdvancedFilters({
         )}
 
         {/* Tags */}
-        {Object.entries(filters.tags || {}).map(([key, values]) => (
+        {Object.entries(filters.tags || {}).map(([key, values]) =>
           values.map((value) => (
-            <Badge key={`${key}:${value}`} variant="secondary" className="flex items-center gap-1">
+            <Badge
+              key={`${key}:${value}`}
+              variant="secondary"
+              className="flex items-center gap-1"
+            >
               {key}: {value}
               <X
                 className="h-3 w-3 cursor-pointer hover:text-red-500"
@@ -542,7 +608,7 @@ export function AdvancedFilters({
               />
             </Badge>
           ))
-        ))}
+        )}
 
         {loading && (
           <Badge variant="outline" className="animate-pulse">

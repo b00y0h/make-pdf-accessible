@@ -11,14 +11,18 @@ async function getCostSummaryHandler(
     // Extract query parameters
     const { searchParams } = new URL(request.url);
     const groupBy = searchParams.get('groupBy') || 'SERVICE';
-    const metric = (searchParams.get('metric') || 'UnblendedCost') as 'UnblendedCost' | 'AmortizedCost';
-    const granularity = (searchParams.get('granularity') || 'MONTHLY') as 'MONTHLY' | 'DAILY';
+    const metric = (searchParams.get('metric') || 'UnblendedCost') as
+      | 'UnblendedCost'
+      | 'AmortizedCost';
+    const granularity = (searchParams.get('granularity') || 'MONTHLY') as
+      | 'MONTHLY'
+      | 'DAILY';
     const preset = searchParams.get('preset') || '12months';
-    
+
     // Use preset or custom date range
     let startDate = searchParams.get('startDate');
     let endDate = searchParams.get('endDate');
-    
+
     if (!startDate || !endDate) {
       const dateRange = CostExplorerService.getDateRange(preset as any);
       startDate = dateRange.start;
@@ -27,11 +31,11 @@ async function getCostSummaryHandler(
 
     // Create cache key
     const cacheKey = createCacheKey('summary', searchParams);
-    
+
     // Wrap Cost Explorer call with caching
     const costSeries = await withCache(async () => {
       const costExplorer = new CostExplorerService();
-      
+
       if (groupBy === 'SERVICE') {
         return costExplorer.getCostsByService({
           timePeriod: { start: startDate, end: endDate },
@@ -48,7 +52,7 @@ async function getCostSummaryHandler(
         });
       }
     }, cacheKey);
-    
+
     return NextResponse.json({
       ok: true,
       data: {
@@ -65,7 +69,7 @@ async function getCostSummaryHandler(
     });
   } catch (error) {
     console.error('Error in getCostSummaryHandler:', error);
-    
+
     if (error instanceof CostExplorerError) {
       return NextResponse.json(
         {
@@ -77,7 +81,7 @@ async function getCostSummaryHandler(
         { status: error.statusCode || 500 }
       );
     }
-    
+
     return NextResponse.json(
       {
         ok: false,

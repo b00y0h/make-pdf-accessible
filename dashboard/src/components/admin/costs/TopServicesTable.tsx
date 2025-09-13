@@ -16,11 +16,11 @@ interface TopServicesTableProps {
   onServiceClick?: (serviceCode: string) => void;
 }
 
-export function TopServicesTable({ 
-  data, 
-  loading = false, 
+export function TopServicesTable({
+  data,
+  loading = false,
   topN = 10,
-  onServiceClick
+  onServiceClick,
 }: TopServicesTableProps) {
   // Process data for table
   const tableData = useMemo(() => {
@@ -29,14 +29,26 @@ export function TopServicesTable({
     // For demo purposes, simulate service breakdown
     // In real implementation, this would come from grouped API data
     const services = [
-      'EC2-Instance', 'S3', 'Lambda', 'RDS', 'CloudWatch', 
-      'API Gateway', 'ELB', 'Route53', 'CloudFront', 'EBS',
-      'ElastiCache', 'SNS', 'SQS', 'DynamoDB', 'Redshift'
+      'EC2-Instance',
+      'S3',
+      'Lambda',
+      'RDS',
+      'CloudWatch',
+      'API Gateway',
+      'ELB',
+      'Route53',
+      'CloudFront',
+      'EBS',
+      'ElastiCache',
+      'SNS',
+      'SQS',
+      'DynamoDB',
+      'Redshift',
     ];
 
     // Get latest and previous month data
-    const sortedData = [...data].sort((a, b) => 
-      new Date(a.date).getTime() - new Date(b.date).getTime()
+    const sortedData = [...data].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
     );
 
     const latestMonth = sortedData[sortedData.length - 1];
@@ -50,18 +62,25 @@ export function TopServicesTable({
     // Simulate service breakdown with different percentages and MoM changes
     const serviceData: ServiceCostData[] = services.map((service, index) => {
       // Simulate different cost distributions
-      const basePercentage = index === 0 ? 0.35 : 
-                           index === 1 ? 0.18 : 
-                           index === 2 ? 0.12 : 
-                           index === 3 ? 0.08 : 
-                           index === 4 ? 0.05 : 
-                           0.02;
-      
+      const basePercentage =
+        index === 0
+          ? 0.35
+          : index === 1
+            ? 0.18
+            : index === 2
+              ? 0.12
+              : index === 3
+                ? 0.08
+                : index === 4
+                  ? 0.05
+                  : 0.02;
+
       const currentCost = totalCurrent * basePercentage;
-      const previousCost = totalPrevious * basePercentage * (0.8 + Math.random() * 0.4); // Simulate variance
-      
+      const previousCost =
+        totalPrevious * basePercentage * (0.8 + Math.random() * 0.4); // Simulate variance
+
       const mom = MoMCalculator.calculate(currentCost, previousCost);
-      
+
       return {
         service,
         cost: currentCost,
@@ -74,7 +93,7 @@ export function TopServicesTable({
 
     // Apply Top N processing
     const topServices = TopNProcessor.processServiceCosts(
-      serviceData.map(s => ({
+      serviceData.map((s) => ({
         keys: [s.service],
         metrics: { UnblendedCost: { amount: s.cost.toString(), unit: s.unit } },
         attributes: {},
@@ -83,7 +102,9 @@ export function TopServicesTable({
       topN
     );
 
-    return topServices.items.concat(topServices.other ? [topServices.other] : []);
+    return topServices.items.concat(
+      topServices.other ? [topServices.other] : []
+    );
   }, [data, topN]);
 
   // Export to CSV
@@ -93,20 +114,25 @@ export function TopServicesTable({
     const headers = ['Service', 'Cost', '% of Total', 'MoM Change', 'MoM %'];
     const csvContent = [
       headers.join(','),
-      ...tableData.map(row => [
-        row.service,
-        row.cost.toFixed(2),
-        row.percentage.toFixed(1),
-        row.change.toFixed(2),
-        row.changePercent.toFixed(1),
-      ].join(','))
+      ...tableData.map((row) =>
+        [
+          row.service,
+          row.cost.toFixed(2),
+          row.percentage.toFixed(1),
+          row.change.toFixed(2),
+          row.changePercent.toFixed(1),
+        ].join(',')
+      ),
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `top-services-${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute(
+      'download',
+      `top-services-${new Date().toISOString().split('T')[0]}.csv`
+    );
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -166,9 +192,9 @@ export function TopServicesTable({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Top Services This Month</CardTitle>
-        <Button 
-          variant="outline" 
-          size="sm" 
+        <Button
+          variant="outline"
+          size="sm"
           onClick={exportToCSV}
           disabled={tableData.length === 0}
           className="flex items-center gap-2"
@@ -190,24 +216,38 @@ export function TopServicesTable({
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 px-3 font-medium text-gray-700">Service</th>
-                  <th className="text-right py-2 px-3 font-medium text-gray-700">Cost</th>
-                  <th className="text-right py-2 px-3 font-medium text-gray-700">% of Total</th>
-                  <th className="text-right py-2 px-3 font-medium text-gray-700">MoM Δ</th>
-                  <th className="text-right py-2 px-3 font-medium text-gray-700">MoM %</th>
-                  <th className="text-center py-2 px-3 font-medium text-gray-700">Trend</th>
+                  <th className="text-left py-2 px-3 font-medium text-gray-700">
+                    Service
+                  </th>
+                  <th className="text-right py-2 px-3 font-medium text-gray-700">
+                    Cost
+                  </th>
+                  <th className="text-right py-2 px-3 font-medium text-gray-700">
+                    % of Total
+                  </th>
+                  <th className="text-right py-2 px-3 font-medium text-gray-700">
+                    MoM Δ
+                  </th>
+                  <th className="text-right py-2 px-3 font-medium text-gray-700">
+                    MoM %
+                  </th>
+                  <th className="text-center py-2 px-3 font-medium text-gray-700">
+                    Trend
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {tableData.map((row, index) => (
-                  <tr 
-                    key={row.service} 
+                  <tr
+                    key={row.service}
                     className={`border-b border-gray-100 hover:bg-gray-50 ${
-                      onServiceClick && row.service !== 'Other Services' 
-                        ? 'cursor-pointer' 
+                      onServiceClick && row.service !== 'Other Services'
+                        ? 'cursor-pointer'
                         : ''
                     } ${
-                      row.service === 'Other Services' ? 'bg-gray-50 font-medium' : ''
+                      row.service === 'Other Services'
+                        ? 'bg-gray-50 font-medium'
+                        : ''
                     }`}
                     onClick={() => {
                       if (onServiceClick && row.service !== 'Other Services') {
@@ -217,7 +257,13 @@ export function TopServicesTable({
                   >
                     <td className="py-3 px-3">
                       <div className="flex items-center">
-                        <span className={row.service === 'Other Services' ? 'text-gray-600' : ''}>
+                        <span
+                          className={
+                            row.service === 'Other Services'
+                              ? 'text-gray-600'
+                              : ''
+                          }
+                        >
                           {row.service}
                         </span>
                       </div>
@@ -228,15 +274,29 @@ export function TopServicesTable({
                     <td className="py-3 px-3 text-right">
                       {row.percentage.toFixed(1)}%
                     </td>
-                    <td className={`py-3 px-3 text-right font-mono ${
-                      row.change > 0 ? 'text-red-600' : row.change < 0 ? 'text-green-600' : 'text-gray-500'
-                    }`}>
-                      {row.change >= 0 ? '+' : ''}{formatCurrency(row.change, row.unit)}
+                    <td
+                      className={`py-3 px-3 text-right font-mono ${
+                        row.change > 0
+                          ? 'text-red-600'
+                          : row.change < 0
+                            ? 'text-green-600'
+                            : 'text-gray-500'
+                      }`}
+                    >
+                      {row.change >= 0 ? '+' : ''}
+                      {formatCurrency(row.change, row.unit)}
                     </td>
-                    <td className={`py-3 px-3 text-right ${
-                      row.changePercent > 0 ? 'text-red-600' : row.changePercent < 0 ? 'text-green-600' : 'text-gray-500'
-                    }`}>
-                      {row.changePercent >= 0 ? '+' : ''}{row.changePercent.toFixed(1)}%
+                    <td
+                      className={`py-3 px-3 text-right ${
+                        row.changePercent > 0
+                          ? 'text-red-600'
+                          : row.changePercent < 0
+                            ? 'text-green-600'
+                            : 'text-gray-500'
+                      }`}
+                    >
+                      {row.changePercent >= 0 ? '+' : ''}
+                      {row.changePercent.toFixed(1)}%
                     </td>
                     <td className="py-3 px-3 text-center">
                       {getTrendIcon(row.changePercent)}
@@ -247,14 +307,14 @@ export function TopServicesTable({
             </table>
           </div>
         )}
-        
+
         {tableData.length > 0 && (
           <div className="mt-4 pt-4 border-t text-sm text-gray-500">
             <p>
-              Showing top {Math.min(topN, tableData.length)} services by current month cost.
-              {tableData.find(row => row.service.includes('Other')) && 
-                ' "Other Services" represents the sum of remaining services.'
-              }
+              Showing top {Math.min(topN, tableData.length)} services by current
+              month cost.
+              {tableData.find((row) => row.service.includes('Other')) &&
+                ' "Other Services" represents the sum of remaining services.'}
             </p>
           </div>
         )}

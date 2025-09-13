@@ -10,14 +10,18 @@ async function getCostByTagHandler(
     // Extract query parameters
     const { searchParams } = new URL(request.url);
     const tag = searchParams.get('tag') || 'environment';
-    const metric = (searchParams.get('metric') || 'UnblendedCost') as 'UnblendedCost' | 'AmortizedCost';
-    const granularity = (searchParams.get('granularity') || 'MONTHLY') as 'MONTHLY' | 'DAILY';
+    const metric = (searchParams.get('metric') || 'UnblendedCost') as
+      | 'UnblendedCost'
+      | 'AmortizedCost';
+    const granularity = (searchParams.get('granularity') || 'MONTHLY') as
+      | 'MONTHLY'
+      | 'DAILY';
     const preset = searchParams.get('preset') || '12months';
-    
+
     // Use preset or custom date range
     let startDate = searchParams.get('startDate');
     let endDate = searchParams.get('endDate');
-    
+
     if (!startDate || !endDate) {
       const dateRange = CostExplorerService.getDateRange(preset as any);
       startDate = dateRange.start;
@@ -25,7 +29,7 @@ async function getCostByTagHandler(
     }
 
     const costExplorer = new CostExplorerService();
-    
+
     // Get costs grouped by tag - this will validate supported tags
     const costSeries = await costExplorer.getCostsByTag({
       timePeriod: { start: startDate, end: endDate },
@@ -33,7 +37,7 @@ async function getCostByTagHandler(
       granularity,
       metric,
     });
-    
+
     return NextResponse.json({
       ok: true,
       data: {
@@ -50,7 +54,7 @@ async function getCostByTagHandler(
     });
   } catch (error) {
     console.error('Error in getCostByTagHandler:', error);
-    
+
     if (error instanceof CostExplorerError) {
       return NextResponse.json(
         {
@@ -62,7 +66,7 @@ async function getCostByTagHandler(
         { status: error.statusCode || 500 }
       );
     }
-    
+
     return NextResponse.json(
       {
         ok: false,

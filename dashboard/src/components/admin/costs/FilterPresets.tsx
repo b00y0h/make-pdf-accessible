@@ -29,13 +29,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { 
-  Bookmark, 
-  BookmarkPlus, 
-  Trash2, 
+import {
+  Bookmark,
+  BookmarkPlus,
+  Trash2,
   Share2,
   Check,
-  ChevronDown 
+  ChevronDown,
 } from 'lucide-react';
 import { CostFilters } from '@/lib/costs/types';
 import { toast } from 'sonner';
@@ -138,8 +138,8 @@ const DEFAULT_PRESETS: FilterPreset[] = [
   },
 ];
 
-export function FilterPresets({ 
-  currentFilters, 
+export function FilterPresets({
+  currentFilters,
   onApplyPreset,
   onShare,
 }: FilterPresetsProps) {
@@ -164,7 +164,7 @@ export function FilterPresets({
 
   // Save presets to localStorage
   const savePresetsToStorage = (presets: FilterPreset[]) => {
-    const customPresets = presets.filter(p => !p.isDefault);
+    const customPresets = presets.filter((p) => !p.isDefault);
     localStorage.setItem('cost-filter-presets', JSON.stringify(customPresets));
   };
 
@@ -190,16 +190,16 @@ export function FilterPresets({
     setNewPresetName('');
     setNewPresetDescription('');
     setShowSaveDialog(false);
-    
+
     toast.success(`Preset "${newPreset.name}" saved`);
   };
 
   // Delete a custom preset
   const deletePreset = (presetId: string) => {
-    const updatedPresets = presets.filter(p => p.id !== presetId);
+    const updatedPresets = presets.filter((p) => p.id !== presetId);
     setPresets(updatedPresets);
     savePresetsToStorage(updatedPresets);
-    
+
     toast.success('Preset deleted');
   };
 
@@ -221,7 +221,7 @@ export function FilterPresets({
 
   // Check if current filters match a preset
   const findMatchingPreset = () => {
-    return presets.find(preset => {
+    return presets.find((preset) => {
       return JSON.stringify(preset.filters) === JSON.stringify(currentFilters);
     });
   };
@@ -233,7 +233,11 @@ export function FilterPresets({
       {/* Preset Selector */}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="flex items-center gap-2 min-w-[120px]">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2 min-w-[120px]"
+          >
             <Bookmark className="h-4 w-4" />
             {matchingPreset ? matchingPreset.name : 'Presets'}
             <ChevronDown className="h-4 w-4" />
@@ -244,7 +248,7 @@ export function FilterPresets({
             <CommandInput placeholder="Search presets..." />
             <CommandList>
               <CommandEmpty>No presets found.</CommandEmpty>
-              
+
               {/* Default Presets */}
               <CommandGroup heading="Default Presets">
                 {DEFAULT_PRESETS.map((preset) => (
@@ -261,7 +265,9 @@ export function FilterPresets({
                         )}
                       </div>
                       {preset.description && (
-                        <p className="text-xs text-gray-600 mt-1">{preset.description}</p>
+                        <p className="text-xs text-gray-600 mt-1">
+                          {preset.description}
+                        </p>
                       )}
                     </div>
                   </CommandItem>
@@ -269,18 +275,18 @@ export function FilterPresets({
               </CommandGroup>
 
               {/* Custom Presets */}
-              {presets.some(p => !p.isDefault) && (
+              {presets.some((p) => !p.isDefault) && (
                 <>
                   <CommandSeparator />
                   <CommandGroup heading="Custom Presets">
                     {presets
-                      .filter(p => !p.isDefault)
+                      .filter((p) => !p.isDefault)
                       .map((preset) => (
                         <CommandItem
                           key={preset.id}
                           className="flex items-center justify-between cursor-pointer"
                         >
-                          <div 
+                          <div
                             className="flex-1"
                             onClick={() => applyPreset(preset)}
                           >
@@ -291,7 +297,9 @@ export function FilterPresets({
                               )}
                             </div>
                             {preset.description && (
-                              <p className="text-xs text-gray-600 mt-1">{preset.description}</p>
+                              <p className="text-xs text-gray-600 mt-1">
+                                {preset.description}
+                              </p>
                             )}
                           </div>
                           <AlertDialog>
@@ -307,9 +315,13 @@ export function FilterPresets({
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Preset</AlertDialogTitle>
+                                <AlertDialogTitle>
+                                  Delete Preset
+                                </AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Are you sure you want to delete "{preset.name}"? This action cannot be undone.
+                                  Are you sure you want to delete &quot;
+                                  {preset.name}&quot;? This action cannot be
+                                  undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -336,7 +348,11 @@ export function FilterPresets({
       {/* Save Current as Preset */}
       <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
         <AlertDialogTrigger asChild>
-          <Button variant="outline" size="sm" className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+          >
             <BookmarkPlus className="h-4 w-4" />
             Save
           </Button>
@@ -359,7 +375,9 @@ export function FilterPresets({
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Description (optional)</label>
+              <label className="text-sm font-medium">
+                Description (optional)
+              </label>
               <Input
                 value={newPresetDescription}
                 onChange={(e) => setNewPresetDescription(e.target.value)}
@@ -367,38 +385,41 @@ export function FilterPresets({
                 className="mt-1"
               />
             </div>
-            
+
             {/* Preview of current filters */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Current Filters:</label>
               <div className="flex flex-wrap gap-2 text-xs">
                 <Badge variant="secondary">
-                  {currentFilters.dateRange.preset === 'custom' 
+                  {currentFilters.dateRange.preset === 'custom'
                     ? `${currentFilters.dateRange.custom?.start} to ${currentFilters.dateRange.custom?.end}`
-                    : currentFilters.dateRange.preset
-                  }
+                    : currentFilters.dateRange.preset}
                 </Badge>
                 <Badge variant="secondary">
                   {currentFilters.metric} • {currentFilters.granularity}
                 </Badge>
-                {currentFilters.services && currentFilters.services.length > 0 && (
-                  <Badge variant="secondary">
-                    {currentFilters.services.length} service(s)
-                  </Badge>
-                )}
-                {currentFilters.accounts && currentFilters.accounts.length > 0 && (
-                  <Badge variant="secondary">
-                    {currentFilters.accounts.length} account(s)
-                  </Badge>
-                )}
-                {currentFilters.regions && currentFilters.regions.length > 0 && (
-                  <Badge variant="secondary">
-                    {currentFilters.regions.length} region(s)
-                  </Badge>
-                )}
+                {currentFilters.services &&
+                  currentFilters.services.length > 0 && (
+                    <Badge variant="secondary">
+                      {currentFilters.services.length} service(s)
+                    </Badge>
+                  )}
+                {currentFilters.accounts &&
+                  currentFilters.accounts.length > 0 && (
+                    <Badge variant="secondary">
+                      {currentFilters.accounts.length} account(s)
+                    </Badge>
+                  )}
+                {currentFilters.regions &&
+                  currentFilters.regions.length > 0 && (
+                    <Badge variant="secondary">
+                      {currentFilters.regions.length} region(s)
+                    </Badge>
+                  )}
                 {Object.keys(currentFilters.tags || {}).length > 0 && (
                   <Badge variant="secondary">
-                    {Object.keys(currentFilters.tags || {}).length} tag filter(s)
+                    {Object.keys(currentFilters.tags || {}).length} tag
+                    filter(s)
                   </Badge>
                 )}
               </div>

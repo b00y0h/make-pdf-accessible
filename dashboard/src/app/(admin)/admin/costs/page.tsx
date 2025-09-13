@@ -7,7 +7,10 @@ import { FilterPresets } from '@/components/admin/costs/FilterPresets';
 import { ServiceDetailDrawer } from '@/components/admin/costs/ServiceDetailDrawer';
 import { ForecastCard } from '@/components/admin/costs/ForecastCard';
 import { BudgetBanner } from '@/components/admin/costs/BudgetBanner';
-import { DataSourceToggle, type DataSource } from '@/components/admin/costs/DataSourceToggle';
+import {
+  DataSourceToggle,
+  type DataSource,
+} from '@/components/admin/costs/DataSourceToggle';
 import { useCostData } from '@/hooks/useCostData';
 import { useFilterPersistence } from '@/hooks/useFilterPersistence';
 import { CostFilters } from '@/lib/costs/types';
@@ -16,7 +19,7 @@ import { toast } from 'sonner';
 export default function CostsPage() {
   // Initialize data source (default to Cost Explorer)
   const [dataSource, setDataSource] = useState<DataSource>('ce');
-  
+
   // Initialize filters
   const [filters, setFilters] = useState<CostFilters>({
     dateRange: {
@@ -35,20 +38,23 @@ export default function CostsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // URL persistence for filters
-  const { resetFilters, getShareableURL } = useFilterPersistence(filters, setFilters);
+  const { resetFilters, getShareableURL } = useFilterPersistence(
+    filters,
+    setFilters
+  );
 
   // Fetch cost data based on current filters
-  const { 
-    timeseries, 
-    summary, 
+  const {
+    timeseries,
+    summary,
     services: availableServices,
-    loading, 
-    error, 
+    loading,
+    error,
     refresh,
-    lastUpdated 
-  } = useCostData(filters, { 
+    lastUpdated,
+  } = useCostData(filters, {
     autoRefresh: false, // Disable auto-refresh for now
-    dataSource
+    dataSource,
   });
 
   // Example budget configuration (in real app, this would come from environment or API)
@@ -66,7 +72,7 @@ export default function CostsPage() {
       unit: 'USD',
       threshold: 75,
       link: 'https://console.aws.amazon.com/billing/home#/budgets',
-    }
+    },
   ];
 
   // Handle service click for drill-down
@@ -119,7 +125,7 @@ export default function CostsPage() {
       </div>
 
       {/* Budget Banner */}
-      <BudgetBanner 
+      <BudgetBanner
         currentCosts={timeseries}
         budgets={budgets}
         loading={loading}
@@ -138,13 +144,25 @@ export default function CostsPage() {
       {/* Advanced Filters */}
       <div className="bg-white shadow rounded-lg">
         <div className="px-4 py-5 sm:p-6">
-          <AdvancedFilters 
+          <AdvancedFilters
             filters={filters}
             onChange={setFilters}
             availableServices={availableServices}
             availableAccounts={[]} // TODO: Fetch from API
-            availableRegions={['us-east-1', 'us-west-2', 'eu-west-1', 'ap-southeast-1']} // TODO: Fetch from API
-            availableTagKeys={['application', 'environment', 'component', 'cost_center', 'service', 'managed_by']}
+            availableRegions={[
+              'us-east-1',
+              'us-west-2',
+              'eu-west-1',
+              'ap-southeast-1',
+            ]} // TODO: Fetch from API
+            availableTagKeys={[
+              'application',
+              'environment',
+              'component',
+              'cost_center',
+              'service',
+              'managed_by',
+            ]}
             loading={loading}
             onRefresh={refresh}
           />
@@ -158,7 +176,7 @@ export default function CostsPage() {
         </div>
         <div className="lg:col-span-3">
           {/* Main overview content */}
-          <CostsOverview 
+          <CostsOverview
             timeseries={timeseries}
             summary={summary}
             loading={loading}

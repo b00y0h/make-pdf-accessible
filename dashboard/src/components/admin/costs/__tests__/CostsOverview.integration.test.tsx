@@ -10,14 +10,20 @@ import { CostFilters } from '@/lib/costs/types';
 
 // Mock recharts to avoid canvas issues in tests
 jest.mock('recharts', () => ({
-  LineChart: ({ children }: any) => <div data-testid="line-chart">{children}</div>,
+  LineChart: ({ children }: any) => (
+    <div data-testid="line-chart">{children}</div>
+  ),
   Line: () => <div data-testid="line" />,
   XAxis: () => <div data-testid="x-axis" />,
   YAxis: () => <div data-testid="y-axis" />,
   CartesianGrid: () => <div data-testid="grid" />,
   Tooltip: () => <div data-testid="tooltip" />,
-  ResponsiveContainer: ({ children }: any) => <div data-testid="responsive-container">{children}</div>,
-  AreaChart: ({ children }: any) => <div data-testid="area-chart">{children}</div>,
+  ResponsiveContainer: ({ children }: any) => (
+    <div data-testid="responsive-container">{children}</div>
+  ),
+  AreaChart: ({ children }: any) => (
+    <div data-testid="area-chart">{children}</div>
+  ),
   Area: () => <div data-testid="area" />,
 }));
 
@@ -89,7 +95,7 @@ describe('CostsOverview Integration Tests', () => {
   describe('Error States', () => {
     it('should display error message when error occurs', () => {
       const errorMessage = 'Failed to fetch cost data';
-      
+
       render(
         <CostsOverview
           timeseries={[]}
@@ -134,7 +140,7 @@ describe('CostsOverview Integration Tests', () => {
       await waitFor(() => {
         // Should show total cost
         expect(screen.getByText('$6,550')).toBeInTheDocument(); // Sum of all months
-        
+
         // Should show MoM change (last month vs previous)
         expect(screen.getByText(/-4.6%/)).toBeInTheDocument(); // June vs May change
       });
@@ -196,7 +202,7 @@ describe('CostsOverview Integration Tests', () => {
   describe('Interactive Features', () => {
     it('should handle service click when callback provided', async () => {
       const mockOnServiceClick = jest.fn();
-      
+
       render(
         <CostsOverview
           timeseries={mockTimeseries}
@@ -222,7 +228,7 @@ describe('CostsOverview Integration Tests', () => {
       // Mock URL.createObjectURL
       global.URL.createObjectURL = jest.fn(() => 'mock-url');
       global.URL.revokeObjectURL = jest.fn();
-      
+
       // Mock anchor click
       const mockClick = jest.fn();
       const mockAnchor = { click: mockClick, href: '', download: '' };
@@ -282,7 +288,9 @@ describe('CostsOverview Integration Tests', () => {
         />
       );
 
-      expect(screen.getByText(/try adjusting your filters/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/try adjusting your filters/i)
+      ).toBeInTheDocument();
     });
   });
 
@@ -407,8 +415,12 @@ describe('CostsOverview Integration Tests', () => {
 
       await waitFor(() => {
         // Charts should have descriptive labels
-        expect(screen.getByLabelText(/cost trend over time/i)).toBeInTheDocument();
-        expect(screen.getByLabelText(/service cost breakdown/i)).toBeInTheDocument();
+        expect(
+          screen.getByLabelText(/cost trend over time/i)
+        ).toBeInTheDocument();
+        expect(
+          screen.getByLabelText(/service cost breakdown/i)
+        ).toBeInTheDocument();
       });
     });
 

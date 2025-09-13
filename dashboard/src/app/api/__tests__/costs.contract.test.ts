@@ -13,12 +13,14 @@ import { GET as forecastHandler } from '../costs/forecast/route';
 jest.mock('better-auth', () => ({
   betterAuth: () => ({
     api: {
-      getSession: jest.fn(() => Promise.resolve({
-        user: { role: 'admin', id: 'test-user' },
-        session: { id: 'test-session', userId: 'test-user' }
-      }))
-    }
-  })
+      getSession: jest.fn(() =>
+        Promise.resolve({
+          user: { role: 'admin', id: 'test-user' },
+          session: { id: 'test-session', userId: 'test-user' },
+        })
+      ),
+    },
+  }),
 }));
 
 describe('Cost API Contract Tests', () => {
@@ -27,7 +29,7 @@ describe('Cost API Contract Tests', () => {
     Object.entries(searchParams).forEach(([key, value]) => {
       url.searchParams.set(key, value);
     });
-    
+
     return new NextRequest(url);
   };
 
@@ -36,7 +38,7 @@ describe('Cost API Contract Tests', () => {
       const request = createMockRequest({
         preset: '6months',
         metric: 'UnblendedCost',
-        granularity: 'MONTHLY'
+        granularity: 'MONTHLY',
       });
 
       const response = await timeseriesHandler(request);
@@ -57,20 +59,22 @@ describe('Cost API Contract Tests', () => {
           expect(point).toHaveProperty('time');
           expect(point).toHaveProperty('amount');
           expect(point).toHaveProperty('unit');
-          
+
           // Check data types
           expect(typeof point.time).toBe('string');
           expect(typeof point.amount).toBe('number');
           expect(typeof point.unit).toBe('string');
-          
+
           // Amount should be non-negative for costs
           expect(point.amount).toBeGreaterThanOrEqual(0);
-          
+
           // Check ascending order
           if (index > 0) {
             const currentDate = new Date(point.time);
             const previousDate = new Date(data.data.series[index - 1].time);
-            expect(currentDate.getTime()).toBeGreaterThan(previousDate.getTime());
+            expect(currentDate.getTime()).toBeGreaterThan(
+              previousDate.getTime()
+            );
           }
         });
 
@@ -79,10 +83,11 @@ describe('Cost API Contract Tests', () => {
           for (let i = 1; i < data.data.series.length; i++) {
             const current = new Date(data.data.series[i].time);
             const previous = new Date(data.data.series[i - 1].time);
-            
+
             // For monthly data, should be exactly 1 month apart
-            const monthDiff = (current.getFullYear() - previous.getFullYear()) * 12 + 
-                              (current.getMonth() - previous.getMonth());
+            const monthDiff =
+              (current.getFullYear() - previous.getFullYear()) * 12 +
+              (current.getMonth() - previous.getMonth());
             expect(monthDiff).toBe(1);
           }
         }
@@ -96,17 +101,17 @@ describe('Cost API Contract Tests', () => {
     it('should handle different granularities correctly', async () => {
       const monthlyRequest = createMockRequest({
         preset: '3months',
-        granularity: 'MONTHLY'
+        granularity: 'MONTHLY',
       });
 
       const dailyRequest = createMockRequest({
         preset: '3months',
-        granularity: 'DAILY'
+        granularity: 'DAILY',
       });
 
       const [monthlyResponse, dailyResponse] = await Promise.all([
         timeseriesHandler(monthlyRequest),
-        timeseriesHandler(dailyRequest)
+        timeseriesHandler(dailyRequest),
       ]);
 
       const monthlyData = await monthlyResponse.json();
@@ -117,14 +122,19 @@ describe('Cost API Contract Tests', () => {
       expect(dailyData.ok).toBe(true);
 
       // Daily data should have more points than monthly for same period
-      if (monthlyData.data.series.length > 0 && dailyData.data.series.length > 0) {
-        expect(dailyData.data.series.length).toBeGreaterThan(monthlyData.data.series.length);
+      if (
+        monthlyData.data.series.length > 0 &&
+        dailyData.data.series.length > 0
+      ) {
+        expect(dailyData.data.series.length).toBeGreaterThan(
+          monthlyData.data.series.length
+        );
       }
     });
 
     it('should validate date formats', async () => {
       const request = createMockRequest({
-        preset: '6months'
+        preset: '6months',
       });
 
       const response = await timeseriesHandler(request);
@@ -144,7 +154,7 @@ describe('Cost API Contract Tests', () => {
     it('should return grouped data with consistent structure', async () => {
       const request = createMockRequest({
         preset: '6months',
-        groupBy: 'SERVICE'
+        groupBy: 'SERVICE',
       });
 
       const response = await summaryHandler(request);
@@ -159,11 +169,11 @@ describe('Cost API Contract Tests', () => {
           expect(point).toHaveProperty('time');
           expect(point).toHaveProperty('amount');
           expect(point).toHaveProperty('service'); // For SERVICE grouping
-          
+
           expect(typeof point.time).toBe('string');
           expect(typeof point.amount).toBe('number');
           expect(typeof point.service).toBe('string');
-          
+
           expect(point.amount).toBeGreaterThanOrEqual(0);
         });
       }
@@ -172,17 +182,17 @@ describe('Cost API Contract Tests', () => {
     it('should handle different groupBy values', async () => {
       const serviceRequest = createMockRequest({
         preset: '3months',
-        groupBy: 'SERVICE'
+        groupBy: 'SERVICE',
       });
 
       const regionRequest = createMockRequest({
         preset: '3months',
-        groupBy: 'REGION'
+        groupBy: 'REGION',
       });
 
       const [serviceResponse, regionResponse] = await Promise.all([
         summaryHandler(serviceRequest),
-        summaryHandler(regionRequest)
+        summaryHandler(regionRequest),
       ]);
 
       const serviceData = await serviceResponse.json();
@@ -229,7 +239,7 @@ describe('Cost API Contract Tests', () => {
     it('should return forecast data with prediction intervals', async () => {
       const request = createMockRequest({
         metric: 'UNBLENDED_COST',
-        granularity: 'MONTHLY'
+        granularity: 'MONTHLY',
       });
 
       const response = await forecastHandler(request);
@@ -246,16 +256,16 @@ describe('Cost API Contract Tests', () => {
           expect(forecast).toHaveProperty('meanValue');
           expect(forecast).toHaveProperty('predictionIntervalLowerBound');
           expect(forecast).toHaveProperty('predictionIntervalUpperBound');
-          
+
           expect(typeof forecast.meanValue).toBe('string'); // AWS returns as string
           expect(typeof forecast.predictionIntervalLowerBound).toBe('string');
           expect(typeof forecast.predictionIntervalUpperBound).toBe('string');
-          
+
           // Check that bounds make sense
           const mean = parseFloat(forecast.meanValue);
           const lower = parseFloat(forecast.predictionIntervalLowerBound);
           const upper = parseFloat(forecast.predictionIntervalUpperBound);
-          
+
           expect(lower).toBeLessThanOrEqual(mean);
           expect(mean).toBeLessThanOrEqual(upper);
         });
@@ -266,7 +276,7 @@ describe('Cost API Contract Tests', () => {
   describe('Error handling and validation', () => {
     it('should return proper error structure for invalid requests', async () => {
       const invalidRequest = createMockRequest({
-        preset: 'invalid-preset'
+        preset: 'invalid-preset',
       });
 
       const response = await timeseriesHandler(invalidRequest);
@@ -282,7 +292,7 @@ describe('Cost API Contract Tests', () => {
     it('should handle missing required parameters gracefully', async () => {
       const emptyRequest = createMockRequest({});
       const response = await timeseriesHandler(emptyRequest);
-      
+
       // Should either succeed with defaults or return proper error
       expect(response.status).toBeLessThan(500);
     });
@@ -291,11 +301,11 @@ describe('Cost API Contract Tests', () => {
   describe('Performance and caching headers', () => {
     it('should include appropriate cache headers', async () => {
       const request = createMockRequest({
-        preset: '6months'
+        preset: '6months',
       });
 
       const response = await timeseriesHandler(request);
-      
+
       // Check for cache-related headers
       const cacheControl = response.headers.get('Cache-Control');
       if (cacheControl) {
@@ -305,15 +315,17 @@ describe('Cost API Contract Tests', () => {
 
     it('should handle concurrent requests without errors', async () => {
       const request = createMockRequest({
-        preset: '3months'
+        preset: '3months',
       });
 
       // Make multiple concurrent requests
-      const promises = Array(5).fill(null).map(() => timeseriesHandler(request));
+      const promises = Array(5)
+        .fill(null)
+        .map(() => timeseriesHandler(request));
       const responses = await Promise.all(promises);
 
       // All should succeed
-      responses.forEach(response => {
+      responses.forEach((response) => {
         expect(response.status).toBeLessThan(400);
       });
     });
@@ -323,17 +335,17 @@ describe('Cost API Contract Tests', () => {
     it('should have consistent data types across endpoints', async () => {
       const timeseriesRequest = createMockRequest({
         preset: '3months',
-        metric: 'UnblendedCost'
+        metric: 'UnblendedCost',
       });
 
       const summaryRequest = createMockRequest({
         preset: '3months',
-        groupBy: 'SERVICE'
+        groupBy: 'SERVICE',
       });
 
       const [timeseriesResponse, summaryResponse] = await Promise.all([
         timeseriesHandler(timeseriesRequest),
-        summaryHandler(summaryRequest)
+        summaryHandler(summaryRequest),
       ]);
 
       const timeseriesData = await timeseriesResponse.json();
@@ -341,7 +353,10 @@ describe('Cost API Contract Tests', () => {
 
       if (timeseriesData.ok && summaryData.ok) {
         // Both should use same amount data type
-        if (timeseriesData.data.series.length > 0 && summaryData.data.series.length > 0) {
+        if (
+          timeseriesData.data.series.length > 0 &&
+          summaryData.data.series.length > 0
+        ) {
           expect(typeof timeseriesData.data.series[0].amount).toBe('number');
           expect(typeof summaryData.data.series[0].amount).toBe('number');
         }
@@ -350,7 +365,7 @@ describe('Cost API Contract Tests', () => {
 
     it('should maintain currency consistency', async () => {
       const request = createMockRequest({
-        preset: '6months'
+        preset: '6months',
       });
 
       const response = await timeseriesHandler(request);
@@ -358,7 +373,7 @@ describe('Cost API Contract Tests', () => {
 
       if (data.ok && data.data.series.length > 0) {
         const firstCurrency = data.data.series[0].unit;
-        
+
         // All data points should have same currency
         data.data.series.forEach((point: any) => {
           expect(point.unit).toBe(firstCurrency);

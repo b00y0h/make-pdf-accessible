@@ -24,8 +24,8 @@ export function CostKPIs({ data, loading = false }: CostKPIsProps) {
     }
 
     // Sort data by date
-    const sortedData = [...data].sort((a, b) => 
-      new Date(a.date).getTime() - new Date(b.date).getTime()
+    const sortedData = [...data].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
     );
 
     const current = sortedData[sortedData.length - 1]?.amount || 0;
@@ -47,13 +47,22 @@ export function CostKPIs({ data, loading = false }: CostKPIsProps) {
 
   // Get trend icon and color
   const getTrendDisplay = (mom: any) => {
-    if (!mom) return { icon: Minus, color: 'text-gray-500', bgColor: 'bg-gray-100' };
-    
+    if (!mom)
+      return { icon: Minus, color: 'text-gray-500', bgColor: 'bg-gray-100' };
+
     switch (mom.direction) {
       case 'increase':
-        return { icon: TrendingUp, color: 'text-red-600', bgColor: 'bg-red-100' };
+        return {
+          icon: TrendingUp,
+          color: 'text-red-600',
+          bgColor: 'bg-red-100',
+        };
       case 'decrease':
-        return { icon: TrendingDown, color: 'text-green-600', bgColor: 'bg-green-100' };
+        return {
+          icon: TrendingDown,
+          color: 'text-green-600',
+          bgColor: 'bg-green-100',
+        };
       default:
         return { icon: Minus, color: 'text-gray-500', bgColor: 'bg-gray-100' };
     }
@@ -92,7 +101,9 @@ export function CostKPIs({ data, loading = false }: CostKPIsProps) {
       {/* Current Month Total */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total This Month</CardTitle>
+          <CardTitle className="text-sm font-medium">
+            Total This Month
+          </CardTitle>
           <div className={`rounded-full p-1 ${trendDisplay.bgColor}`}>
             <TrendIcon className={`h-4 w-4 ${trendDisplay.color}`} />
           </div>
@@ -101,16 +112,16 @@ export function CostKPIs({ data, loading = false }: CostKPIsProps) {
           <div className="text-2xl font-bold">
             {formatCurrency(kpis.current, kpis.unit)}
           </div>
-          <p className="text-xs text-muted-foreground">
-            Current month spend
-          </p>
+          <p className="text-xs text-muted-foreground">Current month spend</p>
         </CardContent>
       </Card>
 
       {/* Month-over-Month Change */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Month-over-Month</CardTitle>
+          <CardTitle className="text-sm font-medium">
+            Month-over-Month
+          </CardTitle>
           <div className={`rounded-full p-1 ${trendDisplay.bgColor}`}>
             <TrendIcon className={`h-4 w-4 ${trendDisplay.color}`} />
           </div>
@@ -152,10 +163,9 @@ export function CostKPIs({ data, loading = false }: CostKPIsProps) {
             )}
           </div>
           <p className="text-xs text-muted-foreground">
-            {kpis.mom ? 
-              `${kpis.mom.direction} from last month` : 
-              'Insufficient data'
-            }
+            {kpis.mom
+              ? `${kpis.mom.direction} from last month`
+              : 'Insufficient data'}
           </p>
         </CardContent>
       </Card>

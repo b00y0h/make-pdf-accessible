@@ -10,11 +10,11 @@ async function getCostServicesHandler(
     // Extract query parameters
     const { searchParams } = new URL(request.url);
     const preset = searchParams.get('preset') || '12months';
-    
+
     // Use preset or custom date range
     let startDate = searchParams.get('startDate');
     let endDate = searchParams.get('endDate');
-    
+
     if (!startDate || !endDate) {
       const dateRange = CostExplorerService.getDateRange(preset as any);
       startDate = dateRange.start;
@@ -22,12 +22,12 @@ async function getCostServicesHandler(
     }
 
     const costExplorer = new CostExplorerService();
-    
+
     // Get available service dimensions
     const serviceDimensions = await costExplorer.getServiceDimensions({
       timePeriod: { start: startDate, end: endDate },
     });
-    
+
     return NextResponse.json({
       ok: true,
       data: {
@@ -42,7 +42,7 @@ async function getCostServicesHandler(
     });
   } catch (error) {
     console.error('Error in getCostServicesHandler:', error);
-    
+
     if (error instanceof CostExplorerError) {
       return NextResponse.json(
         {
@@ -54,7 +54,7 @@ async function getCostServicesHandler(
         { status: error.statusCode || 500 }
       );
     }
-    
+
     return NextResponse.json(
       {
         ok: false,

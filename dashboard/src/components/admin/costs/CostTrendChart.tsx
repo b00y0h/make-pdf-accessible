@@ -27,9 +27,13 @@ interface ChartDataPoint {
   estimated: boolean;
 }
 
-export function CostTrendChart({ data, metric, loading = false }: CostTrendChartProps) {
+export function CostTrendChart({
+  data,
+  metric,
+  loading = false,
+}: CostTrendChartProps) {
   // Transform data for chart
-  const chartData: ChartDataPoint[] = data.map(point => ({
+  const chartData: ChartDataPoint[] = data.map((point) => ({
     date: point.date,
     displayDate: format(parseISO(point.date), 'MMM yyyy'),
     cost: point.amount,
@@ -89,14 +93,17 @@ export function CostTrendChart({ data, metric, loading = false }: CostTrendChart
   return (
     <div className="h-80">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+        <LineChart
+          data={chartData}
+          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+        >
           <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-          <XAxis 
-            dataKey="displayDate" 
+          <XAxis
+            dataKey="displayDate"
             tick={{ fontSize: 12 }}
             tickLine={{ stroke: '#e5e7eb' }}
           />
-          <YAxis 
+          <YAxis
             tickFormatter={formatYAxis}
             tick={{ fontSize: 12 }}
             tickLine={{ stroke: '#e5e7eb' }}

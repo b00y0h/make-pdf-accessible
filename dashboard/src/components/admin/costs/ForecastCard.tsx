@@ -15,7 +15,8 @@ export function ForecastCard({ filters }: ForecastCardProps) {
   const { data: forecastData, loading, error } = useForecastData(filters);
 
   // Get next month's forecast (first item in forecast results)
-  const nextMonthForecast = forecastData && forecastData.length > 0 ? forecastData[0] : null;
+  const nextMonthForecast =
+    forecastData && forecastData.length > 0 ? forecastData[0] : null;
 
   // Format currency
   const formatCurrency = (amount: string, currency: string = 'USD') => {
@@ -31,16 +32,16 @@ export function ForecastCard({ filters }: ForecastCardProps) {
   // Calculate prediction band width
   const getPredictionBandWidth = () => {
     if (!nextMonthForecast) return null;
-    
+
     const mean = parseFloat(nextMonthForecast.meanValue);
     const lower = parseFloat(nextMonthForecast.predictionIntervalLowerBound);
     const upper = parseFloat(nextMonthForecast.predictionIntervalUpperBound);
-    
+
     const lowerDiff = mean - lower;
     const upperDiff = upper - mean;
     const avgBand = (lowerDiff + upperDiff) / 2;
     const bandPercentage = mean > 0 ? (avgBand / mean) * 100 : 0;
-    
+
     return {
       lower: formatCurrency(lower.toString()),
       upper: formatCurrency(upper.toString()),
@@ -88,10 +89,10 @@ export function ForecastCard({ filters }: ForecastCardProps) {
           <div className="text-sm text-yellow-700">
             <p className="font-medium">Forecast unavailable</p>
             <p className="text-xs mt-1">
-              {error.includes('LocalStack') || error.includes('not yet implemented') 
+              {error.includes('LocalStack') ||
+              error.includes('not yet implemented')
                 ? 'Cost forecasting requires AWS Cost Explorer Pro'
-                : error
-              }
+                : error}
             </p>
           </div>
         </CardContent>
@@ -121,12 +122,12 @@ export function ForecastCard({ filters }: ForecastCardProps) {
   // Format the time period for display
   const formatTimePeriod = (timePeriod: any) => {
     if (!timePeriod || !timePeriod.start) return 'Next month';
-    
+
     try {
       const startDate = new Date(timePeriod.start);
-      return startDate.toLocaleDateString('en-US', { 
-        month: 'long', 
-        year: 'numeric' 
+      return startDate.toLocaleDateString('en-US', {
+        month: 'long',
+        year: 'numeric',
       });
     } catch {
       return 'Next month';
@@ -146,7 +147,7 @@ export function ForecastCard({ filters }: ForecastCardProps) {
         <p className="text-xs text-muted-foreground">
           {formatTimePeriod(nextMonthForecast.timePeriod)} estimate
         </p>
-        
+
         {predictionBand && (
           <div className="mt-3 p-2 bg-blue-50 rounded border border-blue-100">
             <div className="text-xs font-medium text-blue-800 mb-1">
@@ -167,7 +168,7 @@ export function ForecastCard({ filters }: ForecastCardProps) {
             </div>
           </div>
         )}
-        
+
         <div className="mt-2 text-xs text-gray-500">
           Based on historical usage patterns
         </div>

@@ -54,7 +54,10 @@ export default function SignInPage() {
     if (session && !isPending) {
       if (isPopup && callbackType === 'marketing') {
         // Send message to marketing site and close popup
-        window.opener?.postMessage({ type: 'auth-success' }, 'http://localhost:3000');
+        window.opener?.postMessage(
+          { type: 'auth-success' },
+          'http://localhost:3000'
+        );
         window.close();
       } else {
         // Normal redirect

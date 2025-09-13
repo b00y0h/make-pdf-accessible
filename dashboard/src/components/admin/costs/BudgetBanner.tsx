@@ -3,7 +3,12 @@
 import React from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, CheckCircle, ExternalLink, DollarSign } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle,
+  ExternalLink,
+  DollarSign,
+} from 'lucide-react';
 import { CostPoint } from '@/lib/costs/types';
 
 interface BudgetBannerProps {
@@ -18,16 +23,20 @@ interface BudgetBannerProps {
   loading?: boolean;
 }
 
-export function BudgetBanner({ currentCosts, budgets = [], loading = false }: BudgetBannerProps) {
+export function BudgetBanner({
+  currentCosts,
+  budgets = [],
+  loading = false,
+}: BudgetBannerProps) {
   // Calculate current month total
   const currentTotal = React.useMemo(() => {
     if (!currentCosts || currentCosts.length === 0) return 0;
-    
+
     // Get the latest month's cost
-    const sortedCosts = [...currentCosts].sort((a, b) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
+    const sortedCosts = [...currentCosts].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
-    
+
     return sortedCosts[0]?.amount || 0;
   }, [currentCosts]);
 
@@ -47,10 +56,11 @@ export function BudgetBanner({ currentCosts, budgets = [], loading = false }: Bu
   };
 
   // Check budget status for each budget
-  const budgetStatuses = budgets.map(budget => {
-    const percentage = budget.amount > 0 ? (currentTotal / budget.amount) * 100 : 0;
+  const budgetStatuses = budgets.map((budget) => {
+    const percentage =
+      budget.amount > 0 ? (currentTotal / budget.amount) * 100 : 0;
     const threshold = budget.threshold || 80; // Default to 80% threshold
-    
+
     let status: 'under' | 'warning' | 'over';
     if (percentage >= 100) {
       status = 'over';
@@ -59,7 +69,7 @@ export function BudgetBanner({ currentCosts, budgets = [], loading = false }: Bu
     } else {
       status = 'under';
     }
-    
+
     return {
       ...budget,
       currentSpend: currentTotal,
@@ -69,9 +79,10 @@ export function BudgetBanner({ currentCosts, budgets = [], loading = false }: Bu
   });
 
   // Find the most critical budget status
-  const criticalBudget = budgetStatuses.find(b => b.status === 'over') || 
-                        budgetStatuses.find(b => b.status === 'warning') || 
-                        budgetStatuses[0];
+  const criticalBudget =
+    budgetStatuses.find((b) => b.status === 'over') ||
+    budgetStatuses.find((b) => b.status === 'warning') ||
+    budgetStatuses[0];
 
   if (!criticalBudget) return null;
 
@@ -108,7 +119,7 @@ export function BudgetBanner({ currentCosts, budgets = [], loading = false }: Bu
   // Get status message
   const getStatusMessage = () => {
     const remaining = criticalBudget.amount - criticalBudget.currentSpend;
-    
+
     switch (criticalBudget.status) {
       case 'over':
         return `Budget exceeded by ${formatCurrency(Math.abs(remaining), criticalBudget.unit)}`;
@@ -127,18 +138,19 @@ export function BudgetBanner({ currentCosts, budgets = [], loading = false }: Bu
           <div className={alertProps.textColor}>
             <div className="flex items-center gap-2">
               <DollarSign className="h-4 w-4" />
-              <span className="font-medium">
-                Budget: {criticalBudget.name}
-              </span>
+              <span className="font-medium">Budget: {criticalBudget.name}</span>
               <span className="text-sm">
-                ({formatCurrency(criticalBudget.currentSpend, criticalBudget.unit)} / {formatCurrency(criticalBudget.amount, criticalBudget.unit)})
+                (
+                {formatCurrency(
+                  criticalBudget.currentSpend,
+                  criticalBudget.unit
+                )}{' '}
+                / {formatCurrency(criticalBudget.amount, criticalBudget.unit)})
               </span>
             </div>
-            <p className="text-sm mt-1">
-              {getStatusMessage()}
-            </p>
+            <p className="text-sm mt-1">{getStatusMessage()}</p>
           </div>
-          
+
           {criticalBudget.link && (
             <Button
               variant="outline"
@@ -146,14 +158,18 @@ export function BudgetBanner({ currentCosts, budgets = [], loading = false }: Bu
               asChild
               className={`ml-4 ${alertProps.textColor} border-current hover:bg-current hover:bg-opacity-10`}
             >
-              <a href={criticalBudget.link} target="_blank" rel="noopener noreferrer">
+              <a
+                href={criticalBudget.link}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <ExternalLink className="h-4 w-4 mr-1" />
                 View in AWS
               </a>
             </Button>
           )}
         </div>
-        
+
         {budgetStatuses.length > 1 && (
           <div className="mt-2 text-sm">
             <details className="cursor-pointer">
@@ -165,8 +181,9 @@ export function BudgetBanner({ currentCosts, budgets = [], loading = false }: Bu
                   <div key={index} className="flex justify-between text-xs">
                     <span>{budget.name}:</span>
                     <span>
-                      {formatCurrency(budget.currentSpend, budget.unit)} / {formatCurrency(budget.amount, budget.unit)}
-                      ({budget.percentage.toFixed(1)}%)
+                      {formatCurrency(budget.currentSpend, budget.unit)} /{' '}
+                      {formatCurrency(budget.amount, budget.unit)}(
+                      {budget.percentage.toFixed(1)}%)
                     </span>
                   </div>
                 ))}

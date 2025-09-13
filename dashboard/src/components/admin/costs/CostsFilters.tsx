@@ -21,14 +21,13 @@ interface CostsFiltersProps {
   onRefresh?: () => void;
 }
 
-export function CostsFilters({ 
-  filters, 
-  onChange, 
-  availableServices = [], 
+export function CostsFilters({
+  filters,
+  onChange,
+  availableServices = [],
   loading = false,
-  onRefresh 
+  onRefresh,
 }: CostsFiltersProps) {
-  
   // Handle date range change
   const handleDateRangeChange = (preset: string) => {
     onChange({
@@ -78,7 +77,7 @@ export function CostsFilters({
         if (value) {
           onChange({
             ...filters,
-            services: filters.services?.filter(s => s !== value) || [],
+            services: filters.services?.filter((s) => s !== value) || [],
           });
         }
         break;
@@ -106,9 +105,11 @@ export function CostsFilters({
       <div className="flex flex-wrap items-center gap-4">
         {/* Date Range */}
         <div className="flex items-center space-x-2">
-          <label className="text-sm font-medium text-gray-700">Date Range:</label>
-          <Select 
-            value={filters.dateRange.preset} 
+          <label className="text-sm font-medium text-gray-700">
+            Date Range:
+          </label>
+          <Select
+            value={filters.dateRange.preset}
             onValueChange={handleDateRangeChange}
           >
             <SelectTrigger className="w-[180px]">
@@ -125,10 +126,18 @@ export function CostsFilters({
 
         {/* Cost Type */}
         <div className="flex items-center space-x-2">
-          <label className="text-sm font-medium text-gray-700">Cost Type:</label>
-          <Select 
-            value={filters.metric === 'UnblendedCost' ? 'unblended' : 'amortized'}
-            onValueChange={(value) => handleMetricChange(value === 'unblended' ? 'UnblendedCost' : 'AmortizedCost')}
+          <label className="text-sm font-medium text-gray-700">
+            Cost Type:
+          </label>
+          <Select
+            value={
+              filters.metric === 'UnblendedCost' ? 'unblended' : 'amortized'
+            }
+            onValueChange={(value) =>
+              handleMetricChange(
+                value === 'unblended' ? 'UnblendedCost' : 'AmortizedCost'
+              )
+            }
           >
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Select type" />
@@ -142,10 +151,14 @@ export function CostsFilters({
 
         {/* Granularity */}
         <div className="flex items-center space-x-2">
-          <label className="text-sm font-medium text-gray-700">Granularity:</label>
-          <Select 
+          <label className="text-sm font-medium text-gray-700">
+            Granularity:
+          </label>
+          <Select
             value={filters.granularity.toLowerCase()}
-            onValueChange={(value) => handleGranularityChange(value.toUpperCase())}
+            onValueChange={(value) =>
+              handleGranularityChange(value.toUpperCase())
+            }
           >
             <SelectTrigger className="w-[120px]">
               <SelectValue placeholder="Select granularity" />
@@ -161,18 +174,17 @@ export function CostsFilters({
         <div className="flex items-center space-x-2">
           <label className="text-sm font-medium text-gray-700">Services:</label>
           <Button variant="outline" size="sm" disabled>
-            {filters.services && filters.services.length > 0 
-              ? `${filters.services.length} selected` 
-              : 'All Services'
-            }
+            {filters.services && filters.services.length > 0
+              ? `${filters.services.length} selected`
+              : 'All Services'}
           </Button>
         </div>
 
         {/* Refresh Button */}
         {onRefresh && (
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={onRefresh}
             disabled={loading}
             className="flex items-center gap-2"
@@ -193,17 +205,23 @@ export function CostsFilters({
       {/* Active Filters */}
       <div className="flex items-center flex-wrap gap-2">
         <span className="text-sm text-gray-600">Active filters:</span>
-        
+
         <Badge variant="secondary" className="flex items-center gap-1">
-          {filters.dateRange.preset === '3months' ? 'Last 3 months' :
-           filters.dateRange.preset === '6months' ? 'Last 6 months' :
-           filters.dateRange.preset === '12months' ? 'Last 12 months' :
-           filters.dateRange.preset === '18months' ? 'Last 18 months' :
-           'Custom range'}
+          {filters.dateRange.preset === '3months'
+            ? 'Last 3 months'
+            : filters.dateRange.preset === '6months'
+              ? 'Last 6 months'
+              : filters.dateRange.preset === '12months'
+                ? 'Last 12 months'
+                : filters.dateRange.preset === '18months'
+                  ? 'Last 18 months'
+                  : 'Custom range'}
         </Badge>
 
         <Badge variant="secondary" className="flex items-center gap-1">
-          {filters.metric === 'UnblendedCost' ? 'Unblended Cost' : 'Amortized Cost'}
+          {filters.metric === 'UnblendedCost'
+            ? 'Unblended Cost'
+            : 'Amortized Cost'}
         </Badge>
 
         <Badge variant="secondary" className="flex items-center gap-1">
@@ -212,12 +230,11 @@ export function CostsFilters({
 
         {filters.services && filters.services.length > 0 ? (
           <Badge variant="secondary" className="flex items-center gap-1">
-            {filters.services.length === 1 
+            {filters.services.length === 1
               ? filters.services[0]
-              : `${filters.services.length} services`
-            }
-            <X 
-              className="h-3 w-3 cursor-pointer hover:text-red-500" 
+              : `${filters.services.length} services`}
+            <X
+              className="h-3 w-3 cursor-pointer hover:text-red-500"
               onClick={() => removeFilter('services')}
             />
           </Badge>

@@ -18,7 +18,11 @@ interface DataSourceToggleProps {
   disabled?: boolean;
 }
 
-export function DataSourceToggle({ dataSource, onChange, disabled }: DataSourceToggleProps) {
+export function DataSourceToggle({
+  dataSource,
+  onChange,
+  disabled,
+}: DataSourceToggleProps) {
   return (
     <div className="flex items-center space-x-4">
       <div className="flex items-center space-x-2">
@@ -32,21 +36,22 @@ export function DataSourceToggle({ dataSource, onChange, disabled }: DataSourceT
             </TooltipTrigger>
             <TooltipContent className="max-w-sm">
               <p className="text-sm">
-                <strong>Cost Explorer (CE):</strong> Real-time AWS cost data with ~24h delay. 
-                Better for recent activity and forecasting.
+                <strong>Cost Explorer (CE):</strong> Real-time AWS cost data
+                with ~24h delay. Better for recent activity and forecasting.
               </p>
               <p className="text-sm mt-2">
-                <strong>Athena/CUR:</strong> Raw billing data with resource-level details. 
-                Better for detailed analysis and custom reporting.
+                <strong>Athena/CUR:</strong> Raw billing data with
+                resource-level details. Better for detailed analysis and custom
+                reporting.
               </p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </div>
-      
+
       <div className="flex items-center space-x-3">
         <div className="flex items-center space-x-2">
-          <Badge 
+          <Badge
             variant={dataSource === 'ce' ? 'default' : 'secondary'}
             className="text-xs"
           >
@@ -58,7 +63,7 @@ export function DataSourceToggle({ dataSource, onChange, disabled }: DataSourceT
             onCheckedChange={(checked) => onChange(checked ? 'athena' : 'ce')}
             disabled={disabled}
           />
-          <Badge 
+          <Badge
             variant={dataSource === 'athena' ? 'default' : 'secondary'}
             className="text-xs"
           >
@@ -66,18 +71,14 @@ export function DataSourceToggle({ dataSource, onChange, disabled }: DataSourceT
           </Badge>
         </div>
       </div>
-      
+
       {/* Data source indicator */}
       <div className="text-xs text-gray-500">
         {dataSource === 'ce' && (
-          <span>
-            Using Cost Explorer API • Updated daily
-          </span>
+          <span>Using Cost Explorer API • Updated daily</span>
         )}
         {dataSource === 'athena' && (
-          <span>
-            Using CUR data via Athena • Updated hourly
-          </span>
+          <span>Using CUR data via Athena • Updated hourly</span>
         )}
       </div>
     </div>

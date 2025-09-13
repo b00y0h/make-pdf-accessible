@@ -17,15 +17,14 @@ interface CostsOverviewProps {
   onServiceClick?: (serviceCode: string) => void;
 }
 
-export function CostsOverview({ 
-  timeseries, 
-  summary, 
-  loading, 
-  error, 
+export function CostsOverview({
+  timeseries,
+  summary,
+  loading,
+  error,
   filters,
-  onServiceClick
+  onServiceClick,
 }: CostsOverviewProps) {
-  
   if (error) {
     return (
       <div className="space-y-6">
@@ -39,7 +38,9 @@ export function CostsOverview({
               <div className="text-sm text-red-700 bg-red-100 p-3 rounded">
                 <p className="font-medium mb-1">Common issues:</p>
                 <ul className="text-left space-y-1">
-                  <li>• AWS Cost Explorer API is not available in LocalStack</li>
+                  <li>
+                    • AWS Cost Explorer API is not available in LocalStack
+                  </li>
                   <li>• Check AWS credentials and permissions</li>
                   <li>• Ensure cost allocation tags are activated</li>
                   <li>• Verify IAM permissions include ce:GetCostAndUsage</li>
@@ -70,10 +71,10 @@ export function CostsOverview({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <CostTrendChart 
-              data={timeseries} 
+            <CostTrendChart
+              data={timeseries}
               metric={filters.metric}
-              loading={loading} 
+              loading={loading}
             />
           </CardContent>
         </Card>
@@ -84,18 +85,14 @@ export function CostsOverview({
             <CardTitle>Cost by Service</CardTitle>
           </CardHeader>
           <CardContent>
-            <ServiceCostChart 
-              data={summary} 
-              loading={loading}
-              topN={8}
-            />
+            <ServiceCostChart data={summary} loading={loading} topN={8} />
           </CardContent>
         </Card>
       </div>
 
       {/* Top Services Table */}
-      <TopServicesTable 
-        data={summary} 
+      <TopServicesTable
+        data={summary}
         loading={loading}
         topN={10}
         onServiceClick={onServiceClick}

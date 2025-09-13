@@ -17,10 +17,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { 
-  Database, 
-  Trash2, 
-  RefreshCw, 
+import {
+  Database,
+  Trash2,
+  RefreshCw,
   Activity,
   Clock,
   MemoryStick,
@@ -51,13 +51,13 @@ export function CacheManager({ onCacheCleared }: CacheManagerProps) {
     try {
       setLoading(true);
       const response = await fetch('/api/costs/cache');
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       if (data.ok) {
         setStats(data.data.stats);
       } else {
@@ -80,19 +80,19 @@ export function CacheManager({ onCacheCleared }: CacheManagerProps) {
   const clearCache = async (clearPattern?: string) => {
     try {
       setClearing(true);
-      
-      const url = clearPattern 
+
+      const url = clearPattern
         ? `/api/costs/cache?pattern=${encodeURIComponent(clearPattern)}`
         : '/api/costs/cache';
-        
+
       const response = await fetch(url, { method: 'DELETE' });
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       if (data.ok) {
         toast.success(data.data.message);
         await fetchStats(); // Refresh stats
@@ -116,13 +116,13 @@ export function CacheManager({ onCacheCleared }: CacheManagerProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'warmup' }),
       });
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       if (data.ok) {
         toast.success('Cache warmup initiated');
       } else {
@@ -136,7 +136,7 @@ export function CacheManager({ onCacheCleared }: CacheManagerProps) {
 
   useEffect(() => {
     fetchStats();
-    
+
     // Auto-refresh stats every 30 seconds
     const interval = setInterval(fetchStats, 30000);
     return () => clearInterval(interval);
@@ -165,16 +165,17 @@ export function CacheManager({ onCacheCleared }: CacheManagerProps) {
                 ) : stats?.connected ? (
                   <>
                     <CheckCircle className="h-4 w-4 text-green-600" />
-                    <Badge variant="default" className="bg-green-100 text-green-800">
+                    <Badge
+                      variant="default"
+                      className="bg-green-100 text-green-800"
+                    >
                       Connected
                     </Badge>
                   </>
                 ) : (
                   <>
                     <XCircle className="h-4 w-4 text-red-600" />
-                    <Badge variant="destructive">
-                      Disconnected
-                    </Badge>
+                    <Badge variant="destructive">Disconnected</Badge>
                   </>
                 )}
               </div>
@@ -189,7 +190,9 @@ export function CacheManager({ onCacheCleared }: CacheManagerProps) {
                 {loading ? (
                   <div className="h-4 w-8 bg-gray-200 animate-pulse rounded"></div>
                 ) : (
-                  <span className="text-lg font-bold">{stats?.totalKeys || 0}</span>
+                  <span className="text-lg font-bold">
+                    {stats?.totalKeys || 0}
+                  </span>
                 )}
               </div>
             </div>
@@ -203,7 +206,9 @@ export function CacheManager({ onCacheCleared }: CacheManagerProps) {
                 {loading ? (
                   <div className="h-4 w-12 bg-gray-200 animate-pulse rounded"></div>
                 ) : (
-                  <span className="text-sm font-mono">{stats?.memoryUsage || 'Unknown'}</span>
+                  <span className="text-sm font-mono">
+                    {stats?.memoryUsage || 'Unknown'}
+                  </span>
                 )}
               </div>
             </div>
@@ -220,7 +225,9 @@ export function CacheManager({ onCacheCleared }: CacheManagerProps) {
                 disabled={loading}
                 className="flex items-center gap-2"
               >
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw
+                  className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+                />
                 Refresh Stats
               </Button>
             </div>
@@ -242,8 +249,9 @@ export function CacheManager({ onCacheCleared }: CacheManagerProps) {
                   <AlertDialogHeader>
                     <AlertDialogTitle>Clear All Cache</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will clear all cached cost data. The next requests will be slower 
-                      as data is fetched fresh from AWS APIs. Are you sure?
+                      This will clear all cached cost data. The next requests
+                      will be slower as data is fetched fresh from AWS APIs. Are
+                      you sure?
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -295,8 +303,8 @@ export function CacheManager({ onCacheCleared }: CacheManagerProps) {
                     <AlertDialogHeader>
                       <AlertDialogTitle>Clear Cache Pattern</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This will clear all cache entries matching the pattern "{pattern}". 
-                        This action cannot be undone.
+                        This will clear all cache entries matching the pattern
+                        &quot;{pattern}&quot;. This action cannot be undone.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -312,14 +320,17 @@ export function CacheManager({ onCacheCleared }: CacheManagerProps) {
                 </AlertDialog>
               </div>
               <p className="text-xs text-gray-600">
-                Common patterns: <code>timeseries</code>, <code>summary</code>, <code>services</code>, <code>forecast</code>
+                Common patterns: <code>timeseries</code>, <code>summary</code>,{' '}
+                <code>services</code>, <code>forecast</code>
               </p>
             </div>
           </div>
 
           {/* Cache Information */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="text-sm font-medium text-blue-900 mb-2">Cache Information</h4>
+            <h4 className="text-sm font-medium text-blue-900 mb-2">
+              Cache Information
+            </h4>
             <ul className="text-xs text-blue-800 space-y-1">
               <li>• Cache TTL: 6-12 hours for cost data</li>
               <li>• Manual refresh bypasses cache and fetches fresh data</li>

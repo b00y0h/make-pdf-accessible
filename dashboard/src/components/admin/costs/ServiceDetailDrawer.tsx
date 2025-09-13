@@ -1,12 +1,33 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { Loader2, TrendingUp, TrendingDown, Minus, ExternalLink } from 'lucide-react';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+} from 'recharts';
+import {
+  Loader2,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  ExternalLink,
+} from 'lucide-react';
 import { CostFilters } from '@/lib/costs/types';
 import { formatCurrency } from '@/lib/utils';
 
@@ -75,7 +96,7 @@ export function ServiceDetailDrawer({
         params.set('service', service);
         params.set('metric', filters.metric);
         params.set('granularity', filters.granularity);
-        
+
         if (filters.dateRange.preset !== 'custom') {
           params.set('preset', filters.dateRange.preset);
         } else if (filters.dateRange.custom) {
@@ -96,11 +117,14 @@ export function ServiceDetailDrawer({
         }
 
         // Fetch data from the appropriate endpoint
-        const basePath = dataSource === 'athena' ? '/api/costs/athena' : '/api/costs';
-        
+        const basePath =
+          dataSource === 'athena' ? '/api/costs/athena' : '/api/costs';
+
         // Fetch timeseries for the specific service
-        const timeseriesResponse = await fetch(`${basePath}/timeseries?${params}`);
-        
+        const timeseriesResponse = await fetch(
+          `${basePath}/timeseries?${params}`
+        );
+
         if (!timeseriesResponse.ok) {
           throw new Error('Failed to fetch service timeseries');
         }
@@ -110,7 +134,7 @@ export function ServiceDetailDrawer({
         // Fetch tag breakdown
         const tagResponse = await fetch(`${basePath}/by-tag?${params}`);
         let tagData = { dataPoints: [] };
-        
+
         if (tagResponse.ok) {
           tagData = await tagResponse.json();
         }
@@ -135,22 +159,32 @@ export function ServiceDetailDrawer({
 
         if (dataSource === 'ce' && timeseriesData.ok) {
           processedTimeseries = timeseriesData.data?.series || [];
-          total = processedTimeseries.reduce((sum, point) => sum + (point.amount || 0), 0);
+          total = processedTimeseries.reduce(
+            (sum, point) => sum + (point.amount || 0),
+            0
+          );
         } else if (dataSource === 'athena') {
-          processedTimeseries = (timeseriesData.dataPoints || []).map((point: any) => ({
-            month: point.month,
-            amount: point.amount,
-            currency: point.currency || 'USD',
-          }));
-          total = processedTimeseries.reduce((sum, point) => sum + point.amount, 0);
+          processedTimeseries = (timeseriesData.dataPoints || []).map(
+            (point: any) => ({
+              month: point.month,
+              amount: point.amount,
+              currency: point.currency || 'USD',
+            })
+          );
+          total = processedTimeseries.reduce(
+            (sum, point) => sum + point.amount,
+            0
+          );
         }
 
         // Calculate trend (comparing last two periods)
         let trend = { direction: 'stable' as const, percentage: 0 };
         if (processedTimeseries.length >= 2) {
-          const current = processedTimeseries[processedTimeseries.length - 1]?.amount || 0;
-          const previous = processedTimeseries[processedTimeseries.length - 2]?.amount || 0;
-          
+          const current =
+            processedTimeseries[processedTimeseries.length - 1]?.amount || 0;
+          const previous =
+            processedTimeseries[processedTimeseries.length - 2]?.amount || 0;
+
           if (previous > 0) {
             const change = ((current - previous) / previous) * 100;
             trend = {
@@ -164,7 +198,7 @@ export function ServiceDetailDrawer({
         let processedTags: any[] = [];
         if (dataSource === 'athena' && tagData.dataPoints) {
           const tagMap = new Map<string, number>();
-          
+
           tagData.dataPoints.forEach((point: any) => {
             Object.entries(point.tags || {}).forEach(([key, value]) => {
               const tagKey = `${key}:${value}`;
@@ -172,8 +206,11 @@ export function ServiceDetailDrawer({
             });
           });
 
-          const totalTagAmount = Array.from(tagMap.values()).reduce((sum, amount) => sum + amount, 0);
-          
+          const totalTagAmount = Array.from(tagMap.values()).reduce(
+            (sum, amount) => sum + amount,
+            0
+          );
+
           processedTags = Array.from(tagMap.entries())
             .map(([tagKey, amount]) => {
               const [key, value] = tagKey.split(':');
@@ -181,7 +218,8 @@ export function ServiceDetailDrawer({
                 tagKey: key,
                 tagValue: value,
                 amount,
-                percentage: totalTagAmount > 0 ? (amount / totalTagAmount) * 100 : 0,
+                percentage:
+                  totalTagAmount > 0 ? (amount / totalTagAmount) * 100 : 0,
               };
             })
             .sort((a, b) => b.amount - a.amount)
@@ -196,10 +234,11 @@ export function ServiceDetailDrawer({
           total,
           trend,
         });
-
       } catch (err) {
         console.error('Error fetching service details:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch service details');
+        setError(
+          err instanceof Error ? err.message : 'Failed to fetch service details'
+        );
       } finally {
         setLoading(false);
       }
@@ -212,17 +251,21 @@ export function ServiceDetailDrawer({
 
   const formatServiceName = (serviceCode: string) => {
     const serviceNames: Record<string, string> = {
-      'AmazonEC2': 'Amazon EC2',
-      'AmazonS3': 'Amazon S3',
-      'AmazonRDS': 'Amazon RDS',
-      'AWSLambda': 'AWS Lambda',
-      'AmazonCloudFront': 'Amazon CloudFront',
-      'AmazonRoute53': 'Amazon Route 53',
+      AmazonEC2: 'Amazon EC2',
+      AmazonS3: 'Amazon S3',
+      AmazonRDS: 'Amazon RDS',
+      AWSLambda: 'AWS Lambda',
+      AmazonCloudFront: 'Amazon CloudFront',
+      AmazonRoute53: 'Amazon Route 53',
     };
     return serviceNames[serviceCode] || serviceCode;
   };
 
-  const TrendIcon = ({ direction }: { direction: 'up' | 'down' | 'stable' }) => {
+  const TrendIcon = ({
+    direction,
+  }: {
+    direction: 'up' | 'down' | 'stable';
+  }) => {
     switch (direction) {
       case 'up':
         return <TrendingUp className="h-4 w-4 text-red-500" />;
@@ -273,16 +316,21 @@ export function ServiceDetailDrawer({
               <div className="bg-white border rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Total Cost</p>
+                    <p className="text-sm font-medium text-gray-600">
+                      Total Cost
+                    </p>
                     <p className="text-2xl font-bold text-gray-900">
                       {formatCurrency(data.total)}
                     </p>
                   </div>
                   <Badge variant="secondary" className="text-xs">
-                    {filters.dateRange.preset === 'custom' ? 'Custom Period' : 
-                     filters.dateRange.preset === '3months' ? 'Last 3M' :
-                     filters.dateRange.preset === '6months' ? 'Last 6M' :
-                     'Last 12M'}
+                    {filters.dateRange.preset === 'custom'
+                      ? 'Custom Period'
+                      : filters.dateRange.preset === '3months'
+                        ? 'Last 3M'
+                        : filters.dateRange.preset === '6months'
+                          ? 'Last 6M'
+                          : 'Last 12M'}
                   </Badge>
                 </div>
               </div>
@@ -298,13 +346,21 @@ export function ServiceDetailDrawer({
                       </span>
                     </div>
                   </div>
-                  <Badge 
-                    variant={data.trend.direction === 'up' ? 'destructive' : 
-                            data.trend.direction === 'down' ? 'default' : 'secondary'}
+                  <Badge
+                    variant={
+                      data.trend.direction === 'up'
+                        ? 'destructive'
+                        : data.trend.direction === 'down'
+                          ? 'default'
+                          : 'secondary'
+                    }
                     className="text-xs"
                   >
-                    {data.trend.direction === 'up' ? 'Increasing' :
-                     data.trend.direction === 'down' ? 'Decreasing' : 'Stable'}
+                    {data.trend.direction === 'up'
+                      ? 'Increasing'
+                      : data.trend.direction === 'down'
+                        ? 'Decreasing'
+                        : 'Stable'}
                   </Badge>
                 </div>
               </div>
@@ -324,25 +380,28 @@ export function ServiceDetailDrawer({
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={data.timeseries}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="month" 
+                      <XAxis
+                        dataKey="month"
                         tick={{ fontSize: 12 }}
                         angle={-45}
                         textAnchor="end"
                         height={60}
                       />
-                      <YAxis 
+                      <YAxis
                         tick={{ fontSize: 12 }}
                         tickFormatter={(value) => `$${value.toLocaleString()}`}
                       />
-                      <Tooltip 
-                        formatter={(value: any) => [formatCurrency(value), 'Cost']}
+                      <Tooltip
+                        formatter={(value: any) => [
+                          formatCurrency(value),
+                          'Cost',
+                        ]}
                         labelFormatter={(label) => `Month: ${label}`}
                       />
-                      <Line 
-                        type="monotone" 
-                        dataKey="amount" 
-                        stroke="#3b82f6" 
+                      <Line
+                        type="monotone"
+                        dataKey="amount"
+                        stroke="#3b82f6"
                         strokeWidth={3}
                         dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
                         activeDot={{ r: 6 }}
@@ -356,7 +415,10 @@ export function ServiceDetailDrawer({
                 {data.tagBreakdown.length > 0 ? (
                   <div className="space-y-3">
                     {data.tagBreakdown.map((tag, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                      >
                         <div className="flex items-center gap-3">
                           <Badge variant="outline" className="text-xs">
                             {tag.tagKey}
@@ -364,8 +426,12 @@ export function ServiceDetailDrawer({
                           <span className="font-medium">{tag.tagValue}</span>
                         </div>
                         <div className="text-right">
-                          <p className="font-semibold">{formatCurrency(tag.amount)}</p>
-                          <p className="text-xs text-gray-600">{tag.percentage.toFixed(1)}%</p>
+                          <p className="font-semibold">
+                            {formatCurrency(tag.amount)}
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            {tag.percentage.toFixed(1)}%
+                          </p>
                         </div>
                       </div>
                     ))}
@@ -383,12 +449,15 @@ export function ServiceDetailDrawer({
                     <BarChart data={data.regionBreakdown}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="region" tick={{ fontSize: 12 }} />
-                      <YAxis 
+                      <YAxis
                         tick={{ fontSize: 12 }}
                         tickFormatter={(value) => `$${value.toLocaleString()}`}
                       />
-                      <Tooltip 
-                        formatter={(value: any) => [formatCurrency(value), 'Cost']}
+                      <Tooltip
+                        formatter={(value: any) => [
+                          formatCurrency(value),
+                          'Cost',
+                        ]}
                       />
                       <Bar dataKey="amount" fill="#10b981" />
                     </BarChart>
@@ -399,15 +468,22 @@ export function ServiceDetailDrawer({
               <TabsContent value="accounts" className="space-y-4">
                 <div className="space-y-3">
                   {data.accountBreakdown.map((account, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    >
                       <div className="flex items-center gap-3">
                         <Badge variant="outline" className="text-xs font-mono">
                           {account.accountId}
                         </Badge>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold">{formatCurrency(account.amount)}</p>
-                        <p className="text-xs text-gray-600">{account.percentage.toFixed(1)}%</p>
+                        <p className="font-semibold">
+                          {formatCurrency(account.amount)}
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          {account.percentage.toFixed(1)}%
+                        </p>
                       </div>
                     </div>
                   ))}

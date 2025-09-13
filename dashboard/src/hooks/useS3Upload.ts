@@ -52,15 +52,15 @@ export function useS3Upload() {
           content_type: file.type,
           file_size: file.size,
         };
-        
+
         console.log('Uploading file:', uploadData);
         console.log('File details:', {
           name: file.name,
           type: file.type,
           size: file.size,
-          lastModified: file.lastModified
+          lastModified: file.lastModified,
         });
-        
+
         const preSignedResponse = await apiService
           .getClient()
           .post('/documents/upload/presigned', uploadData);
@@ -136,7 +136,7 @@ export function useS3Upload() {
           response: err.response?.data,
           status: err.response?.status,
           headers: err.response?.headers,
-          config: err.config?.data
+          config: err.config?.data,
         });
         console.error('Full error response:', err.response);
         const error = err instanceof Error ? err : new Error('Upload failed');

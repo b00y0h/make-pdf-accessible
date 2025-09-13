@@ -37,11 +37,11 @@ export function useApiService() {
         data: config.data,
         headers: config.headers,
       });
-      
+
       // Add dashboard internal authentication header
       config.headers['X-Dashboard-Internal'] = 'true';
       config.headers['X-Dashboard-Secret'] = 'dashboard_internal_secret_123';
-      
+
       // BetterAuth cookies handle dashboard user sessions internally
       return config;
     });
