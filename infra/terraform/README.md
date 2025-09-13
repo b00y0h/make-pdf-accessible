@@ -8,7 +8,9 @@ The infrastructure includes:
 
 - **VPC**: Isolated network with private subnets, NAT gateways, and VPC endpoints
 - **S3 Buckets**: Secure storage for PDFs, derivatives, reports, and web assets
+- **DocumentDB**: Primary database for document metadata and processing state
 - **DynamoDB**: Tables for documents, jobs, and user sessions
+- **Lambda Functions**: API and processing microservices (OCR, structure analysis, etc.)
 - **SQS**: Queues for asynchronous processing with dead letter queues
 - **Cognito**: User authentication with SAML IdP support
 - **API Gateway**: HTTP API with JWT authorization
@@ -16,6 +18,52 @@ The infrastructure includes:
 - **ECR**: Container registries for Lambda functions
 - **Step Functions**: Orchestration for PDF processing workflows
 - **IAM**: Least privilege roles and policies
+
+## Cost-Allocation Tagging
+
+All resources implement comprehensive cost-allocation tags to enable accurate cost tracking and dashboard functionality. The tagging strategy follows AWS best practices and integrates with the project's Cost Dashboard.
+
+### Tag Schema
+
+Every resource includes these standardized tags:
+
+```hcl
+# Required for dashboard filtering
+application  = "accesspdf"
+service      = "doc-processing" 
+component    = "platform"        # Varies by resource type
+environment  = "dev|staging|prod"
+cost_center  = "CC-ENV-###"     # Environment-specific
+
+# Organizational tags
+owner            = "team-platform"
+business_unit    = "R&D"
+data_sensitivity = "internal|confidential"
+managed_by       = "terraform"
+repo             = "github.com/b00y0h/make-pdf-accessible"
+```
+
+### Component-Specific Tags
+
+Resources use specialized component tags for granular cost allocation:
+- **API Resources**: `component = "api"`, `service = "api-gateway"`
+- **Compute Resources**: `component = "compute"`, `service = "lambda"`
+- **Storage Resources**: `component = "storage"`, `service = "s3"`
+- **Database Resources**: `component = "database"`, `service = "documentdb"`
+- **Networking Resources**: `component = "networking"`, `service = "vpc"`
+- **Security Resources**: `component = "security"`, `service = "iam"`
+- **Monitoring Resources**: `component = "monitoring"`, `service = "cloudwatch"`
+
+### Dashboard Integration
+
+These tags enable cost dashboard features:
+- Filter costs by service, environment, component, cost center
+- Group by business unit, owner, data sensitivity
+- Compare costs across environments
+- Track managed vs manual resource costs
+- Environment-specific budget allocation
+
+**Note**: Tags must be activated in AWS Billing → Cost Allocation Tags to appear in cost reports.
 
 ## Prerequisites
 

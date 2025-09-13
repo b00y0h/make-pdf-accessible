@@ -6,7 +6,7 @@ resource "aws_cloudwatch_log_group" "api_logs" {
   retention_in_days = var.log_retention_days
   kms_key_id       = var.cloudwatch_logs_kms_key_id
 
-  tags = local.common_tags
+  tags = local.monitoring_tags
 }
 
 resource "aws_cloudwatch_log_group" "worker_logs" {
@@ -14,7 +14,7 @@ resource "aws_cloudwatch_log_group" "worker_logs" {
   retention_in_days = var.log_retention_days
   kms_key_id       = var.cloudwatch_logs_kms_key_id
 
-  tags = local.common_tags
+  tags = local.monitoring_tags
 }
 
 # Custom CloudWatch Dashboard
@@ -115,7 +115,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_error_rate" {
     aws_sns_topic.alerts.arn
   ]
 
-  tags = local.common_tags
+  tags = local.monitoring_tags
 }
 
 # CloudWatch Alarms for Lambda function duration
@@ -141,7 +141,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_duration" {
     aws_sns_topic.alerts.arn
   ]
 
-  tags = local.common_tags
+  tags = local.monitoring_tags
 }
 
 # Step Functions execution failure alarm
@@ -165,7 +165,7 @@ resource "aws_cloudwatch_metric_alarm" "step_functions_failures" {
     aws_sns_topic.alerts.arn
   ]
 
-  tags = local.common_tags
+  tags = local.monitoring_tags
 }
 
 # DynamoDB throttling alarms
@@ -195,7 +195,7 @@ resource "aws_cloudwatch_metric_alarm" "dynamodb_read_throttles" {
     aws_sns_topic.alerts.arn
   ]
 
-  tags = local.common_tags
+  tags = local.monitoring_tags
 }
 
 # S3 bucket metrics and alarms
@@ -227,7 +227,7 @@ resource "aws_cloudwatch_metric_alarm" "s3_4xx_errors" {
     aws_sns_topic.alerts.arn
   ]
 
-  tags = local.common_tags
+  tags = local.monitoring_tags
 }
 
 # OpenSearch collection health alarm
@@ -253,7 +253,7 @@ resource "aws_cloudwatch_metric_alarm" "opensearch_indexing_rate" {
 
   treat_missing_data = "notBreaching"
 
-  tags = local.common_tags
+  tags = local.monitoring_tags
 }
 
 # Custom application metrics alarms
@@ -273,7 +273,7 @@ resource "aws_cloudwatch_metric_alarm" "processing_success_rate" {
     aws_sns_topic.alerts.arn
   ]
 
-  tags = local.common_tags
+  tags = local.monitoring_tags
 }
 
 # Log metric filters for error tracking

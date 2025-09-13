@@ -15,7 +15,7 @@ resource "aws_iam_role" "lambda_execution" {
     ]
   })
 
-  tags = local.common_tags
+  tags = local.security_tags
 }
 
 # Basic Lambda execution policy
@@ -204,7 +204,7 @@ resource "aws_iam_openid_connect_provider" "github" {
     "1c58a3a8518e8759bf075b76b750d4f2df264fcd"
   ]
 
-  tags = local.common_tags
+  tags = local.security_tags
 }
 
 locals {
@@ -239,7 +239,7 @@ resource "aws_iam_role" "github_actions" {
     ]
   })
 
-  tags = local.common_tags
+  tags = local.security_tags
 }
 
 # GitHub Actions Policy
@@ -319,7 +319,7 @@ resource "aws_iam_role" "step_functions" {
     ]
   })
 
-  tags = local.common_tags
+  tags = local.security_tags
 }
 
 # Step Functions policy

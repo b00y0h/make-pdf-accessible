@@ -454,17 +454,17 @@ jobs:
           # Install checkov for additional security scanning
           pip install checkov
 
-      - name: Run TFLint
+      - name: Run TFLint with tag validation
         id: tflint
         run: |
           cd ${{ env.TF_WORKING_DIR }}
 
-          echo "Running TFLint..."
-          tflint --init
-          tflint --format=json > tflint-results.json || echo "tflint_failed=true" >> $GITHUB_OUTPUT
+          echo "Running TFLint with AWS cost-allocation tag validation..."
+          tflint --init --config=../../.tflint.hcl
+          tflint --config=../../.tflint.hcl --format=json > tflint-results.json || echo "tflint_failed=true" >> $GITHUB_OUTPUT
 
           # Generate human-readable report
-          tflint --format=compact > tflint-report.txt || true
+          tflint --config=../../.tflint.hcl --format=compact > tflint-report.txt || true
 
           # Count issues
           if [ -f tflint-results.json ]; then
@@ -472,17 +472,17 @@ jobs:
             echo "tflint_issues=$ISSUES" >> $GITHUB_OUTPUT
           fi
 
-      - name: Run Checkov Security Scan
+      - name: Run Checkov Security Scan with tag validation
         id: checkov
         run: |
           cd ${{ env.TF_WORKING_DIR }}
 
-          echo "Running Checkov security scan..."
-          checkov -d . --framework terraform --output json --output-file checkov-results.json \
+          echo "Running Checkov security scan with cost-allocation tag validation..."
+          checkov -d . --config-file ../../.checkov.yaml --output json --output-file checkov-results.json \
             --soft-fail || echo "checkov_failed=true" >> $GITHUB_OUTPUT
 
           # Generate summary report
-          checkov -d . --framework terraform --compact --quiet > checkov-report.txt || true
+          checkov -d . --config-file ../../.checkov.yaml --compact --quiet > checkov-report.txt || true
 
           # Count failed checks
           if [ -f checkov-results.json ]; then

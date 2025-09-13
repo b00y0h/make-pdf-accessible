@@ -17,11 +17,7 @@ provider "aws" {
   region = var.aws_region
 
   default_tags {
-    tags = {
-      Project     = var.project_name
-      Environment = var.environment
-      ManagedBy   = "terraform"
-    }
+    tags = local.common_tags
   }
 }
 
@@ -30,13 +26,3 @@ resource "random_id" "suffix" {
   byte_length = 4
 }
 
-locals {
-  name_prefix = "${var.project_name}-${var.environment}"
-  name_suffix = random_id.suffix.hex
-
-  common_tags = {
-    Project     = var.project_name
-    Environment = var.environment
-    ManagedBy   = "terraform"
-  }
-}

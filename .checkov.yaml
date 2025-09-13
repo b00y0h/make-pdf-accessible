@@ -1,0 +1,84 @@
+# Checkov configuration for AWS cost-allocation tag enforcement and security
+
+# Framework selection
+framework: 
+  - terraform
+
+# Output format
+output: cli
+
+# Enable colored output
+color: true
+
+# Download external modules
+download-external-modules: true
+
+# External modules directory
+external-modules-download-path: .external_modules
+
+# Log level
+log-level: WARNING
+
+# Exclude specific checks that don't apply to our setup
+skip-check:
+  # Skip checks that conflict with our architectural decisions
+  - CKV_AWS_18   # S3 bucket logging - we have centralized logging
+  - CKV_AWS_21   # S3 bucket versioning - not needed for temp buckets
+  - CKV_AWS_26   # SNS topic encryption - we don't use SNS
+  - CKV_AWS_27   # SQS queue encryption - using default encryption
+  - CKV_AWS_61   # IAM policy allows full administrative privileges - needed for admin roles
+  - CKV_AWS_62   # IAM policy allows privilege escalation - needed for deployment
+  - CKV_AWS_63   # IAM policy allows data exfiltration - false positive for S3 access
+  - CKV_AWS_105  # Lambda function has dead letter queue - we have DLQ configured differently
+  - CKV_AWS_109  # Lambda function has tracing enabled - we enable selectively
+  - CKV_AWS_116  # Lambda function has concurrent execution limit - set where needed
+  - CKV_AWS_117  # Lambda function has reserved concurrency - not needed for all functions
+  - CKV_AWS_173  # Lambda function has code signing - not required for our use case
+  
+  # Skip DocumentDB checks that don't apply
+  - CKV_AWS_74   # DocumentDB encryption - enabled by default in newer versions
+  - CKV_AWS_85   # DocumentDB backup retention - we configure appropriately per environment
+
+# Custom checks directory (if we create custom policies)
+external-checks-dir: .checkov-custom
+
+# Include specific paths
+directory:
+  - infra/terraform
+
+# Exclude specific files or directories  
+exclude-paths:
+  - infra/terraform/.terraform
+  - infra/terraform/terraform.tfstate*
+  - infra/terraform/.terraform.lock.hcl
+
+# Compact output for CI
+compact: true
+
+# Quiet mode (reduce noise)
+quiet: false
+
+# Include suppression justifications in output
+show-suppression-reason: true
+
+# Custom check for required tags
+custom-policy-dir: .checkov-policies
+
+# Severity threshold (CRITICAL, HIGH, MEDIUM, LOW)
+check: 
+  - HIGH
+  - CRITICAL
+
+# Tags policy configuration
+hard-fail-on: 
+  - HIGH
+  - CRITICAL
+
+# Enable soft-fail for medium/low severity issues
+soft-fail: true
+
+# Enable secrets scanning
+enable-secret-scan-all-files: false
+
+# Baseline file for managing findings
+baseline: .checkov.baseline

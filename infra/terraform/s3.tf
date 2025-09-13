@@ -18,7 +18,7 @@ resource "aws_kms_alias" "s3" {
 resource "aws_s3_bucket" "pdf_originals" {
   bucket = "${local.name_prefix}-pdf-originals-${local.name_suffix}"
 
-  tags = merge(local.common_tags, {
+  tags = merge(local.storage_tags, {
     Name      = "${local.name_prefix}-pdf-originals"
     Purpose   = "Store original PDF files"
     DataClass = "sensitive"
@@ -29,7 +29,7 @@ resource "aws_s3_bucket" "pdf_originals" {
 resource "aws_s3_bucket" "pdf_derivatives" {
   bucket = "${local.name_prefix}-pdf-derivatives-${local.name_suffix}"
 
-  tags = merge(local.common_tags, {
+  tags = merge(local.storage_tags, {
     Name      = "${local.name_prefix}-pdf-derivatives"
     Purpose   = "Store processed/accessible PDF files"
     DataClass = "processed"

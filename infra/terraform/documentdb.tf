@@ -3,7 +3,7 @@ resource "aws_docdb_subnet_group" "main" {
   name       = "${local.name_prefix}-docdb-subnet-group"
   subnet_ids = aws_subnet.private[*].id
 
-  tags = merge(local.common_tags, {
+  tags = merge(local.database_tags, {
     Name = "${local.name_prefix}-docdb-subnet-group"
   })
 }
@@ -24,7 +24,7 @@ resource "aws_docdb_cluster_parameter_group" "main" {
     value = "enabled"
   }
 
-  tags = local.common_tags
+  tags = local.database_tags
 }
 
 # DocumentDB Security Group

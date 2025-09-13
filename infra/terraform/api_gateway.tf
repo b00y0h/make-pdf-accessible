@@ -26,7 +26,7 @@ resource "aws_apigatewayv2_api" "main" {
     max_age        = 86400
   }
 
-  tags = merge(local.common_tags, {
+  tags = merge(local.api_tags, {
     Name = "${local.name_prefix}-api-gateway"
   })
 }

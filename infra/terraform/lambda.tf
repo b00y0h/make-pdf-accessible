@@ -84,8 +84,9 @@ resource "aws_lambda_function" "api" {
     target_arn = aws_sqs_queue.lambda_dlq.arn
   }
   
-  tags = merge(local.common_tags, {
+  tags = merge(local.lambda_tags, {
     Name = "${local.name_prefix}-api-lambda"
+    component = "api"
   })
   
   depends_on = [

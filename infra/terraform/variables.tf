@@ -165,6 +165,60 @@ variable "jwt_secret_key" {
   sensitive   = true
 }
 
+# Tagging Configuration
+variable "application" {
+  description = "Application name for cost allocation tags"
+  type        = string
+  default     = "accesspdf"
+}
+
+variable "service" {
+  description = "Service name for cost allocation tags"
+  type        = string
+  default     = "doc-processing"
+}
+
+variable "component" {
+  description = "Component name for cost allocation tags"
+  type        = string
+  default     = "platform"
+}
+
+variable "owner" {
+  description = "Team or individual responsible for the resources"
+  type        = string
+  default     = "team-platform"
+}
+
+variable "cost_center" {
+  description = "Cost center code for billing allocation"
+  type        = string
+  default     = "CC-12345"
+}
+
+variable "business_unit" {
+  description = "Business unit owning the resources"
+  type        = string
+  default     = "R&D"
+}
+
+variable "data_sensitivity" {
+  description = "Data sensitivity classification"
+  type        = string
+  default     = "internal"
+  
+  validation {
+    condition     = contains(["public", "internal", "confidential", "restricted"], var.data_sensitivity)
+    error_message = "Data sensitivity must be one of: public, internal, confidential, restricted."
+  }
+}
+
+variable "repo" {
+  description = "Repository URL for traceability"
+  type        = string
+  default     = "github.com/b00y0h/make-pdf-accessible"
+}
+
 # DocumentDB Configuration
 variable "documentdb_instance_count" {
   description = "Number of DocumentDB instances in the cluster"
