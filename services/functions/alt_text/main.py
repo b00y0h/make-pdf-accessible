@@ -93,19 +93,19 @@ def lambda_handler(event: dict[str, Any], context: LambdaContext) -> dict[str, A
             "altTextGeneration": sum(fig["confidence"] for fig in figures_data) / len(figures_data) if figures_data else 0.8,
             "overall": 0.85  # Mock overall confidence
         }
-        
+
         # Import and use review service
         try:
             from src.review_service import get_review_service
             review_service = get_review_service()
-            
+
             # Evaluate if human review is needed
             review_assessment = review_service.evaluate_confidence_scores(doc_id, confidence_scores)
-            
+
             if review_assessment.get("needsReview"):
                 logger.info(f"Document {doc_id} alt-text needs human review (confidence: {confidence_scores['altTextGeneration']:.2f})")
                 # In production, would trigger A2I workflow here
-                
+
         except Exception as e:
             logger.warning(f"Review service evaluation failed: {e}")
 

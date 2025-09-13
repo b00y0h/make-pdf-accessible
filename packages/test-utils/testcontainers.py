@@ -9,7 +9,7 @@ import os
 import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import Dict, Optional
+from typing import Optional
 
 import asyncpg
 import redis
@@ -28,7 +28,7 @@ class DatabaseTestContainer:
         self._container: Optional[PostgresContainer] = None
         self._connection_pool: Optional[asyncpg.Pool] = None
 
-    def start(self) -> Dict[str, str]:
+    def start(self) -> dict[str, str]:
         """Start PostgreSQL container and return connection info."""
         if self._container is not None:
             raise RuntimeError("Container already started")
@@ -138,7 +138,7 @@ class RedisTestContainer:
         self._container: Optional[RedisContainer] = None
         self._client: Optional[redis.Redis] = None
 
-    def start(self) -> Dict[str, str]:
+    def start(self) -> dict[str, str]:
         """Start Redis container and return connection info."""
         if self._container is not None:
             raise RuntimeError("Container already started")
@@ -199,7 +199,7 @@ class LocalStackTestContainer:
         self.services = services or ["s3", "dynamodb", "sts", "lambda", "apigateway"]
         self._container: Optional[LocalStackContainer] = None
 
-    def start(self) -> Dict[str, str]:
+    def start(self) -> dict[str, str]:
         """Start LocalStack container."""
         if self._container is not None:
             raise RuntimeError("Container already started")
@@ -274,7 +274,7 @@ class TestEnvironment:
         if include_localstack:
             self.localstack = LocalStackTestContainer(services=localstack_services)
 
-    def start(self) -> Dict[str, Dict[str, str]]:
+    def start(self) -> dict[str, dict[str, str]]:
         """Start all containers."""
         connection_info = {}
 

@@ -8,7 +8,7 @@ simple extension checking to detect file type spoofing and malicious files.
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 
 @dataclass
@@ -17,7 +17,7 @@ class FileSignature:
 
     extension: str
     mime_type: str
-    signatures: List[bytes]
+    signatures: list[bytes]
     description: str
     max_check_bytes: int = 512
 
@@ -30,7 +30,7 @@ class ValidationResult:
     detected_type: Optional[str]
     expected_type: str
     mime_type: Optional[str]
-    issues: List[str]
+    issues: list[str]
     confidence: float  # 0.0 to 1.0
 
 
@@ -271,7 +271,7 @@ class FileSignatureValidator:
 
         try:
             # Get file info
-            file_size = os.path.getsize(file_path)
+            os.path.getsize(file_path)
             if expected_extension is None:
                 expected_extension = Path(file_path).suffix.lower().lstrip(".")
 
@@ -397,7 +397,7 @@ class FileSignatureValidator:
                         return ext
         return None
 
-    def _check_suspicious_patterns(self, content: bytes) -> List[str]:
+    def _check_suspicious_patterns(self, content: bytes) -> list[str]:
         """Check for suspicious patterns that might indicate malicious content"""
         issues = []
 
@@ -440,7 +440,7 @@ class FileSignatureValidator:
 
     def _perform_additional_checks(
         self, file_path: str, extension: str, header: bytes
-    ) -> List[str]:
+    ) -> list[str]:
         """Perform additional file-specific validation checks"""
         issues = []
 
@@ -458,7 +458,7 @@ class FileSignatureValidator:
 
     def _validate_zip_based_office_file(
         self, file_path: str, extension: str
-    ) -> List[str]:
+    ) -> list[str]:
         """Validate ZIP-based Office files for proper structure"""
         issues = []
 
@@ -505,7 +505,7 @@ class FileSignatureValidator:
 
         return issues
 
-    def _validate_pdf_structure(self, header: bytes) -> List[str]:
+    def _validate_pdf_structure(self, header: bytes) -> list[str]:
         """Validate PDF file structure"""
         issues = []
 

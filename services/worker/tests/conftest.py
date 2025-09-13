@@ -45,7 +45,7 @@ def mock_aws_services():
     """Mock AWS services for worker tests."""
     with (
         patch("boto3.client") as mock_boto3_client,
-        patch("boto3.resource") as mock_boto3_resource,
+        patch("boto3.resource"),
     ):
 
         # Mock S3

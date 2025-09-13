@@ -87,19 +87,6 @@ def test_lambda_event_structure():
         import main
 
         # Sample Lambda event for S3 trigger
-        sample_event = {
-            "Records": [
-                {
-                    "eventVersion": "2.1",
-                    "eventSource": "aws:s3",
-                    "eventName": "ObjectCreated:Put",
-                    "s3": {
-                        "bucket": {"name": "test-bucket"},
-                        "object": {"key": "test-document.pdf"},
-                    },
-                }
-            ]
-        }
 
         sample_context = Mock()
         sample_context.aws_request_id = "test-request-id"

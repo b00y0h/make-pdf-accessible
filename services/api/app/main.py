@@ -1,21 +1,34 @@
-from contextlib import asynccontextmanager
-from typing import Dict
 import base64
+from contextlib import asynccontextmanager
 
 from aws_lambda_powertools import Logger, Metrics, Tracer
 from aws_lambda_powertools.logging import correlation_paths
 from aws_lambda_powertools.utilities.typing import LambdaContext
-from fastapi import FastAPI, HTTPException, Request, Response, status
+from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.encoders import ENCODERS_BY_TYPE
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.encoders import jsonable_encoder, ENCODERS_BY_TYPE
 from mangum import Mangum
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from .config import settings
 from .middleware import APIKeyAuthMiddleware
 from .models import ErrorResponse, HealthResponse
-from .routes import admin, api_keys, auth, demo, documents, quotas, reports, webhooks, search, embeddings, feedback, client, registration
+from .routes import (
+    admin,
+    api_keys,
+    auth,
+    client,
+    demo,
+    documents,
+    embeddings,
+    feedback,
+    quotas,
+    registration,
+    reports,
+    search,
+    webhooks,
+)
 from .services import AWSServiceError
 
 # Initialize Powertools
@@ -30,7 +43,7 @@ metrics = Metrics(
 def safe_bytes_encoder(obj):
     """
     Safe bytes encoder that handles binary data properly.
-    
+
     Instead of trying to decode bytes as UTF-8 (which fails for binary PDF data),
     we encode them as base64 strings with a prefix to indicate the encoding type.
     """
@@ -48,7 +61,7 @@ ENCODERS_BY_TYPE[bytes] = safe_bytes_encoder
 
 class CORSErrorMiddleware(BaseHTTPMiddleware):
     """Middleware to ensure CORS headers are present even on error responses"""
-    
+
     async def dispatch(self, request: Request, call_next):
         try:
             response = await call_next(request)
@@ -60,7 +73,7 @@ class CORSErrorMiddleware(BaseHTTPMiddleware):
             )
             # Log the actual error
             logger.error(f"Unhandled error: {exc}")
-        
+
         # Add CORS headers if not present
         origin = request.headers.get("origin")
         if origin and origin in (settings.cors_origins or ["*"]):
@@ -73,7 +86,7 @@ class CORSErrorMiddleware(BaseHTTPMiddleware):
             response.headers["Access-Control-Allow-Credentials"] = "true"
             response.headers["Access-Control-Allow-Methods"] = "*"
             response.headers["Access-Control-Allow-Headers"] = "*"
-            
+
         return response
 
 
@@ -129,7 +142,7 @@ app.add_middleware(
     APIKeyAuthMiddleware,
     excluded_paths=[
         "/docs",
-        "/openapi.json", 
+        "/openapi.json",
         "/health",
         "/ping",
         "/auth",  # BetterAuth endpoints
@@ -296,7 +309,7 @@ async def health_check() -> HealthResponse:
     summary="API root",
     description="API root endpoint with basic information.",
 )
-async def root() -> Dict[str, str]:
+async def root() -> dict[str, str]:
     """API root endpoint"""
     return {
         "service": settings.api_title,

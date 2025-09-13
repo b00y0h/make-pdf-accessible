@@ -349,7 +349,7 @@ class SQSClient:
         for key, value in attributes.items():
             if isinstance(value, str):
                 formatted[key] = {"StringValue": value, "DataType": "String"}
-            elif isinstance(value, (int, float)):
+            elif isinstance(value, int | float):
                 formatted[key] = {"StringValue": str(value), "DataType": "Number"}
             elif isinstance(value, bytes):
                 formatted[key] = {"BinaryValue": value, "DataType": "Binary"}

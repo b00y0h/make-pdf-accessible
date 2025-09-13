@@ -40,13 +40,6 @@ def test_wcag_validation():
     try:
         import main
 
-        sample_document = {
-            "content": "<h1>Title</h1><p>Content</p>",
-            "images": [{"src": "image.jpg", "alt": ""}],  # Missing alt text
-            "links": [
-                {"href": "http://example.com", "text": "click here"}
-            ],  # Non-descriptive link
-        }
 
         if hasattr(main, "validate_wcag") or hasattr(main, "check_accessibility"):
             assert True
@@ -63,23 +56,6 @@ def test_accessibility_checks():
         import main
 
         # Test cases for different accessibility issues
-        test_cases = [
-            {
-                "name": "missing_alt_text",
-                "content": '<img src="test.jpg">',  # Missing alt attribute
-                "expected_violations": ["missing_alt_text"],
-            },
-            {
-                "name": "proper_headings",
-                "content": "<h1>Title</h1><h2>Subtitle</h2>",
-                "expected_violations": [],
-            },
-            {
-                "name": "color_contrast",
-                "content": '<p style="color: #ccc; background: #fff;">Low contrast text</p>',
-                "expected_violations": ["color_contrast"],
-            },
-        ]
 
         if hasattr(main, "run_accessibility_checks"):
             assert True
@@ -109,22 +85,6 @@ def test_validation_report_generation():
     try:
         import main
 
-        sample_violations = [
-            {
-                "rule": "missing_alt_text",
-                "severity": "error",
-                "description": "Image missing alternative text",
-                "element": "<img src='test.jpg'>",
-                "suggestion": "Add descriptive alt attribute",
-            },
-            {
-                "rule": "heading_structure",
-                "severity": "warning",
-                "description": "Heading levels skip from h1 to h3",
-                "element": "<h3>Subtitle</h3>",
-                "suggestion": "Use h2 for proper heading hierarchy",
-            },
-        ]
 
         if hasattr(main, "generate_report") or hasattr(
             main, "create_validation_report"

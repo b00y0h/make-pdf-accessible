@@ -1,9 +1,9 @@
-from celery import Celery
 import logging
-import time
-from datetime import datetime
 import os
 import sys
+from datetime import datetime
+
+from celery import Celery
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -21,11 +21,11 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
     """Process PDF file for accessibility"""
     try:
         logger.info(f"Starting processing for document {doc_id} (S3: {s3_key})")
-        
+
         # Import here to avoid circular imports
         from services.shared.mongo.documents import get_document_repository
         doc_repo = get_document_repository()
-        
+
         # Update status to processing
         logger.info(f"Updating document {doc_id} status to processing")
         doc_repo.update_document_status(
@@ -33,14 +33,14 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
             status="processing",
             additional_data={"processingStartedAt": datetime.utcnow()}
         )
-        
+
         # Import needed libraries
-        import boto3
-        import json
-        import tempfile
-        from PIL import Image
         import io
-        
+        import json
+
+        import boto3
+        from PIL import Image
+
         # Initialize S3 client
         s3_client = boto3.client(
             's3',
@@ -50,7 +50,7 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
             region_name='us-east-1'
         )
         bucket_name = 'pdf-accessibility-dev-pdf-originals'
-        
+
         # Step 1: Download the original PDF
         logger.info(f"Document {doc_id}: Downloading original PDF from S3")
         pdf_text = ""
@@ -58,16 +58,17 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
         try:
             pdf_response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
             pdf_content = pdf_response['Body'].read()
-            
+
             # Extract text from PDF - try pdfplumber first, fallback to PyPDF2
             from io import BytesIO
             pdf_file = BytesIO(pdf_content)
-            
+
             # Try pdfplumber first for better formatting
             try:
-                import pdfplumber
                 import base64
-                
+
+                import pdfplumber
+
                 # Use pdfplumber for extraction - it preserves formatting much better
                 with pdfplumber.open(pdf_file) as pdf:
                     # Extract metadata
@@ -77,23 +78,23 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
                         'subject': pdf.metadata.get('Subject', ''),
                         'pages': len(pdf.pages)
                     }
-                    
+
                     # Extract content from all pages including text, tables, and images
                     all_pages_content = []
                     extracted_images = []
                     extracted_tables = []
-                    
+
                     for page_num, page in enumerate(pdf.pages, 1):
                         page_content = {'page': page_num, 'text': '', 'tables': [], 'images': []}
-                        
+
                         # Extract tables first
                         tables = page.extract_tables()
                         if tables:
-                            for table_idx, table in enumerate(tables):
+                            for _table_idx, table in enumerate(tables):
                                 if table and any(any(cell for cell in row if cell) for row in table):
                                     page_content['tables'].append(table)
                                     extracted_tables.append({'page': page_num, 'table': table})
-                        
+
                         # Extract images using pdfplumber's image extraction
                         if hasattr(page, 'images') and page.images:
                             for img_idx, img_obj in enumerate(page.images):
@@ -110,29 +111,29 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
                                     'width': img_obj.get('width', 0),
                                     'height': img_obj.get('height', 0)
                                 })
-                        
+
                         # Also try to extract actual image data using pymupdf for better image extraction
                         try:
                             import fitz  # PyMuPDF
-                            
+
                             # Re-open with PyMuPDF for image extraction
                             pdf_file.seek(0)
                             doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
                             pymupdf_page = doc[page_num - 1]
-                            
+
                             # Get images from the page
                             image_list = pymupdf_page.get_images()
-                            
+
                             for img_index, img in enumerate(image_list):
                                 # Extract image data
                                 xref = img[0]
                                 pix = fitz.Pixmap(doc, xref)
-                                
+
                                 # Convert to PNG bytes
                                 if pix.n - pix.alpha < 4:  # GRAY or RGB
                                     img_data = pix.pil_tobytes(format="PNG")
                                     img_base64 = base64.b64encode(img_data).decode('utf-8')
-                                    
+
                                     # Add actual image data to our content
                                     if img_index < len(page_content['images']):
                                         page_content['images'][img_index]['data'] = img_base64
@@ -143,15 +144,15 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
                                             'width': pix.width,
                                             'height': pix.height
                                         })
-                                
+
                                 pix = None  # Free pixmap
-                            
+
                             doc.close()
                             pdf_file.seek(0)  # Reset for further use
-                            
+
                         except Exception as e:
                             logger.warning(f"Could not extract image data with PyMuPDF: {e}")
-                        
+
                         # Extract text with layout preservation
                         page_text = page.extract_text(layout=True, x_tolerance=3, y_tolerance=3)
                         if page_text:
@@ -159,7 +160,7 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
                             lines = page_text.split('\n')
                             cleaned_lines = []
                             prev_empty = False
-                            
+
                             for line in lines:
                                 line = line.rstrip()  # Remove trailing whitespace
                                 if line:
@@ -171,26 +172,26 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
                                     # Keep single empty line for paragraph breaks
                                     cleaned_lines.append('')
                                     prev_empty = True
-                            
+
                             page_content['text'] = '\n'.join(cleaned_lines)
-                        
+
                         all_pages_content.append(page_content)
-                    
+
                     # Combine all content
                     pdf_text = ""
                     for page_data in all_pages_content:
                         pdf_text += f"\n\n--- Page {page_data['page']} ---\n"
                         if page_data['text']:
                             pdf_text += page_data['text']
-                    
+
             except ImportError:
                 # Fallback to PyPDF2 if pdfplumber is not available
                 logger.warning("pdfplumber not available, falling back to PyPDF2")
                 import PyPDF2
-                
+
                 pdf_file.seek(0)  # Reset file pointer
                 pdf_reader = PyPDF2.PdfReader(pdf_file)
-                
+
                 # Extract metadata
                 if pdf_reader.metadata:
                     pdf_metadata = {
@@ -201,34 +202,34 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
                     }
                 else:
                     pdf_metadata = {'title': 'Untitled', 'author': 'Unknown', 'subject': '', 'pages': len(pdf_reader.pages)}
-                
+
                 # Extract text from all pages
                 for page_num, page in enumerate(pdf_reader.pages, 1):
                     page_text = page.extract_text()
                     if page_text:
                         pdf_text += f"\n\n--- Page {page_num} ---\n\n{page_text}"
-            
+
             if not pdf_text:
                 pdf_text = "[No text content could be extracted from this PDF. The document may contain only images or scanned content that requires OCR.]"
-                
+
         except Exception as e:
             logger.error(f"Failed to process PDF: {e}")
             pdf_text = f"Error processing PDF: {str(e)}"
             pdf_content = b"Mock PDF content"
-        
+
         # Step 2: Generate semantic HTML version using canonical schema
         logger.info(f"Document {doc_id}: Generating semantic HTML with accessibility compliance")
-        
+
         # Import the new semantic HTML builder
         from src.semantic_html_builder import get_html_builder
         html_builder = get_html_builder()
-        
+
         # Try to load document structure if available (mock for now until structure service integration)
         document_structure = {
             "title": pdf_metadata.get('title', 'Processed Document'),
             "elements": _create_mock_document_structure(all_pages_content if 'all_pages_content' in locals() else [], pdf_metadata)
         }
-        
+
         # Generate semantic HTML using canonical schema
         try:
             html_content = html_builder.build_semantic_html(
@@ -242,40 +243,40 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
             # Fallback to basic HTML generation
             import html
             html_body = ""
-        
+
         # Process all extracted content
         if 'all_pages_content' in locals():
             for page_data in all_pages_content:
                 page_num = page_data['page']
-                
+
                 # Add page marker (subtle)
                 html_body += f'    <div class="page" data-page="{page_num}">\n'
-                
+
                 # Add text content
                 if page_data['text']:
                     # Escape HTML characters
                     escaped_content = html.escape(page_data['text'])
-                    
+
                     # Split into paragraphs (double newline = paragraph break)
                     paragraphs = escaped_content.split('\n\n')
-                    
+
                     for paragraph in paragraphs:
                         if paragraph.strip():
                             # Process each paragraph
                             para_lines = paragraph.strip().split('\n')
-                            
+
                             # Join lines within a paragraph with spaces
                             formatted_lines = []
                             for line in para_lines:
                                 line = line.strip()
                                 if line:
                                     formatted_lines.append(line)
-                            
+
                             if formatted_lines:
                                 # Join lines with spaces for normal flow
                                 formatted_text = ' '.join(formatted_lines)
                                 html_body += f'        <p>{formatted_text}</p>\n'
-                
+
                 # Add tables
                 if page_data['tables']:
                     for table in page_data['tables']:
@@ -289,7 +290,7 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
                                 html_body += f'                <{tag}>{cell_content}</{tag}>\n'
                             html_body += '            </tr>\n'
                         html_body += '        </table>\n'
-                
+
                 # Add images (actual images if we have data, placeholders otherwise)
                 if page_data.get('images'):
                     for img in page_data['images']:
@@ -299,30 +300,30 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
                         else:
                             # No image data - show placeholder
                             html_body += f'        <div class="image-placeholder">[Image on page {page_num}]</div>\n'
-                
+
                 html_body += '    </div>\n'
-        
+
         elif pdf_text:
             # Fallback to simple text processing if no structured content
             pages = pdf_text.split('--- Page')
-            
+
             for page in pages:
                 if not page.strip():
                     continue
-                    
+
                 # Skip the page number line
                 lines = page.split('\n', 1)
                 if len(lines) > 1:
                     content = lines[1]
                 else:
                     content = page
-                
+
                 # Escape HTML characters
                 escaped_content = html.escape(content)
-                
+
                 # Split into paragraphs
                 paragraphs = escaped_content.split('\n\n')
-                
+
                 for paragraph in paragraphs:
                     if paragraph.strip():
                         para_lines = paragraph.strip().split('\n')
@@ -331,11 +332,11 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
                             line = line.strip()
                             if line:
                                 formatted_lines.append(line)
-                        
+
                         if formatted_lines:
                             formatted_text = ' '.join(formatted_lines)
                             html_body += f'    <p>{formatted_text}</p>\n'
-        
+
         # Clean HTML with proper styling for tables and images
         html_content = f"""<!DOCTYPE html>
 <html lang="en">
@@ -392,14 +393,14 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
 {html_body if html_body else '    <p>No text content could be extracted from this PDF.</p>'}
 </body>
 </html>"""
-        
+
         # Step 3: Generate accessible plain text version using reading-order aware exporter
         logger.info(f"Document {doc_id}: Generating accessible text with proper reading order")
-        
+
         # Import the new accessible text exporter
         from src.accessible_text_exporter import get_text_exporter
         text_exporter = get_text_exporter()
-        
+
         # Generate accessible text using canonical schema
         try:
             text_content = text_exporter.export_accessible_text(
@@ -418,21 +419,21 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
                     if not line.strip().startswith('--- Page'):
                         clean_text += line + '\n'
                 clean_text = clean_text.strip()
-            
+
             text_content = clean_text if clean_text else '[No text content could be extracted from this PDF.]'
-        
+
         # Step 4: Generate CSV data export
         logger.info(f"Document {doc_id}: Generating CSV data export")
-        
+
         # Create CSV with actual content
         csv_rows = []
         csv_rows.append("Page,Line_Number,Content_Type,Text")
-        
+
         if pdf_text:
             lines = pdf_text.split('\n')
             current_page = 1
             line_num = 0
-            
+
             for line in lines:
                 line = line.strip()
                 if line.startswith('--- Page'):
@@ -445,21 +446,21 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
                     if ',' in escaped_line or '"' in escaped_line or '\n' in escaped_line:
                         escaped_line = f'"{escaped_line}"'
                     csv_rows.append(f"{current_page},{line_num},Text,{escaped_line}")
-        
+
         # Add metadata rows
         csv_rows.append(f"Metadata,0,Title,\"{pdf_metadata.get('title', 'Untitled')}\"")
         csv_rows.append(f"Metadata,0,Author,\"{pdf_metadata.get('author', 'Unknown')}\"")
         csv_rows.append(f"Metadata,0,Pages,{pdf_metadata.get('pages', 0)}")
-        csv_rows.append(f"Metadata,0,Accessibility_Score,92")
-        
+        csv_rows.append("Metadata,0,Accessibility_Score,92")
+
         csv_content = '\n'.join(csv_rows)
-        
+
         # Step 5: Generate preview image
         logger.info(f"Document {doc_id}: Generating preview image")
         img = Image.new('RGB', (800, 600), color='white')
-        from PIL import ImageDraw, ImageFont
+        from PIL import ImageDraw
         draw = ImageDraw.Draw(img)
-        
+
         # Draw preview content
         draw.rectangle([0, 0, 800, 100], fill='#4CAF50')
         draw.text((50, 30), "PDF Accessibility Preview", fill='white', font=None)
@@ -468,12 +469,12 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
         draw.text((50, 250), "✓ WCAG 2.1 AA Compliant", fill='green', font=None)
         draw.text((50, 300), "✓ Screen Reader Ready", fill='green', font=None)
         draw.text((50, 350), "✓ High Contrast Mode", fill='green', font=None)
-        
+
         # Convert image to bytes
         img_byte_arr = io.BytesIO()
         img.save(img_byte_arr, format='PNG')
         preview_content = img_byte_arr.getvalue()
-        
+
         # Step 6: Generate analysis report
         logger.info(f"Document {doc_id}: Generating analysis report")
         analysis_report = {
@@ -501,10 +502,10 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
                 "Add language attributes to multi-language content"
             ]
         }
-        
+
         # Step 7: Upload all artifacts to S3
         logger.info(f"Document {doc_id}: Uploading artifacts to S3")
-        
+
         artifacts = {}
         uploads = [
             ("html", f"exports/{doc_id}/document.html", html_content.encode(), "text/html"),
@@ -514,7 +515,7 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
             ("analysis", f"reports/{doc_id}/analysis.json", json.dumps(analysis_report).encode(), "application/json"),
             ("accessible_pdf", f"accessible/{doc_id}/accessible.pdf", pdf_content, "application/pdf")  # For now, same as original
         ]
-        
+
         for artifact_type, s3_key, content, content_type in uploads:
             try:
                 s3_client.put_object(
@@ -528,10 +529,10 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
             except Exception as e:
                 logger.error(f"Failed to upload {artifact_type}: {e}")
                 artifacts[artifact_type] = s3_key  # Store key anyway for reference
-        
+
         # Update document with artifacts
         doc_repo.update_artifacts(doc_id=doc_id, artifacts=artifacts)
-        
+
         # Add mock scores
         scores = {
             "overall": 92,
@@ -541,7 +542,7 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
             "navigation": 94
         }
         doc_repo.update_scores(doc_id=doc_id, scores=scores)
-        
+
         # Mark as completed
         logger.info(f"Marking document {doc_id} as completed")
         doc_repo.update_document_status(
@@ -553,31 +554,31 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
                 "processingDurationSeconds": 25  # Sum of all step durations
             }
         )
-        
+
         logger.info(f"Successfully processed document {doc_id}")
-        
+
         # Step 7: Trigger corpus preparation for LLM integration (asynchronous)
         try:
             logger.info(f"Starting corpus preparation for document {doc_id}")
             # This will run asynchronously - document structure would come from structure service
             prepare_document_corpus.delay(
-                doc_id=doc_id, 
+                doc_id=doc_id,
                 document_structure_s3_key=f"structure/{doc_id}/document_structure.json",  # Mock path
                 alt_text_s3_key=None  # Would come from alt-text service
             )
         except Exception as e:
             logger.warning(f"Failed to trigger corpus preparation for {doc_id}: {e}")
-        
+
         return {
             "status": "completed",
             "doc_id": doc_id,
             "artifacts": artifacts,
             "scores": scores
         }
-        
+
     except Exception as e:
         logger.error(f"Error processing document {doc_id}: {str(e)}")
-        
+
         # Update status to failed
         try:
             from services.shared.mongo.documents import get_document_repository
@@ -590,12 +591,12 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
             )
         except:
             pass
-        
+
         # Retry if possible
         if self.request.retries < self.max_retries:
             logger.info(f"Retrying document {doc_id} (attempt {self.request.retries + 1}/{self.max_retries})")
             raise self.retry(exc=e, countdown=60)  # Retry after 1 minute
-        
+
         raise
 
 
@@ -604,22 +605,23 @@ def prepare_document_corpus(self, doc_id: str, document_structure_s3_key: str, a
     """Prepare document for LLM consumption with chunking and embeddings"""
     try:
         logger.info(f"Starting corpus preparation for document {doc_id}")
-        
+
         # Import required modules
-        import boto3
         import json
-        from datetime import datetime
-        
+
+        import boto3
+
+        from services.shared.mongo.documents import get_document_repository
+
         # Import chunking and embeddings services
         from src.chunking_service import ChunkingService
         from src.embeddings_service import get_embeddings_service
-        from services.shared.mongo.documents import get_document_repository
-        
+
         # Initialize services
         chunking_service = ChunkingService()
         embeddings_service = get_embeddings_service()
         doc_repo = get_document_repository()
-        
+
         # Initialize S3 client for LocalStack
         s3_client = boto3.client(
             's3',
@@ -628,12 +630,12 @@ def prepare_document_corpus(self, doc_id: str, document_structure_s3_key: str, a
             aws_secret_access_key='test',
             region_name='us-east-1'
         )
-        
+
         # Load document structure
         logger.info(f"Loading document structure from {document_structure_s3_key}")
         structure_response = s3_client.get_object(Bucket='pdf-derivatives', Key=document_structure_s3_key)
         document_structure = json.loads(structure_response['Body'].read())
-        
+
         # Load alt-text data if available
         alt_text_data = None
         if alt_text_s3_key:
@@ -643,7 +645,7 @@ def prepare_document_corpus(self, doc_id: str, document_structure_s3_key: str, a
                 logger.info(f"Loaded alt-text data with {len(alt_text_data.get('figures', []))} figures")
             except Exception as e:
                 logger.warning(f"Could not load alt-text data: {e}")
-        
+
         # Create document corpus
         logger.info("Creating document corpus with chunking")
         document_corpus = chunking_service.create_document_corpus(
@@ -652,14 +654,14 @@ def prepare_document_corpus(self, doc_id: str, document_structure_s3_key: str, a
             textract_results=None,  # Could load if needed
             alt_text_data=alt_text_data
         )
-        
+
         # Generate embeddings
         logger.info("Generating embeddings for corpus")
         enhanced_corpus = embeddings_service.generate_embeddings_for_corpus(
             doc_id=doc_id,
             document_corpus=document_corpus
         )
-        
+
         # Save corpus to S3
         corpus_s3_key = f"corpus/{doc_id}/document_corpus.json"
         s3_client.put_object(
@@ -668,7 +670,7 @@ def prepare_document_corpus(self, doc_id: str, document_structure_s3_key: str, a
             Body=json.dumps(enhanced_corpus, default=str),
             ContentType='application/json'
         )
-        
+
         # Save embeddings separately for vector search
         embeddings_s3_key = None
         if enhanced_corpus.get("embeddings"):
@@ -678,30 +680,30 @@ def prepare_document_corpus(self, doc_id: str, document_structure_s3_key: str, a
                 bucket_name='pdf-derivatives'
             )
             logger.info(f"Saved embeddings to {embeddings_s3_key}")
-        
+
         # Update document with corpus artifacts
         doc_repo.update_artifacts(doc_id=doc_id, artifacts={
             "corpus": corpus_s3_key,
             "embeddings": embeddings_s3_key,
         })
-        
+
         logger.info(f"Corpus preparation completed for document {doc_id}")
         return {
-            "status": "completed", 
+            "status": "completed",
             "corpus_s3_key": corpus_s3_key,
             "embeddings_s3_key": embeddings_s3_key,
             "total_chunks": enhanced_corpus.get("totalChunks", 0),
             "total_embeddings": len(enhanced_corpus.get("embeddings", [])),
         }
-        
+
     except Exception as e:
         logger.error(f"Error preparing corpus for document {doc_id}: {str(e)}")
-        
+
         # Retry the task if retries are available
         if self.request.retries < self.max_retries:
             logger.info(f"Retrying corpus preparation for document {doc_id}")
             raise self.retry(countdown=60, exc=e)
-        
+
         return {"status": "failed", "error": str(e)}
 
 
@@ -709,7 +711,7 @@ def _create_mock_document_structure(all_pages_content, pdf_metadata):
     """Create mock document structure for semantic HTML generation"""
     elements = []
     element_id = 0
-    
+
     # Add title as first heading if available
     title = pdf_metadata.get('title')
     if title:
@@ -722,11 +724,11 @@ def _create_mock_document_structure(all_pages_content, pdf_metadata):
             "confidence": 0.9
         })
         element_id += 1
-    
+
     # Process page content
     for page_data in all_pages_content:
         page_num = page_data['page']
-        
+
         # Add text content as paragraphs
         for text_item in page_data.get('text', []):
             if text_item.strip():
@@ -734,7 +736,7 @@ def _create_mock_document_structure(all_pages_content, pdf_metadata):
                 if len(text_item) < 100 and text_item.isupper():
                     elements.append({
                         "id": f"element_{element_id}",
-                        "type": "heading", 
+                        "type": "heading",
                         "level": 2,
                         "text": text_item,
                         "page_number": page_num,
@@ -749,7 +751,7 @@ def _create_mock_document_structure(all_pages_content, pdf_metadata):
                         "confidence": 0.8
                     })
                 element_id += 1
-        
+
         # Add tables
         for table_idx, table in enumerate(page_data.get('tables', [])):
             elements.append({
@@ -764,9 +766,9 @@ def _create_mock_document_structure(all_pages_content, pdf_metadata):
                 "confidence": 0.8
             })
             element_id += 1
-        
+
         # Add figures
-        for img_idx, img in enumerate(page_data.get('images', [])):
+        for img_idx, _img in enumerate(page_data.get('images', [])):
             elements.append({
                 "id": f"figure_{page_num}_{img_idx}",
                 "type": "figure",
@@ -775,5 +777,5 @@ def _create_mock_document_structure(all_pages_content, pdf_metadata):
                 "confidence": 0.8
             })
             element_id += 1
-    
+
     return elements

@@ -6,11 +6,10 @@ Converts PDF pages to PNG images for preview functionality.
 
 import io
 import logging
-from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 import boto3
-from pdf2image import convert_from_path, convert_from_bytes
+from pdf2image import convert_from_bytes
 from PIL import Image
 
 from ..config import settings

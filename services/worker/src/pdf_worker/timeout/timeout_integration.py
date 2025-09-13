@@ -28,8 +28,10 @@ except ImportError:
     # Fallback if shared modules not available
     JobTimeoutEnforcer = None
     TimeoutConfig = None
-    get_timeout_enforcer = lambda x: None
-    get_job_repository = lambda: None
+    def get_timeout_enforcer(x):
+        return None
+    def get_job_repository():
+        return None
 
 from aws_lambda_powertools import Logger
 

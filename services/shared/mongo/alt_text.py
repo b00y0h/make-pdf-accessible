@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
 from pymongo import DESCENDING
 
@@ -25,7 +25,7 @@ class AltTextRepository(BaseRepository):
             logger.error(f"Error getting alt text for document {doc_id}: {e}")
             return None
 
-    def create_document_alt_text(self, doc_id: str, figures_data: List[dict]) -> dict:
+    def create_document_alt_text(self, doc_id: str, figures_data: list[dict]) -> dict:
         """Create initial alt text document with AI-generated content."""
         try:
             now = datetime.utcnow()
@@ -264,7 +264,7 @@ class AltTextRepository(BaseRepository):
     def bulk_update_status(
         self,
         doc_id: str,
-        figure_ids: List[str],
+        figure_ids: list[str],
         status: str,
         editor_id: str,
         editor_name: Optional[str] = None,
@@ -416,7 +416,7 @@ class AltTextRepository(BaseRepository):
             logger.error(f"Error deleting alt text for document {doc_id}: {e}")
             return False
 
-    def get_documents_needing_review(self, limit: int = 50) -> List[dict]:
+    def get_documents_needing_review(self, limit: int = 50) -> list[dict]:
         """Get documents that have figures needing review."""
         try:
             return self.find(

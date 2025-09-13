@@ -8,7 +8,7 @@ malicious content from being processed by the PDF accessibility platform.
 import os
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import magic
 
@@ -31,9 +31,9 @@ class ValidationResult:
 
     is_valid: bool
     threat_level: str  # "safe", "suspicious", "dangerous"
-    issues: List[str]
-    file_info: Dict[str, Any]
-    recommendations: List[str]
+    issues: list[str]
+    file_info: dict[str, Any]
+    recommendations: list[str]
 
 
 @dataclass
@@ -213,7 +213,7 @@ class PDFSecurityValidator:
         except Exception:
             return False
 
-    def _analyze_pdf_content(self, file_path: str) -> List[str]:
+    def _analyze_pdf_content(self, file_path: str) -> list[str]:
         """Analyze PDF content for suspicious patterns"""
         issues = []
 
@@ -342,7 +342,7 @@ class PDFSecurityValidator:
         except Exception:
             return None
 
-    def _validate_metadata(self, metadata: PDFMetadata) -> List[str]:
+    def _validate_metadata(self, metadata: PDFMetadata) -> list[str]:
         """Validate PDF metadata for security issues"""
         issues = []
 
@@ -368,8 +368,8 @@ class PDFSecurityValidator:
         return issues
 
     def _generate_recommendations(
-        self, issues: List[str], file_info: Dict[str, Any]
-    ) -> List[str]:
+        self, issues: list[str], file_info: dict[str, Any]
+    ) -> list[str]:
         """Generate security recommendations based on validation results"""
         recommendations = []
 

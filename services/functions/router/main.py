@@ -8,7 +8,7 @@ Features: Idempotency (dedupe by docId), structured logs, X-Ray tracing.
 
 import json
 import os
-from typing import Any, Dict
+from typing import Any
 
 from aws_lambda_powertools import Logger, Metrics, Tracer
 from aws_lambda_powertools.logging import correlation_paths
@@ -55,7 +55,7 @@ router_service = RouterService(
 
 
 @tracer.capture_method
-async def process_document(ingest_message: IngestMessage) -> Dict[str, Any]:
+async def process_document(ingest_message: IngestMessage) -> dict[str, Any]:
     """
     Process a single document from ingest queue.
 
@@ -207,7 +207,7 @@ async def process_document(ingest_message: IngestMessage) -> Dict[str, Any]:
 @logger.inject_lambda_context(correlation_id_path=correlation_paths.SQS)
 @tracer.capture_lambda_handler
 @metrics.log_metrics(capture_cold_start_metric=True)
-def lambda_handler(event: SQSEvent, context: LambdaContext) -> Dict[str, Any]:
+def lambda_handler(event: SQSEvent, context: LambdaContext) -> dict[str, Any]:
     """
     Lambda handler for processing SQS messages from ingest-queue.
 

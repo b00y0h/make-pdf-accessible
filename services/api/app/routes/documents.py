@@ -1,7 +1,7 @@
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
-from uuid import UUID
 import logging
+from datetime import datetime, timedelta
+from typing import Any, Optional
+from uuid import UUID
 
 from aws_lambda_powertools import Logger, Metrics, Tracer
 from fastapi import (
@@ -19,7 +19,7 @@ from fastapi import (
 
 from services.shared.mongo.demo_sessions import get_demo_session_repository
 
-from ..auth import User, get_current_user, get_dashboard_user, require_roles
+from ..auth import User, get_current_user, get_dashboard_user
 from ..config import settings
 from ..models import (
     DocumentCreateRequest,
@@ -31,7 +31,6 @@ from ..models import (
     PaginationParams,
     PreSignedUploadRequest,
     PreSignedUploadResponse,
-    UserRole,
 )
 from ..quota import QuotaType, quota_service
 from ..security import VirusDetectedError, VirusScanError, security_service
@@ -53,12 +52,12 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 )
 @tracer.capture_method
 async def get_presigned_upload_url(
-    request: PreSignedUploadRequest, 
+    request: PreSignedUploadRequest,
     current_user: User = Depends(get_dashboard_user)
 ) -> PreSignedUploadResponse:
     """Get pre-signed S3 upload URL for direct client upload"""
-    
-    logger.info(f"Presigned upload request received", extra={"file_name": request.filename, "content_type": request.content_type, "file_size": request.file_size})
+
+    logger.info("Presigned upload request received", extra={"file_name": request.filename, "content_type": request.content_type, "file_size": request.file_size})
     logger.info(f"Current user: {current_user.sub}, org_id={current_user.org_id}")
 
     # Enforce quota limits
@@ -324,7 +323,7 @@ async def create_document_after_upload(
             # Create S3 client for validation
             import boto3
             from botocore.config import Config
-            
+
             s3_config = Config(signature_version='s3v4')
             s3_client = boto3.client(
                 's3',
@@ -334,7 +333,7 @@ async def create_document_after_upload(
                 region_name='us-east-1',
                 config=s3_config
             )
-            
+
             await security_service.validate_s3_file(
                 s3_client=s3_client,
                 bucket=settings.s3_bucket,
@@ -536,17 +535,19 @@ async def upload_document(
     s3_key = None
     doc_id = None
     if file:
+        from uuid import uuid4
+
         import boto3
         from botocore.config import Config
-        from uuid import uuid4
+
         from ..config import settings
-        
+
         try:
             # Generate document ID and S3 key
             doc_id = uuid4()
             s3_key = f"uploads/{current_user.sub}/{doc_id}/{filename}"
-            
-            # Create S3 client 
+
+            # Create S3 client
             s3_config = Config(signature_version='s3v4')
             s3_client = boto3.client(
                 's3',
@@ -556,7 +557,7 @@ async def upload_document(
                 region_name='us-east-1',
                 config=s3_config
             )
-            
+
             # Upload file to S3
             s3_client.put_object(
                 Bucket=settings.s3_bucket,
@@ -564,7 +565,7 @@ async def upload_document(
                 Body=file_content,
                 ContentType=file.content_type or 'application/pdf'
             )
-            
+
             logger.info(
                 "File uploaded to S3 successfully",
                 extra={
@@ -574,7 +575,7 @@ async def upload_document(
                     "doc_id": str(doc_id)
                 }
             )
-            
+
         except Exception as e:
             logger.error(
                 f"Failed to upload file to S3: {str(e)}",
@@ -795,13 +796,13 @@ async def get_document(
 #     ),
 # ) -> DownloadResponse:
 #     """Demo endpoint - Get pre-signed download URL without authentication"""
-# 
+#
 #     if not x_session_id:
 #         raise HTTPException(
 #             status_code=status.HTTP_400_BAD_REQUEST,
 #             detail="Session ID required in X-Session-ID header",
 #         )
-# 
+#
 #     # Restrict accessible PDF to authenticated users only
 #     if document_type == DocumentType.ACCESSIBLE_PDF:
 #         raise HTTPException(
@@ -809,7 +810,7 @@ async def get_document(
 #             detail="Please sign up or log in to download the accessible PDF. Other formats are available without login.",
 #             headers={"X-Requires-Auth": "true"}
 #         )
-# 
+#
 #     # Allow preview and other formats (HTML, text, CSV, analysis)
 #     allowed_demo_types = [
 #         DocumentType.PREVIEW,  # PNG preview of first page
@@ -818,25 +819,25 @@ async def get_document(
 #         DocumentType.CSV,       # Data extract
 #         DocumentType.ANALYSIS,  # AI analysis report
 #     ]
-# 
+#
 #     if document_type not in allowed_demo_types:
 #         raise HTTPException(
 #             status_code=status.HTTP_403_FORBIDDEN,
 #             detail=f"Document type '{document_type.value}' requires authentication",
 #         )
-# 
+#
 #     try:
 #         # Verify the document exists for this session
 #         demo_repo = get_demo_session_repository()
 #         session_docs = demo_repo.get_session_documents(x_session_id)
-# 
+#
 #         if str(document_id) not in session_docs:
 #             # Try with demo-user prefix for backwards compatibility
 #             document = await document_service.get_document(
 #                 doc_id=str(document_id),
 #                 user_id=f"demo-{x_session_id}",
 #             )
-# 
+#
 #             if not document:
 #                 raise HTTPException(
 #                     status_code=status.HTTP_404_NOT_FOUND,
@@ -847,17 +848,17 @@ async def get_document(
 #                 doc_id=str(document_id),
 #                 user_id=f"demo-{x_session_id}",
 #             )
-# 
+#
 #         # Check if document is completed
 #         if document.status != DocumentStatus.COMPLETED:
 #             raise HTTPException(
 #                 status_code=status.HTTP_409_CONFLICT,
 #                 detail=f"Document is not ready for download. Current status: {document.status.value}",
 #             )
-# 
+#
 #         # Generate pre-signed URL
 #         from datetime import datetime, timedelta
-# 
+#
 #         presigned_url, content_type, filename = (
 #             await document_service.generate_presigned_url(
 #                 doc_id=str(document_id),
@@ -865,9 +866,9 @@ async def get_document(
 #                 expires_in=expires_in,
 #             )
 #         )
-# 
+#
 #         expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
-# 
+#
 #         logger.info(
 #             "Demo download URL generated",
 #             extra={
@@ -876,14 +877,14 @@ async def get_document(
 #                 "session_id": x_session_id,
 #             },
 #         )
-# 
+#
 #         return DownloadResponse(
 #             download_url=presigned_url,
 #             expires_at=expires_at,
 #             content_type=content_type,
 #             filename=filename,
 #         )
-# 
+#
 #     except AWSServiceError as e:
 #         logger.error(f"Failed to generate demo download URL: {e}")
 #         if "not available" in str(e):
@@ -909,11 +910,11 @@ async def demo_get_download_url(
 ):
     """Get download URL for demo document artifacts"""
     logging.info(f"Demo download URL requested for {doc_id}, type: {document_type}")
-    
+
     # Import boto3 for S3 operations
     import boto3
     from botocore.config import Config
-    
+
     # S3 key mappings for different document types
     s3_keys = {
         "accessible_pdf": f"accessible/{doc_id}/accessible.pdf",
@@ -923,13 +924,13 @@ async def demo_get_download_url(
         "csv": f"exports/{doc_id}/data.csv",
         "analysis": f"reports/{doc_id}/analysis.json"
     }
-    
+
     if document_type not in s3_keys:
         raise HTTPException(
             status_code=400,
             detail=f"Invalid document type: {document_type}"
         )
-    
+
     # For accessible_pdf, require authentication
     if document_type == "accessible_pdf":
         # Check for authenticated user header from the frontend
@@ -939,7 +940,7 @@ async def demo_get_download_url(
                 status_code=403,
                 detail="Sign in required to download accessible PDF"
             )
-    
+
     try:
         # Create S3 client with browser-accessible endpoint
         s3_config = Config(signature_version='s3v4')
@@ -951,7 +952,7 @@ async def demo_get_download_url(
             region_name='us-east-1',
             config=s3_config
         )
-        
+
         # Generate pre-signed URL for download
         download_url = s3_client.generate_presigned_url(
             'get_object',
@@ -962,13 +963,13 @@ async def demo_get_download_url(
             },
             ExpiresIn=3600  # 1 hour
         )
-        
+
         return {
             "download_url": download_url,
             "expires_at": (datetime.utcnow() + timedelta(hours=1)).isoformat(),
             "document_type": document_type
         }
-        
+
     except Exception as e:
         logging.error(f"Failed to generate download URL: {e}")
         # Fallback to direct URL if pre-signed URL generation fails
@@ -1087,7 +1088,7 @@ async def delete_document(
     document_id: UUID,
     confirm_deletion: bool = Query(False, description="Must be true to confirm deletion"),
     current_user: User = Depends(get_dashboard_user)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Delete document and all artifacts with confirmation"""
 
     if not confirm_deletion:
@@ -1112,57 +1113,57 @@ async def delete_document(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Document not found"
             )
-        
+
         # Check ownership (user can only delete own docs unless admin)
         if document.user_id != current_user.sub and current_user.role != "admin":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You can only delete your own documents"
             )
-        
+
         # Delete all S3 artifacts
         import boto3
         s3_client = boto3.client("s3")
         buckets_to_check = ["pdf-accessibility-dev-pdf-originals", "pdf-derivatives", "pdf-temp", "pdf-reports"]
-        
+
         deleted_objects = []
         doc_id = str(document_id)
-        
+
         # Delete from all possible S3 locations
         common_prefixes = [
             f"uploads/{current_user.sub}/{doc_id}/",
             f"pdf-derivatives/{doc_id}/",
             f"exports/{doc_id}/",
-            f"reports/{doc_id}/", 
+            f"reports/{doc_id}/",
             f"previews/{doc_id}/",
             f"accessible/{doc_id}/",
             f"corpus/{doc_id}/",
             f"embeddings/{doc_id}/",
         ]
-        
+
         for bucket in buckets_to_check:
             try:
                 for prefix in common_prefixes:
                     response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
-                    
+
                     if 'Contents' in response:
                         objects_to_delete = [{'Key': obj['Key']} for obj in response['Contents']]
-                        
+
                         if objects_to_delete:
                             delete_response = s3_client.delete_objects(
                                 Bucket=bucket,
                                 Delete={'Objects': objects_to_delete}
                             )
                             deleted_objects.extend(delete_response.get('Deleted', []))
-                            
+
             except Exception as e:
                 logger.warning(f"Could not delete from bucket {bucket}: {e}")
-        
+
         # Delete from MongoDB
         from services.shared.mongo.documents import get_document_repository
         doc_repo = get_document_repository()
         mongo_deleted = doc_repo.delete_by_id(doc_id)
-        
+
         # Delete alt-text data
         try:
             from services.shared.mongo.alt_text import get_alt_text_repository
@@ -1177,12 +1178,12 @@ async def delete_document(
         logger.info(
             "Document and artifacts deleted successfully",
             extra={
-                "doc_id": str(document_id), 
+                "doc_id": str(document_id),
                 "admin_user": current_user.sub,
                 "deleted_objects": len(deleted_objects)
             },
         )
-        
+
         return {
             "message": "Document and all artifacts deleted successfully",
             "doc_id": str(document_id),
@@ -1217,9 +1218,11 @@ async def generate_document_preview(
     """Generate a preview image for a PDF document"""
 
     try:
-        from ..services import preview_service
-        from services.shared.mongo.documents import get_document_repository
         import boto3
+
+        from services.shared.mongo.documents import get_document_repository
+
+        from ..services import preview_service
 
         # Get document metadata from MongoDB
         doc_repo = get_document_repository()
@@ -1292,7 +1295,7 @@ async def generate_document_preview(
 )
 async def get_processing_steps(current_user: User = Depends(get_current_user)):
     """Get the actual processing pipeline steps for authenticated users"""
-    
+
     return {
         "steps": [
             {

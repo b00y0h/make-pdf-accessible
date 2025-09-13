@@ -300,7 +300,7 @@ class PDFUtils:
 
         # Calculate statistics
         avg_font_size = sum(font_sizes) / len(font_sizes)
-        font_sizes_sorted = sorted(font_sizes, reverse=True)
+        sorted(font_sizes, reverse=True)
 
         # Consider text 20% larger than average as potential headings
         heading_threshold = avg_font_size * 1.2

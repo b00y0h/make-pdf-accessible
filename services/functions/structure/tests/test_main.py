@@ -56,7 +56,6 @@ def test_structure_analysis_mock(mock_boto_client):
                 "Id": "heading-1",
                 "Text": "Chapter 1: Introduction",
                 "Confidence": 98.5,
-                "BlockType": "LINE",
             },
             {
                 "BlockType": "TABLE",
@@ -84,15 +83,6 @@ def test_heading_detection():
     try:
         import main
 
-        sample_text_blocks = [
-            {"text": "Chapter 1: Introduction", "font_size": 18, "is_bold": True},
-            {
-                "text": "This is regular paragraph text.",
-                "font_size": 12,
-                "is_bold": False,
-            },
-            {"text": "1.1 Overview", "font_size": 14, "is_bold": True},
-        ]
 
         # Test heading detection logic if available
         if hasattr(main, "detect_headings") or hasattr(main, "identify_headings"):

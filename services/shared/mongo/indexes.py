@@ -3,7 +3,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pymongo.collection import Collection
 from pymongo.errors import CollectionInvalid
@@ -41,7 +41,7 @@ class IndexManager:
         # Default fallback
         return Path("packages/schemas/mongo")
 
-    def load_json_schema(self, collection_name: str) -> Optional[Dict[str, Any]]:
+    def load_json_schema(self, collection_name: str) -> Optional[dict[str, Any]]:
         """Load JSON schema for collection validation."""
         try:
             schema_file = self.schema_path / f"{collection_name}.json"
@@ -98,7 +98,7 @@ class IndexManager:
             logger.error(f"Error creating collection '{collection_name}': {e}")
             return False
 
-    def create_index(self, collection: Collection, index_spec: Dict[str, Any]) -> bool:
+    def create_index(self, collection: Collection, index_spec: dict[str, Any]) -> bool:
         """Create a single index on collection."""
         try:
             name = index_spec["name"]
@@ -129,7 +129,7 @@ class IndexManager:
             )
             return False
 
-    def create_document_indexes(self) -> Dict[str, bool]:
+    def create_document_indexes(self) -> dict[str, bool]:
         """Create all indexes for documents collection."""
         collection = get_collection("documents")
 
@@ -201,7 +201,7 @@ class IndexManager:
 
         return results
 
-    def create_job_indexes(self) -> Dict[str, bool]:
+    def create_job_indexes(self) -> dict[str, bool]:
         """Create all indexes for jobs collection."""
         collection = get_collection("jobs")
 
@@ -299,7 +299,7 @@ class IndexManager:
 
         return results
 
-    def setup_all_indexes(self) -> Dict[str, Dict[str, bool]]:
+    def setup_all_indexes(self) -> dict[str, dict[str, bool]]:
         """Set up all collections and indexes."""
         try:
             logger.info("Setting up MongoDB collections and indexes...")
@@ -345,7 +345,7 @@ class IndexManager:
             logger.error(f"Error setting up indexes: {e}")
             raise
 
-    def list_collection_indexes(self, collection_name: str) -> List[Dict[str, Any]]:
+    def list_collection_indexes(self, collection_name: str) -> list[dict[str, Any]]:
         """List all indexes for a collection."""
         try:
             collection = get_collection(collection_name)
@@ -401,7 +401,7 @@ class IndexManager:
             )
             return False
 
-    def get_index_stats(self, collection_name: str) -> Dict[str, Any]:
+    def get_index_stats(self, collection_name: str) -> dict[str, Any]:
         """Get index usage statistics."""
         try:
             collection = get_collection(collection_name)

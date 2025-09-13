@@ -3,7 +3,7 @@
 import logging
 import os
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class FeatureFlags:
         self._flags = self._load_flags()
         self._log_configuration()
 
-    def _load_flags(self) -> Dict[str, Any]:
+    def _load_flags(self) -> dict[str, Any]:
         """Load feature flags from environment variables."""
         flags = {
             # Core persistence provider selection
@@ -135,7 +135,7 @@ class FeatureFlags:
         """Check if system is in migration mode."""
         return self.is_enabled("migration_mode")
 
-    def get_connection_config(self) -> Dict[str, Any]:
+    def get_connection_config(self) -> dict[str, Any]:
         """Get connection configuration for the selected provider."""
         if self.is_mongo_enabled():
             return {
@@ -156,7 +156,7 @@ class FeatureFlags:
                 "batch_size": self.get("batch_size"),
             }
 
-    def get_performance_config(self) -> Dict[str, Any]:
+    def get_performance_config(self) -> dict[str, Any]:
         """Get performance monitoring configuration."""
         return {
             "enable_metrics": self.is_enabled("enable_performance_metrics"),
@@ -167,7 +167,7 @@ class FeatureFlags:
             "cache_ttl_seconds": self.get("cache_ttl_seconds"),
         }
 
-    def get_cleanup_config(self) -> Dict[str, Any]:
+    def get_cleanup_config(self) -> dict[str, Any]:
         """Get data cleanup configuration."""
         return {
             "enable_auto_cleanup": self.is_enabled("enable_auto_cleanup"),
@@ -176,7 +176,7 @@ class FeatureFlags:
             "log_retention_days": self.get("log_retention_days"),
         }
 
-    def validate_configuration(self) -> Dict[str, Any]:
+    def validate_configuration(self) -> dict[str, Any]:
         """Validate current configuration and return status."""
         issues = []
         warnings = []
@@ -236,7 +236,7 @@ class FeatureFlags:
             "migration_mode": self.is_migration_mode(),
         }
 
-    def export_configuration(self) -> Dict[str, Any]:
+    def export_configuration(self) -> dict[str, Any]:
         """Export current configuration for logging/debugging."""
         config = dict(self._flags)
 

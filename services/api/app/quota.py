@@ -5,7 +5,6 @@ Tenant quota management system
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Dict
 
 from aws_lambda_powertools import Logger
 from fastapi import HTTPException, status
@@ -34,11 +33,11 @@ class QuotaLimit:
     name: str = ""
     description: str = ""
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict) -> "QuotaLimit":
+    def from_dict(cls, data: dict) -> "QuotaLimit":
         return cls(**data)
 
 
@@ -53,7 +52,7 @@ class QuotaUsage:
     period_end: datetime
     last_updated: datetime
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         data = asdict(self)
         # Convert datetime objects to ISO strings for MongoDB
         for key in ["period_start", "period_end", "last_updated"]:
@@ -62,7 +61,7 @@ class QuotaUsage:
         return data
 
     @classmethod
-    def from_dict(cls, data: Dict) -> "QuotaUsage":
+    def from_dict(cls, data: dict) -> "QuotaUsage":
         # Convert ISO strings back to datetime objects
         for key in ["period_start", "period_end", "last_updated"]:
             if isinstance(data[key], str):
@@ -120,7 +119,7 @@ class QuotaService:
                 return True
 
             # Create default quota limits
-            for quota_type, limit in self.default_quotas.items():
+            for _quota_type, limit in self.default_quotas.items():
                 limit_doc = limit.to_dict()
                 limit_doc["org_id"] = org_id
                 limit_doc["created_at"] = datetime.utcnow().isoformat()
@@ -134,7 +133,7 @@ class QuotaService:
             logger.error(f"Error initializing quotas for tenant {org_id}: {e}")
             return False
 
-    async def get_quota_limits(self, org_id: str) -> Dict[QuotaType, QuotaLimit]:
+    async def get_quota_limits(self, org_id: str) -> dict[QuotaType, QuotaLimit]:
         """Get all quota limits for a tenant"""
         try:
             limits_docs = await self.quota_limits_repo.find({"org_id": org_id})
@@ -291,7 +290,7 @@ class QuotaService:
             logger.error(f"Error incrementing usage for {org_id}, {quota_type}: {e}")
             return False
 
-    async def get_quota_status(self, org_id: str) -> Dict[str, Dict]:
+    async def get_quota_status(self, org_id: str) -> dict[str, dict]:
         """Get comprehensive quota status for a tenant"""
         try:
             limits = await self.get_quota_limits(org_id)

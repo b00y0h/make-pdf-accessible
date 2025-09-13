@@ -9,7 +9,7 @@ import os
 import secrets
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from bson import ObjectId
 
@@ -31,7 +31,7 @@ class APIKey:
     name: str
     key_hash: str
     key_prefix: str  # First 8 chars for identification
-    permissions: List[str]
+    permissions: list[str]
     expires_at: Optional[datetime]
     last_used_at: Optional[datetime] = None
     created_at: datetime = field(default_factory=datetime.utcnow)
@@ -40,7 +40,7 @@ class APIKey:
     rate_limit: Optional[int] = None  # Requests per minute
     usage_count: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for MongoDB storage"""
         return {
             "_id": self.id,
@@ -59,7 +59,7 @@ class APIKey:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "APIKey":
+    def from_dict(cls, data: dict[str, Any]) -> "APIKey":
         """Create from MongoDB document"""
         return cls(
             id=data["_id"],
@@ -110,7 +110,7 @@ class APIKeyRepository(BaseRepository):
         self,
         user_id: str,
         name: str,
-        permissions: List[str],
+        permissions: list[str],
         expires_in_days: Optional[int] = None,
         rate_limit: Optional[int] = None,
     ) -> tuple[APIKey, str]:
@@ -187,7 +187,7 @@ class APIKeyRepository(BaseRepository):
         except Exception as e:
             raise RepositoryError(f"Failed to validate API key: {str(e)}")
 
-    def get_user_api_keys(self, user_id: str) -> List[APIKey]:
+    def get_user_api_keys(self, user_id: str) -> list[APIKey]:
         """Get all API keys for a user"""
         try:
             docs = self.collection.find({"user_id": user_id}, sort=[("created_at", -1)])
@@ -214,7 +214,7 @@ class APIKeyRepository(BaseRepository):
         except Exception as e:
             raise RepositoryError(f"Failed to deactivate API key: {str(e)}")
 
-    def update_api_key(self, key_id: str, updates: Dict[str, Any]) -> bool:
+    def update_api_key(self, key_id: str, updates: dict[str, Any]) -> bool:
         """Update API key properties"""
         try:
             # Add updated timestamp
@@ -243,7 +243,7 @@ class APIKeyRepository(BaseRepository):
         except Exception as e:
             raise RepositoryError(f"Failed to cleanup expired keys: {str(e)}")
 
-    def get_usage_stats(self, user_id: str) -> Dict[str, Any]:
+    def get_usage_stats(self, user_id: str) -> dict[str, Any]:
         """Get API key usage statistics for a user"""
         try:
             pipeline = [

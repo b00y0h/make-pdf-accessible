@@ -4,11 +4,10 @@ Demo Session Management Routes
 Endpoints for managing demo sessions and claiming anonymous uploads after authentication.
 """
 
-from datetime import datetime, timedelta
-from typing import Optional
 import logging
+from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from services.shared.mongo.demo_sessions import get_demo_session_repository
@@ -184,7 +183,7 @@ async def get_session_status(
 )
 async def get_processing_steps():
     """Get the actual processing pipeline steps"""
-    
+
     return {
         "steps": [
             {

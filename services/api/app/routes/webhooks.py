@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict
+from typing import Any
 
 from aws_lambda_powertools import Logger, Metrics, Tracer
 from fastapi import APIRouter, HTTPException, Request, status
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/webhooks", tags=["webhooks"])
     description="Endpoint for receiving HMAC-signed webhook callbacks from external services.",
 )
 @tracer.capture_method
-async def receive_webhook(request: Request) -> Dict[str, str]:
+async def receive_webhook(request: Request) -> dict[str, str]:
     """Receive and process webhook callbacks"""
 
     try:
@@ -141,7 +141,7 @@ async def receive_webhook(request: Request) -> Dict[str, str]:
     summary="Webhook endpoint health check",
     description="Simple health check for webhook endpoint availability.",
 )
-async def webhook_health() -> Dict[str, str]:
+async def webhook_health() -> dict[str, str]:
     """Webhook endpoint health check"""
     return {"status": "healthy", "service": "webhooks"}
 
@@ -153,7 +153,7 @@ async def webhook_health() -> Dict[str, str]:
     description="Test endpoint for webhook functionality (development only).",
 )
 @tracer.capture_method
-async def test_webhook(payload: Dict[str, Any]) -> Dict[str, Any]:
+async def test_webhook(payload: dict[str, Any]) -> dict[str, Any]:
     """Test webhook endpoint for development"""
 
     if settings.environment.lower() == "production":

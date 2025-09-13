@@ -5,7 +5,7 @@ from typing import Optional
 
 from aws_lambda_powertools import Logger
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, EmailStr
 
 from ..auth import User, get_current_user
@@ -79,7 +79,7 @@ async def sign_up(request: SignUpRequest):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User already exists"
         )
-    
+
     # Create user
     user = {
         "id": secrets.token_hex(8),
@@ -89,18 +89,18 @@ async def sign_up(request: SignUpRequest):
         "created_at": datetime.utcnow().isoformat()
     }
     users_db[request.email] = user
-    
+
     # Create token
     token = create_token()
     tokens_db[token] = request.email
-    
+
     # Return user info without password
     user_response = {
         "id": user["id"],
         "email": user["email"],
         "name": user["name"]
     }
-    
+
     return AuthResponse(token=token, user=user_response)
 
 
@@ -113,27 +113,27 @@ async def sign_in(request: SignInRequest):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password"
         )
-    
+
     user = users_db[request.email]
-    
+
     # Verify password
     if user["password_hash"] != hash_password(request.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password"
         )
-    
+
     # Create token
     token = create_token()
     tokens_db[token] = request.email
-    
+
     # Return user info without password
     user_response = {
         "id": user["id"],
         "email": user["email"],
         "name": user["name"]
     }
-    
+
     return AuthResponse(token=token, user=user_response)
 
 
@@ -145,16 +145,16 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token"
         )
-    
+
     user_email = tokens_db[credentials.credentials]
     current_user = users_db.get(user_email)
-    
+
     if not current_user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token"
         )
-    
+
     return {
         "valid": True,
         "user": {

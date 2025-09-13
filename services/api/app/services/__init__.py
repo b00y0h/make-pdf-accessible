@@ -4,32 +4,35 @@ Services module for business logic
 
 from .preview import preview_service
 
+
 class AWSServiceError(Exception):
     """AWS service error exception"""
     pass
 
 class DocumentService:
     """Placeholder document service"""
-    
+
     async def generate_presigned_upload_url(
-        self, 
-        user_id: str, 
-        filename: str, 
-        content_type: str, 
+        self,
+        user_id: str,
+        filename: str,
+        content_type: str,
         file_size: int
     ):
         """Generate a pre-signed S3 upload URL"""
         from datetime import datetime, timedelta
         from uuid import uuid4
+
         import boto3
         from botocore.config import Config
-        from ..models import PreSignedUploadResponse
+
         from ..config import settings
-        
+        from ..models import PreSignedUploadResponse
+
         # Generate document ID
         doc_id = uuid4()
         s3_key = f"uploads/{user_id}/{doc_id}/{filename}"
-        
+
         # Create S3 client with browser-accessible endpoint
         # Use localhost instead of localstack for browser access
         browser_endpoint = settings.aws_endpoint_url.replace('localstack:4566', 'localhost:4566')
@@ -42,13 +45,13 @@ class DocumentService:
             region_name='us-east-1',
             config=s3_config
         )
-        
+
         # Generate presigned POST
         expires_in = 3600  # 1 hour
         conditions = [
             ["content-length-range", 1, file_size * 2],  # Allow some flexibility
         ]
-        
+
         try:
             presigned_post = s3_client.generate_presigned_post(
                 Bucket=settings.s3_bucket,
@@ -59,7 +62,7 @@ class DocumentService:
                 Conditions=conditions,
                 ExpiresIn=expires_in
             )
-            
+
             return PreSignedUploadResponse(
                 upload_url=presigned_post["url"],
                 fields=presigned_post["fields"],
@@ -67,11 +70,11 @@ class DocumentService:
                 s3_key=s3_key,
                 doc_id=doc_id
             )
-            
+
         except Exception as e:
             from . import AWSServiceError
             raise AWSServiceError(f"Failed to generate presigned URL: {e}")
-    
+
     async def create_document_from_upload(
         self,
         user_id: str,
@@ -83,17 +86,19 @@ class DocumentService:
         metadata: dict = None
     ):
         """Create a document record after successful upload"""
-        from datetime import datetime
-        from ..models import DocumentResponse, DocumentStatus
-        from services.shared.mongo.documents import get_document_repository
-        from ..celery_app import celery_app
         import logging
-        
+        from datetime import datetime
+
+        from services.shared.mongo.documents import get_document_repository
+
+        from ..celery_app import celery_app
+        from ..models import DocumentResponse, DocumentStatus
+
         logger = logging.getLogger(__name__)
-        
+
         # Create document record in MongoDB
         doc_repo = get_document_repository()
-        
+
         document_data = {
             "docId": str(doc_id),
             "ownerId": user_id,
@@ -104,11 +109,11 @@ class DocumentService:
             "status": DocumentStatus.PENDING.value,
             "metadata": metadata or {}
         }
-        
+
         try:
             # Create document record using repository method
             result = doc_repo.create_document(document_data)
-            
+
             if result:
                 # Queue the document for processing
                 try:
@@ -121,7 +126,7 @@ class DocumentService:
                 except Exception as queue_error:
                     logger.error(f"Failed to queue document {doc_id}: {queue_error}")
                     # Continue even if queueing fails - document is still created
-                
+
                 # Return document response
                 now = datetime.utcnow()
                 return DocumentResponse(
@@ -135,25 +140,27 @@ class DocumentService:
                 )
             else:
                 raise Exception("Failed to create document record")
-                
+
         except Exception as e:
             from . import AWSServiceError
             raise AWSServiceError(f"Failed to create document record: {e}")
-    
+
     async def get_document(self, doc_id: str, user_id: str = None):
         """Get a document by ID"""
         from datetime import datetime
-        from ..models import DocumentResponse, DocumentStatus
+
         from services.shared.mongo.documents import get_document_repository
-        
+
+        from ..models import DocumentResponse, DocumentStatus
+
         try:
             # Get document from MongoDB
             doc_repo = get_document_repository()
             document_data = doc_repo.get_document(doc_id)
-            
+
             if not document_data:
                 return None
-            
+
             # Convert MongoDB document to DocumentResponse
             return DocumentResponse(
                 doc_id=document_data.get("docId"),
@@ -167,11 +174,11 @@ class DocumentService:
                 error_message=document_data.get("errorMessage"),
                 artifacts=document_data.get("artifacts", {})
             )
-            
+
         except Exception as e:
             from . import AWSServiceError
             raise AWSServiceError(f"Failed to get document: {e}")
-    
+
     async def list_user_documents(
         self,
         user_id: str,
@@ -181,16 +188,18 @@ class DocumentService:
     ):
         """List documents for a user with pagination"""
         from datetime import datetime
-        from ..models import DocumentResponse, DocumentStatus
+
         from services.shared.mongo.documents import get_document_repository
-        
+
+        from ..models import DocumentResponse, DocumentStatus
+
         try:
             # Get documents from MongoDB
             doc_repo = get_document_repository()
-            
+
             # Calculate page from skip/limit
             page = (skip // limit) + 1 if limit > 0 else 1
-            
+
             # Get documents with pagination
             status_filter_list = [status_filter] if status_filter else None
             result = doc_repo.get_documents_by_owner(
@@ -201,7 +210,7 @@ class DocumentService:
                 sort_by="createdAt",
                 sort_order="desc"
             )
-            
+
             # Convert to DocumentResponse objects
             document_responses = []
             for doc_data in result.get("documents", []):
@@ -217,13 +226,13 @@ class DocumentService:
                     error_message=doc_data.get("errorMessage"),
                     artifacts=doc_data.get("artifacts", {})
                 ))
-            
+
             return document_responses, result.get("total", 0)
-            
+
         except Exception as e:
             from . import AWSServiceError
             raise AWSServiceError(f"Failed to list documents: {e}")
-    
+
     async def create_document(
         self,
         user_id: str,
@@ -236,9 +245,11 @@ class DocumentService:
         """Create a new document record"""
         from datetime import datetime
         from uuid import uuid4
-        from ..models import DocumentResponse, DocumentStatus
+
         from services.shared.mongo.documents import get_document_repository
-        
+
+        from ..models import DocumentResponse, DocumentStatus
+
         try:
             # Generate document ID
             doc_id = str(uuid4())
@@ -246,7 +257,7 @@ class DocumentService:
 
             # Create document record in MongoDB
             doc_repo = get_document_repository()
-            
+
             document_data = {
                 "docId": doc_id,
                 "ownerId": user_id,
@@ -266,14 +277,14 @@ class DocumentService:
 
             # Create document record using repository method
             result = doc_repo.create_document(document_data)
-            
+
             if result:
                 # Queue the document for processing
                 try:
                     from ..celery_app import celery_app
                     # For regular upload, we need to construct the S3 key
                     s3_key = f"uploads/{user_id}/{doc_id}/{filename}" if filename else None
-                    
+
                     if s3_key:
                         task = celery_app.send_task(
                             'worker.process_pdf',
@@ -286,7 +297,7 @@ class DocumentService:
                 except Exception as queue_error:
                     logger.error(f"Failed to queue document {doc_id}: {queue_error}")
                     # Continue even if queueing fails - document is still created
-                
+
                 # Return document response
                 return DocumentResponse(
                     doc_id=doc_id,
@@ -301,11 +312,11 @@ class DocumentService:
                 )
             else:
                 raise Exception("Failed to create document record")
-                
+
         except Exception as e:
             from . import AWSServiceError
             raise AWSServiceError(f"Failed to create document: {e}")
-    
+
     async def generate_presigned_url(
         self,
         doc_id: str,
@@ -314,19 +325,22 @@ class DocumentService:
     ):
         """Generate a presigned URL for downloading a document artifact"""
         from datetime import datetime, timedelta
+
         import boto3
         from botocore.config import Config
+
+        from services.shared.mongo.documents import get_document_repository
+
         from ..config import settings
         from ..models import DocumentType
-        from services.shared.mongo.documents import get_document_repository
-        
+
         # Get document record to find actual S3 key for original file
         doc_repo = get_document_repository()
         document_data = doc_repo.get_document(doc_id)
-        
+
         if not document_data:
             raise AWSServiceError(f"Document not found: {doc_id}")
-        
+
         # Map document types to S3 keys
         s3_key_mappings = {
             DocumentType.PDF: document_data.get("s3Key"),  # Use actual S3 key from document record
@@ -339,12 +353,12 @@ class DocumentService:
             DocumentType.CSV_ZIP: f"exports/{doc_id}/data.zip",
             DocumentType.ANALYSIS: f"reports/{doc_id}/analysis.json"  # Fixed: should be .json not .pdf
         }
-        
+
         # Get the S3 key for this document type
         s3_key = s3_key_mappings.get(document_type)
         if not s3_key:
             raise AWSServiceError(f"Invalid document type: {document_type}")
-        
+
         # Map document types to content types
         content_type_mappings = {
             DocumentType.PDF: "application/pdf",
@@ -357,9 +371,9 @@ class DocumentService:
             DocumentType.CSV_ZIP: "application/zip",
             DocumentType.ANALYSIS: "application/pdf"
         }
-        
+
         content_type = content_type_mappings.get(document_type, "application/octet-stream")
-        
+
         # Generate filename for download
         file_extensions = {
             DocumentType.PDF: "pdf",
@@ -372,10 +386,10 @@ class DocumentService:
             DocumentType.CSV_ZIP: "zip",
             DocumentType.ANALYSIS: "pdf"
         }
-        
+
         extension = file_extensions.get(document_type, "bin")
         filename = f"{document_type.value}_{doc_id[-8:]}.{extension}"
-        
+
         try:
             # Create S3 client with browser-accessible endpoint
             browser_endpoint = settings.aws_endpoint_url.replace('localstack:4566', 'localhost:4566')
@@ -388,7 +402,7 @@ class DocumentService:
                 region_name='us-east-1',
                 config=s3_config
             )
-            
+
             # Generate presigned URL for download
             download_url = s3_client.generate_presigned_url(
                 'get_object',
@@ -399,9 +413,9 @@ class DocumentService:
                 },
                 ExpiresIn=expires_in
             )
-            
+
             return download_url, content_type, filename
-            
+
         except Exception as e:
             raise AWSServiceError(f"Failed to generate download URL: {e}")
 

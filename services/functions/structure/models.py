@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -47,7 +47,7 @@ class DocumentElement(BaseModel):
         None, ge=0, le=1, description="Detection confidence score"
     )
     text: Optional[str] = Field(None, description="Text content")
-    children: List["DocumentElement"] = Field(
+    children: list["DocumentElement"] = Field(
         default_factory=list, description="Child elements"
     )
 
@@ -87,7 +87,7 @@ class TableElement(DocumentElement):
     type: ElementType = Field(default=ElementType.TABLE)
     rows: int = Field(..., ge=1, description="Number of rows")
     columns: int = Field(..., ge=1, description="Number of columns")
-    cells: List[Dict[str, Any]] = Field(
+    cells: list[dict[str, Any]] = Field(
         default_factory=list, description="Table cell data"
     )
 
@@ -117,13 +117,13 @@ class DocumentStructure(BaseModel):
     doc_id: str = Field(..., description="Document identifier")
     title: Optional[str] = Field(None, description="Document title")
     total_pages: int = Field(..., ge=1, description="Total number of pages")
-    elements: List[DocumentElement] = Field(
+    elements: list[DocumentElement] = Field(
         default_factory=list, description="All document elements"
     )
-    reading_order: List[str] = Field(
+    reading_order: list[str] = Field(
         default_factory=list, description="Reading order by element IDs"
     )
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Additional metadata"
     )
 
@@ -143,8 +143,8 @@ class StructureResult(BaseModel):
         None, description="Total processing time"
     )
     elements_count: int = Field(default=0, description="Number of elements detected")
-    confidence_scores: Optional[Dict[str, float]] = Field(None, description="AI confidence scores")
-    review_assessment: Optional[Dict[str, Any]] = Field(None, description="Review assessment results")
+    confidence_scores: Optional[dict[str, float]] = Field(None, description="AI confidence scores")
+    review_assessment: Optional[dict[str, Any]] = Field(None, description="Review assessment results")
 
 
 class BedrockRequest(BaseModel):
@@ -159,7 +159,7 @@ class BedrockResponse(BaseModel):
     """Response model from Bedrock Claude."""
 
     content: str = Field(..., description="Analysis result")
-    usage: Dict[str, int] = Field(
+    usage: dict[str, int] = Field(
         default_factory=dict, description="Token usage statistics"
     )
 

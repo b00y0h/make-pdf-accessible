@@ -1,6 +1,6 @@
 import os
 import sys
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import Depends, FastAPI
 
@@ -28,8 +28,8 @@ def health_check():
 
 @app.post("/export")
 def export_document(
-    export_request: Dict[str, Any], current_user: UserInfo = Depends(get_current_user)
-) -> Dict[str, Any]:
+    export_request: dict[str, Any], current_user: UserInfo = Depends(get_current_user)
+) -> dict[str, Any]:
     """
     Export an accessible PDF document
     Requires authentication
@@ -48,7 +48,7 @@ def export_document(
 @app.get("/export/{doc_id}/status")
 def get_export_status(
     doc_id: str, current_user: UserInfo = Depends(get_current_user)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get export status for a document
     Requires authentication
@@ -69,7 +69,7 @@ def get_export_status(
 
 
 @app.get("/export/formats")
-def get_supported_formats() -> Dict[str, Any]:
+def get_supported_formats() -> dict[str, Any]:
     """
     Get supported export formats
     Public endpoint - no authentication required
@@ -103,7 +103,7 @@ def download_export(
     doc_id: str,
     format: str = "pdf",
     current_user: UserInfo = Depends(require_user_or_admin),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get download link for exported document
     Requires user or admin role

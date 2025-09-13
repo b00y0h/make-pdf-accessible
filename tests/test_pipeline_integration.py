@@ -116,7 +116,7 @@ class TestPipelineIntegration:
 
         request = OCRRequest(**ocr_input)
         assert request.doc_id == "test-doc-123"
-        assert request.priority == False
+        assert not request.priority
 
         # Test valid output
         ocr_output = {

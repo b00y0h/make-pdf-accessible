@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
@@ -56,7 +56,7 @@ class IngestMessage(BaseModel):
     )
     filename: Optional[str] = Field(None, description="Original filename")
     user_id: Optional[str] = Field(None, description="User who initiated the upload")
-    metadata: Optional[Dict[str, Any]] = Field(
+    metadata: Optional[dict[str, Any]] = Field(
         default_factory=dict, description="Additional metadata"
     )
     webhook_url: Optional[str] = Field(
@@ -98,7 +98,7 @@ class DocumentRecord(BaseModel):
     webhook_url: Optional[str] = Field(
         None, description="Webhook URL for notifications"
     )
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Document metadata"
     )
     created_at: datetime = Field(
@@ -108,10 +108,10 @@ class DocumentRecord(BaseModel):
         default_factory=datetime.utcnow, description="Last update timestamp"
     )
     error_message: Optional[str] = Field(None, description="Error message if failed")
-    artifacts: Dict[str, str] = Field(
+    artifacts: dict[str, str] = Field(
         default_factory=dict, description="Generated artifacts"
     )
-    processing_stats: Dict[str, Any] = Field(
+    processing_stats: dict[str, Any] = Field(
         default_factory=dict, description="Processing statistics"
     )
 
@@ -126,10 +126,10 @@ class JobRecord(BaseModel):
     step: JobStep = Field(..., description="Processing step")
     status: JobStatus = Field(JobStatus.PENDING, description="Job status")
     priority: bool = Field(False, description="High priority job")
-    input_data: Dict[str, Any] = Field(
+    input_data: dict[str, Any] = Field(
         default_factory=dict, description="Input data for the job"
     )
-    output_data: Dict[str, Any] = Field(
+    output_data: dict[str, Any] = Field(
         default_factory=dict, description="Output data from the job"
     )
     created_at: datetime = Field(
@@ -157,7 +157,7 @@ class ProcessMessage(BaseModel):
     doc_id: str = Field(..., description="Document identifier")
     step: JobStep = Field(..., description="Processing step")
     priority: bool = Field(False, description="High priority processing")
-    input_data: Dict[str, Any] = Field(
+    input_data: dict[str, Any] = Field(
         default_factory=dict, description="Input data for processing"
     )
     retry_count: int = Field(0, description="Current retry count")

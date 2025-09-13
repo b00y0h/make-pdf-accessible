@@ -136,7 +136,7 @@ async def get_users(
         # Get users with pagination
         users_query = f"""
             SELECT id, name, email, role, createdAt, updatedAt
-            FROM user 
+            FROM user
             {where_clause}
             ORDER BY {db_sort_field} {sort_direction}
             LIMIT ? OFFSET ?

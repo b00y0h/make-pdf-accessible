@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import Optional
 
 from pymongo import ASCENDING, DESCENDING
 
@@ -62,9 +62,9 @@ class JobRepository(BaseRepository):
     def get_jobs_for_document(
         self,
         doc_id: str,
-        step_filter: Optional[List[str]] = None,
-        status_filter: Optional[List[str]] = None,
-    ) -> List[dict]:
+        step_filter: Optional[list[str]] = None,
+        status_filter: Optional[list[str]] = None,
+    ) -> list[dict]:
         """Get all jobs for a specific document."""
         try:
             filter_doc = {"docId": doc_id}
@@ -87,10 +87,10 @@ class JobRepository(BaseRepository):
     def get_jobs_by_status(
         self,
         status: str,
-        step_filter: Optional[List[str]] = None,
+        step_filter: Optional[list[str]] = None,
         limit: Optional[int] = None,
         priority_order: bool = True,
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Get jobs by status, optionally filtered by step and ordered by priority."""
         try:
             filter_doc = {"status": status}
@@ -117,7 +117,7 @@ class JobRepository(BaseRepository):
         step: Optional[str] = None,
         limit: int = 10,
         priority_threshold: Optional[int] = None,
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Get pending jobs for processing."""
         try:
             filter_doc = {"status": "pending"}
@@ -140,7 +140,7 @@ class JobRepository(BaseRepository):
 
     def get_failed_jobs_for_retry(
         self, max_attempts: int = 3, limit: int = 10
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Get failed jobs that can be retried."""
         try:
             filter_doc = {
@@ -246,7 +246,7 @@ class JobRepository(BaseRepository):
             logger.error(f"Error setting heartbeat for job {job_id}: {e}")
             return False
 
-    def get_stale_jobs(self, timeout_minutes: int = 30) -> List[dict]:
+    def get_stale_jobs(self, timeout_minutes: int = 30) -> list[dict]:
         """Get jobs that appear to be stuck or have stale heartbeats."""
         try:
             timeout_threshold = datetime.utcnow() - timedelta(minutes=timeout_minutes)
@@ -367,7 +367,7 @@ class JobRepository(BaseRepository):
                 "retry_rate": 0,
             }
 
-    def get_step_performance(self, days: int = 7) -> List[dict]:
+    def get_step_performance(self, days: int = 7) -> list[dict]:
         """Get performance statistics by processing step."""
         try:
             start_date = datetime.utcnow() - timedelta(days=days)
@@ -426,7 +426,7 @@ class JobRepository(BaseRepository):
             logger.error(f"Error getting step performance: {e}")
             return []
 
-    def cleanup_old_jobs(self, days: int = 30, status_filter: List[str] = None) -> int:
+    def cleanup_old_jobs(self, days: int = 30, status_filter: list[str] = None) -> int:
         """Clean up old jobs (completed/failed only by default)."""
         try:
             cutoff_date = datetime.utcnow() - timedelta(days=days)

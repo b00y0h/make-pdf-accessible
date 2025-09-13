@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -139,7 +139,7 @@ class ValidationResult(BaseModel):
     validation_score: Optional[float] = Field(
         None, ge=0, le=100, description="Overall accessibility score"
     )
-    validation_issues: List[ValidationIssue] = Field(
+    validation_issues: list[ValidationIssue] = Field(
         default_factory=list, description="List of issues found"
     )
     pdf_ua_compliant: Optional[bool] = Field(
@@ -161,8 +161,8 @@ class NotifyRequest(BaseModel):
     status: ProcessingStatus = Field(..., description="Final processing status")
     user_id: str = Field(..., description="User identifier")
     step: Optional[str] = Field(None, description="Step that failed (if status=failed)")
-    error: Optional[Dict[str, Any]] = Field(None, description="Error details")
-    results: Optional[Dict[str, Any]] = Field(None, description="Processing results")
+    error: Optional[dict[str, Any]] = Field(None, description="Error details")
+    results: Optional[dict[str, Any]] = Field(None, description="Processing results")
 
 
 class NotifyResult(BaseModel):

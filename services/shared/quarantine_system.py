@@ -14,7 +14,7 @@ import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 
 class QuarantineReason(Enum):
@@ -57,13 +57,13 @@ class QuarantineRecord:
     user_id: str
     org_id: Optional[str]
     threat_level: str  # "low", "medium", "high", "critical"
-    validation_details: Dict[str, Any]
-    review_notes: List[str]
+    validation_details: dict[str, Any]
+    review_notes: list[str]
     reviewer_id: Optional[str]
     reviewed_at: Optional[str]
     expires_at: str
     storage_path: str
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 class QuarantineSystem:
@@ -103,9 +103,9 @@ class QuarantineSystem:
         user_id: str,
         quarantine_reason: QuarantineReason,
         threat_level: str = "medium",
-        validation_details: Dict[str, Any] = None,
+        validation_details: dict[str, Any] = None,
         org_id: str = None,
-        metadata: Dict[str, Any] = None,
+        metadata: dict[str, Any] = None,
     ) -> str:
         """
         Quarantine a suspicious file
@@ -234,7 +234,7 @@ class QuarantineSystem:
         status: QuarantineStatus = None,
         threat_level: str = None,
         limit: int = 100,
-    ) -> List[QuarantineRecord]:
+    ) -> list[QuarantineRecord]:
         """
         List quarantined files with optional filters
 
@@ -451,7 +451,7 @@ class QuarantineSystem:
             )
             return cleaned_count
 
-    def get_quarantine_statistics(self) -> Dict[str, Any]:
+    def get_quarantine_statistics(self) -> dict[str, Any]:
         """
         Get quarantine system statistics
 
@@ -595,7 +595,7 @@ def quarantine_suspicious_file(
     user_id: str,
     reason: QuarantineReason,
     threat_level: str = "medium",
-    validation_details: Dict[str, Any] = None,
+    validation_details: dict[str, Any] = None,
     org_id: str = None,
 ) -> str:
     """

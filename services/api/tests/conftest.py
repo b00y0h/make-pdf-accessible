@@ -55,14 +55,14 @@ def aws_mock(aws_credentials):
         # Create DynamoDB tables
         dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
 
-        documents_table = dynamodb.create_table(
+        dynamodb.create_table(
             TableName="test-documents",
             KeySchema=[{"AttributeName": "docId", "KeyType": "HASH"}],
             AttributeDefinitions=[{"AttributeName": "docId", "AttributeType": "S"}],
             BillingMode="PAY_PER_REQUEST",
         )
 
-        jobs_table = dynamodb.create_table(
+        dynamodb.create_table(
             TableName="test-jobs",
             KeySchema=[{"AttributeName": "jobId", "KeyType": "HASH"}],
             AttributeDefinitions=[{"AttributeName": "jobId", "AttributeType": "S"}],

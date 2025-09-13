@@ -529,7 +529,7 @@ class SecurityService:
         if file.filename and file.filename.lower().endswith(".pdf"):
             preflight_result = await self.validate_pdf_preflight(content, file.filename)
             pdf_metadata = preflight_result['metadata']
-            
+
             # Log any warnings
             if preflight_result['warnings']:
                 logger.info(
@@ -552,7 +552,7 @@ class SecurityService:
                 "has_forms": pdf_metadata['has_forms'],
                 "has_javascript": pdf_metadata['has_javascript']
             })
-        
+
         logger.info(
             "File validation completed successfully",
             extra=log_extra,
@@ -748,11 +748,11 @@ class SecurityService:
     def extract_pdf_metadata(self, file_content: bytes, filename: str) -> dict:
         """
         Extract PDF metadata including page count and encryption status
-        
+
         Args:
             file_content: The PDF file content as bytes
             filename: The filename for logging purposes
-            
+
         Returns:
             Dictionary containing PDF metadata
         """
@@ -770,30 +770,30 @@ class SecurityService:
             'has_forms': False,
             'has_javascript': False,
         }
-        
+
         if not PDF_METADATA_EXTRACTION_AVAILABLE:
             logger.warning("PyPDF2 not available, skipping PDF metadata extraction")
             return metadata
-            
+
         try:
             # Write content to temporary file for PDF analysis
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:
                 temp_file.write(file_content)
                 temp_file.flush()
                 temp_path = temp_file.name
-            
+
             try:
                 with open(temp_path, 'rb') as pdf_file:
                     pdf_reader = PyPDF2.PdfReader(pdf_file)
-                    
+
                     # Basic metadata
                     metadata['page_count'] = len(pdf_reader.pages)
                     metadata['is_encrypted'] = pdf_reader.is_encrypted
-                    
+
                     # PDF version
                     if hasattr(pdf_reader, 'pdf_header'):
                         metadata['pdf_version'] = pdf_reader.pdf_header
-                    
+
                     # Document info
                     if pdf_reader.metadata:
                         doc_info = pdf_reader.metadata
@@ -804,20 +804,20 @@ class SecurityService:
                         metadata['producer'] = doc_info.get('/Producer')
                         metadata['creation_date'] = doc_info.get('/CreationDate')
                         metadata['modification_date'] = doc_info.get('/ModDate')
-                    
+
                     # Check for forms and JavaScript
                     if hasattr(pdf_reader, 'trailer') and pdf_reader.trailer:
                         root = pdf_reader.trailer.get('/Root')
                         if root and '/AcroForm' in root:
                             metadata['has_forms'] = True
-                        
+
                         # Check for JavaScript in document
                         for page_num in range(len(pdf_reader.pages)):
                             page = pdf_reader.pages[page_num]
                             if '/JS' in str(page) or '/JavaScript' in str(page):
                                 metadata['has_javascript'] = True
                                 break
-                    
+
                     # Validate page count limits
                     if metadata['page_count'] > settings.max_pdf_pages if hasattr(settings, 'max_pdf_pages') else 1000:
                         self.audit_security_event(
@@ -833,7 +833,7 @@ class SecurityService:
                             status_code=status.HTTP_400_BAD_REQUEST,
                             detail=f"PDF has too many pages ({metadata['page_count']}). Maximum allowed: {getattr(settings, 'max_pdf_pages', 1000)}"
                         )
-                    
+
                     # Log if PDF is encrypted
                     if metadata['is_encrypted']:
                         logger.warning(f"Encrypted PDF uploaded: {filename}")
@@ -849,7 +849,7 @@ class SecurityService:
                             status_code=status.HTTP_400_BAD_REQUEST,
                             detail="Encrypted PDFs are not supported. Please remove password protection before uploading."
                         )
-                    
+
                     # Log if PDF has JavaScript
                     if metadata['has_javascript']:
                         logger.warning(f"PDF with JavaScript detected: {filename}")
@@ -861,7 +861,7 @@ class SecurityService:
                                 "page_count": metadata['page_count']
                             }
                         )
-                    
+
                     logger.info(
                         "PDF metadata extracted successfully",
                         extra={
@@ -872,31 +872,31 @@ class SecurityService:
                             "has_javascript": metadata['has_javascript']
                         }
                     )
-                    
+
             finally:
                 # Clean up temporary file
                 try:
                     os.unlink(temp_path)
                 except:
                     pass
-                    
+
         except HTTPException:
             # Re-raise HTTP exceptions
             raise
         except Exception as e:
             logger.error(f"PDF metadata extraction failed: {e}")
             # Don't fail the entire validation for metadata extraction errors
-            
+
         return metadata
 
     async def validate_pdf_preflight(self, file_content: bytes, filename: str) -> dict:
         """
         Enhanced PDF preflight validation including metadata extraction
-        
+
         Args:
             file_content: The PDF file content as bytes
             filename: The filename for logging purposes
-            
+
         Returns:
             Dictionary containing validation results and metadata
         """
@@ -906,26 +906,26 @@ class SecurityService:
             'warnings': [],
             'errors': []
         }
-        
+
         try:
             # Extract PDF metadata
             metadata = self.extract_pdf_metadata(file_content, filename)
             validation_result['metadata'] = metadata
-            
+
             # Validate PDF content (existing security validation)
             self.validate_pdf_content(file_content, filename)
-            
+
             # Additional preflight checks
             if metadata['page_count'] == 0:
                 validation_result['errors'].append("PDF appears to have no pages")
                 validation_result['is_valid'] = False
-            
+
             if metadata['has_javascript']:
                 validation_result['warnings'].append("PDF contains JavaScript which may not be accessible")
-            
+
             if metadata['has_forms']:
                 validation_result['warnings'].append("PDF contains forms which may require additional accessibility review")
-            
+
             logger.info(
                 "PDF preflight validation completed",
                 extra={
@@ -936,7 +936,7 @@ class SecurityService:
                     "errors_count": len(validation_result['errors'])
                 }
             )
-            
+
         except HTTPException:
             # Re-raise HTTP exceptions (from encryption/page limit checks)
             raise
@@ -944,7 +944,7 @@ class SecurityService:
             logger.error(f"PDF preflight validation failed: {e}")
             validation_result['errors'].append(f"Validation error: {str(e)}")
             validation_result['is_valid'] = False
-            
+
         return validation_result
 
 

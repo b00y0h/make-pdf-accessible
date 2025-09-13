@@ -1,5 +1,5 @@
 import time
-from typing import Any, Dict
+from typing import Any
 
 from aws_lambda_powertools import Logger, Metrics, Tracer
 from aws_lambda_powertools.utilities.typing import LambdaContext
@@ -11,7 +11,7 @@ metrics = Metrics(namespace="PDF-Accessibility", service="pdf-exports")
 
 @tracer.capture_lambda_handler
 @metrics.log_metrics(capture_cold_start_metric=True)
-def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> Dict[str, Any]:
+def lambda_handler(event: dict[str, Any], context: LambdaContext) -> dict[str, Any]:
     """Generate accessible exports (HTML, EPUB, CSV tables)."""
     start_time = time.time()
 

@@ -6,7 +6,7 @@ all FastAPI microservices in the PDF accessibility platform.
 """
 
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -72,7 +72,7 @@ class BetterAuthJWT:
             raise AuthenticationError("JWT secret not configured (API_JWT_SECRET)")
         return secret
 
-    def verify_jwt_token(self, token: str) -> Dict[str, Any]:
+    def verify_jwt_token(self, token: str) -> dict[str, Any]:
         """
         Verify BetterAuth JWT token and return claims
 
@@ -116,7 +116,7 @@ class BetterAuthJWT:
         except Exception as e:
             raise AuthenticationError(f"Token verification error: {str(e)}")
 
-    def extract_user_info(self, claims: Dict[str, Any]) -> UserInfo:
+    def extract_user_info(self, claims: dict[str, Any]) -> UserInfo:
         """
         Extract user information from BetterAuth JWT claims
 
@@ -139,7 +139,7 @@ class BetterAuthJWT:
             token_type="better_auth",
         )
 
-    def check_user_roles(self, user_role: str, required_roles: List[str]) -> bool:
+    def check_user_roles(self, user_role: str, required_roles: list[str]) -> bool:
         """
         Check if user has any of the required roles
 
@@ -221,7 +221,7 @@ def get_admin_user(current_user: UserInfo = Depends(get_current_user)) -> UserIn
     return current_user
 
 
-def require_roles(required_roles: List[str]):
+def require_roles(required_roles: list[str]):
     """
     FastAPI dependency factory for role-based access control
 

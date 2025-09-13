@@ -2,7 +2,7 @@
 Quota management API routes
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from aws_lambda_powertools import Logger, Metrics, Tracer
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -26,7 +26,7 @@ router = APIRouter(prefix="/quotas", tags=["quotas"])
 @tracer.capture_method
 async def get_quota_status(
     current_user: User = Depends(get_current_user),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get quota status for current user's organization"""
 
     if not current_user.org_id:
@@ -63,7 +63,7 @@ async def get_quota_status(
 @tracer.capture_method
 async def initialize_org_quotas(
     org_id: str, current_user: User = Depends(require_roles([UserRole.ADMIN]))
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Initialize quotas for an organization (admin only)"""
 
     try:
@@ -106,7 +106,7 @@ async def initialize_org_quotas(
 @tracer.capture_method
 async def get_org_quota_status(
     org_id: str, current_user: User = Depends(require_roles([UserRole.ADMIN]))
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get quota status for any organization (admin only)"""
 
     try:
@@ -134,6 +134,6 @@ async def get_org_quota_status(
     summary="Check quota service health",
     description="Health check endpoint for quota service.",
 )
-async def quota_health() -> Dict[str, str]:
+async def quota_health() -> dict[str, str]:
     """Health check for quota service"""
     return {"status": "healthy", "service": "quota_service"}

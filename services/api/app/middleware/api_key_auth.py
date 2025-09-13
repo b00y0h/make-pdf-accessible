@@ -7,7 +7,7 @@ Works alongside BetterAuth JWT for different authentication methods.
 
 import time
 from collections import defaultdict
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from fastapi import HTTPException, Request, status
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -19,7 +19,7 @@ class RateLimiter:
     """Simple in-memory rate limiter for API keys"""
 
     def __init__(self):
-        self.requests: Dict[str, list] = defaultdict(list)
+        self.requests: dict[str, list] = defaultdict(list)
         self.last_cleanup = time.time()
 
     def is_allowed(self, key_id: str, rate_limit: int) -> bool:
@@ -227,7 +227,7 @@ def require_api_key_permission(permission: str):
     return decorator
 
 
-def get_current_user_from_api_key(request: Request) -> Dict[str, Any]:
+def get_current_user_from_api_key(request: Request) -> dict[str, Any]:
     """
     Extract user information from API key authentication
 

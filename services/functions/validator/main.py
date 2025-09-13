@@ -1,6 +1,6 @@
 import os
 import sys
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, status
 
@@ -35,8 +35,8 @@ def health_check():
 
 @app.post("/validate")
 async def validate_document(
-    document_data: Dict[str, Any], current_user: UserInfo = Depends(get_current_user)
-) -> Dict[str, Any]:
+    document_data: dict[str, Any], current_user: UserInfo = Depends(get_current_user)
+) -> dict[str, Any]:
     """
     Validate a PDF document
     Requires authentication and respects processing quotas
@@ -71,7 +71,7 @@ async def validate_document(
     try:
         from validation_service import get_validation_service
         validation_service = get_validation_service()
-        
+
         # Run comprehensive PDF/UA validation
         validation_report = validation_service.validate_pdf_ua_compliance(
             doc_id=doc_id,
@@ -79,7 +79,7 @@ async def validate_document(
             document_structure=document_structure,
             alt_text_data=alt_text_data
         )
-        
+
         validation_result = {
             "message": "Document validation completed",
             "user_id": current_user.sub,
@@ -93,7 +93,7 @@ async def validate_document(
             "issues_count": len(validation_report.get("issues", [])),
             "recommendations": validation_report.get("recommendations", []),
         }
-        
+
     except Exception as e:
         logger.warning(f"Enhanced validation failed, using basic validation: {e}")
         # Fallback to basic validation
@@ -117,7 +117,7 @@ async def validate_document(
 @app.get("/validate/{doc_id}/status")
 def get_validation_status(
     doc_id: str, current_user: UserInfo = Depends(get_current_user)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get validation status for a document
     Requires authentication
@@ -133,7 +133,7 @@ def get_validation_status(
 @app.get("/validate/{doc_id}/report")
 def get_validation_report(
     doc_id: str, current_user: UserInfo = Depends(get_current_user)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get detailed validation report for a document
     Requires authentication - user can only access their own documents unless admin
@@ -156,7 +156,7 @@ def get_validation_report(
 @app.delete("/validate/{doc_id}")
 def delete_validation_data(
     doc_id: str, current_user: UserInfo = Depends(require_admin)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Delete validation data for a document
     Requires admin role
@@ -171,7 +171,7 @@ def delete_validation_data(
 @app.get("/quota/status")
 async def get_quota_status(
     current_user: UserInfo = Depends(get_current_user),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get quota status for the current user's organization
     """
@@ -206,7 +206,7 @@ async def get_quota_status(
 @app.get("/timeout/check")
 async def check_job_timeouts(
     current_user: UserInfo = Depends(require_admin),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Check for job timeouts and return timeout events
     Admin only endpoint
@@ -238,7 +238,7 @@ async def check_job_timeouts(
 @app.get("/timeout/stats")
 async def get_timeout_statistics(
     days: int = 7, current_user: UserInfo = Depends(require_admin)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get timeout statistics for the specified period
     Admin only endpoint
@@ -255,7 +255,7 @@ async def get_timeout_statistics(
 @app.get("/admin/stats")
 async def get_validation_stats(
     current_user: UserInfo = Depends(get_admin_user),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get validation statistics
     Admin only endpoint

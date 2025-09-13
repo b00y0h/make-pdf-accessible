@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -54,7 +54,7 @@ class TextractBlock(BaseModel):
     block_type: str = Field(..., description="Type of block (WORD, LINE, PAGE, etc.)")
     text: Optional[str] = Field(None, description="Extracted text content")
     confidence: Optional[float] = Field(None, description="Confidence score")
-    bounding_box: Optional[Dict[str, float]] = Field(
+    bounding_box: Optional[dict[str, float]] = Field(
         None, description="Bounding box coordinates"
     )
     page: Optional[int] = Field(None, description="Page number")
@@ -63,7 +63,7 @@ class TextractBlock(BaseModel):
 
 class TextractQueryResult(BaseModel):
     """Textract query result model."""
-    
+
     alias: str = Field(..., description="Query alias")
     text: Optional[str] = Field(None, description="Query answer text")
     confidence: Optional[float] = Field(None, description="Confidence score")
@@ -71,21 +71,21 @@ class TextractQueryResult(BaseModel):
 
 class DocumentMetadata(BaseModel):
     """Enhanced document metadata from Textract queries."""
-    
+
     title: Optional[str] = Field(None, description="Document title")
     main_heading: Optional[str] = Field(None, description="Main document heading")
     subject: Optional[str] = Field(None, description="Document subject")
     author: Optional[str] = Field(None, description="Document author")
     key_topics: Optional[str] = Field(None, description="Key topics covered")
-    confidence_scores: Dict[str, float] = Field(default_factory=dict, description="Confidence scores for each metadata field")
+    confidence_scores: dict[str, float] = Field(default_factory=dict, description="Confidence scores for each metadata field")
 
 
 class TextractResponse(BaseModel):
     """Structured Textract response."""
 
     job_id: str = Field(..., description="Textract job ID")
-    document_metadata: Dict[str, Any] = Field(..., description="Document metadata")
-    blocks: List[TextractBlock] = Field(..., description="Extracted text blocks")
+    document_metadata: dict[str, Any] = Field(..., description="Document metadata")
+    blocks: list[TextractBlock] = Field(..., description="Extracted text blocks")
     total_pages: int = Field(..., description="Total number of pages")
-    query_results: List[TextractQueryResult] = Field(default_factory=list, description="Query results")
+    query_results: list[TextractQueryResult] = Field(default_factory=list, description="Query results")
     extracted_metadata: Optional[DocumentMetadata] = Field(None, description="Extracted document metadata")

@@ -1,7 +1,7 @@
 import json
 import uuid
 from io import StringIO
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import boto3
 from aws_lambda_powertools import Logger, Metrics, Tracer
@@ -51,7 +51,7 @@ class StructureService:
         return bucket
 
     @tracer.capture_method
-    def extract_pdf_text(self, s3_key: str) -> Dict[int, str]:
+    def extract_pdf_text(self, s3_key: str) -> dict[int, str]:
         """
         Extract text from PDF using pdfminer.six for text-based content.
 
@@ -94,7 +94,7 @@ class StructureService:
             raise StructureServiceError(f"PDF text extraction failed: {str(e)}")
 
     @tracer.capture_method
-    def load_textract_results(self, textract_s3_key: str) -> Optional[Dict[str, Any]]:
+    def load_textract_results(self, textract_s3_key: str) -> Optional[dict[str, Any]]:
         """
         Load Textract results from S3 if available.
 
@@ -166,7 +166,7 @@ class StructureService:
 
     @tracer.capture_method
     def analyze_document_structure(
-        self, pdf_text: Dict[int, str], textract_data: Optional[Dict[str, Any]]
+        self, pdf_text: dict[int, str], textract_data: Optional[dict[str, Any]]
     ) -> DocumentStructure:
         """
         Analyze document structure using combined PDF text and Textract data with Bedrock.
@@ -211,7 +211,7 @@ class StructureService:
             4. Identify figures/images and their captions
             5. Maintain logical reading order
             6. Assign confidence scores (0.0-1.0)
-            
+
             Focus on semantic structure, not visual formatting. Be conservative with heading levels.
             """
 
@@ -267,9 +267,9 @@ class StructureService:
 
     def _convert_to_document_structure(
         self,
-        structure_data: Dict[str, Any],
-        pdf_text: Dict[int, str],
-        textract_data: Optional[Dict[str, Any]],
+        structure_data: dict[str, Any],
+        pdf_text: dict[int, str],
+        textract_data: Optional[dict[str, Any]],
     ) -> DocumentStructure:
         """Convert Bedrock analysis results to DocumentStructure model."""
 

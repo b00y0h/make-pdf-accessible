@@ -1,13 +1,19 @@
 import json
 import time
-from typing import Tuple
 
 import boto3
 import PyPDF2
 from aws_lambda_powertools import Logger, Metrics, Tracer
 from aws_lambda_powertools.metrics import MetricUnit
 from botocore.exceptions import ClientError
-from models import OCRStatus, TextractBlock, TextractJobStatus, TextractResponse, TextractQueryResult, DocumentMetadata
+from models import (
+    DocumentMetadata,
+    OCRStatus,
+    TextractBlock,
+    TextractJobStatus,
+    TextractQueryResult,
+    TextractResponse,
+)
 
 logger = Logger()
 tracer = Tracer()
@@ -38,7 +44,7 @@ class OCRService:
         return bucket
 
     @tracer.capture_method
-    def check_if_image_based(self, s3_key: str) -> Tuple[bool, int]:
+    def check_if_image_based(self, s3_key: str) -> tuple[bool, int]:
         """
         Check if PDF is image-based by analyzing text content.
 
@@ -226,12 +232,12 @@ class OCRService:
                 # Process blocks
                 for block in response.get("Blocks", []):
                     query_alias = None
-                    
+
                     # Check if this block is part of a query result
                     if block["BlockType"] == "QUERY_RESULT":
                         # Find the associated query to get the alias
                         query_alias = self._find_query_alias(block, response.get("Blocks", []))
-                        
+
                         # Store query result
                         query_result = TextractQueryResult(
                             alias=query_alias or "UNKNOWN",
@@ -239,7 +245,7 @@ class OCRService:
                             confidence=block.get("Confidence")
                         )
                         query_results.append(query_result)
-                    
+
                     textract_block = TextractBlock(
                         id=block["Id"],
                         block_type=block["BlockType"],
@@ -328,11 +334,11 @@ class OCRService:
     def _find_query_alias(self, query_result_block: dict, all_blocks: list) -> str:
         """
         Find the query alias associated with a query result block.
-        
+
         Args:
             query_result_block: The QUERY_RESULT block
             all_blocks: All blocks from the Textract response
-            
+
         Returns:
             Query alias string or None
         """
@@ -353,23 +359,23 @@ class OCRService:
     def _extract_metadata_from_queries(self, query_results: List[TextractQueryResult]) -> DocumentMetadata:
         """
         Extract document metadata from Textract query results.
-        
+
         Args:
             query_results: List of query results
-            
+
         Returns:
             DocumentMetadata object
         """
         metadata = DocumentMetadata()
-        
+
         for result in query_results:
             if not result.text or not result.text.strip():
                 continue
-                
+
             # Clean up the text
             text = result.text.strip()
             confidence = result.confidence or 0.0
-            
+
             # Map query aliases to metadata fields
             if result.alias == "DOCUMENT_TITLE":
                 metadata.title = text
@@ -386,7 +392,7 @@ class OCRService:
             elif result.alias == "KEY_TOPICS":
                 metadata.key_topics = text
                 metadata.confidence_scores["key_topics"] = confidence
-        
+
         # Log extracted metadata
         extracted_fields = []
         if metadata.title:
@@ -395,10 +401,10 @@ class OCRService:
             extracted_fields.append(f"author: {metadata.author}")
         if metadata.subject:
             extracted_fields.append(f"subject: {metadata.subject[:50]}...")
-            
+
         if extracted_fields:
             logger.info(f"Extracted metadata: {', '.join(extracted_fields)}")
         else:
             logger.info("No metadata extracted from queries")
-            
+
         return metadata

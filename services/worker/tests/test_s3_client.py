@@ -230,7 +230,7 @@ class TestS3ClientIntegration:
         """Test with real S3 service."""
         # This would test against real S3 - skip by default
         # to avoid requiring AWS credentials in CI/CD
-        s3_client = S3Client()
+        S3Client()
 
         # Real integration test code would go here
         pass

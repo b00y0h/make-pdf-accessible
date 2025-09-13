@@ -3,23 +3,24 @@ Client Registration System - Domain-based authentication for integrations
 """
 
 import uuid
-from typing import Dict, List, Any, Optional
 from datetime import datetime
+from typing import Any, Optional
 
-from fastapi import APIRouter, HTTPException, Depends, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
-from ..auth import User as UserInfo, get_current_user
+from ..auth import User as UserInfo
+from ..auth import get_current_user
 
 router = APIRouter(prefix="/v1/registration", tags=["client_registration"])
 
 
 class ClientRegistration(BaseModel):
     """Client registration for domain-based authentication."""
-    
+
     organization_name: str = Field(..., description="Organization name")
     domain: str = Field(..., description="Primary domain (e.g., agency.gov)")
-    additional_domains: List[str] = Field(default=[], description="Additional domains")
+    additional_domains: list[str] = Field(default=[], description="Additional domains")
     contact_email: str = Field(..., description="Primary contact email")
     organization_type: str = Field(..., description="Type: government, education, nonprofit, business")
     use_case: str = Field(..., description="Intended use case")
@@ -28,10 +29,10 @@ class ClientRegistration(BaseModel):
 
 class IntegrationInfo(BaseModel):
     """Integration information for client."""
-    
+
     integration_id: str = Field(..., description="Public integration ID (safe to expose)")
     api_key: str = Field(..., description="Private API key (server-side only)")
-    allowed_domains: List[str] = Field(..., description="Domains authorized for this integration")
+    allowed_domains: list[str] = Field(..., description="Domains authorized for this integration")
     webhook_secret: str = Field(..., description="Secret for webhook verification")
 
 
@@ -42,8 +43,8 @@ async def register_client_integration(
 ):
     """
     Register a new client integration with domain-based authentication.
-    
-    Creates both a public integration ID (safe for frontend) and 
+
+    Creates both a public integration ID (safe for frontend) and
     private API key (for server-side operations).
     """
     try:
@@ -51,7 +52,7 @@ async def register_client_integration(
         integration_id = f"{registration.organization_type}_{uuid.uuid4().hex[:12]}"
         api_key = f"ak_{uuid.uuid4().hex}"
         webhook_secret = f"ws_{uuid.uuid4().hex[:16]}"
-        
+
         # Validate domains
         all_domains = [registration.domain] + registration.additional_domains
         for domain in all_domains:
@@ -60,12 +61,12 @@ async def register_client_integration(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Invalid domain: {domain}"
                 )
-        
+
         # Store registration in database
         from services.shared.mongo.connection import get_database
         db = get_database()
         registrations_collection = db["client_registrations"]
-        
+
         registration_data = {
             "integrationId": integration_id,
             "apiKey": api_key,
@@ -85,16 +86,16 @@ async def register_client_integration(
                 "monthlyQuota": 1000,  # Default quota
             }
         }
-        
-        result = registrations_collection.insert_one(registration_data)
-        
+
+        registrations_collection.insert_one(registration_data)
+
         return IntegrationInfo(
             integration_id=integration_id,
             api_key=api_key,
             allowed_domains=all_domains,
             webhook_secret=webhook_secret
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -118,12 +119,12 @@ async def list_client_integrations(
         from services.shared.mongo.connection import get_database
         db = get_database()
         registrations_collection = db["client_registrations"]
-        
+
         # Get registrations for current user (or all if admin)
         filter_query = {"registeredBy": current_user.sub}
         if current_user.role == "admin":
             filter_query = {}  # Admin sees all registrations
-        
+
         registrations = list(registrations_collection.find(
             filter_query,
             {
@@ -131,12 +132,12 @@ async def list_client_integrations(
                 "webhookSecret": 0  # Don't return webhook secret in list
             }
         ).sort("registeredAt", -1))
-        
+
         return {
             "total": len(registrations),
             "integrations": registrations
         }
-        
+
     except Exception as e:
         import logging
         logger = logging.getLogger(__name__)
@@ -159,22 +160,22 @@ async def get_integration_details(
         from services.shared.mongo.connection import get_database
         db = get_database()
         registrations_collection = db["client_registrations"]
-        
+
         registration = registrations_collection.find_one({"integrationId": integration_id})
-        
+
         if not registration:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Integration not found"
             )
-        
+
         # Check access (owner or admin)
         if registration.get("registeredBy") != current_user.sub and current_user.role != "admin":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied"
             )
-        
+
         # Return full details including sensitive data for owner
         return {
             "integration_id": integration_id,
@@ -201,7 +202,7 @@ async def get_integration_details(
                 }
             }
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -215,9 +216,9 @@ async def get_integration_details(
 
 
 async def verify_domain_integration(
-    domain: str, 
+    domain: str,
     integration_id: str
-) -> Optional[Dict[str, Any]]:
+) -> Optional[dict[str, Any]]:
     """
     Verify that a domain is authorized for the given integration ID.
     Used for domain-based authentication.
@@ -226,15 +227,15 @@ async def verify_domain_integration(
         from services.shared.mongo.connection import get_database
         db = get_database()
         registrations_collection = db["client_registrations"]
-        
+
         registration = registrations_collection.find_one({
             "integrationId": integration_id,
             "domains": domain,
             "status": "active"
         })
-        
+
         return registration
-        
+
     except Exception as e:
         import logging
         logger = logging.getLogger(__name__)
@@ -252,7 +253,7 @@ async def verify_integration(
     Used by frontend scripts to validate configuration.
     """
     registration = await verify_domain_integration(domain, integration_id)
-    
+
     if registration:
         return {
             "valid": True,

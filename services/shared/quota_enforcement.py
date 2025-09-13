@@ -11,7 +11,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Dict, Optional, Tuple
+from typing import Optional
 
 # Add shared modules to path
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
@@ -113,9 +113,9 @@ class QuotaEnforcer:
 
     def __init__(self, service_name: str = "unknown"):
         self.service_name = service_name
-        self.quota_cache: Dict[str, Dict] = {}
+        self.quota_cache: dict[str, dict] = {}
         self.cache_ttl = 300  # 5 minutes
-        self.last_cache_update: Dict[str, datetime] = {}
+        self.last_cache_update: dict[str, datetime] = {}
 
         # Initialize repositories if available
         self.quota_limits_repo = (
@@ -134,7 +134,7 @@ class QuotaEnforcer:
         quota_type: QuotaType,
         additional_usage: int = 1,
         file_size: Optional[int] = None,
-    ) -> Tuple[bool, Optional[QuotaViolation]]:
+    ) -> tuple[bool, Optional[QuotaViolation]]:
         """
         Check if adding usage would exceed quota limit
 
@@ -235,7 +235,7 @@ class QuotaEnforcer:
         org_id: str,
         quota_type: QuotaType,
         amount: int = 1,
-        metadata: Optional[Dict] = None,
+        metadata: Optional[dict] = None,
     ) -> bool:
         """
         Increment usage for a quota type
@@ -322,7 +322,7 @@ class QuotaEnforcer:
         """Get current quota status for an organization and quota type"""
         return await self._get_quota_status(org_id, quota_type)
 
-    async def get_all_quota_status(self, org_id: str) -> Dict[str, QuotaStatus]:
+    async def get_all_quota_status(self, org_id: str) -> dict[str, QuotaStatus]:
         """Get quota status for all quota types for an organization"""
         status_dict = {}
 
@@ -471,7 +471,7 @@ class QuotaEnforcer:
 
     def _calculate_period_dates(
         self, quota_type: QuotaType, now: datetime
-    ) -> Tuple[datetime, datetime]:
+    ) -> tuple[datetime, datetime]:
         """Calculate period start and end dates based on quota type"""
         if quota_type.value.endswith("_monthly"):
             # Monthly period - start of current month to end of current month

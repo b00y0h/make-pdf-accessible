@@ -11,7 +11,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 # Add shared modules to path
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
@@ -133,7 +133,7 @@ class JobTimeoutEnforcer:
     def __init__(self, service_name: str = "timeout_enforcer"):
         self.service_name = service_name
         self.job_repo = get_job_repository() if get_job_repository else None
-        self.timeout_callbacks: Dict[TimeoutReason, List[Callable]] = {
+        self.timeout_callbacks: dict[TimeoutReason, list[Callable]] = {
             TimeoutReason.EXECUTION_TIMEOUT: [],
             TimeoutReason.HEARTBEAT_TIMEOUT: [],
             TimeoutReason.RESOURCE_TIMEOUT: [],
@@ -146,7 +146,7 @@ class JobTimeoutEnforcer:
         """Get timeout configuration for a processing step"""
         return self.STEP_TIMEOUTS.get(step, TimeoutConfig())
 
-    async def check_job_timeouts(self) -> List[TimeoutEvent]:
+    async def check_job_timeouts(self) -> list[TimeoutEvent]:
         """
         Check all running jobs for timeout conditions
 
@@ -184,7 +184,7 @@ class JobTimeoutEnforcer:
             logger.error(f"Error checking job timeouts: {e}")
             return []
 
-    async def _get_running_jobs(self) -> List[Dict[str, Any]]:
+    async def _get_running_jobs(self) -> list[dict[str, Any]]:
         """Get all currently running jobs"""
         try:
             running_jobs = self.job_repo.get_jobs_by_status("running", limit=None)
@@ -194,7 +194,7 @@ class JobTimeoutEnforcer:
             return []
 
     async def _check_single_job_timeout(
-        self, job: Dict[str, Any]
+        self, job: dict[str, Any]
     ) -> Optional[TimeoutEvent]:
         """Check a single job for timeout conditions"""
         try:
@@ -493,7 +493,7 @@ class JobTimeoutEnforcer:
             logger.error(f"Error forcing timeout for job {job_id}: {e}")
             return False
 
-    async def get_timeout_statistics(self, days: int = 7) -> Dict[str, Any]:
+    async def get_timeout_statistics(self, days: int = 7) -> dict[str, Any]:
         """Get timeout statistics for the specified period"""
         try:
             if not self.job_repo:
@@ -557,7 +557,7 @@ def get_timeout_enforcer(service_name: str) -> JobTimeoutEnforcer:
 
 
 # Convenience functions
-async def check_timeouts() -> List[TimeoutEvent]:
+async def check_timeouts() -> list[TimeoutEvent]:
     """Quick check for job timeouts"""
     return await global_timeout_enforcer.check_job_timeouts()
 
@@ -567,7 +567,7 @@ async def timeout_job(job_id: str, reason: str = "manual") -> bool:
     return await global_timeout_enforcer.force_timeout_job(job_id, reason)
 
 
-async def get_timeout_stats(days: int = 7) -> Dict[str, Any]:
+async def get_timeout_stats(days: int = 7) -> dict[str, Any]:
     """Get timeout statistics"""
     return await global_timeout_enforcer.get_timeout_statistics(days)
 

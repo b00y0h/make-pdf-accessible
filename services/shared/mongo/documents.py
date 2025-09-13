@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import Optional
 
 from pymongo import ASCENDING, DESCENDING
 
@@ -49,7 +49,7 @@ class DocumentRepository(BaseRepository):
     def get_documents_by_owner(
         self,
         owner_id: str,
-        status_filter: Optional[List[str]] = None,
+        status_filter: Optional[list[str]] = None,
         page: int = 1,
         limit: int = 10,
         sort_by: str = "createdAt",
@@ -88,7 +88,7 @@ class DocumentRepository(BaseRepository):
 
     def get_documents_by_status(
         self, status: str, limit: Optional[int] = None, sort_by_priority: bool = False
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Get documents by status, optionally prioritizing high-priority documents."""
         try:
             filter_doc = {"status": status}
@@ -166,7 +166,7 @@ class DocumentRepository(BaseRepository):
             logger.error(f"Error updating scores for document {doc_id}: {e}")
             return False
 
-    def update_issues(self, doc_id: str, issues: List[dict]) -> bool:
+    def update_issues(self, doc_id: str, issues: list[dict]) -> bool:
         """Update document accessibility issues."""
         try:
             update_doc = {"$set": {"issues": issues, "updatedAt": datetime.utcnow()}}
@@ -299,7 +299,7 @@ class DocumentRepository(BaseRepository):
                 "avg_processing_time_hours": 0,
             }
 
-    def get_weekly_stats(self, weeks: int = 4) -> List[dict]:
+    def get_weekly_stats(self, weeks: int = 4) -> list[dict]:
         """Get weekly processing statistics."""
         try:
             start_date = datetime.utcnow() - timedelta(weeks=weeks)

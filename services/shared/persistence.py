@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import List, Optional, Protocol, runtime_checkable
+from typing import Optional, Protocol, runtime_checkable
 
 from .feature_flags import PersistenceProvider, get_feature_flags
 
@@ -24,7 +24,7 @@ class DocumentRepository(Protocol):
     def get_documents_by_owner(
         self,
         owner_id: str,
-        status_filter: Optional[List[str]] = None,
+        status_filter: Optional[list[str]] = None,
         page: int = 1,
         limit: int = 10,
         sort_by: str = "createdAt",
@@ -64,9 +64,9 @@ class JobRepository(Protocol):
     def get_jobs_for_document(
         self,
         doc_id: str,
-        step_filter: Optional[List[str]] = None,
-        status_filter: Optional[List[str]] = None,
-    ) -> List[dict]:
+        step_filter: Optional[list[str]] = None,
+        status_filter: Optional[list[str]] = None,
+    ) -> list[dict]:
         """Get jobs for document."""
         ...
 
@@ -75,7 +75,7 @@ class JobRepository(Protocol):
         step: Optional[str] = None,
         limit: int = 10,
         priority_threshold: Optional[int] = None,
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Get pending jobs for processing."""
         ...
 
@@ -177,8 +177,8 @@ class PersistenceManager:
                 from .mongo import get_document_repository, get_job_repository
 
                 # Store in different variables to avoid confusion
-                mongo_doc_repo = get_document_repository()
-                mongo_job_repo = get_job_repository()
+                get_document_repository()
+                get_job_repository()
 
                 # For DynamoDB primary, we'd need different storage
                 # This is a simplified version - in production you'd want better separation

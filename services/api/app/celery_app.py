@@ -2,7 +2,6 @@
 Celery configuration for API service
 """
 from celery import Celery
-from .config import settings
 
 # Create Celery app
 celery_app = Celery(

@@ -5,7 +5,7 @@ Endpoints for creating, managing, and monitoring API keys.
 """
 
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -30,7 +30,7 @@ class CreateAPIKeyRequest(BaseModel):
         max_length=100,
         description="Human-readable name for the API key",
     )
-    permissions: List[str] = Field(
+    permissions: list[str] = Field(
         default_factory=list, description="List of permissions to grant"
     )
     expires_in_days: Optional[int] = Field(
@@ -45,7 +45,7 @@ class APIKeyResponse(BaseModel):
     id: str
     name: str
     key_prefix: str
-    permissions: List[str]
+    permissions: list[str]
     expires_at: Optional[datetime]
     last_used_at: Optional[datetime]
     created_at: datetime
@@ -64,7 +64,7 @@ class CreateAPIKeyResponse(BaseModel):
 
 class UpdateAPIKeyRequest(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
-    permissions: Optional[List[str]] = None
+    permissions: Optional[list[str]] = None
     rate_limit: Optional[int] = Field(None, ge=1, le=10000)
     is_active: Optional[bool] = None
 
@@ -77,7 +77,7 @@ class UsageStatsResponse(BaseModel):
 
 
 # Helper functions
-def validate_permissions(permissions: List[str]) -> List[str]:
+def validate_permissions(permissions: list[str]) -> list[str]:
     """Validate and filter permissions"""
     valid_permissions = APIKeyPermissions.get_all_permissions()
     invalid_perms = [p for p in permissions if p not in valid_permissions]
@@ -155,7 +155,7 @@ async def create_api_key(
         )
 
 
-@router.get("/", response_model=List[APIKeyResponse])
+@router.get("/", response_model=list[APIKeyResponse])
 async def list_api_keys(current_user: dict = Depends(get_current_user)):
     """List all API keys for the authenticated user"""
     try:
@@ -169,7 +169,7 @@ async def list_api_keys(current_user: dict = Depends(get_current_user)):
         )
 
 
-@router.get("/permissions", response_model=Dict[str, List[str]])
+@router.get("/permissions", response_model=dict[str, list[str]])
 async def get_available_permissions():
     """Get all available API key permissions"""
     return {
@@ -367,7 +367,7 @@ async def deactivate_api_key(
 
 
 # Admin-only endpoints
-@router.get("/admin/all", response_model=List[APIKeyResponse])
+@router.get("/admin/all", response_model=list[APIKeyResponse])
 async def list_all_api_keys(current_user: dict = Depends(get_current_user)):
     """Admin endpoint: List all API keys in the system"""
     if current_user.get("role") != "admin":
@@ -389,7 +389,7 @@ async def list_all_api_keys(current_user: dict = Depends(get_current_user)):
         )
 
 
-@router.post("/admin/cleanup", response_model=Dict[str, int])
+@router.post("/admin/cleanup", response_model=dict[str, int])
 async def cleanup_expired_keys(current_user: dict = Depends(get_current_user)):
     """Admin endpoint: Clean up expired API keys"""
     if current_user.get("role") != "admin":

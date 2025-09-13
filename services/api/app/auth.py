@@ -1,7 +1,7 @@
-from typing import Dict, List, Optional
+from typing import Optional
 
 import requests
-from fastapi import Depends, HTTPException, Request, status, Header
+from fastapi import Depends, Header, HTTPException, Request, status
 
 from .config import settings
 from .models import UserRole
@@ -13,7 +13,7 @@ class BetterAuthSessionValidator:
     def __init__(self, better_auth_url: str):
         self.better_auth_url = better_auth_url.rstrip("/")
 
-    def validate_session(self, request: Request) -> Optional[Dict]:
+    def validate_session(self, request: Request) -> Optional[dict]:
         """Validate session with BetterAuth service by forwarding all cookies"""
         try:
             # Forward all cookies from the original request to BetterAuth
@@ -42,24 +42,24 @@ class BetterAuthSessionValidator:
             # Better Auth returns null for no session, or {session: {...}, user: {...}} for valid session
             response_text = response.text.strip()
             print(f"DEBUG: BetterAuth raw response: {response_text}")
-            
+
             if response_text == "null" or response_text == "":
                 print("DEBUG: No session (null response)")
                 return None
-                
+
             try:
                 session_data = response.json()
             except:
                 print(f"DEBUG: Failed to parse response as JSON: {response_text}")
                 return None
-                
+
             print(f"DEBUG: BetterAuth session data: {session_data}")
-            
+
             # Check if we have both session and user data
             if not session_data or not isinstance(session_data, dict):
                 print("DEBUG: Invalid session data format")
                 return None
-                
+
             if not session_data.get("user"):
                 print("DEBUG: No user in session data")
                 return None
@@ -81,7 +81,7 @@ class User:
         email: Optional[str] = None,
         role: Optional[str] = None,
         org_id: Optional[str] = None,
-        token_claims: Optional[Dict] = None,
+        token_claims: Optional[dict] = None,
     ):
         self.sub = sub
         self.name = name or ""
@@ -138,7 +138,7 @@ async def get_admin_user(request: Request) -> User:
     return current_user
 
 
-def require_roles(required_roles: List[UserRole]):
+def require_roles(required_roles: list[UserRole]):
     """Decorator factory for role-based access control"""
 
     def role_checker(current_user: User = Depends(get_current_user)) -> User:
@@ -157,11 +157,11 @@ async def get_dashboard_user(
     x_dashboard_secret: Optional[str] = Header(None),
 ) -> User:
     """Internal dashboard authentication for same-system communication."""
-    
+
     # Check for dashboard internal headers
-    if (x_dashboard_internal == "true" and 
+    if (x_dashboard_internal == "true" and
         x_dashboard_secret == "dashboard_internal_secret_123"):
-        
+
         # Return a dashboard system user
         return User(
             sub="dashboard_system_user",
@@ -170,7 +170,7 @@ async def get_dashboard_user(
             role="admin",  # Dashboard has admin access
             org_id="system",
         )
-    
+
     # Not a dashboard internal call
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,

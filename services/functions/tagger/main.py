@@ -1,6 +1,6 @@
 import os
 import sys
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import Depends, FastAPI
 
@@ -28,8 +28,8 @@ def health_check():
 
 @app.post("/tag")
 def tag_document(
-    document_data: Dict[str, Any], current_user: UserInfo = Depends(get_current_user)
-) -> Dict[str, Any]:
+    document_data: dict[str, Any], current_user: UserInfo = Depends(get_current_user)
+) -> dict[str, Any]:
     """
     Apply accessibility tags to a PDF document
     Requires authentication
@@ -47,7 +47,7 @@ def tag_document(
 @app.get("/tag/{doc_id}/status")
 def get_tagging_status(
     doc_id: str, current_user: UserInfo = Depends(get_current_user)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get tagging status for a document
     Requires authentication
@@ -68,7 +68,7 @@ def get_tagging_status(
 @app.get("/tag/{doc_id}/preview")
 def preview_tags(
     doc_id: str, current_user: UserInfo = Depends(get_current_user)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Preview tags that will be applied to a document
     Requires authentication
@@ -88,7 +88,7 @@ def preview_tags(
 @app.delete("/tag/{doc_id}")
 def remove_tags(
     doc_id: str, current_user: UserInfo = Depends(require_admin)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Remove all accessibility tags from a document
     Requires admin role
@@ -104,7 +104,7 @@ def remove_tags(
 @app.get("/templates")
 def get_tagging_templates(
     current_user: UserInfo = Depends(optional_auth),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get available tagging templates
     Public endpoint with optional authentication for personalized results

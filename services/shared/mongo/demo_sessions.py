@@ -111,7 +111,7 @@ class DemoSessionRepository(BaseRepository):
         Returns:
             (allowed, reason) - True if allowed, False with reason if not
         """
-        
+
         # Check if rate limiting is disabled via environment variable
         try:
             import os

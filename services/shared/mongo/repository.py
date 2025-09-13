@@ -4,7 +4,7 @@ import logging
 from abc import ABC
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Generic, List, Optional, Type, TypeVar, Union
+from typing import Generic, Optional, TypeVar, Union
 
 from bson import ObjectId
 from pymongo.collection import Collection
@@ -33,7 +33,7 @@ class QueryPlan:
 class BaseRepository(Generic[T], ABC):
     """Base repository class with common MongoDB operations."""
 
-    def __init__(self, collection_name: str, document_class: Optional[Type[T]] = None):
+    def __init__(self, collection_name: str, document_class: Optional[type[T]] = None):
         self.collection_name = collection_name
         self.document_class = document_class
         self._collection: Optional[Collection] = None
@@ -244,12 +244,12 @@ class BaseRepository(Generic[T], ABC):
     def find(
         self,
         filter_doc: dict,
-        sort: Optional[List[tuple]] = None,
+        sort: Optional[list[tuple]] = None,
         limit: Optional[int] = None,
         skip: Optional[int] = None,
         hint: Optional[dict] = None,
         projection: Optional[dict] = None,
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Find documents with filtering, sorting, and pagination."""
         try:
             # Log query plan
@@ -331,7 +331,7 @@ class BaseRepository(Generic[T], ABC):
         filter_doc: dict,
         page: int = 1,
         limit: int = 10,
-        sort: Optional[List[tuple]] = None,
+        sort: Optional[list[tuple]] = None,
         hint: Optional[dict] = None,
         projection: Optional[dict] = None,
     ) -> dict:
@@ -381,8 +381,8 @@ class BaseRepository(Generic[T], ABC):
             }
 
     def aggregate(
-        self, pipeline: List[dict], hint: Optional[dict] = None
-    ) -> List[dict]:
+        self, pipeline: list[dict], hint: Optional[dict] = None
+    ) -> list[dict]:
         """Execute aggregation pipeline."""
         try:
             # Log pipeline
@@ -408,7 +408,7 @@ class BaseRepository(Generic[T], ABC):
             logger.error(f"Error executing aggregation in {self.collection_name}: {e}")
             return []
 
-    def bulk_write(self, operations: List[dict]) -> dict:
+    def bulk_write(self, operations: list[dict]) -> dict:
         """Execute bulk write operations."""
         try:
             if not operations:
@@ -437,7 +437,7 @@ class BaseRepository(Generic[T], ABC):
             logger.error(f"Error executing bulk write in {self.collection_name}: {e}")
             raise
 
-    def create_index(self, keys: Union[str, List[tuple]], **kwargs) -> str:
+    def create_index(self, keys: Union[str, list[tuple]], **kwargs) -> str:
         """Create index on collection."""
         try:
             index_name = self.collection.create_index(keys, **kwargs)
@@ -447,7 +447,7 @@ class BaseRepository(Generic[T], ABC):
             logger.error(f"Error creating index on {self.collection_name}: {e}")
             raise
 
-    def list_indexes(self) -> List[dict]:
+    def list_indexes(self) -> list[dict]:
         """List all indexes on collection."""
         try:
             indexes = list(self.collection.list_indexes())
