@@ -72,7 +72,13 @@
       "Bash(./venv/bin/ruff check services/shared/timeout_enforcement.py --fix)",
       "Bash(docker logs:*)",
       "mcp__playwright__browser_file_upload",
-      "mcp__playwright__browser_press_key"
+      "mcp__playwright__browser_press_key",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(npm run test:coverage:*)",
+      "Bash(npm run:*)"
     ],
     "deny": [],
     "ask": []

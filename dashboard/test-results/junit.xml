@@ -1,0 +1,492 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Dashboard Tests" tests="64" failures="23" errors="0" time="1.153">
+  <testsuite name="TopNProcessor" errors="0" failures="2" skipped="0" timestamp="2025-09-13T03:56:28" time="0.432" tests="18">
+    <testcase classname="TopNProcessor processTopN should return top N items with &quot;Other&quot; aggregation" name="TopNProcessor processTopN should return top N items with &quot;Other&quot; aggregation" time="0.004">
+    </testcase>
+    <testcase classname="TopNProcessor processTopN should handle N greater than data length" name="TopNProcessor processTopN should handle N greater than data length" time="0">
+    </testcase>
+    <testcase classname="TopNProcessor processTopN should handle N equal to data length" name="TopNProcessor processTopN should handle N equal to data length" time="0">
+    </testcase>
+    <testcase classname="TopNProcessor processTopN should handle empty data" name="TopNProcessor processTopN should handle empty data" time="0">
+    </testcase>
+    <testcase classname="TopNProcessor processTopN should handle N = 0" name="TopNProcessor processTopN should handle N = 0" time="0.001">
+    </testcase>
+    <testcase classname="TopNProcessor processTopN should preserve original data order for top N items" name="TopNProcessor processTopN should preserve original data order for top N items" time="0">
+    </testcase>
+    <testcase classname="TopNProcessor aggregateOthers should correctly aggregate remaining items" name="TopNProcessor aggregateOthers should correctly aggregate remaining items" time="0">
+    </testcase>
+    <testcase classname="TopNProcessor aggregateOthers should handle single item aggregation" name="TopNProcessor aggregateOthers should handle single item aggregation" time="0">
+    </testcase>
+    <testcase classname="TopNProcessor aggregateOthers should handle empty array" name="TopNProcessor aggregateOthers should handle empty array" time="0">
+    </testcase>
+    <testcase classname="TopNProcessor sortByValue should sort by cost in descending order" name="TopNProcessor sortByValue should sort by cost in descending order" time="0">
+    </testcase>
+    <testcase classname="TopNProcessor sortByValue should sort by percentage in descending order" name="TopNProcessor sortByValue should sort by percentage in descending order" time="0.001">
+    </testcase>
+    <testcase classname="TopNProcessor sortByValue should handle identical values" name="TopNProcessor sortByValue should handle identical values" time="0">
+    </testcase>
+    <testcase classname="TopNProcessor generic type support should work with generic data types" name="TopNProcessor generic type support should work with generic data types" time="0">
+    </testcase>
+    <testcase classname="TopNProcessor edge cases and error handling should handle data with zero values" name="TopNProcessor edge cases and error handling should handle data with zero values" time="0.001">
+      <failure>Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: 0
+Received: 100
+    at Object.toBe (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/topn.test.ts:179:30)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="TopNProcessor edge cases and error handling should handle negative values correctly" name="TopNProcessor edge cases and error handling should handle negative values correctly" time="0">
+      <failure>Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: 50
+Received: -20
+    at Object.toBe (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/topn.test.ts:193:30)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="TopNProcessor edge cases and error handling should handle very large numbers" name="TopNProcessor edge cases and error handling should handle very large numbers" time="0">
+    </testcase>
+    <testcase classname="TopNProcessor deterministic behavior should produce consistent results across multiple runs" name="TopNProcessor deterministic behavior should produce consistent results across multiple runs" time="0.001">
+    </testcase>
+    <testcase classname="TopNProcessor deterministic behavior should maintain stable sort for identical values" name="TopNProcessor deterministic behavior should maintain stable sort for identical values" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="MoMCalculator" errors="0" failures="21" skipped="0" timestamp="2025-09-13T03:56:28" time="0.061" tests="21">
+    <testcase classname="MoMCalculator calculateMoM should calculate positive month-over-month change" name="MoMCalculator calculateMoM should calculate positive month-over-month change" time="0">
+      <failure>TypeError: _mom.MoMCalculator.calculateMoM is not a function
+    at Object.calculateMoM (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/mom.test.ts:15:36)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="MoMCalculator calculateMoM should calculate negative month-over-month change" name="MoMCalculator calculateMoM should calculate negative month-over-month change" time="0">
+      <failure>TypeError: _mom.MoMCalculator.calculateMoM is not a function
+    at Object.calculateMoM (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/mom.test.ts:24:36)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="MoMCalculator calculateMoM should handle zero current value" name="MoMCalculator calculateMoM should handle zero current value" time="0">
+      <failure>TypeError: _mom.MoMCalculator.calculateMoM is not a function
+    at Object.calculateMoM (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/mom.test.ts:33:36)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="MoMCalculator calculateMoM should handle zero previous value" name="MoMCalculator calculateMoM should handle zero previous value" time="0">
+      <failure>TypeError: _mom.MoMCalculator.calculateMoM is not a function
+    at Object.calculateMoM (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/mom.test.ts:42:36)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="MoMCalculator calculateMoM should handle both values being zero" name="MoMCalculator calculateMoM should handle both values being zero" time="0">
+      <failure>TypeError: _mom.MoMCalculator.calculateMoM is not a function
+    at Object.calculateMoM (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/mom.test.ts:51:36)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="MoMCalculator calculateMoM should handle negative values correctly" name="MoMCalculator calculateMoM should handle negative values correctly" time="0">
+      <failure>TypeError: _mom.MoMCalculator.calculateMoM is not a function
+    at Object.calculateMoM (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/mom.test.ts:60:36)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="MoMCalculator processTimeSeries should process time series data correctly" name="MoMCalculator processTimeSeries should process time series data correctly" time="0">
+      <failure>TypeError: _mom.MoMCalculator.processTimeSeries is not a function
+    at Object.processTimeSeries (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/mom.test.ts:71:36)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="MoMCalculator processTimeSeries should handle empty data" name="MoMCalculator processTimeSeries should handle empty data" time="0">
+      <failure>TypeError: _mom.MoMCalculator.processTimeSeries is not a function
+    at Object.processTimeSeries (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/mom.test.ts:103:36)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="MoMCalculator processTimeSeries should handle single data point" name="MoMCalculator processTimeSeries should handle single data point" time="0">
+      <failure>TypeError: _mom.MoMCalculator.processTimeSeries is not a function
+    at Object.processTimeSeries (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/mom.test.ts:109:36)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="MoMCalculator getLatestMoM should return the most recent MoM calculation" name="MoMCalculator getLatestMoM should return the most recent MoM calculation" time="0">
+      <failure>TypeError: _mom.MoMCalculator.processTimeSeries is not a function
+    at Object.processTimeSeries (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/mom.test.ts:118:39)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="MoMCalculator getLatestMoM should return null for empty data" name="MoMCalculator getLatestMoM should return null for empty data" time="0.001">
+      <failure>TypeError: _mom.MoMCalculator.getLatestMoM is not a function
+    at Object.getLatestMoM (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/mom.test.ts:130:39)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="MoMCalculator getLatestMoM should return null for single data point" name="MoMCalculator getLatestMoM should return null for single data point" time="0">
+      <failure>TypeError: _mom.MoMCalculator.getLatestMoM is not a function
+    at Object.getLatestMoM (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/mom.test.ts:136:39)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="MoMCalculator formatMoMChange should format positive percentage correctly" name="MoMCalculator formatMoMChange should format positive percentage correctly" time="0">
+      <failure>TypeError: _mom.MoMCalculator.formatMoMChange is not a function
+    at Object.formatMoMChange (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/mom.test.ts:143:39)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="MoMCalculator formatMoMChange should format negative percentage correctly" name="MoMCalculator formatMoMChange should format negative percentage correctly" time="0">
+      <failure>TypeError: _mom.MoMCalculator.formatMoMChange is not a function
+    at Object.formatMoMChange (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/mom.test.ts:148:39)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="MoMCalculator formatMoMChange should format zero correctly" name="MoMCalculator formatMoMChange should format zero correctly" time="0">
+      <failure>TypeError: _mom.MoMCalculator.formatMoMChange is not a function
+    at Object.formatMoMChange (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/mom.test.ts:153:39)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="MoMCalculator formatMoMChange should handle infinity correctly" name="MoMCalculator formatMoMChange should handle infinity correctly" time="0">
+      <failure>TypeError: _mom.MoMCalculator.formatMoMChange is not a function
+    at Object.formatMoMChange (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/mom.test.ts:158:39)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="MoMCalculator formatMoMChange should handle negative infinity correctly" name="MoMCalculator formatMoMChange should handle negative infinity correctly" time="0">
+      <failure>TypeError: _mom.MoMCalculator.formatMoMChange is not a function
+    at Object.formatMoMChange (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/mom.test.ts:163:39)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="MoMCalculator edge cases and error handling should handle very small numbers" name="MoMCalculator edge cases and error handling should handle very small numbers" time="0">
+      <failure>TypeError: _mom.MoMCalculator.calculateMoM is not a function
+    at Object.calculateMoM (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/mom.test.ts:170:36)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="MoMCalculator edge cases and error handling should handle very large numbers" name="MoMCalculator edge cases and error handling should handle very large numbers" time="0">
+      <failure>TypeError: _mom.MoMCalculator.calculateMoM is not a function
+    at Object.calculateMoM (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/mom.test.ts:176:36)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="MoMCalculator edge cases and error handling should handle decimal precision correctly" name="MoMCalculator edge cases and error handling should handle decimal precision correctly" time="0">
+      <failure>TypeError: _mom.MoMCalculator.calculateMoM is not a function
+    at Object.calculateMoM (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/mom.test.ts:182:36)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="MoMCalculator data sorting and consistency should handle unsorted data correctly" name="MoMCalculator data sorting and consistency should handle unsorted data correctly" time="0">
+      <failure>TypeError: _mom.MoMCalculator.processTimeSeries is not a function
+    at Object.processTimeSeries (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/dashboard/src/lib/__tests__/mom.test.ts:195:36)
+    at Promise.then.completed (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-circus@29.7.0/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/BobbySmith/source/github/b00y0h/make-pdf-accessible/node_modules/.pnpm/jest-runner@29.7.0/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="GapFiller" errors="0" failures="0" skipped="0" timestamp="2025-09-13T03:56:28" time="0.193" tests="19">
+    <testcase classname="GapFiller fillTimeSeriesGaps should fill missing months with zero values" name="GapFiller fillTimeSeriesGaps should fill missing months with zero values" time="0.002">
+    </testcase>
+    <testcase classname="GapFiller fillTimeSeriesGaps should handle empty data by creating all zero values" name="GapFiller fillTimeSeriesGaps should handle empty data by creating all zero values" time="0.002">
+    </testcase>
+    <testcase classname="GapFiller fillTimeSeriesGaps should handle daily granularity" name="GapFiller fillTimeSeriesGaps should handle daily granularity" time="0">
+    </testcase>
+    <testcase classname="GapFiller fillTimeSeriesGaps should use custom fill value and currency" name="GapFiller fillTimeSeriesGaps should use custom fill value and currency" time="0.001">
+    </testcase>
+    <testcase classname="GapFiller fillServiceCostGaps should fill gaps for all services across all months" name="GapFiller fillServiceCostGaps should fill gaps for all services across all months" time="0.008">
+    </testcase>
+    <testcase classname="GapFiller fillServiceCostGaps should preserve existing data while filling gaps" name="GapFiller fillServiceCostGaps should preserve existing data while filling gaps" time="0">
+    </testcase>
+    <testcase classname="GapFiller fillServiceCostGaps should handle empty service data" name="GapFiller fillServiceCostGaps should handle empty service data" time="0">
+    </testcase>
+    <testcase classname="GapFiller fillServiceCostGaps should sort results chronologically and alphabetically" name="GapFiller fillServiceCostGaps should sort results chronologically and alphabetically" time="0.001">
+    </testcase>
+    <testcase classname="GapFiller fillTagCostGaps should fill gaps for all tag combinations across all months" name="GapFiller fillTagCostGaps should fill gaps for all tag combinations across all months" time="0">
+    </testcase>
+    <testcase classname="GapFiller fillTagCostGaps should preserve existing tag data" name="GapFiller fillTagCostGaps should preserve existing tag data" time="0">
+    </testcase>
+    <testcase classname="GapFiller fillTagCostGaps should handle complex tag structures" name="GapFiller fillTagCostGaps should handle complex tag structures" time="0">
+    </testcase>
+    <testcase classname="GapFiller validateContinuity should validate continuous data correctly" name="GapFiller validateContinuity should validate continuous data correctly" time="0">
+    </testcase>
+    <testcase classname="GapFiller validateContinuity should identify missing periods" name="GapFiller validateContinuity should identify missing periods" time="0">
+    </testcase>
+    <testcase classname="GapFiller validateContinuity should handle daily granularity validation" name="GapFiller validateContinuity should handle daily granularity validation" time="0.001">
+    </testcase>
+    <testcase classname="GapFiller validateContinuity should handle empty data" name="GapFiller validateContinuity should handle empty data" time="0">
+    </testcase>
+    <testcase classname="GapFiller edge cases and error handling should handle single day ranges" name="GapFiller edge cases and error handling should handle single day ranges" time="0">
+    </testcase>
+    <testcase classname="GapFiller edge cases and error handling should handle leap year correctly" name="GapFiller edge cases and error handling should handle leap year correctly" time="0">
+    </testcase>
+    <testcase classname="GapFiller edge cases and error handling should handle year boundaries" name="GapFiller edge cases and error handling should handle year boundaries" time="0.001">
+    </testcase>
+    <testcase classname="GapFiller edge cases and error handling should handle invalid date ranges gracefully" name="GapFiller edge cases and error handling should handle invalid date ranges gracefully" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="Authentication Utilities" errors="0" failures="0" skipped="0" timestamp="2025-09-13T03:56:28" time="0.037" tests="6">
+    <testcase classname="Authentication Utilities Email validation should validate correct email formats" name="Authentication Utilities Email validation should validate correct email formats" time="0.001">
+    </testcase>
+    <testcase classname="Authentication Utilities Email validation should reject invalid email formats" name="Authentication Utilities Email validation should reject invalid email formats" time="0">
+    </testcase>
+    <testcase classname="Authentication Utilities Password strength should accept strong passwords" name="Authentication Utilities Password strength should accept strong passwords" time="0">
+    </testcase>
+    <testcase classname="Authentication Utilities Password strength should reject weak passwords" name="Authentication Utilities Password strength should reject weak passwords" time="0.001">
+    </testcase>
+    <testcase classname="Authentication Utilities Role validation should validate correct roles" name="Authentication Utilities Role validation should validate correct roles" time="0">
+    </testcase>
+    <testcase classname="Authentication Utilities Role validation should reject invalid roles" name="Authentication Utilities Role validation should reject invalid roles" time="0">
+    </testcase>
+  </testsuite>
+</testsuites>

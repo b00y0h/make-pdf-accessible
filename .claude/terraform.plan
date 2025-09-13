@@ -1,0 +1,184 @@
+Milestones: Admin → Costs Dashboard (AWS MoM)
+
+Milestone 0 — Pre-flight (Accounts, Tags, Permissions)
+
+Goal: Ensure data quality and read access.
+
+Tasks
+	•	Confirm AWS Cost Allocation Tags are activated: application, environment, component, cost_center, service, managed_by.
+	•	Create/attach IAM policy with ce:GetCostAndUsage, ce:GetDimensionValues, ce:GetCostForecast to the app’s runtime role.
+	•	Define config/env: COST_SOURCE=ce|athena, default ce. Region & payer/linked accounts.
+
+Acceptance
+	•	Test call to GetCostAndUsage succeeds from app runtime.
+	•	List of activated cost allocation tags documented in repo.
+
+⸻
+
+Milestone 1 — App Skeleton & Routes
+
+Goal: Lay out pages and API scaffolding.
+
+Tasks
+	•	Create route: dashboard/app/admin/costs/page.tsx (Overview layout + zero state).
+	•	Create API folders:
+	•	dashboard/app/api/costs/summary/route.ts
+	•	dashboard/app/api/costs/timeseries/route.ts
+	•	dashboard/app/api/costs/by-tag/route.ts
+	•	dashboard/app/api/costs/services/route.ts
+	•	dashboard/app/api/costs/forecast/route.ts
+	•	Add shared types: dashboard/lib/costs/types.ts.
+	•	Add utilities: dashboard/lib/mom.ts (MoM math), dashboard/lib/topn.ts (Top N + Other).
+
+Acceptance
+	•	Hitting each API route returns {ok:true} placeholder JSON.
+	•	Admin page renders with placeholders and loading skeletons.
+
+⸻
+
+Milestone 2A — Cost Explorer Integration (ship first)
+
+Goal: Real monthly cost data via Cost Explorer.
+
+Tasks
+	•	Implement GetCostAndUsage in /api/costs/summary with Granularity=MONTHLY, Metrics=UnblendedCost|AmortizedCost, GroupBy=SERVICE (default).
+	•	Implement /api/costs/timeseries (total monthly cost, no grouping).
+	•	Implement /api/costs/services (dimension values for SERVICE).
+	•	Implement /api/costs/by-tag supporting TAG$environment|application|component|cost_center.
+	•	Normalize responses to a single shape: { metric, groupBy, series: CostPoint[] }.
+	•	Add 6–12h cache (edge/server) with key = hash of params.
+
+Acceptance
+	•	API returns last 12 full months + current partial when no params provided.
+	•	No gaps in months; empty months return zero totals.
+	•	Cache hits verified; CE rate limits not triggered in basic use.
+
+⸻
+
+Milestone 3 — Overview UI (Charts, KPIs, Table)
+
+Goal: Visualize MoM by service.
+
+Tasks
+	•	KPI strip: total this month, MoM Δ, MoM % (uses withMoM()).
+	•	Line chart: total monthly cost (toggle Amortized vs Unblended).
+	•	Stacked area: by SERVICE (Top 8 + Other via topN()).
+	•	Top services table: current month (Service | Cost | % of total | MoM Δ | MoM %); CSV export.
+	•	Filters: date range presets (3/6/12/18 mo; default 12 full + current), service multi-select, amortized toggle.
+
+Acceptance
+	•	Charts and table reflect filters instantly (server actions or SWR).
+	•	CSV export matches visible table and filters.
+	•	UI badge shows Data source: Cost Explorer.
+
+⸻
+
+Milestone 4 — Forecast & Budgets (optional but recommended)
+
+Goal: Forward view and budget context.
+
+Tasks
+	•	Implement /api/costs/forecast via ce:GetCostForecast (next 3 months).
+	•	Add small Forecast card: next month estimate with ± band.
+	•	Surface AWS Budgets link if budget names provided; show over/under banner.
+
+Acceptance
+	•	Forecast card renders with metric consistent with toggle.
+	•	Budget banner appears/hides correctly.
+
+⸻
+
+Milestone 5B — CUR → Athena Pipeline (high fidelity)
+
+Goal: Enable tag/account/region drilldowns beyond CE limits.
+
+Tasks
+	•	Terraform: S3 bucket for CUR, aws_cur_report_definition (Parquet, HOURLY, RESOURCES), Glue DB + crawler/table, Athena WorkGroup + results bucket, IAM.
+	•	Create Athena DDL/table for CUR (partitioned by year/month).
+	•	Implement /api/costs/athena/timeseries & /api/costs/athena/by-tag using StartQueryExecution → GetQueryResults.
+	•	Normalize Athena responses to same shape as CE.
+	•	Add UI toggle to switch Data source: CUR/Athena (respect COST_SOURCE default).
+
+Acceptance
+	•	Athena queries return monthly totals by service for chosen window.
+	•	Tag filters include environment, application, component, cost_center with multi-select.
+	•	Data source toggle flips without UI changes elsewhere.
+
+⸻
+
+Milestone 6 — Advanced Filters & Drilldowns
+
+Goal: Powerful slicing across tags, accounts, regions.
+
+Tasks
+	•	Add filters: payer/linked accounts, regions, and tag key/value (free text) — CE where supported; Athena otherwise.
+	•	Add “click a service” → detail drawer: service trend, top tags contributing, regions, accounts.
+	•	Persist filters in URL query params; add Reset.
+
+Acceptance
+	•	Filters persist on refresh/share.
+	•	Detail drawer numbers reconcile with Overview totals.
+
+⸻
+
+Milestone 7 — Caching, Quotas & Resilience
+
+Goal: Robust & economical data fetching.
+
+Tasks
+	•	Central cache module: TTL 6–12h; manual Refresh button invalidates key.
+	•	Backoff/retry for CE & Athena; friendly error toasts.
+	•	Fill gaps: ensure months with no spend are returned as zeros.
+
+Acceptance
+	•	Load tests confirm no CE throttling in normal usage.
+	•	Manual Refresh fetches fresh data bypassing cache.
+
+⸻
+
+Milestone 8 — Testing & CI Gates
+
+Goal: Prevent regressions; enforce data contracts.
+
+Tasks
+	•	Unit tests: MoM math (zero/negatives), TopN, normalization.
+	•	Contract tests: API returns ascending months, no gaps, numeric types.
+	•	Snapshot tests for chart data transforms.
+	•	Pre-commit & CI: terraform fmt/validate, tflint, checkov (existing), plus pnpm test gate for dashboard.
+
+Acceptance
+	•	CI fails on breaking API shape or missing months.
+	•	≥90% coverage on utilities (mom.ts, topn.ts).
+
+⸻
+
+Milestone 9 — Docs & Ops
+
+Goal: Operable and understandable.
+
+Tasks
+	•	dashboard/README.md: sources (CE vs CUR), freshness (24–48h CE; CUR delivery latency), known limits, filter behavior.
+	•	Runbook: rotating Athena WG, cost of queries, troubleshooting (throttling, partitions).
+	•	“Data dictionary” of tags used; link to Tag Policy if any.
+
+Acceptance
+	•	A new engineer can enable either source and see data in <1hr of setup (assuming CUR already delivering).
+
+⸻
+
+Guardrails (apply across milestones)
+	•	Never hard-fail UI on data issues; show skeletons and actionable messages.
+	•	Normalization layer guarantees one response shape across CE & Athena.
+	•	Respect Amortized vs Unblended toggle consistently throughout.
+	•	No secrets in logs; redact AWS errors.
+	•	Keep TopN logic deterministic; “Other” is sum of excluded keys.
+
+⸻
+
+Deliverable Map (files & dirs)
+	•	dashboard/app/admin/costs/page.tsx
+	•	dashboard/app/api/costs/{summary,timeseries,by-tag,services,forecast}/route.ts
+	•	dashboard/lib/costs/{types.ts, client.ts}
+	•	dashboard/lib/{mom.ts, topn.ts}
+	•	infra/terraform/cur-athena/* (B)
+	•	docs/costs/README.md, docs/costs/RUNBOOK.md
