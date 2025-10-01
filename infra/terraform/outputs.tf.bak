@@ -374,6 +374,10 @@ output "cognito_hosted_ui_url" {
   value       = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${data.aws_region.current.name}.amazoncognito.com"
 }
 
+output "cognito_identity_pool_id" {
+  description = "ID of the Cognito Identity Pool"
+  value       = aws_cognito_identity_pool.main.id
+}
 
 # Authentication URLs
 output "auth_urls" {

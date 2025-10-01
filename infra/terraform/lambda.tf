@@ -113,13 +113,13 @@ resource "aws_security_group" "lambda_sg" {
   }
   
   # Allow outbound DocumentDB access
-  egress {
-    from_port       = 27017
-    to_port         = 27017
-    protocol        = "tcp"
-    security_groups = [aws_security_group.documentdb.id]
-    description     = "DocumentDB access"
-  }
+  # egress {
+  #   from_port       = 27017
+  #   to_port         = 27017
+  #   protocol        = "tcp"
+  #   security_groups = [aws_security_group.documentdb.id]
+  #   description     = "DocumentDB access"
+  # }
   
   # Allow outbound HTTP for general internet access (if needed)
   egress {

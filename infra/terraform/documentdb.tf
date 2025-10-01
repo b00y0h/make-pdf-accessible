@@ -34,13 +34,13 @@ resource "aws_security_group" "documentdb" {
   description = "Security group for DocumentDB cluster"
 
   # Allow inbound from Lambda security group on MongoDB port
-  ingress {
-    from_port       = 27017
-    to_port         = 27017
-    protocol        = "tcp"
-    security_groups = [aws_security_group.lambda_sg.id]
-    description     = "MongoDB/DocumentDB access from Lambda functions"
-  }
+  # ingress {
+  #   from_port       = 27017
+  #   to_port         = 27017
+  #   protocol        = "tcp"
+  #   security_groups = [aws_security_group.lambda_sg.id]
+  #   description     = "MongoDB/DocumentDB access from Lambda functions"
+  # }
 
   # Allow inbound from processing Lambda security groups
   dynamic "ingress" {

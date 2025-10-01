@@ -49,8 +49,10 @@ class BetterAuthSessionValidator:
 
             try:
                 session_data = response.json()
-            except:
-                print(f"DEBUG: Failed to parse response as JSON: {response_text}")
+            except Exception as e:
+                print(
+                    f"DEBUG: Failed to parse response as JSON: {response_text} - Error: {e}"
+                )
                 return None
 
             print(f"DEBUG: BetterAuth session data: {session_data}")
@@ -159,8 +161,10 @@ async def get_dashboard_user(
     """Internal dashboard authentication for same-system communication."""
 
     # Check for dashboard internal headers
-    if (x_dashboard_internal == "true" and
-        x_dashboard_secret == "dashboard_internal_secret_123"):
+    if (
+        x_dashboard_internal == "true"
+        and x_dashboard_secret == "dashboard_internal_secret_123"
+    ):
 
         # Return a dashboard system user
         return User(
@@ -174,5 +178,5 @@ async def get_dashboard_user(
     # Not a dashboard internal call
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
-        detail="Dashboard authentication required"
+        detail="Dashboard authentication required",
     )
