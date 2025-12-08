@@ -20,13 +20,16 @@ export default function UserAvatar() {
     // Check for Better Auth session
     const checkAuth = async () => {
       try {
-        const response = await fetch('http://localhost:3001/api/auth/get-session', {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+        const response = await fetch(
+          'http://localhost:3001/api/auth/get-session',
+          {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        );
         if (response.ok) {
           const sessionData = await response.json();
           if (sessionData && sessionData.session && sessionData.user) {
@@ -37,7 +40,7 @@ export default function UserAvatar() {
         console.log('Not authenticated');
       }
     };
-    
+
     checkAuth();
   }, []);
 
@@ -60,8 +63,12 @@ export default function UserAvatar() {
     return null;
   }
 
-  const initials = session.user.name 
-    ? session.user.name.split(' ').map(n => n[0]).join('').toUpperCase()
+  const initials = session.user.name
+    ? session.user.name
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
     : session.user.email[0].toUpperCase();
 
   return (
@@ -71,8 +78,8 @@ export default function UserAvatar() {
         className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
       >
         {session.user.image ? (
-          <img 
-            src={session.user.image} 
+          <img
+            src={session.user.image}
             alt={session.user.name || session.user.email}
             className="w-8 h-8 rounded-full"
           />
@@ -89,7 +96,9 @@ export default function UserAvatar() {
       {showMenu && (
         <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
           <div className="px-4 py-2 border-b border-gray-200">
-            <p className="text-sm font-medium text-gray-900">{session.user.name || 'User'}</p>
+            <p className="text-sm font-medium text-gray-900">
+              {session.user.name || 'User'}
+            </p>
             <p className="text-xs text-gray-500">{session.user.email}</p>
           </div>
           <a

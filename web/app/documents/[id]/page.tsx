@@ -69,7 +69,8 @@ export default function DocumentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const docId = params.id as string;
-  const [showDeleteConfirmation, setShowDeleteConfirmation] = React.useState(false);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] =
+    React.useState(false);
 
   const {
     document,
@@ -103,26 +104,30 @@ export default function DocumentDetailPage() {
 
   const handleDeleteDocument = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/documents/${docId}?confirm_deletion=true`, {
-        method: 'DELETE',
-        headers: {
-          'X-Dashboard-Internal': 'true',
-          'X-Dashboard-Secret': 'dashboard_internal_secret_123',
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/documents/${docId}?confirm_deletion=true`,
+        {
+          method: 'DELETE',
+          headers: {
+            'X-Dashboard-Internal': 'true',
+            'X-Dashboard-Secret': 'dashboard_internal_secret_123',
+          },
         }
-      });
-      
+      );
+
       if (!response.ok) {
         throw new Error('Failed to delete document');
       }
-      
+
       const result = await response.json();
-      
+
       // Show success message
-      alert(`Document deleted successfully. Removed ${result.deletion_summary.total_artifacts_removed} artifacts.`);
-      
+      alert(
+        `Document deleted successfully. Removed ${result.deletion_summary.total_artifacts_removed} artifacts.`
+      );
+
       // Navigate back to documents list
       router.push('/');
-      
     } catch (error) {
       console.error('Delete failed:', error);
       alert('Failed to delete document');
@@ -293,12 +298,16 @@ export default function DocumentDetailPage() {
                 <h3 className="text-lg font-medium text-gray-900 mb-4">
                   🤖 AI Accessibility Analysis
                 </h3>
-                
+
                 {/* Overall Score */}
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">Overall Accessibility Score</span>
-                    <span className="text-lg font-bold text-green-600">{document.scores.overall || 92}%</span>
+                    <span className="text-sm font-medium text-gray-700">
+                      Overall Accessibility Score
+                    </span>
+                    <span className="text-lg font-bold text-green-600">
+                      {document.scores.overall || 92}%
+                    </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-3">
                     <div
@@ -311,31 +320,41 @@ export default function DocumentDetailPage() {
                     <span>PDF/UA Compatible</span>
                   </div>
                 </div>
-                
+
                 {/* Individual Scores */}
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div className="text-center p-3 bg-blue-50 rounded-lg">
-                    <div className="text-lg font-bold text-blue-600">{document.scores.structure || 90}%</div>
+                    <div className="text-lg font-bold text-blue-600">
+                      {document.scores.structure || 90}%
+                    </div>
                     <div className="text-gray-600">Structure</div>
                   </div>
                   <div className="text-center p-3 bg-green-50 rounded-lg">
-                    <div className="text-lg font-bold text-green-600">{document.scores.alt_text || 88}%</div>
+                    <div className="text-lg font-bold text-green-600">
+                      {document.scores.alt_text || 88}%
+                    </div>
                     <div className="text-gray-600">Alt Text</div>
                   </div>
                   <div className="text-center p-3 bg-purple-50 rounded-lg">
-                    <div className="text-lg font-bold text-purple-600">{document.scores.color_contrast || 95}%</div>
+                    <div className="text-lg font-bold text-purple-600">
+                      {document.scores.color_contrast || 95}%
+                    </div>
                     <div className="text-gray-600">Contrast</div>
                   </div>
                   <div className="text-center p-3 bg-indigo-50 rounded-lg">
-                    <div className="text-lg font-bold text-indigo-600">{document.scores.navigation || 94}%</div>
+                    <div className="text-lg font-bold text-indigo-600">
+                      {document.scores.navigation || 94}%
+                    </div>
                     <div className="text-gray-600">Navigation</div>
                   </div>
                 </div>
-                
+
                 {/* AI Confidence Indicator */}
                 <div className="mt-4 p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">AI Confidence Level</span>
+                    <span className="text-sm text-gray-600">
+                      AI Confidence Level
+                    </span>
                     <div className="flex items-center space-x-2">
                       <div className="w-16 bg-gray-200 rounded-full h-2">
                         <div
@@ -343,7 +362,9 @@ export default function DocumentDetailPage() {
                           style={{ width: '85%' }}
                         />
                       </div>
-                      <span className="text-sm font-medium text-gray-700">85%</span>
+                      <span className="text-sm font-medium text-gray-700">
+                        85%
+                      </span>
                     </div>
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
@@ -500,7 +521,7 @@ export default function DocumentDetailPage() {
           </div>
         </div>
       </div>
-      
+
       {/* Delete Confirmation Modal */}
       {showDeleteConfirmation && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -510,11 +531,15 @@ export default function DocumentDetailPage() {
                 <AlertTriangle className="w-6 h-6 text-red-600" />
               </div>
               <div>
-                <h3 className="text-lg font-medium text-gray-900">Delete Document</h3>
-                <p className="text-sm text-gray-500">This action cannot be undone</p>
+                <h3 className="text-lg font-medium text-gray-900">
+                  Delete Document
+                </h3>
+                <p className="text-sm text-gray-500">
+                  This action cannot be undone
+                </p>
               </div>
             </div>
-            
+
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-red-800 mb-2 font-medium">
                 {document?.filename || 'This document'}
@@ -531,7 +556,7 @@ export default function DocumentDetailPage() {
                 <li>• Vector embeddings</li>
               </ul>
             </div>
-            
+
             <div className="flex space-x-3">
               <button
                 onClick={() => setShowDeleteConfirmation(false)}

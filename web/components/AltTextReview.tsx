@@ -30,7 +30,14 @@ interface AltTextVersion {
 
 interface AltTextFigure {
   figure_id: string;
-  status: 'pending' | 'needs_review' | 'edited' | 'approved' | 'rejected' | 'a2i_review' | 'a2i_completed';
+  status:
+    | 'pending'
+    | 'needs_review'
+    | 'edited'
+    | 'approved'
+    | 'rejected'
+    | 'a2i_review'
+    | 'a2i_completed';
   current_version: number;
   ai_text?: string;
   approved_text?: string;

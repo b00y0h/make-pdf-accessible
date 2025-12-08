@@ -1,24 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth/authOptions';
+import { headers } from 'next/headers';
+import { auth } from '@/lib/auth-server';
 import { getCacheInstance } from '@/lib/cache/redis-cache';
+
+async function checkAdminAuth() {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session?.user) {
+    return { error: 'Authentication required', status: 401 };
+  }
+
+  if ((session.user as any).role !== 'admin') {
+    return { error: 'Admin access required', status: 403 };
+  }
+
+  return { session };
+}
 
 export async function GET(request: NextRequest) {
   try {
-    // Check authentication and admin role
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user) {
+    const authResult = await checkAdminAuth();
+    if ('error' in authResult) {
       return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    if (session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
+        { error: authResult.error },
+        { status: authResult.status }
       );
     }
 
@@ -43,20 +50,11 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    // Check authentication and admin role
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user) {
+    const authResult = await checkAdminAuth();
+    if ('error' in authResult) {
       return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    if (session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
+        { error: authResult.error },
+        { status: authResult.status }
       );
     }
 
@@ -94,20 +92,11 @@ export async function DELETE(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication and admin role
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user) {
+    const authResult = await checkAdminAuth();
+    if ('error' in authResult) {
       return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    if (session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
+        { error: authResult.error },
+        { status: authResult.status }
       );
     }
 

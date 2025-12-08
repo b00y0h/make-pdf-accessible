@@ -133,3 +133,4 @@ celerybeat.pid
 # Temporary files
 tmp/
 temp/
+.sst/

@@ -1,6 +1,6 @@
 /**
  * Session management utilities for demo uploads
- * 
+ *
  * Generates and manages browser session IDs for tracking anonymous uploads
  */
 
@@ -19,7 +19,7 @@ export function getSessionId(): string {
   }
 
   let sessionId = localStorage.getItem(SESSION_ID_KEY);
-  
+
   if (!sessionId) {
     // Generate a new session ID
     sessionId = `session_${uuidv4()}`;
@@ -27,7 +27,7 @@ export function getSessionId(): string {
     localStorage.setItem(SESSION_CREATED_KEY, new Date().toISOString());
     localStorage.setItem(SESSION_UPLOADS_KEY, JSON.stringify([]));
   }
-  
+
   return sessionId;
 }
 
@@ -36,7 +36,7 @@ export function getSessionId(): string {
  */
 export function clearSession(): void {
   if (typeof window === 'undefined') return;
-  
+
   localStorage.removeItem(SESSION_ID_KEY);
   localStorage.removeItem(SESSION_CREATED_KEY);
   localStorage.removeItem(SESSION_UPLOADS_KEY);
@@ -47,16 +47,16 @@ export function clearSession(): void {
  */
 export function addUploadToSession(documentId: string, filename: string): void {
   if (typeof window === 'undefined') return;
-  
+
   const uploadsStr = localStorage.getItem(SESSION_UPLOADS_KEY) || '[]';
   const uploads = JSON.parse(uploadsStr);
-  
+
   uploads.push({
     documentId,
     filename,
     uploadedAt: new Date().toISOString(),
   });
-  
+
   localStorage.setItem(SESSION_UPLOADS_KEY, JSON.stringify(uploads));
 }
 
@@ -69,7 +69,7 @@ export function getSessionUploads(): Array<{
   uploadedAt: string;
 }> {
   if (typeof window === 'undefined') return [];
-  
+
   const uploadsStr = localStorage.getItem(SESSION_UPLOADS_KEY) || '[]';
   return JSON.parse(uploadsStr);
 }

@@ -178,7 +178,8 @@ export function ServiceDetailDrawer({
         }
 
         // Calculate trend (comparing last two periods)
-        let trend = { direction: 'stable' as const, percentage: 0 };
+        let trend: { direction: 'up' | 'down' | 'stable'; percentage: number } =
+          { direction: 'stable', percentage: 0 };
         if (processedTimeseries.length >= 2) {
           const current =
             processedTimeseries[processedTimeseries.length - 1]?.amount || 0;

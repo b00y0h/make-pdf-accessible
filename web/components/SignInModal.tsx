@@ -9,7 +9,11 @@ interface SignInModalProps {
   onSuccess: () => void;
 }
 
-export default function SignInModal({ isOpen, onClose, onSuccess }: SignInModalProps) {
+export default function SignInModal({
+  isOpen,
+  onClose,
+  onSuccess,
+}: SignInModalProps) {
   useEffect(() => {
     if (isOpen) {
       // Listen for messages from the popup window
@@ -37,7 +41,7 @@ export default function SignInModal({ isOpen, onClose, onSuccess }: SignInModalP
     const height = 700;
     const left = window.screen.width / 2 - width / 2;
     const top = window.screen.height / 2 - height / 2;
-    
+
     const popup = window.open(
       'http://localhost:3001/sign-in?popup=true&callback=marketing',
       'Sign In',
@@ -47,7 +51,9 @@ export default function SignInModal({ isOpen, onClose, onSuccess }: SignInModalP
     // Check if popup was blocked
     if (!popup) {
       // Fallback to redirect if popup is blocked
-      window.location.href = 'http://localhost:3001/sign-in?callback=' + encodeURIComponent(window.location.href);
+      window.location.href =
+        'http://localhost:3001/sign-in?callback=' +
+        encodeURIComponent(window.location.href);
     }
   };
 
@@ -70,9 +76,10 @@ export default function SignInModal({ isOpen, onClose, onSuccess }: SignInModalP
         <h2 className="text-2xl font-bold text-gray-900 mb-4">
           Sign In to Continue
         </h2>
-        
+
         <p className="text-gray-600 mb-8">
-          Sign in to download your accessible PDF and save your documents for future access.
+          Sign in to download your accessible PDF and save your documents for
+          future access.
         </p>
 
         <button
@@ -83,7 +90,8 @@ export default function SignInModal({ isOpen, onClose, onSuccess }: SignInModalP
         </button>
 
         <p className="mt-6 text-sm text-gray-500">
-          You&apos;ll be redirected to our secure sign-in page with multiple authentication options including Google, GitHub, and more.
+          You&apos;ll be redirected to our secure sign-in page with multiple
+          authentication options including Google, GitHub, and more.
         </p>
       </div>
     </div>

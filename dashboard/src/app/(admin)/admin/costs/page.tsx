@@ -147,7 +147,7 @@ export default function CostsPage() {
           <AdvancedFilters
             filters={filters}
             onChange={setFilters}
-            availableServices={availableServices}
+            availableServices={availableServices.map((s) => ({ value: s }))}
             availableAccounts={[]} // TODO: Fetch from API
             availableRegions={[
               'us-east-1',

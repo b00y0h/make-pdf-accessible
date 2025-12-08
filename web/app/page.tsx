@@ -27,10 +27,10 @@ export default function Home() {
             </span>
           </h1>
           <p className="mt-3 max-w-md mx-auto text-base text-gray-600 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
-            AI-powered PDF accessibility in seconds. No signup required.
-            Upload your PDF below and see the magic happen!
+            AI-powered PDF accessibility in seconds. No signup required. Upload
+            your PDF below and see the magic happen!
           </p>
-          
+
           {/* Arrow pointing down */}
           <div className="mt-8 animate-bounce">
             <ArrowDown className="w-8 h-8 text-blue-600 mx-auto" />

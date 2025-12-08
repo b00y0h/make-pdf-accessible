@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth/authOptions';
+import { headers } from 'next/headers';
+import { auth } from '@/lib/auth-server';
 import { createAthenaQueryService } from '@/lib/costs/athena-client';
 import { type CostFilters } from '@/lib/costs/types';
 
 export async function GET(request: NextRequest) {
   try {
-    // Check authentication and admin role
-    const session = await getServerSession(authOptions);
+    // Check authentication and admin role using better-auth
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
 
     if (!session?.user) {
       return NextResponse.json(
@@ -16,7 +18,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (session.user.role !== 'admin') {
+    if ((session.user as any).role !== 'admin') {
       return NextResponse.json(
         { error: 'Admin access required' },
         { status: 403 }

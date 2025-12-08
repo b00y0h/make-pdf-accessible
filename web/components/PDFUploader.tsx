@@ -13,7 +13,7 @@ import {
   FileDown,
   Brain,
   FileCode,
-  FileType
+  FileType,
 } from 'lucide-react';
 
 interface ProcessingResult {
@@ -96,16 +96,22 @@ export default function PDFUploader() {
       // Create form data
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('metadata', JSON.stringify({
-        title: file.name,
-        processingType: 'full_accessibility'
-      }));
+      formData.append(
+        'metadata',
+        JSON.stringify({
+          title: file.name,
+          processingType: 'full_accessibility',
+        })
+      );
 
       // Upload file
-      const uploadResponse = await fetch('http://localhost:8000/api/v1/documents/upload', {
-        method: 'POST',
-        body: formData,
-      });
+      const uploadResponse = await fetch(
+        'http://localhost:8000/api/v1/documents/upload',
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
 
       if (!uploadResponse.ok) {
         throw new Error('Upload failed');
@@ -122,9 +128,11 @@ export default function PDFUploader() {
       const maxAttempts = 60; // 5 minutes max
 
       while (attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 5000)); // Poll every 5 seconds
+        await new Promise((resolve) => setTimeout(resolve, 5000)); // Poll every 5 seconds
 
-        const statusResponse = await fetch(`http://localhost:8000/api/v1/documents/${documentId}`);
+        const statusResponse = await fetch(
+          `http://localhost:8000/api/v1/documents/${documentId}`
+        );
         if (!statusResponse.ok) {
           throw new Error('Failed to check status');
         }
@@ -133,7 +141,9 @@ export default function PDFUploader() {
 
         if (statusData.status === 'completed') {
           // Get download URLs
-          const downloadResponse = await fetch(`http://localhost:8000/api/v1/documents/${documentId}/download`);
+          const downloadResponse = await fetch(
+            `http://localhost:8000/api/v1/documents/${documentId}/download`
+          );
           const downloadData = await downloadResponse.json();
 
           // Mock LLM analysis for now
@@ -150,7 +160,7 @@ export default function PDFUploader() {
                 'All images now have alt text',
                 'Document structure properly tagged',
                 'Reading order established',
-                'Color contrast verified'
+                'Color contrast verified',
               ],
               llm_analysis: `This PDF has been successfully processed for accessibility. 
 
@@ -162,8 +172,8 @@ Key improvements made:
 - Added table headers and descriptions
 - Created bookmarks for major sections
 
-The document now meets WCAG 2.1 Level AA standards and is fully accessible to users with disabilities. The AI analysis identified and corrected common accessibility issues automatically.`
-            }
+The document now meets WCAG 2.1 Level AA standards and is fully accessible to users with disabilities. The AI analysis identified and corrected common accessibility issues automatically.`,
+            },
           });
           break;
         } else if (statusData.status === 'failed') {
@@ -209,7 +219,7 @@ The document now meets WCAG 2.1 Level AA standards and is fully accessible to us
             className="hidden"
             id="file-upload"
           />
-          
+
           <Upload className="mx-auto h-16 w-16 text-gray-400 mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
             Upload your PDF to get started
@@ -217,7 +227,7 @@ The document now meets WCAG 2.1 Level AA standards and is fully accessible to us
           <p className="text-sm text-gray-600 mb-4">
             Drag and drop your PDF here, or click to browse
           </p>
-          
+
           <label
             htmlFor="file-upload"
             className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 cursor-pointer transition-colors"
@@ -225,7 +235,7 @@ The document now meets WCAG 2.1 Level AA standards and is fully accessible to us
             <FileText className="w-5 h-5 mr-2" />
             Select PDF File
           </label>
-          
+
           <p className="text-xs text-gray-500 mt-4">
             Maximum file size: 100MB • PDF files only
           </p>
@@ -252,7 +262,7 @@ The document now meets WCAG 2.1 Level AA standards and is fully accessible to us
               <X className="h-5 w-5" />
             </button>
           </div>
-          
+
           <button
             onClick={processFile}
             className="w-full py-3 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
@@ -315,7 +325,9 @@ The document now meets WCAG 2.1 Level AA standards and is fully accessible to us
                 className="flex items-center justify-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
               >
                 <FileDown className="h-6 w-6 text-blue-600 mr-2" />
-                <span className="font-medium text-blue-900">Accessible PDF</span>
+                <span className="font-medium text-blue-900">
+                  Accessible PDF
+                </span>
               </a>
               <a
                 href={result.htmlUrl}
@@ -323,7 +335,9 @@ The document now meets WCAG 2.1 Level AA standards and is fully accessible to us
                 className="flex items-center justify-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
               >
                 <FileCode className="h-6 w-6 text-purple-600 mr-2" />
-                <span className="font-medium text-purple-900">HTML Version</span>
+                <span className="font-medium text-purple-900">
+                  HTML Version
+                </span>
               </a>
               <a
                 href={result.textUrl}
