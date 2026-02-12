@@ -23,7 +23,7 @@ jobs:
       tests: ${{ steps.changes.outputs.tests }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v2
+      - uses: dorny/paths-filter@v3
         id: changes
         with:
           filters: |
@@ -60,13 +60,13 @@ jobs:
       # Python setup
       - name: Set up Python
         if: needs.changes.outputs.backend == 'true'
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Cache Python dependencies
         if: needs.changes.outputs.backend == 'true'
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/pip
@@ -98,7 +98,7 @@ jobs:
 
       - name: Cache pnpm dependencies
         if: needs.changes.outputs.frontend == 'true'
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.pnpm-store
           key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
@@ -120,13 +120,13 @@ jobs:
       # Python linting
       - name: Set up Python
         if: needs.changes.outputs.backend == 'true'
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Restore Python cache
         if: needs.changes.outputs.backend == 'true'
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/pip
@@ -159,7 +159,7 @@ jobs:
 
       - name: Restore pnpm cache
         if: needs.changes.outputs.frontend == 'true'
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.pnpm-store
           key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
@@ -215,13 +215,13 @@ jobs:
       # Python tests
       - name: Set up Python for backend tests
         if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.tests == 'true'
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Restore Python cache
         if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.tests == 'true'
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/pip
@@ -256,7 +256,7 @@ jobs:
 
       - name: Restore pnpm cache
         if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.tests == 'true'
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.pnpm-store
           key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
@@ -279,7 +279,7 @@ jobs:
 
       - name: Upload coverage reports
         if: always()
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           files: ./coverage.xml,./coverage/lcov.info
           flags: unittests
@@ -295,12 +295,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Restore Python cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/pip
@@ -341,7 +341,7 @@ jobs:
           version: ${{ env.PNPM_VERSION }}
 
       - name: Restore pnpm cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.pnpm-store
           key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
@@ -372,7 +372,7 @@ jobs:
           pnpm --filter=accesspdf-dashboard run test:auth || exit 1
 
       - name: Upload Playwright report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: playwright-report
@@ -396,7 +396,7 @@ jobs:
           output: 'trivy-results.sarif'
 
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
@@ -454,7 +454,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v3
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -478,7 +478,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v3
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -503,6 +503,5 @@ jobs:
         with:
           status: ${{ job.status }}
           channel: '#deployments'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
