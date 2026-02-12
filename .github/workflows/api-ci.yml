@@ -156,7 +156,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -329,12 +329,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Cache pip dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
@@ -586,7 +586,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -1185,7 +1185,9 @@ jobs:
           role-session-name: GitHubActions-APISecurity-${{ github.run_id }}
 
       - name: Monitor API security events
-        if: secrets.DEPLOYMENT_WEBHOOK_URL != ''
+        env:
+          WEBHOOK_URL: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+        if: env.WEBHOOK_URL != ''
         uses: ./.github/actions/security-monitor
         with:
           webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
@@ -1211,7 +1213,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Notify deployment start
-        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && github.event_name != 'pull_request'
+        env:
+          WEBHOOK_URL: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+        if: env.WEBHOOK_URL != '' && github.event_name != 'pull_request'
         uses: ./.github/actions/notify-deployment
         with:
           webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
@@ -1230,7 +1234,9 @@ jobs:
             }
 
       - name: Notify manual approval required
-        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && github.event_name == 'workflow_dispatch' && needs.blue-green-deploy.outputs.deployment_status == 'traffic_shifted'
+        env:
+          WEBHOOK_URL: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+        if: env.WEBHOOK_URL != '' && github.event_name == 'workflow_dispatch' && needs.blue-green-deploy.outputs.deployment_status == 'traffic_shifted'
         uses: ./.github/actions/notify-deployment
         with:
           webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
@@ -1252,7 +1258,9 @@ jobs:
             }
 
       - name: Notify deployment success
-        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && needs.blue-green-deploy.result == 'success'
+        env:
+          WEBHOOK_URL: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+        if: env.WEBHOOK_URL != '' && needs.blue-green-deploy.result == 'success'
         uses: ./.github/actions/notify-deployment
         with:
           webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
@@ -1276,8 +1284,10 @@ jobs:
             }
 
       - name: Notify deployment failure
+        env:
+          WEBHOOK_URL: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
         if: |
-          secrets.DEPLOYMENT_WEBHOOK_URL != '' && (
+          env.WEBHOOK_URL != '' && (
             needs.test.result == 'failure' ||
             needs.build-package.result == 'failure' ||
             needs.blue-green-deploy.result == 'failure'
@@ -1319,7 +1329,9 @@ jobs:
             }
 
       - name: Notify rollback events
-        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && needs.blue-green-deploy.result == 'failure'
+        env:
+          WEBHOOK_URL: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+        if: env.WEBHOOK_URL != '' && needs.blue-green-deploy.result == 'failure'
         uses: ./.github/actions/notify-deployment
         with:
           webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
@@ -1352,7 +1364,9 @@ jobs:
             }
 
       - name: Notify security alerts
-        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && needs.security-monitoring.outputs.security_status == 'alert'
+        env:
+          WEBHOOK_URL: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+        if: env.WEBHOOK_URL != '' && needs.security-monitoring.outputs.security_status == 'alert'
         uses: ./.github/actions/notify-deployment
         with:
           webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
@@ -1387,6 +1401,8 @@ jobs:
             }
 
       - name: Log notification summary
+        env:
+          WEBHOOK_URL: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
         run: |
           echo "## 📢 API Deployment Notifications" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -1395,7 +1411,11 @@ jobs:
           echo "**Deployment Strategy:** Blue/Green" >> $GITHUB_STEP_SUMMARY
           echo "**Deployment Status:** ${{ needs.blue-green-deploy.result }}" >> $GITHUB_STEP_SUMMARY
           echo "**Security Status:** ${{ needs.security-monitoring.outputs.security_status || 'not_monitored' }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Notifications Sent:** ${{ secrets.DEPLOYMENT_WEBHOOK_URL != '' && 'Yes' || 'No (webhook not configured)' }}" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$WEBHOOK_URL" ]; then
+            echo "**Notifications Sent:** Yes" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Notifications Sent:** No (webhook not configured)" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ needs.blue-green-deploy.result }}" = "success" ]; then
