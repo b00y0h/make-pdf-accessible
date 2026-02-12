@@ -129,8 +129,8 @@ jobs:
             echo "services=[]" >> $GITHUB_OUTPUT
             echo "No services to build"
           else
-            # Convert space-separated list to JSON array
-            SERVICES_JSON=$(echo "$SERVICES" | tr ' ' '\n' | grep -v '^$' | jq -R . | jq -s .)
+            # Convert space-separated list to compact JSON array (single line)
+            SERVICES_JSON=$(echo "$SERVICES" | tr ' ' '\n' | grep -v '^$' | jq -R . | jq -sc .)
             echo "services=$SERVICES_JSON" >> $GITHUB_OUTPUT
             echo "Services to build: $SERVICES"
           fi

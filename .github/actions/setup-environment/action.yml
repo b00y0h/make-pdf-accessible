@@ -72,23 +72,39 @@ runs:
         DEPLOYMENT_STRATEGY=$(yq eval '.deployment.deployment_strategy // "rolling"' "$CONFIG_FILE")
         RESOURCE_PREFIX=$(yq eval '.aws.resource_prefix // "pdf-accessibility-dev"' "$CONFIG_FILE")
 
-        # Extract allowed branches as JSON array
-        ALLOWED_BRANCHES=$(yq eval '.settings.allowed_branches // ["main"]' "$CONFIG_FILE" -o=json)
+        # Extract allowed branches as compact JSON array (single line)
+        ALLOWED_BRANCHES=$(yq eval '.settings.allowed_branches // ["main"]' "$CONFIG_FILE" -o=json -I=0)
 
-        # Extract notification configuration as JSON
-        NOTIFICATION_CONFIG=$(yq eval '.notifications // {}' "$CONFIG_FILE" -o=json)
+        # Extract notification configuration as compact JSON (single line)
+        NOTIFICATION_CONFIG=$(yq eval '.notifications // {}' "$CONFIG_FILE" -o=json -I=0)
 
-        # Extract testing configuration as JSON
-        TESTING_CONFIG=$(yq eval '.testing // {}' "$CONFIG_FILE" -o=json)
+        # Extract testing configuration as compact JSON (single line)
+        TESTING_CONFIG=$(yq eval '.testing // {}' "$CONFIG_FILE" -o=json -I=0)
 
-        # Set outputs
+        # Set outputs (simple values)
         echo "require_approval=$REQUIRE_APPROVAL" >> $GITHUB_OUTPUT
         echo "security_threshold=$SECURITY_THRESHOLD" >> $GITHUB_OUTPUT
         echo "deployment_strategy=$DEPLOYMENT_STRATEGY" >> $GITHUB_OUTPUT
         echo "resource_prefix=$RESOURCE_PREFIX" >> $GITHUB_OUTPUT
-        echo "allowed_branches=$ALLOWED_BRANCHES" >> $GITHUB_OUTPUT
-        echo "notification_config=$NOTIFICATION_CONFIG" >> $GITHUB_OUTPUT
-        echo "testing_config=$TESTING_CONFIG" >> $GITHUB_OUTPUT
+
+        # Set outputs (JSON values - use heredoc for multi-line safety)
+        {
+          echo "allowed_branches<<EOF"
+          echo "$ALLOWED_BRANCHES"
+          echo "EOF"
+        } >> $GITHUB_OUTPUT
+
+        {
+          echo "notification_config<<EOF"
+          echo "$NOTIFICATION_CONFIG"
+          echo "EOF"
+        } >> $GITHUB_OUTPUT
+
+        {
+          echo "testing_config<<EOF"
+          echo "$TESTING_CONFIG"
+          echo "EOF"
+        } >> $GITHUB_OUTPUT
 
         echo "✅ Configuration loaded successfully"
         echo "  - Require Approval: $REQUIRE_APPROVAL"
