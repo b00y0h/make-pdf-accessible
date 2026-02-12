@@ -85,6 +85,30 @@ if [ ! -z "$ts_files" ]; then
     fi
 fi
 
+# Check GitHub Actions workflow files
+workflow_files=$(echo "$staged_files" | grep -E '^\.github/workflows/.*\.ya?ml$' | head -20)
+if [ ! -z "$workflow_files" ]; then
+    echo "${YELLOW}📝 Checking GitHub Actions workflow files...${NC}"
+
+    if command -v actionlint >/dev/null 2>&1; then
+        for file in $workflow_files; do
+            if [ -f "$file" ]; then
+                # Run actionlint and filter out shellcheck warnings (focus on critical errors)
+                errors=$(actionlint "$file" 2>&1 | grep -v "shellcheck reported issue" | grep -v "property.*is not defined" || true)
+                if [ ! -z "$errors" ]; then
+                    echo "${RED}❌ GitHub Actions workflow errors in: $file${NC}"
+                    echo "$errors" | head -10
+                    echo "${YELLOW}💡 Run: actionlint $file${NC}"
+                    has_errors=true
+                fi
+            fi
+        done
+    else
+        echo "${YELLOW}⚠️  actionlint not installed, skipping workflow validation${NC}"
+        echo "${YELLOW}💡 Install with: brew install actionlint${NC}"
+    fi
+fi
+
 # Check for common issues
 echo "${YELLOW}🔍 Checking for common issues...${NC}"
 
