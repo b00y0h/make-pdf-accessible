@@ -93,8 +93,9 @@ if [ ! -z "$workflow_files" ]; then
     if command -v actionlint >/dev/null 2>&1; then
         for file in $workflow_files; do
             if [ -f "$file" ]; then
-                # Run actionlint and filter out shellcheck warnings (focus on critical errors)
-                errors=$(actionlint "$file" 2>&1 | grep -v "shellcheck reported issue" | grep -v "property.*is not defined" || true)
+                # Run actionlint and only capture actual error lines (start with filename)
+                # This filters out shellcheck suggestions and their context lines
+                errors=$(actionlint "$file" 2>&1 | grep "^\.github" | grep -v "shellcheck reported issue" | grep -v "property.*is not defined" || true)
                 if [ ! -z "$errors" ]; then
                     echo "${RED}❌ GitHub Actions workflow errors in: $file${NC}"
                     echo "$errors" | head -10
