@@ -314,7 +314,7 @@ jobs:
           echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
       - name: Setup pnpm cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ env.STORE_PATH }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
@@ -850,23 +850,18 @@ jobs:
           service: web
           environment: ${{ inputs.environment || 'prod' }}
           version: ${{ needs.test-and-build.outputs.build_version }}
-          status: ${{ steps.verify-deployment.outputs.verification_status == 'success' && 'success' || 'failed' }}
-          health_status: ${{ steps.verify-deployment.outputs.verification_status || 'unknown' }}
+          status: ${{ steps.verify.outputs.verification_status == 'success' && 'success' || 'failed' }}
+          health_status: ${{ steps.verify.outputs.verification_status || 'unknown' }}
 
       - name: Trigger automatic rollback on failure
-        if: failure() || (steps.verify-deployment.outputs.verification_status == 'failed')
+        if: failure() || (steps.verify.outputs.verification_status == 'failed')
         uses: ./.github/actions/auto-rollback
         with:
           service: web
           environment: ${{ inputs.environment || 'prod' }}
-          health_check_failed: ${{ steps.verify-deployment.outputs.verification_status == 'failed' || 'true' }}
+          health_check_failed: ${{ steps.verify.outputs.verification_status == 'failed' || 'true' }}
           rollback_threshold: 2
           github_token: ${{ secrets.GITHUB_TOKEN }}
-
-          if [ -n "${{ steps.backup.outputs.backup_path }}" ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Rollback:** Backup available at s3://${{ steps.config.outputs.s3_bucket }}/${{ steps.backup.outputs.backup_path }}" >> $GITHUB_STEP_SUMMARY
-          fi
 
   rollback:
     name: Rollback Deployment
@@ -896,6 +891,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [detect-changes, test-and-build, deploy]
     if: always() && needs.deploy.result == 'success'
+    env:
+      HAS_WEBHOOK: ${{ secrets.DEPLOYMENT_WEBHOOK_URL != '' }}
 
     steps:
       - name: Checkout repository
@@ -909,7 +906,7 @@ jobs:
           role-session-name: GitHubActions-WebSecurity-${{ github.run_id }}
 
       - name: Monitor web security events
-        if: secrets.DEPLOYMENT_WEBHOOK_URL != ''
+        if: env.HAS_WEBHOOK == 'true'
         uses: ./.github/actions/security-monitor
         with:
           webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
@@ -923,13 +920,15 @@ jobs:
     needs:
       [detect-changes, test-and-build, deploy, rollback, security-monitoring]
     if: always() && needs.detect-changes.outputs.should_deploy == 'true'
+    env:
+      HAS_WEBHOOK: ${{ secrets.DEPLOYMENT_WEBHOOK_URL != '' }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Notify deployment start
-        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && github.event_name != 'pull_request'
+        if: env.HAS_WEBHOOK == 'true' && github.event_name != 'pull_request'
         uses: ./.github/actions/notify-deployment
         with:
           webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
@@ -947,7 +946,7 @@ jobs:
             }
 
       - name: Notify deployment success
-        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && needs.deploy.result == 'success'
+        if: env.HAS_WEBHOOK == 'true' && needs.deploy.result == 'success'
         uses: ./.github/actions/notify-deployment
         with:
           webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
@@ -967,7 +966,7 @@ jobs:
             }
 
       - name: Notify deployment failure
-        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && needs.deploy.result == 'failure'
+        if: env.HAS_WEBHOOK == 'true' && needs.deploy.result == 'failure'
         uses: ./.github/actions/notify-deployment
         with:
           webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
@@ -998,7 +997,7 @@ jobs:
             }
 
       - name: Notify rollback initiated
-        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && needs.rollback.result != 'skipped' && needs.rollback.result != ''
+        if: env.HAS_WEBHOOK == 'true' && needs.rollback.result != 'skipped' && needs.rollback.result != ''
         uses: ./.github/actions/notify-deployment
         with:
           webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
@@ -1025,7 +1024,7 @@ jobs:
             }
 
       - name: Notify security alerts
-        if: secrets.DEPLOYMENT_WEBHOOK_URL != '' && needs.security-monitoring.outputs.security_status == 'alert'
+        if: env.HAS_WEBHOOK == 'true' && needs.security-monitoring.outputs.security_status == 'alert'
         uses: ./.github/actions/notify-deployment
         with:
           webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
@@ -1059,7 +1058,7 @@ jobs:
           echo "**Environment:** ${{ inputs.environment || 'production' }}" >> $GITHUB_STEP_SUMMARY
           echo "**Deployment Status:** ${{ needs.deploy.result }}" >> $GITHUB_STEP_SUMMARY
           echo "**Security Status:** ${{ needs.security-monitoring.outputs.security_status || 'not_monitored' }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Notifications Sent:** ${{ secrets.DEPLOYMENT_WEBHOOK_URL != '' && 'Yes' || 'No (webhook not configured)' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Notifications Sent:** ${{ env.HAS_WEBHOOK == 'true' && 'Yes' || 'No (webhook not configured)' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ needs.deploy.result }}" = "success" ]; then
