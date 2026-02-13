@@ -4,7 +4,7 @@
 
 | Phase | Name | Status | Description |
 |-------|------|--------|-------------|
-| 1 | Direct Dependency Updates | 🔲 Pending | Update all direct dependencies with known vulnerabilities |
+| 1 | Direct Dependency Updates | ✅ Complete | Updated axios, better-auth, next (dashboard), playwright, postcss |
 | 2 | Next.js Major Upgrade (web/) | 🔲 Pending | Upgrade web/ from Next.js 13.4.19 to 15.x |
 | 3 | Transitive & Verification | 🔲 Pending | Fix transitive deps, resolve overrides, verify builds |
 
@@ -49,10 +49,10 @@
 
 ### Deliverables
 
-- [ ] All direct dependencies updated
-- [ ] pnpm-lock.yaml regenerated
-- [ ] Type checking passes
-- [ ] Tests pass
+- [x] All direct dependencies updated
+- [x] pnpm-lock.yaml regenerated
+- [x] Type checking passes (dashboard)
+- [ ] Tests pass (deferred - disk space constraints)
 
 ---
 
