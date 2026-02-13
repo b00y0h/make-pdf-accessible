@@ -35,13 +35,12 @@ jobs:
           version: ${{ env.PNPM_VERSION }}
 
       - name: Cache pnpm dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.pnpm-store
-          key: ${{ runner.os }}-pnpm-dashboard-${{ hashFiles('dashboard/pnpm-lock.yaml', 'pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-pnpm-v2-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-pnpm-dashboard-
-            ${{ runner.os }}-pnpm-
+            ${{ runner.os }}-pnpm-v2-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -64,10 +63,12 @@ jobs:
           version: ${{ env.PNPM_VERSION }}
 
       - name: Restore cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.pnpm-store
-          key: ${{ runner.os }}-pnpm-dashboard-${{ hashFiles('dashboard/pnpm-lock.yaml', 'pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-pnpm-v2-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-v2-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -110,10 +111,12 @@ jobs:
           version: ${{ env.PNPM_VERSION }}
 
       - name: Restore cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.pnpm-store
-          key: ${{ runner.os }}-pnpm-dashboard-${{ hashFiles('dashboard/pnpm-lock.yaml', 'pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-pnpm-v2-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-v2-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -161,10 +164,12 @@ jobs:
           version: ${{ env.PNPM_VERSION }}
 
       - name: Restore cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.pnpm-store
-          key: ${{ runner.os }}-pnpm-dashboard-${{ hashFiles('dashboard/pnpm-lock.yaml', 'pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-pnpm-v2-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-v2-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -219,10 +224,12 @@ jobs:
           version: ${{ env.PNPM_VERSION }}
 
       - name: Restore cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.pnpm-store
-          key: ${{ runner.os }}-pnpm-dashboard-${{ hashFiles('dashboard/pnpm-lock.yaml', 'pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-pnpm-v2-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-v2-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -285,10 +292,12 @@ jobs:
           version: ${{ env.PNPM_VERSION }}
 
       - name: Restore cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.pnpm-store
-          key: ${{ runner.os }}-pnpm-dashboard-${{ hashFiles('dashboard/pnpm-lock.yaml', 'pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-pnpm-v2-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-v2-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -350,10 +359,12 @@ jobs:
           version: ${{ env.PNPM_VERSION }}
 
       - name: Restore cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.pnpm-store
-          key: ${{ runner.os }}-pnpm-dashboard-${{ hashFiles('dashboard/pnpm-lock.yaml', 'pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-pnpm-v2-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-v2-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

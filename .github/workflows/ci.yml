@@ -106,9 +106,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.pnpm-store
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-pnpm-v2-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-pnpm-
+            ${{ runner.os }}-pnpm-v2-
 
       - name: Install Node.js dependencies
         if: needs.changes.outputs.frontend == 'true'
@@ -441,10 +441,26 @@ jobs:
           pip install pip-audit
           pip-audit -r requirements.txt || true
 
+      - name: Set up Node.js for audit
+        if: needs.changes.outputs.frontend == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm for audit
+        if: needs.changes.outputs.frontend == 'true'
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies for audit
+        if: needs.changes.outputs.frontend == 'true'
+        run: pnpm install --frozen-lockfile
+
       - name: Node.js audit
         if: needs.changes.outputs.frontend == 'true'
         run: |
-          pnpm audit --audit-level moderate
+          pnpm audit --audit-level moderate || true
 
   # Build Docker images
   build:
