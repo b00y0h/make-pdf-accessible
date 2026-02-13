@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import {
   Card,
   CardContent,
@@ -101,7 +101,7 @@ function getPriorityBadge(priority: boolean) {
   ) : null;
 }
 
-export default function QueuePage() {
+function QueuePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
@@ -393,5 +393,21 @@ export default function QueuePage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function QueuePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-6">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <DocumentSkeleton key={i} />
+          ))}
+        </div>
+      }
+    >
+      <QueuePageContent />
+    </Suspense>
   );
 }

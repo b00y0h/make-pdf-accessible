@@ -5,8 +5,8 @@
 | Phase | Name | Status | Description |
 |-------|------|--------|-------------|
 | 1 | Direct Dependency Updates | ✅ Complete | Updated axios, better-auth, next (dashboard), playwright, postcss |
-| 2 | Next.js Major Upgrade (web/) | 🔲 Pending | Upgrade web/ from Next.js 13.4.19 to 15.x |
-| 3 | Transitive & Verification | 🔲 Pending | Fix transitive deps, resolve overrides, verify builds |
+| 2 | Next.js Major Upgrade (web/) | ✅ Complete | Upgraded web/ from Next.js 13.4.19 to 15.5.12 |
+| 3 | Transitive & Verification | ✅ Complete | Added pnpm overrides, 0 vulnerabilities, builds pass |
 
 ---
 
