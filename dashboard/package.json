@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "type-check": "next build --no-lint",
     "test": "npm run test:unit && npm run test:integration && npm run test:e2e",
     "test:unit": "jest --testPathPattern=tests/unit",
