@@ -87,6 +87,9 @@ jobs:
           source venv/bin/activate
           pip install --upgrade pip
           pip install -r requirements.txt
+          # Install service-specific dependencies
+          pip install -r services/api/requirements.txt
+          pip install -r services/worker/requirements.txt
 
       # Node.js setup
       - name: Set up Node.js
@@ -143,10 +146,13 @@ jobs:
         run: |
           if [ ! -f venv/bin/activate ]; then
             python -m venv venv
-            source venv/bin/activate
-            pip install --upgrade pip
-            pip install -r requirements.txt
           fi
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          # Install service-specific dependencies for type checking
+          pip install -r services/api/requirements.txt
+          pip install -r services/worker/requirements.txt
 
       - name: Python linting and formatting
         if: needs.changes.outputs.backend == 'true'
@@ -248,10 +254,13 @@ jobs:
         run: |
           if [ ! -f venv/bin/activate ]; then
             python -m venv venv
-            source venv/bin/activate
-            pip install --upgrade pip
-            pip install -r requirements.txt
           fi
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          # Install service-specific dependencies for tests
+          pip install -r services/api/requirements.txt
+          pip install -r services/worker/requirements.txt
 
       - name: Run Python unit tests
         if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.tests == 'true'
@@ -335,19 +344,24 @@ jobs:
         run: |
           if [ ! -f venv/bin/activate ]; then
             python -m venv venv
-            source venv/bin/activate
-            pip install --upgrade pip
-            pip install -r requirements.txt
           fi
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          # Install service-specific dependencies for tests
+          pip install -r services/api/requirements.txt
+          pip install -r services/worker/requirements.txt
 
       - name: Run integration tests
         env:
           TESTING: true
         run: |
           source venv/bin/activate
-          # Run integration tests with Testcontainers
-          pytest services/api/tests/integration/ -v --tb=short -m "integration"
-          pytest services/worker/tests/integration/ -v --tb=short -m "integration"
+          # Run API integration tests
+          pytest services/api/tests/integration/ -v --tb=short
+          # Worker integration tests directory is currently empty, skip
+          # Uncomment when tests are added:
+          # pytest services/worker/tests/integration/ -v --tb=short
 
   # E2E tests with Playwright
   test-e2e:
