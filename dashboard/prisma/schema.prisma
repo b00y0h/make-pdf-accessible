@@ -1,0 +1,17 @@
+// Minimal Prisma schema for type generation
+// TODO: Configure actual database connection when implementing data persistence
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Placeholder model - remove when implementing actual schema
+model Placeholder {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+}
