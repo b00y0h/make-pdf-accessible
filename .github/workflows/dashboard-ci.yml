@@ -180,6 +180,11 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm --filter=accesspdf-dashboard exec playwright install --with-deps chromium
 
+      - name: Setup database schema
+        env:
+          AUTH_DATABASE_URL: postgresql://postgres:password@localhost:5433/better_auth
+        run: pnpm --filter=accesspdf-dashboard run db:push
+
       - name: Run integration tests
         env:
           AUTH_DATABASE_URL: postgresql://postgres:password@localhost:5433/better_auth
@@ -239,6 +244,11 @@ jobs:
 
       - name: Install Playwright browsers
         run: pnpm --filter=accesspdf-dashboard exec playwright install --with-deps
+
+      - name: Setup database schema
+        env:
+          AUTH_DATABASE_URL: postgresql://postgres:password@localhost:5433/better_auth
+        run: pnpm --filter=accesspdf-dashboard run db:push
 
       - name: Run E2E tests
         env:
