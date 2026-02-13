@@ -20,11 +20,22 @@ const nextConfig = {
     console.log('[webpack] dir:', dir);
     console.log('[webpack] projectSrc:', projectSrc);
 
-    // Add explicit path alias resolution
+    // Add explicit path alias resolution for all @/ paths
     config.resolve.alias = {
       ...config.resolve.alias,
+      '@/lib': path.join(projectSrc, 'lib'),
+      '@/components': path.join(projectSrc, 'components'),
+      '@/hooks': path.join(projectSrc, 'hooks'),
+      '@/app': path.join(projectSrc, 'app'),
       '@': projectSrc,
     };
+
+    // Ensure modules resolution includes src directory
+    config.resolve.modules = [
+      ...(config.resolve.modules || []),
+      projectSrc,
+      'node_modules',
+    ];
 
     // Handle node: protocol imports in browser builds
     if (!isServer) {
