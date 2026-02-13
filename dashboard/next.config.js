@@ -1,3 +1,5 @@
+const path = require('path');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
@@ -8,6 +10,12 @@ const nextConfig = {
     CUSTOM_KEY: 'my-value',
   },
   webpack: (config, { isServer }) => {
+    // Add explicit path alias resolution
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': path.resolve(__dirname, './src'),
+    };
+
     // Handle node: protocol imports in browser builds
     if (!isServer) {
       config.resolve.fallback = {
