@@ -1,5 +1,10 @@
 const path = require('path');
 
+// Debug: log the resolved paths
+const srcPath = path.resolve(__dirname, 'src');
+console.log('[next.config.js] __dirname:', __dirname);
+console.log('[next.config.js] srcPath:', srcPath);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
@@ -9,11 +14,16 @@ const nextConfig = {
   env: {
     CUSTOM_KEY: 'my-value',
   },
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, dir }) => {
+    // Use 'dir' from Next.js context which is the project root
+    const projectSrc = path.join(dir, 'src');
+    console.log('[webpack] dir:', dir);
+    console.log('[webpack] projectSrc:', projectSrc);
+
     // Add explicit path alias resolution
     config.resolve.alias = {
       ...config.resolve.alias,
-      '@': path.resolve(__dirname, './src'),
+      '@': projectSrc,
     };
 
     // Handle node: protocol imports in browser builds
