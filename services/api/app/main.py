@@ -49,7 +49,7 @@ def safe_bytes_encoder(obj):
     """
     try:
         # Try to decode as UTF-8 first for text data
-        return obj.decode('utf-8')
+        return obj.decode("utf-8")
     except UnicodeDecodeError:
         # If it's binary data (like PDF), encode as base64
         return f"<base64>{base64.b64encode(obj).decode('ascii')}"
@@ -68,8 +68,7 @@ class CORSErrorMiddleware(BaseHTTPMiddleware):
         except Exception as exc:
             # Create error response
             response = JSONResponse(
-                status_code=500,
-                content={"detail": "Internal server error"}
+                status_code=500, content={"detail": "Internal server error"}
             )
             # Log the actual error
             logger.error(f"Unhandled error: {exc}")
@@ -90,11 +89,52 @@ class CORSErrorMiddleware(BaseHTTPMiddleware):
         return response
 
 
+def _validate_startup_configuration():
+    """Validate critical configuration at startup"""
+    app_env = settings.app_env
+    logger.info(f"Validating configuration for environment: {app_env}")
+
+    if app_env != "development":
+        errors = []
+
+        # AWS credentials
+        if not settings.aws_access_key_id:
+            errors.append("AWS_ACCESS_KEY_ID is required")
+        if not settings.aws_secret_access_key:
+            errors.append("AWS_SECRET_ACCESS_KEY is required")
+
+        # JWT secret
+        if not settings.api_jwt_secret:
+            errors.append("API_JWT_SECRET is required")
+        elif len(settings.api_jwt_secret) < 32:
+            errors.append("API_JWT_SECRET must be at least 32 characters")
+
+        # Endpoint URL
+        if settings.aws_endpoint_url and (
+            "localhost" in settings.aws_endpoint_url
+            or "localstack" in settings.aws_endpoint_url
+        ):
+            errors.append("LocalStack endpoint not allowed in production")
+
+        if errors:
+            error_msg = "Configuration validation failed:\n" + "\n".join(
+                f"  - {e}" for e in errors
+            )
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+
+    logger.info("Configuration validation passed")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan context manager"""
     # Startup
     logger.info("Starting PDF Accessibility API")
+
+    # Validate critical configuration
+    _validate_startup_configuration()
+
     yield
     # Shutdown
     logger.info("Shutting down PDF Accessibility API")
@@ -169,7 +209,9 @@ async def unicode_decode_error_handler(
         content=ErrorResponse(
             error="validation_error",
             message="Invalid file content or encoding in request",
-            details={"error": "Binary content cannot be processed in request validation"},
+            details={
+                "error": "Binary content cannot be processed in request validation"
+            },
             request_id=getattr(request.state, "request_id", None),
         ).model_dump(),
     )

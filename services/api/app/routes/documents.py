@@ -52,12 +52,18 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 )
 @tracer.capture_method
 async def get_presigned_upload_url(
-    request: PreSignedUploadRequest,
-    current_user: User = Depends(get_dashboard_user)
+    request: PreSignedUploadRequest, current_user: User = Depends(get_dashboard_user)
 ) -> PreSignedUploadResponse:
     """Get pre-signed S3 upload URL for direct client upload"""
 
-    logger.info("Presigned upload request received", extra={"file_name": request.filename, "content_type": request.content_type, "file_size": request.file_size})
+    logger.info(
+        "Presigned upload request received",
+        extra={
+            "file_name": request.filename,
+            "content_type": request.content_type,
+            "file_size": request.file_size,
+        },
+    )
     logger.info(f"Current user: {current_user.sub}, org_id={current_user.org_id}")
 
     # Enforce quota limits
@@ -164,14 +170,14 @@ async def demo_presigned_upload(
     demo_repo.get_or_create_session(
         session_id=x_session_id,
         ip_address=client_ip,
-        user_agent=user_agent or "unknown"
+        user_agent=user_agent or "unknown",
     )
 
     # Check rate limits
     allowed, reason = demo_repo.check_rate_limit(
         session_id=x_session_id,
         ip_address=client_ip,
-        max_per_hour=5  # 5 uploads per hour for demo
+        max_per_hour=5,  # 5 uploads per hour for demo
     )
 
     if not allowed:
@@ -190,7 +196,7 @@ async def demo_presigned_upload(
 
     # Validate file extension
     filename_lower = request_obj.filename.lower()
-    if not filename_lower.endswith('.pdf'):
+    if not filename_lower.endswith(".pdf"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Demo only supports PDF files",
@@ -208,8 +214,7 @@ async def demo_presigned_upload(
 
         # Record the upload in the session
         demo_repo.record_upload(
-            session_id=x_session_id,
-            document_id=str(upload_response.doc_id)
+            session_id=x_session_id, document_id=str(upload_response.doc_id)
         )
 
         logger.info(
@@ -324,14 +329,14 @@ async def create_document_after_upload(
             import boto3
             from botocore.config import Config
 
-            s3_config = Config(signature_version='s3v4')
+            s3_config = Config(signature_version="s3v4")
             s3_client = boto3.client(
-                's3',
+                "s3",
                 endpoint_url=settings.aws_endpoint_url,
                 aws_access_key_id=settings.aws_access_key_id,
                 aws_secret_access_key=settings.aws_secret_access_key,
-                region_name='us-east-1',
-                config=s3_config
+                region_name="us-east-1",
+                config=s3_config,
             )
 
             await security_service.validate_s3_file(
@@ -384,7 +389,7 @@ async def create_document_after_upload(
             filename=request.filename,
             content_type=request.content_type,
             file_size=request.file_size,
-            metadata=request.metadata
+            metadata=request.metadata,
         )
 
         # Increment quota usage after successful document creation
@@ -548,14 +553,14 @@ async def upload_document(
             s3_key = f"uploads/{current_user.sub}/{doc_id}/{filename}"
 
             # Create S3 client
-            s3_config = Config(signature_version='s3v4')
+            s3_config = Config(signature_version="s3v4")
             s3_client = boto3.client(
-                's3',
+                "s3",
                 endpoint_url=settings.aws_endpoint_url,
                 aws_access_key_id=settings.aws_access_key_id,
                 aws_secret_access_key=settings.aws_secret_access_key,
-                region_name='us-east-1',
-                config=s3_config
+                region_name="us-east-1",
+                config=s3_config,
             )
 
             # Upload file to S3
@@ -563,7 +568,7 @@ async def upload_document(
                 Bucket=settings.s3_bucket,
                 Key=s3_key,
                 Body=file_content,
-                ContentType=file.content_type or 'application/pdf'
+                ContentType=file.content_type or "application/pdf",
             )
 
             logger.info(
@@ -572,21 +577,18 @@ async def upload_document(
                     "s3_key": s3_key,
                     "file_name": filename,
                     "user_id": current_user.sub,
-                    "doc_id": str(doc_id)
-                }
+                    "doc_id": str(doc_id),
+                },
             )
 
         except Exception as e:
             logger.error(
                 f"Failed to upload file to S3: {str(e)}",
-                extra={
-                    "file_name": filename,
-                    "user_id": current_user.sub
-                }
+                extra={"file_name": filename, "user_id": current_user.sub},
             )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to upload file. Please try again."
+                detail="Failed to upload file. Please try again.",
             )
 
     try:
@@ -598,9 +600,9 @@ async def upload_document(
                 doc_id=doc_id,
                 s3_key=s3_key,
                 filename=filename,
-                content_type=file.content_type or 'application/pdf',
+                content_type=file.content_type or "application/pdf",
                 file_size=len(file_content),
-                metadata=metadata_dict
+                metadata=metadata_dict,
             )
         else:
             # Use regular create_document for URL-based processing
@@ -713,8 +715,7 @@ async def demo_get_document(
 
         if not document:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Document not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
             )
 
         logger.info(
@@ -906,7 +907,7 @@ async def get_document(
 async def demo_get_download_url(
     doc_id: str,
     document_type: str = Query(..., description="Type of document to download"),
-    request: Request = None
+    request: Request = None,
 ):
     """Get download URL for demo document artifacts"""
     logging.info(f"Demo download URL requested for {doc_id}, type: {document_type}")
@@ -922,13 +923,12 @@ async def demo_get_download_url(
         "html": f"exports/{doc_id}/document.html",
         "text": f"exports/{doc_id}/document.txt",
         "csv": f"exports/{doc_id}/data.csv",
-        "analysis": f"reports/{doc_id}/analysis.json"
+        "analysis": f"reports/{doc_id}/analysis.json",
     }
 
     if document_type not in s3_keys:
         raise HTTPException(
-            status_code=400,
-            detail=f"Invalid document type: {document_type}"
+            status_code=400, detail=f"Invalid document type: {document_type}"
         )
 
     # For accessible_pdf, require authentication
@@ -937,47 +937,48 @@ async def demo_get_download_url(
         auth_header = request.headers.get("X-Authenticated-User") if request else None
         if not auth_header:
             raise HTTPException(
-                status_code=403,
-                detail="Sign in required to download accessible PDF"
+                status_code=403, detail="Sign in required to download accessible PDF"
             )
 
     try:
-        # Create S3 client with browser-accessible endpoint
-        s3_config = Config(signature_version='s3v4')
-        s3_client = boto3.client(
-            's3',
-            endpoint_url='http://localhost:4566',  # Browser-accessible endpoint
-            aws_access_key_id='test',
-            aws_secret_access_key='test',
-            region_name='us-east-1',
-            config=s3_config
-        )
+        # Create S3 client with settings-based configuration
+        s3_config = Config(signature_version="s3v4")
+        s3_client_kwargs = {"region_name": settings.aws_region, "config": s3_config}
+        if settings.aws_endpoint_url:
+            s3_client_kwargs["endpoint_url"] = settings.aws_endpoint_url
+        if settings.aws_access_key_id:
+            s3_client_kwargs["aws_access_key_id"] = settings.aws_access_key_id
+        if settings.aws_secret_access_key:
+            s3_client_kwargs["aws_secret_access_key"] = settings.aws_secret_access_key
+
+        s3_client = boto3.client("s3", **s3_client_kwargs)
 
         # Generate pre-signed URL for download
         download_url = s3_client.generate_presigned_url(
-            'get_object',
+            "get_object",
             Params={
-                'Bucket': 'pdf-accessibility-dev-pdf-originals',
-                'Key': s3_keys[document_type],
-                'ResponseContentDisposition': f'attachment; filename="{document_type}_{doc_id[-8:]}.{s3_keys[document_type].split(".")[-1]}"'
+                "Bucket": settings.pdf_originals_bucket,
+                "Key": s3_keys[document_type],
+                "ResponseContentDisposition": f'attachment; filename="{document_type}_{doc_id[-8:]}.{s3_keys[document_type].split(".")[-1]}"',
             },
-            ExpiresIn=3600  # 1 hour
+            ExpiresIn=3600,  # 1 hour
         )
 
         return {
             "download_url": download_url,
             "expires_at": (datetime.utcnow() + timedelta(hours=1)).isoformat(),
-            "document_type": document_type
+            "document_type": document_type,
         }
 
     except Exception as e:
         logging.error(f"Failed to generate download URL: {e}")
-        # Fallback to direct URL if pre-signed URL generation fails
-        base_url = "http://localhost:4566/pdf-accessibility-dev-pdf-originals"
+        # Fallback to direct URL if pre-signed URL generation fails (dev only)
+        endpoint = settings.aws_endpoint_url or "https://s3.amazonaws.com"
+        base_url = f"{endpoint}/{settings.pdf_originals_bucket}"
         return {
             "download_url": f"{base_url}/{s3_keys[document_type]}",
             "expires_at": (datetime.utcnow() + timedelta(hours=1)).isoformat(),
-            "document_type": document_type
+            "document_type": document_type,
         }
 
 
@@ -1023,7 +1024,10 @@ async def get_download_url(
 
         # Check if document is ready for download based on document type
         # Original PDF is always available, processed versions require completion
-        if document_type != DocumentType.PDF and document.status != DocumentStatus.COMPLETED:
+        if (
+            document_type != DocumentType.PDF
+            and document.status != DocumentStatus.COMPLETED
+        ):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Document is not ready for download. Current status: {document.status.value}",
@@ -1086,15 +1090,17 @@ async def get_download_url(
 @tracer.capture_method
 async def delete_document(
     document_id: UUID,
-    confirm_deletion: bool = Query(False, description="Must be true to confirm deletion"),
-    current_user: User = Depends(get_dashboard_user)
+    confirm_deletion: bool = Query(
+        False, description="Must be true to confirm deletion"
+    ),
+    current_user: User = Depends(get_dashboard_user),
 ) -> dict[str, Any]:
     """Delete document and all artifacts with confirmation"""
 
     if not confirm_deletion:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Deletion must be confirmed by setting confirm_deletion=true"
+            detail="Deletion must be confirmed by setting confirm_deletion=true",
         )
 
     try:
@@ -1110,21 +1116,26 @@ async def delete_document(
         document = await document_service.get_document(doc_id=str(document_id))
         if not document:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Document not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
             )
 
         # Check ownership (user can only delete own docs unless admin)
         if document.user_id != current_user.sub and current_user.role != "admin":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only delete your own documents"
+                detail="You can only delete your own documents",
             )
 
         # Delete all S3 artifacts
         import boto3
+
         s3_client = boto3.client("s3")
-        buckets_to_check = ["pdf-accessibility-dev-pdf-originals", "pdf-derivatives", "pdf-temp", "pdf-reports"]
+        buckets_to_check = [
+            "pdf-accessibility-dev-pdf-originals",
+            "pdf-derivatives",
+            "pdf-temp",
+            "pdf-reports",
+        ]
 
         deleted_objects = []
         doc_id = str(document_id)
@@ -1146,41 +1157,46 @@ async def delete_document(
                 for prefix in common_prefixes:
                     response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
 
-                    if 'Contents' in response:
-                        objects_to_delete = [{'Key': obj['Key']} for obj in response['Contents']]
+                    if "Contents" in response:
+                        objects_to_delete = [
+                            {"Key": obj["Key"]} for obj in response["Contents"]
+                        ]
 
                         if objects_to_delete:
                             delete_response = s3_client.delete_objects(
-                                Bucket=bucket,
-                                Delete={'Objects': objects_to_delete}
+                                Bucket=bucket, Delete={"Objects": objects_to_delete}
                             )
-                            deleted_objects.extend(delete_response.get('Deleted', []))
+                            deleted_objects.extend(delete_response.get("Deleted", []))
 
             except Exception as e:
                 logger.warning(f"Could not delete from bucket {bucket}: {e}")
 
         # Delete from MongoDB
         from services.shared.mongo.documents import get_document_repository
+
         doc_repo = get_document_repository()
         mongo_deleted = doc_repo.delete_by_id(doc_id)
 
         # Delete alt-text data
         try:
             from services.shared.mongo.alt_text import get_alt_text_repository
+
             alt_text_repo = get_alt_text_repository()
             alt_text_repo.delete_document_alt_text(doc_id)
         except Exception as e:
             logger.warning(f"Could not delete alt-text data: {e}")
 
         metrics.add_metric(name="DocumentDeletions", unit="Count", value=1)
-        metrics.add_metric(name="ArtifactsDeleted", unit="Count", value=len(deleted_objects))
+        metrics.add_metric(
+            name="ArtifactsDeleted", unit="Count", value=len(deleted_objects)
+        )
 
         logger.info(
             "Document and artifacts deleted successfully",
             extra={
                 "doc_id": str(document_id),
                 "admin_user": current_user.sub,
-                "deleted_objects": len(deleted_objects)
+                "deleted_objects": len(deleted_objects),
             },
         )
 
@@ -1192,7 +1208,7 @@ async def delete_document(
                 "mongodb_record_deleted": mongo_deleted,
                 "alt_text_deleted": True,
                 "total_artifacts_removed": len(deleted_objects),
-            }
+            },
         }
 
     except AWSServiceError as e:
@@ -1227,23 +1243,18 @@ async def generate_document_preview(
         # Get document metadata from MongoDB
         doc_repo = get_document_repository()
         document = doc_repo.get_document(
-            doc_id=str(document_id),
-            user_id=current_user.id
+            doc_id=str(document_id), user_id=current_user.id
         )
 
         if not document:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Document not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
             )
 
         # Generate preview from S3 PDF
         original_s3_key = f"original/{document_id}.pdf"
         preview_s3_key = preview_service.generate_preview_from_s3(
-            s3_key=original_s3_key,
-            page_number=page_number,
-            dpi=150,
-            format="PNG"
+            s3_key=original_s3_key, page_number=page_number, dpi=150, format="PNG"
         )
 
         # Generate presigned URL for preview
@@ -1268,8 +1279,8 @@ async def generate_document_preview(
             update_data={
                 "preview_url": preview_url,
                 "preview_s3_key": preview_s3_key,
-                "preview_generated_at": datetime.utcnow()
-            }
+                "preview_generated_at": datetime.utcnow(),
+            },
         )
 
         logger.info(f"Generated preview for document {document_id}")
@@ -1277,14 +1288,14 @@ async def generate_document_preview(
         return {
             "preview_url": preview_url,
             "s3_key": preview_s3_key,
-            "page_number": str(page_number)
+            "page_number": str(page_number),
         }
 
     except Exception as e:
         logger.error(f"Failed to generate preview for {document_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate preview"
+            detail="Failed to generate preview",
         )
 
 
@@ -1302,69 +1313,69 @@ async def get_processing_steps(current_user: User = Depends(get_current_user)):
                 "step": 0,
                 "title": "Document Upload",
                 "description": "Securely uploading your PDF document...",
-                "estimated_duration": "5-10 seconds"
+                "estimated_duration": "5-10 seconds",
             },
             {
                 "step": 1,
                 "title": "File Validation",
                 "description": "Validating file format and security...",
-                "estimated_duration": "2-5 seconds"
+                "estimated_duration": "2-5 seconds",
             },
             {
                 "step": 2,
                 "title": "Content Extraction",
                 "description": "Extracting text, images, and structural elements...",
-                "estimated_duration": "10-30 seconds"
+                "estimated_duration": "10-30 seconds",
             },
             {
                 "step": 3,
                 "title": "OCR Processing",
                 "description": "Running OCR on images and scanned content...",
-                "estimated_duration": "20-60 seconds"
+                "estimated_duration": "20-60 seconds",
             },
             {
                 "step": 4,
                 "title": "Structure Analysis",
                 "description": "Analyzing document structure and layout...",
-                "estimated_duration": "15-30 seconds"
+                "estimated_duration": "15-30 seconds",
             },
             {
                 "step": 5,
                 "title": "AI Content Tagging",
                 "description": "Adding semantic tags using AI analysis...",
-                "estimated_duration": "30-90 seconds"
+                "estimated_duration": "30-90 seconds",
             },
             {
                 "step": 6,
                 "title": "Alt Text Generation",
                 "description": "Creating descriptive text for images with AI...",
-                "estimated_duration": "20-60 seconds"
+                "estimated_duration": "20-60 seconds",
             },
             {
                 "step": 7,
                 "title": "Color & Contrast",
                 "description": "Optimizing colors for accessibility compliance...",
-                "estimated_duration": "10-20 seconds"
+                "estimated_duration": "10-20 seconds",
             },
             {
                 "step": 8,
                 "title": "Accessibility Validation",
                 "description": "Verifying WCAG 2.1 AA compliance...",
-                "estimated_duration": "15-30 seconds"
+                "estimated_duration": "15-30 seconds",
             },
             {
                 "step": 9,
                 "title": "Export Generation",
                 "description": "Creating accessible formats (HTML, CSV, Text)...",
-                "estimated_duration": "20-45 seconds"
+                "estimated_duration": "20-45 seconds",
             },
             {
                 "step": 10,
                 "title": "Processing Complete",
                 "description": "Your accessible document is ready for download!",
-                "estimated_duration": "Complete"
-            }
+                "estimated_duration": "Complete",
+            },
         ],
         "total_estimated_time": "2-6 minutes",
-        "pipeline_version": "v2.1.0"
+        "pipeline_version": "v2.1.0",
     }

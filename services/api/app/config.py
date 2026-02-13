@@ -16,11 +16,13 @@ class Settings(BaseSettings):
     # AWS Configuration
     aws_region: str = Field("us-east-1", env="AWS_REGION")
     aws_account_id: Optional[str] = Field(None, env="AWS_ACCOUNT_ID")
-    aws_access_key_id: str = Field("test", env="AWS_ACCESS_KEY_ID")
-    aws_secret_access_key: str = Field("test", env="AWS_SECRET_ACCESS_KEY")
-    aws_endpoint_url: Optional[str] = Field("http://localstack:4566", env="AWS_ENDPOINT_URL")
+    aws_access_key_id: Optional[str] = Field(None, env="AWS_ACCESS_KEY_ID")
+    aws_secret_access_key: Optional[str] = Field(None, env="AWS_SECRET_ACCESS_KEY")
+    aws_endpoint_url: Optional[str] = Field(None, env="AWS_ENDPOINT_URL")
     s3_bucket: str = Field("pdf-accessibility-dev-pdf-originals", env="S3_BUCKET")
-    s3_bucket_name: str = Field("pdf-accessibility-dev-pdf-originals", env="S3_BUCKET_NAME")
+    s3_bucket_name: str = Field(
+        "pdf-accessibility-dev-pdf-originals", env="S3_BUCKET_NAME"
+    )
     app_env: str = Field("development", env="APP_ENV")
 
     # DynamoDB Tables
@@ -75,6 +77,69 @@ class Settings(BaseSettings):
         # If it's a string from environment, split it
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
+
+    @field_validator("aws_access_key_id", "aws_secret_access_key", mode="after")
+    @classmethod
+    def validate_aws_credentials(cls, v, info):
+        """Validate AWS credentials are set in non-development environments"""
+        import os
+
+        if v is None:
+            # Check app_env from environment directly since we're in validation
+            if os.getenv("APP_ENV", "development") != "development":
+                raise ValueError(
+                    f"{info.field_name} is required in non-development environments"
+                )
+        return v
+
+    @field_validator("api_jwt_secret", mode="after")
+    @classmethod
+    def validate_jwt_secret(cls, v):
+        """Validate JWT secret is secure in non-development environments"""
+        import os
+
+        app_env = os.getenv("APP_ENV", "development")
+
+        if app_env != "development":
+            if v is None:
+                raise ValueError(
+                    "API_JWT_SECRET is required in non-development environments"
+                )
+
+            # Reject obvious placeholder values (exact patterns that indicate development values)
+            insecure_patterns = [
+                "change-in-production",
+                "your-secret-key",
+                "changeme",
+                "secret-key-here",
+                "replace-this",
+                "placeholder",
+            ]
+            if any(pattern in v.lower() for pattern in insecure_patterns):
+                raise ValueError("API_JWT_SECRET contains insecure placeholder value")
+
+            # Require minimum length
+            if len(v) < 32:
+                raise ValueError(
+                    "API_JWT_SECRET must be at least 32 characters in production"
+                )
+
+        return v
+
+    @field_validator("aws_endpoint_url", mode="after")
+    @classmethod
+    def validate_endpoint_url(cls, v):
+        """Validate endpoint URL is not LocalStack in non-development environments"""
+        import os
+
+        app_env = os.getenv("APP_ENV", "development")
+
+        if v is not None and app_env != "development":
+            if "localhost" in v or "localstack" in v:
+                raise ValueError(
+                    "LocalStack/localhost endpoint not allowed in non-development environments"
+                )
         return v
 
     @field_validator("allowed_file_types", mode="before")
@@ -132,9 +197,7 @@ class Settings(BaseSettings):
     )
 
     # BetterAuth JWT Configuration
-    api_jwt_secret: str = Field(
-        "your-secret-key-here-change-in-production", env="API_JWT_SECRET"
-    )
+    api_jwt_secret: Optional[str] = Field(None, env="API_JWT_SECRET")
     jwt_algorithm: str = Field("HS256", env="JWT_ALGORITHM")
     jwt_issuer: str = Field("accesspdf-dashboard", env="JWT_ISSUER")
     jwt_audience: str = Field("accesspdf-api", env="JWT_AUDIENCE")
