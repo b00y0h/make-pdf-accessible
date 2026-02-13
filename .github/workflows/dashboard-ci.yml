@@ -255,7 +255,7 @@ jobs:
           echo "✅ E2E tests passed"
 
       - name: Upload Playwright report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: playwright-report
@@ -383,7 +383,7 @@ jobs:
           echo "✅ Dashboard build succeeded"
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: dashboard-build
           path: dashboard/.next/
