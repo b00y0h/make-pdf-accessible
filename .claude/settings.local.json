@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh run view:*)",
+      "Bash(actionlint:*)",
+      "Bash(gh workflow view:*)",
+      "Bash(yq:*)",
+      "Bash(gh run list:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(gh workflow run:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue view:*)",
+      "Bash(git -C /tmp/claudebox-fork diff)"
+    ]
+  }
+}

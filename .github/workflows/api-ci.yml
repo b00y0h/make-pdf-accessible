@@ -79,6 +79,7 @@ jobs:
     outputs:
       api_changed: ${{ steps.changes.outputs.api_changed }}
       should_deploy: ${{ steps.deploy-decision.outputs.should_deploy }}
+      has_aws_creds: ${{ steps.check-creds.outputs.has_creds }}
       version: ${{ steps.version.outputs.version }}
 
     steps:
@@ -129,6 +130,18 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Generated version: $VERSION"
 
+      - name: Check AWS credentials availability
+        id: check-creds
+        env:
+          AWS_ROLE_ARN: ${{ secrets.GITHUB_API_DEPLOY_ROLE_ARN }}
+        run: |
+          if [ -z "$AWS_ROLE_ARN" ]; then
+            echo "::warning::GITHUB_API_DEPLOY_ROLE_ARN secret not configured - deployment steps will be skipped"
+            echo "has_creds=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_creds=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Determine deployment decision
         id: deploy-decision
         run: |
@@ -162,16 +175,16 @@ jobs:
 
       - name: Install security scanning tools
         run: |
-          pip install safety pip-audit bandit[toml]
+          pip install pip-audit bandit[toml]
 
       - name: Run Safety scan on API dependencies
         id: safety-scan
         run: |
           cd ${{ env.API_WORKING_DIR }}
 
-          echo "Running Safety scan on API dependencies..."
+          echo "Running pip-audit scan on API dependencies..."
           if [ -f requirements.txt ]; then
-            safety check -r requirements.txt --json --output ../safety-api.json || echo "safety_failed=true" >> $GITHUB_OUTPUT
+            pip-audit -r requirements.txt --format json --output ../safety-api.json || echo "safety_failed=true" >> $GITHUB_OUTPUT
           else
             echo "No requirements.txt found"
             echo '[]' > ../safety-api.json
@@ -182,7 +195,7 @@ jobs:
           if [ -f safety-api.json ]; then
             SAFETY_VULNS=$(jq '. | length' safety-api.json 2>/dev/null || echo "0")
             echo "safety_vulnerabilities=$SAFETY_VULNS" >> $GITHUB_OUTPUT
-            echo "Safety vulnerabilities found: $SAFETY_VULNS"
+            echo "Vulnerabilities found: $SAFETY_VULNS"
           fi
 
       - name: Run pip-audit scan
@@ -576,6 +589,7 @@ jobs:
     if: |
       always() &&
       needs.detect-changes.outputs.should_deploy == 'true' &&
+      needs.detect-changes.outputs.has_aws_creds == 'true' &&
       (needs.test.result == 'success' || needs.test.result == 'skipped')
     outputs:
       package_s3_key: ${{ steps.upload-package.outputs.s3_key }}

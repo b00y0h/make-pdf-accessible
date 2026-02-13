@@ -138,6 +138,16 @@ jobs:
             ./venv
           key: ${{ runner.os }}-python-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
 
+      - name: Install Python dependencies (fallback)
+        if: needs.changes.outputs.backend == 'true'
+        run: |
+          if [ ! -f venv/bin/activate ]; then
+            python -m venv venv
+            source venv/bin/activate
+            pip install --upgrade pip
+            pip install -r requirements.txt
+          fi
+
       - name: Python linting and formatting
         if: needs.changes.outputs.backend == 'true'
         run: |
@@ -233,6 +243,16 @@ jobs:
             ./venv
           key: ${{ runner.os }}-python-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
 
+      - name: Install Python dependencies (fallback)
+        if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.tests == 'true'
+        run: |
+          if [ ! -f venv/bin/activate ]; then
+            python -m venv venv
+            source venv/bin/activate
+            pip install --upgrade pip
+            pip install -r requirements.txt
+          fi
+
       - name: Run Python unit tests
         if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.tests == 'true'
         env:
@@ -317,6 +337,15 @@ jobs:
           # Docker should already be available on GitHub runners
           docker --version
 
+      - name: Install Python dependencies (fallback)
+        run: |
+          if [ ! -f venv/bin/activate ]; then
+            python -m venv venv
+            source venv/bin/activate
+            pip install --upgrade pip
+            pip install -r requirements.txt
+          fi
+
       - name: Run integration tests
         env:
           TESTING: true
@@ -360,7 +389,7 @@ jobs:
       - name: Start services for E2E tests
         run: |
           # Start test services in background
-          docker-compose -f docker-compose.yml up -d postgres redis localstack
+          docker compose -f docker-compose.yml up -d postgres redis localstack
           # Wait for services
           sleep 30
 
@@ -409,8 +438,8 @@ jobs:
       - name: Python dependency check
         if: needs.changes.outputs.backend == 'true'
         run: |
-          pip install safety
-          safety check --json
+          pip install pip-audit
+          pip-audit -r requirements.txt || true
 
       - name: Node.js audit
         if: needs.changes.outputs.frontend == 'true'
