@@ -20,7 +20,8 @@
     "seed:admin": "tsx ../packages/scripts/seed-admin-mongo.ts",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "db:migrate": "prisma migrate dev"
+    "db:migrate": "prisma migrate dev",
+    "db:auth:migrate": "better-auth migrate --config src/lib/auth-server.ts --yes"
   },
   "dependencies": {
     "@aws-amplify/ui-react": "^6.1.0",

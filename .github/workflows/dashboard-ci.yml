@@ -74,6 +74,8 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma client
+        env:
+          DATABASE_URL: file:./placeholder.db
         run: pnpm --filter=accesspdf-dashboard run db:generate
 
       - name: TypeScript type check
@@ -180,10 +182,10 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm --filter=accesspdf-dashboard exec playwright install --with-deps chromium
 
-      - name: Setup database schema
+      - name: Setup auth database schema
         env:
           AUTH_DATABASE_URL: postgresql://postgres:password@localhost:5433/better_auth
-        run: pnpm --filter=accesspdf-dashboard run db:push
+        run: pnpm --filter=accesspdf-dashboard run db:auth:migrate
 
       - name: Run integration tests
         env:
@@ -245,10 +247,10 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm --filter=accesspdf-dashboard exec playwright install --with-deps
 
-      - name: Setup database schema
+      - name: Setup auth database schema
         env:
           AUTH_DATABASE_URL: postgresql://postgres:password@localhost:5433/better_auth
-        run: pnpm --filter=accesspdf-dashboard run db:push
+        run: pnpm --filter=accesspdf-dashboard run db:auth:migrate
 
       - name: Run E2E tests
         env:
@@ -314,6 +316,11 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Setup auth database schema
+        env:
+          AUTH_DATABASE_URL: postgresql://postgres:password@localhost:5433/better_auth
+        run: pnpm --filter=accesspdf-dashboard run db:auth:migrate
 
       - name: Run authentication smoke test
         env:
