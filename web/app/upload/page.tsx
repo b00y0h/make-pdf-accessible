@@ -63,7 +63,10 @@ export default function UploadPage() {
   }, [selectedFiles, uploadFiles, settings, router]);
 
   const getUploadStatus = () => {
-    const progressValues = Object.values(uploadProgress);
+    const progressValues = Object.values(uploadProgress) as Array<{
+      progress: number;
+      status: 'pending' | 'uploading' | 'success' | 'error';
+    }>;
     if (progressValues.length === 0) return null;
 
     const hasError = progressValues.some((p) => p.status === 'error');
@@ -163,13 +166,17 @@ export default function UploadPage() {
                 uploadProgress={Object.fromEntries(
                   Object.entries(uploadProgress).map(([fileId, progress]) => [
                     fileId,
-                    progress.progress,
+                    (progress as { progress: number }).progress,
                   ])
                 )}
                 uploadStatus={Object.fromEntries(
                   Object.entries(uploadProgress).map(([fileId, progress]) => [
                     fileId,
-                    progress.status,
+                    (
+                      progress as {
+                        status: 'pending' | 'uploading' | 'success' | 'error';
+                      }
+                    ).status,
                   ])
                 )}
                 disabled={isUploading}
