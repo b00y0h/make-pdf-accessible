@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+
+# Cache
+.cache/
+
+# Coverage
+coverage/
+
+# Test results
+test-results/
+
+# Generated files
+*.min.js
+*.min.css
