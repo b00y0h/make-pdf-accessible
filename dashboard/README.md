@@ -7,7 +7,7 @@ Enterprise-grade AWS cost monitoring and analytics dashboard with multi-source d
 The Costs Dashboard provides real-time insights into AWS spending across your organization with:
 
 - **Dual Data Sources**: Cost Explorer API + Cost and Usage Reports (CUR) via Athena
-- **Advanced Analytics**: Month-over-Month trends, forecasting, and anomaly detection  
+- **Advanced Analytics**: Month-over-Month trends, forecasting, and anomaly detection
 - **Granular Filtering**: Services, accounts, regions, tags, custom date ranges
 - **Enterprise Features**: Role-based access, data exports, caching, and audit trails
 
@@ -23,27 +23,31 @@ The Costs Dashboard provides real-time insights into AWS spending across your or
 ### Setup Steps
 
 1. **Install Dependencies**
+
    ```bash
    pnpm install
    ```
 
 2. **Configure Environment**
+
    ```bash
    cp .env.example .env.local
    # Edit .env.local with your settings
    ```
 
 3. **Setup Database**
+
    ```bash
    pnpm run db:generate
    pnpm run db:push
    ```
 
 4. **Configure AWS Credentials**
+
    ```bash
    # Via AWS CLI
    aws configure
-   
+
    # Or environment variables
    export AWS_ACCESS_KEY_ID=your-key
    export AWS_SECRET_ACCESS_KEY=your-secret
@@ -51,6 +55,7 @@ The Costs Dashboard provides real-time insights into AWS spending across your or
    ```
 
 5. **Start Development Server**
+
    ```bash
    pnpm run dev
    ```
@@ -66,6 +71,7 @@ The Costs Dashboard provides real-time insights into AWS spending across your or
 **Use Case**: Real-time monitoring, immediate insights
 
 **Characteristics**:
+
 - **Freshness**: 24-48 hour delay
 - **Granularity**: Daily, Monthly, Hourly (limited)
 - **Retention**: 12 months of detailed data
@@ -73,6 +79,7 @@ The Costs Dashboard provides real-time insights into AWS spending across your or
 - **Cost**: $0.01 per API request
 
 **Best For**:
+
 - Executive dashboards
 - Real-time alerts
 - Interactive analysis
@@ -83,6 +90,7 @@ The Costs Dashboard provides real-time insights into AWS spending across your or
 **Use Case**: Deep historical analysis, custom reporting
 
 **Characteristics**:
+
 - **Freshness**: 6-24 hour delivery latency
 - **Granularity**: Resource-level detail, hourly precision
 - **Retention**: Unlimited (S3 storage)
@@ -90,6 +98,7 @@ The Costs Dashboard provides real-time insights into AWS spending across your or
 - **Storage**: Parquet format, compressed
 
 **Best For**:
+
 - Historical trend analysis
 - Resource-level cost attribution
 - Custom reporting
@@ -108,6 +117,7 @@ setDataSource('cost-explorer'); // or 'athena'
 ## 🏗️ Architecture
 
 ### Frontend Stack
+
 - **Framework**: Next.js 15 with App Router
 - **Styling**: Tailwind CSS + shadcn/ui components
 - **State**: TanStack Query for server state, React Context for UI state
@@ -115,12 +125,14 @@ setDataSource('cost-explorer'); // or 'athena'
 - **Authentication**: better-auth with role-based access
 
 ### Backend Services
+
 - **API Routes**: Next.js API routes in `/app/api/costs/`
 - **Data Layer**: AWS SDK clients with retry/circuit breaker patterns
 - **Caching**: Redis with memory fallback, 6-12 hour TTL
 - **Background Jobs**: Scheduled data refresh via cron
 
 ### Infrastructure
+
 - **Compute**: Docker containers on AWS ECS/Fargate
 - **Database**: PostgreSQL on RDS with read replicas
 - **Storage**: S3 for CUR data, logs, and artifacts
@@ -128,14 +140,14 @@ setDataSource('cost-explorer'); // or 'athena'
 
 ## 📋 Feature Matrix
 
-| Feature | Cost Explorer | CUR/Athena | Notes |
-|---------|---------------|------------|-------|
-| Real-time data | ✅ 24-48h delay | ❌ 6-24h delay | CE preferred for dashboards |
-| Historical data | 📅 12 months | 📅 Unlimited | CUR for long-term analysis |
-| Resource details | ⚠️ Limited | ✅ Full detail | CUR has line-item data |
-| Custom metrics | ❌ | ✅ SQL queries | CUR enables custom calculations |
-| Rate limits | ⚠️ 5 req/sec | ✅ Athena limits | Consider caching for CE |
-| Query cost | 💰 $0.01/request | 💰 ~$5/TB scanned | Monitor usage patterns |
+| Feature          | Cost Explorer    | CUR/Athena        | Notes                           |
+| ---------------- | ---------------- | ----------------- | ------------------------------- |
+| Real-time data   | ✅ 24-48h delay  | ❌ 6-24h delay    | CE preferred for dashboards     |
+| Historical data  | 📅 12 months     | 📅 Unlimited      | CUR for long-term analysis      |
+| Resource details | ⚠️ Limited       | ✅ Full detail    | CUR has line-item data          |
+| Custom metrics   | ❌               | ✅ SQL queries    | CUR enables custom calculations |
+| Rate limits      | ⚠️ 5 req/sec     | ✅ Athena limits  | Consider caching for CE         |
+| Query cost       | 💰 $0.01/request | 💰 ~$5/TB scanned | Monitor usage patterns          |
 
 ## 🔧 Configuration
 
@@ -177,16 +189,16 @@ Configure request limits to avoid throttling:
 ```typescript
 // Cost Explorer rate limiting
 const rateLimit = {
-  requests: 5,          // per second
-  burst: 20,           // burst capacity
-  backoffMs: 1000,     // exponential backoff
+  requests: 5, // per second
+  burst: 20, // burst capacity
+  backoffMs: 1000, // exponential backoff
 };
 
 // Athena query optimization
 const athenaConfig = {
   maxConcurrentQueries: 10,
-  queryTimeout: 300000,  // 5 minutes
-  resultsCacheTTL: 86400,  // 24 hours
+  queryTimeout: 300000, // 5 minutes
+  resultsCacheTTL: 86400, // 24 hours
 };
 ```
 
@@ -194,23 +206,23 @@ const athenaConfig = {
 
 ### Cost Explorer Limitations
 
-| Metric | Limitation | Workaround |
-|--------|------------|------------|
-| **Freshness** | 24-48 hour delay | Cache recent data, show freshness indicators |
-| **Granularity** | Daily minimum for most metrics | Use CUR for hourly data |
-| **Retention** | 12 months detailed history | Archive to S3 for longer retention |
-| **Rate Limits** | 5 requests/second | Implement caching and batching |
-| **Filtering** | Limited tag combinations | Use CUR for complex tag queries |
+| Metric          | Limitation                     | Workaround                                   |
+| --------------- | ------------------------------ | -------------------------------------------- |
+| **Freshness**   | 24-48 hour delay               | Cache recent data, show freshness indicators |
+| **Granularity** | Daily minimum for most metrics | Use CUR for hourly data                      |
+| **Retention**   | 12 months detailed history     | Archive to S3 for longer retention           |
+| **Rate Limits** | 5 requests/second              | Implement caching and batching               |
+| **Filtering**   | Limited tag combinations       | Use CUR for complex tag queries              |
 
 ### CUR/Athena Considerations
 
-| Aspect | Details | Best Practices |
-|--------|---------|----------------|
-| **Delivery** | 6-24 hour latency | Schedule overnight refreshes |
-| **Partitioning** | By year/month/day | Include partitions in queries |
-| **Data Size** | Can be very large | Use column pruning, date filters |
-| **Query Cost** | ~$5 per TB scanned | Monitor with CloudWatch metrics |
-| **Concurrency** | 10 concurrent queries | Queue long-running reports |
+| Aspect           | Details               | Best Practices                   |
+| ---------------- | --------------------- | -------------------------------- |
+| **Delivery**     | 6-24 hour latency     | Schedule overnight refreshes     |
+| **Partitioning** | By year/month/day     | Include partitions in queries    |
+| **Data Size**    | Can be very large     | Use column pruning, date filters |
+| **Query Cost**   | ~$5 per TB scanned    | Monitor with CloudWatch metrics  |
+| **Concurrency**  | 10 concurrent queries | Queue long-running reports       |
 
 ### Data Freshness Indicators
 
@@ -220,11 +232,11 @@ The dashboard shows data freshness with visual indicators:
 // Freshness calculation
 const getDataFreshness = (lastUpdated: Date) => {
   const hoursOld = (Date.now() - lastUpdated.getTime()) / (1000 * 60 * 60);
-  
-  if (hoursOld < 6) return 'fresh';        // 🟢 Green
-  if (hoursOld < 24) return 'recent';      // 🟡 Yellow  
-  if (hoursOld < 48) return 'stale';       // 🟠 Orange
-  return 'outdated';                       // 🔴 Red
+
+  if (hoursOld < 6) return 'fresh'; // 🟢 Green
+  if (hoursOld < 24) return 'recent'; // 🟡 Yellow
+  if (hoursOld < 48) return 'stale'; // 🟠 Orange
+  return 'outdated'; // 🔴 Red
 };
 ```
 
@@ -248,13 +260,13 @@ Filters are automatically saved to URL parameters for sharing and bookmarking:
 
 ### Filter Combinations
 
-| Filter Type | Behavior | Example |
-|-------------|----------|---------|
-| **Date Range** | Inclusive boundaries | `2024-01-01` to `2024-01-31` |
-| **Services** | OR logic within services | `EC2 OR S3 OR Lambda` |
-| **Accounts** | OR logic within accounts | `Account-A OR Account-B` |
-| **Regions** | OR logic within regions | `us-east-1 OR us-west-2` |
-| **Tags** | AND logic between keys, OR within values | `env:prod AND team:(backend OR frontend)` |
+| Filter Type    | Behavior                                 | Example                                   |
+| -------------- | ---------------------------------------- | ----------------------------------------- |
+| **Date Range** | Inclusive boundaries                     | `2024-01-01` to `2024-01-31`              |
+| **Services**   | OR logic within services                 | `EC2 OR S3 OR Lambda`                     |
+| **Accounts**   | OR logic within accounts                 | `Account-A OR Account-B`                  |
+| **Regions**    | OR logic within regions                  | `us-east-1 OR us-west-2`                  |
+| **Tags**       | AND logic between keys, OR within values | `env:prod AND team:(backend OR frontend)` |
 
 ### Performance Optimization
 
@@ -263,13 +275,13 @@ Filters are automatically saved to URL parameters for sharing and bookmarking:
 const filterStrategy = {
   // Debounce filter changes
   debounceMs: 500,
-  
-  // Batch multiple filter updates  
+
+  // Batch multiple filter updates
   batchUpdates: true,
-  
+
   // Cache common filter combinations
   cacheFilterResults: true,
-  
+
   // Prefetch adjacent time ranges
   prefetchAdjacentRanges: true,
 };
@@ -279,13 +291,13 @@ const filterStrategy = {
 
 ### Core Metrics
 
-| Metric | Description | Use Case |
-|--------|-------------|----------|
-| **UnblendedCost** | Raw usage costs | Budget tracking, resource optimization |
-| **AmortizedCost** | Cost with RI/SP discounts applied | True cost allocation |
-| **BlendedCost** | Weighted average across accounts | Consolidated billing views |
-| **NetUnblendedCost** | After credits and refunds | Actual spend analysis |
-| **UsageQuantity** | Resource utilization | Efficiency metrics |
+| Metric               | Description                       | Use Case                               |
+| -------------------- | --------------------------------- | -------------------------------------- |
+| **UnblendedCost**    | Raw usage costs                   | Budget tracking, resource optimization |
+| **AmortizedCost**    | Cost with RI/SP discounts applied | True cost allocation                   |
+| **BlendedCost**      | Weighted average across accounts  | Consolidated billing views             |
+| **NetUnblendedCost** | After credits and refunds         | Actual spend analysis                  |
+| **UsageQuantity**    | Resource utilization              | Efficiency metrics                     |
 
 ### Month-over-Month Calculations
 
@@ -293,10 +305,18 @@ const filterStrategy = {
 // MoM calculation logic
 const calculateMoM = (current: number, previous: number) => ({
   absolute: current - previous,
-  percentage: previous > 0 ? ((current - previous) / previous) * 100 : 
-              current > 0 ? Infinity : 0,
-  trend: current > previous ? 'increase' : 
-         current < previous ? 'decrease' : 'stable'
+  percentage:
+    previous > 0
+      ? ((current - previous) / previous) * 100
+      : current > 0
+        ? Infinity
+        : 0,
+  trend:
+    current > previous
+      ? 'increase'
+      : current < previous
+        ? 'decrease'
+        : 'stable',
 });
 ```
 
@@ -308,9 +328,9 @@ Built-in AWS Cost Anomaly Detection integration:
 // Forecast configuration
 const forecastConfig = {
   granularity: 'MONTHLY',
-  metric: 'UNBLENDED_COST', 
-  predictionIntervalLevel: 80,  // 80% confidence interval
-  timeRange: '3MONTHS',        // Forecast horizon
+  metric: 'UNBLENDED_COST',
+  predictionIntervalLevel: 80, // 80% confidence interval
+  timeRange: '3MONTHS', // Forecast horizon
 };
 ```
 
@@ -377,17 +397,19 @@ pnpm db:migrate        # Run migrations
 
 ### Common Issues
 
-#### 1. "No data available" 
+#### 1. "No data available"
 
 **Symptoms**: Empty charts, "No cost data" message
 
 **Causes**:
+
 - AWS credentials not configured
 - Cost Explorer API disabled
 - Date range outside available data
 - Insufficient IAM permissions
 
 **Solutions**:
+
 ```bash
 # Check AWS credentials
 aws sts get-caller-identity
@@ -404,12 +426,14 @@ aws iam simulate-principal-policy --policy-source-arn arn:aws:iam::ACCOUNT:user/
 **Symptoms**: Long loading times, timeouts
 
 **Causes**:
+
 - Rate limiting from AWS
 - Large date ranges
 - Complex filter combinations
 - Missing cache configuration
 
 **Solutions**:
+
 ```typescript
 // Enable caching
 REDIS_URL="redis://localhost:6379"
@@ -431,23 +455,25 @@ const { data, isLoading } = useCostData({
 **Symptoms**: "Query failed" errors, timeout messages
 
 **Causes**:
+
 - Missing CUR data
 - Incorrect partition filters
 - Query timeout
 - Athena service limits
 
 **Solutions**:
+
 ```sql
 -- Check partition availability
 SHOW PARTITIONS cur_database.cur_table;
 
 -- Optimize query with partition pruning
-WHERE year = '2024' 
+WHERE year = '2024'
   AND month = '01'
   AND day BETWEEN '01' AND '31'
 
 -- Monitor query cost
-SELECT 
+SELECT
   query_id,
   data_scanned_in_bytes / 1024 / 1024 / 1024 AS gb_scanned,
   execution_time_millis / 1000 AS execution_seconds
@@ -463,10 +489,10 @@ FROM athena_query_results;
 const cacheConfig = {
   // Browser cache (immediate)
   browser: { staleTime: 60000 }, // 1 minute
-  
+
   // Redis cache (shared)
   redis: { ttl: 21600 }, // 6 hours
-  
+
   // Database cache (persistent)
   database: { ttl: 86400 }, // 24 hours
 };
@@ -479,10 +505,10 @@ const cacheConfig = {
 const optimizedQuery = {
   // Combine multiple metrics in single call
   metrics: ['UnblendedCost', 'UsageQuantity'],
-  
+
   // Use appropriate granularity
   granularity: dateRange > 90 ? 'MONTHLY' : 'DAILY',
-  
+
   // Limit groupBy dimensions
   groupBy: topServices.slice(0, 10),
 };
@@ -493,10 +519,10 @@ const optimizedQuery = {
 ```typescript
 // Component optimization
 const CostsChart = memo(({ data }) => {
-  const chartData = useMemo(() => 
+  const chartData = useMemo(() =>
     processChartData(data), [data]
   );
-  
+
   return <ResponsiveContainer>
     {/* Chart implementation */}
   </ResponsiveContainer>;
@@ -531,14 +557,14 @@ Minimum required permissions:
       "Effect": "Allow",
       "Action": [
         "ce:GetCostAndUsage",
-        "ce:GetDimensionValues", 
+        "ce:GetDimensionValues",
         "ce:GetUsageReport",
         "ce:GetCostAndUsageWithResources"
       ],
       "Resource": "*"
     },
     {
-      "Effect": "Allow", 
+      "Effect": "Allow",
       "Action": [
         "athena:StartQueryExecution",
         "athena:GetQueryExecution",
@@ -549,10 +575,7 @@ Minimum required permissions:
     },
     {
       "Effect": "Allow",
-      "Action": [
-        "s3:GetObject",
-        "s3:ListBucket"
-      ],
+      "Action": ["s3:GetObject", "s3:ListBucket"],
       "Resource": [
         "arn:aws:s3:::your-cur-bucket/*",
         "arn:aws:s3:::your-athena-results-bucket/*"

@@ -8,24 +8,24 @@ The application requires the following AWS Cost Explorer permissions to function
 
 ```json
 {
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": [
-                "ce:GetCostAndUsage",
-                "ce:GetDimensionValues",
-                "ce:GetCostForecast",
-                "ce:GetUsageForecast",
-                "ce:GetReservationCoverage",
-                "ce:GetReservationPurchaseRecommendation",
-                "ce:GetReservationUtilization",
-                "ce:ListCostCategoryDefinitions",
-                "ce:GetCostCategories"
-            ],
-            "Resource": "*"
-        }
-    ]
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ce:GetCostAndUsage",
+        "ce:GetDimensionValues",
+        "ce:GetCostForecast",
+        "ce:GetUsageForecast",
+        "ce:GetReservationCoverage",
+        "ce:GetReservationPurchaseRecommendation",
+        "ce:GetReservationUtilization",
+        "ce:ListCostCategoryDefinitions",
+        "ce:GetCostCategories"
+      ],
+      "Resource": "*"
+    }
+  ]
 }
 ```
 
@@ -34,6 +34,7 @@ The application requires the following AWS Cost Explorer permissions to function
 The following cost allocation tags must be activated in the AWS Billing Console:
 
 ### Required Tags
+
 - `application` - Identifies the application or service
 - `environment` - Environment type (dev, staging, prod)
 - `component` - Component or service within the application
@@ -78,6 +79,7 @@ To test that the IAM permissions are working correctly:
 ### Rate Limits
 
 AWS Cost Explorer has rate limits:
+
 - GetCostAndUsage: 5 requests per second
 - GetDimensionValues: 5 requests per second
 - GetCostForecast: 5 requests per second

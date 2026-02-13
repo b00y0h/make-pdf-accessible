@@ -1,0 +1,2 @@
+# Main requirements file - references dev requirements for CI
+-r requirements-dev.txt
