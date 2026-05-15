@@ -59,7 +59,7 @@
     "aws-amplify": "^6.0.12",
     "axios": "^1.13.5",
     "bcryptjs": "^3.0.2",
-    "better-auth": "^1.4.5",
+    "better-auth": "^1.6.2",
     "better-sqlite3": "^12.2.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
