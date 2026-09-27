@@ -2,8 +2,8 @@
 /**
  * Plugin Name: AccessPDF Integration
  * Plugin URI: https://accesspdf.com/wordpress
- * Description: Automatically makes uploaded PDFs accessible and discoverable by AI/LLMs
- * Version: 1.0.0
+ * Description: Makes uploaded PDFs accessible and serves Markdown versions of your posts and pages to AI agents
+ * Version: 1.1.0
  * Author: AccessPDF
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -14,57 +14,54 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+define('ACCESSPDF_VERSION', '1.1.0');
+
+require_once __DIR__ . '/includes/class-accesspdf-html-to-markdown.php';
+require_once __DIR__ . '/includes/class-accesspdf-markdown.php';
+
 class AccessPDFPlugin {
     private $api_base = 'https://api.accesspdf.com';
     private $api_key;
     private $client_domain;
-    
+
     public function __construct() {
         $this->api_key = get_option('accesspdf_api_key', '');
         $this->client_domain = parse_url(home_url(), PHP_URL_HOST);
-        
+
         add_action('init', [$this, 'init']);
-        add_action('wp_enqueue_scripts', [$this, 'enqueue_scripts']);
+        add_action('admin_init', [$this, 'register_settings']);
         add_action('admin_menu', [$this, 'add_admin_menu']);
-        
+
         // Hook into PDF uploads
         add_filter('wp_handle_upload', [$this, 'handle_pdf_upload']);
         add_filter('attachment_fields_to_edit', [$this, 'add_accessibility_fields'], 10, 2);
         add_filter('attachment_fields_to_save', [$this, 'save_accessibility_fields'], 10, 2);
-        
-        // Add accessibility metadata to PDF links
-        add_filter('wp_get_attachment_link', [$this, 'enhance_pdf_links'], 10, 6);
+
+        (new AccessPDF_Markdown())->register();
     }
-    
+
     public function init() {
         // Register settings
         add_option('accesspdf_api_key', '');
         add_option('accesspdf_auto_process', true);
-        add_option('accesspdf_public_discovery', true);
+        add_option('accesspdf_serve_markdown', true);
     }
-    
-    public function enqueue_scripts() {
-        // Load the public CDN script
-        wp_enqueue_script(
-            'accesspdf-integration',
-            'https://cdn.accesspdf.com/integration.js',
-            [],
-            '1.0.0',
-            true
-        );
-        
-        // Get integration ID from settings (safe to expose)
-        $integration_id = get_option('accesspdf_integration_id', '');
-        
-        // Pass ONLY safe configuration to frontend (no API keys!)
-        wp_localize_script('accesspdf-integration', 'accesspdf_config', [
-            'integrationId' => $integration_id,  // Safe to expose
-            'domain' => $this->client_domain,     // Public domain
-            'showBadges' => get_option('accesspdf_show_badges', true),
-            'debugMode' => defined('WP_DEBUG') && WP_DEBUG,
+
+    public function register_settings() {
+        register_setting('accesspdf_settings', 'accesspdf_api_key', [
+            'type' => 'string',
+            'sanitize_callback' => 'sanitize_text_field',
+        ]);
+        register_setting('accesspdf_settings', 'accesspdf_auto_process', [
+            'type' => 'boolean',
+            'sanitize_callback' => 'rest_sanitize_boolean',
+        ]);
+        register_setting('accesspdf_settings', 'accesspdf_serve_markdown', [
+            'type' => 'boolean',
+            'sanitize_callback' => 'rest_sanitize_boolean',
         ]);
     }
-    
+
     public function add_admin_menu() {
         add_options_page(
             'AccessPDF Settings',
@@ -131,54 +128,6 @@ class AccessPDFPlugin {
         return $post;
     }
     
-    public function enhance_pdf_links($link, $id, $size, $permalink, $icon, $text) {
-        $post = get_post($id);
-        
-        // Only enhance PDF links
-        if (strpos($post->post_mime_type, 'application/pdf') !== 0) {
-            return $link;
-        }
-        
-        $accesspdf_id = get_post_meta($id, '_accesspdf_id', true);
-        
-        if (empty($accesspdf_id)) {
-            return $link;
-        }
-        
-        // Add accessibility metadata for LLM discovery
-        $enhanced_attributes = [
-            'data-accesspdf-id="' . esc_attr($accesspdf_id) . '"',
-            'data-accessibility-api="' . esc_attr($this->api_base) . '"',
-            'data-accessible-formats="html,text,embeddings"',
-        ];
-        
-        // Add structured data for search engines
-        $structured_data = [
-            '@context' => 'https://schema.org',
-            '@type' => 'Document',
-            'name' => $post->post_title,
-            'encodingFormat' => 'application/pdf',
-            'accessibilityFeature' => ['structuralNavigation', 'alternativeText', 'highContrastDisplay'],
-            'accessibilityHazard' => 'none',
-            'accessMode' => ['textual', 'visual'],
-            'accessModeSufficient' => 'textual',
-            'accessibilityAPI' => $this->api_base . '/public/embeddings/documents/' . $accesspdf_id,
-        ];
-        
-        // Inject structured data
-        add_action('wp_footer', function() use ($structured_data) {
-            echo '<script type="application/ld+json">' . wp_json_encode($structured_data) . '</script>';
-        });
-        
-        // Add attributes to the link
-        $enhanced_link = str_replace('<a ', '<a ' . implode(' ', $enhanced_attributes) . ' ', $link);
-        
-        // Add accessibility indicator
-        $accessibility_badge = '<span class="accesspdf-badge" style="font-size: 0.75em; background: #10b981; color: white; padding: 2px 6px; border-radius: 3px; margin-left: 5px;">🔍 AI Searchable</span>';
-        
-        return $enhanced_link . $accessibility_badge;
-    }
-    
     private function render_accessibility_status($accesspdf_id, $status, $score) {
         ob_start();
         ?>
@@ -200,13 +149,6 @@ class AccessPDFPlugin {
                     <?php if ($score): ?>
                         <p><strong>Accessibility Score:</strong> <?php echo esc_html($score); ?>%</p>
                     <?php endif; ?>
-                    <p style="margin-top: 8px;">
-                        <small>
-                            <a href="<?php echo $this->api_base; ?>/public/embeddings/documents/<?php echo esc_attr($accesspdf_id); ?>" target="_blank">
-                                View on AccessPDF →
-                            </a>
-                        </small>
-                    </p>
                 </div>
             <?php else: ?>
                 <div style="padding: 10px; border: 1px solid #orange; border-radius: 4px; background: #fffbf0;">
@@ -238,41 +180,40 @@ class AccessPDFPlugin {
                     <tr>
                         <th scope="row">Auto-Process PDFs</th>
                         <td>
-                            <input type="checkbox" name="accesspdf_auto_process" value="1" <?php checked(get_option('accesspdf_auto_process', true)); ?> />
-                            <label>Automatically process PDFs when uploaded</label>
+                            <label for="accesspdf_auto_process">
+                                <input type="checkbox" id="accesspdf_auto_process" name="accesspdf_auto_process" value="1" <?php checked(get_option('accesspdf_auto_process', true)); ?> />
+                                Automatically process PDFs when uploaded
+                            </label>
                         </td>
                     </tr>
                     <tr>
-                        <th scope="row">Public Discovery</th>
+                        <th scope="row">Markdown for AI agents</th>
                         <td>
-                            <input type="checkbox" name="accesspdf_public_discovery" value="1" <?php checked(get_option('accesspdf_public_discovery', true)); ?> />
-                            <label>Allow LLMs and search engines to discover your accessible documents</label>
-                            <p class="description">Enables AI assistants like ChatGPT to search and reference your documents</p>
+                            <label for="accesspdf_serve_markdown">
+                                <input type="checkbox" id="accesspdf_serve_markdown" name="accesspdf_serve_markdown" value="1" <?php checked(get_option('accesspdf_serve_markdown', true)); ?> />
+                                Serve a Markdown version of published posts and pages
+                            </label>
+                            <p class="description">AI agents read Markdown more reliably than full web pages. Visitors always see the normal page.</p>
                         </td>
                     </tr>
                 </table>
                 <?php submit_button(); ?>
             </form>
-            
+
             <hr style="margin: 30px 0;" />
-            
-            <h2>Integration Guide</h2>
-            <div style="background: #f9f9f9; padding: 15px; border-radius: 4px;">
-                <p><strong>LLM Discovery:</strong> When this plugin is active, your PDFs become discoverable by AI assistants.</p>
-                <p><strong>How it works:</strong></p>
-                <ol>
-                    <li>Upload a PDF to your WordPress media library</li>
-                    <li>Plugin automatically sends it to AccessPDF for processing</li>
-                    <li>Adds special metadata tags to PDF links on your site</li>
-                    <li>LLMs can discover and search your documents via AccessPDF API</li>
-                </ol>
-                
-                <p style="margin-top: 15px;"><strong>API Endpoint:</strong></p>
-                <code><?php echo $this->api_base; ?>/public/embeddings/search</code>
-                
-                <p style="margin-top: 15px;"><strong>Your Site's Documents:</strong></p>
-                <code><?php echo $this->api_base; ?>/public/embeddings/documents?client_domain=<?php echo urlencode($this->client_domain); ?></code>
-            </div>
+
+            <h2>How Markdown versions work</h2>
+            <ul style="list-style: disc; padding-left: 20px;">
+                <?php if (get_option('permalink_structure')): ?>
+                    <li>Add <code>.md</code> to any post or page address to get its Markdown version, for example <code><?php echo esc_html(untrailingslashit(home_url('/about')) . '.md'); ?></code>.</li>
+                <?php else: ?>
+                    <li>Add <code>?accesspdf_md=1</code> to any post or page address to get its Markdown version. Turn on pretty permalinks to use <code>.md</code> addresses instead.</li>
+                <?php endif; ?>
+                <li>Agents that ask for <code>text/markdown</code> in their <code>Accept</code> header get Markdown from the normal address.</li>
+                <li>Each page links to its Markdown version with <code>&lt;link rel="alternate" type="text/markdown"&gt;</code>.</li>
+                <li>Drafts, private posts and password-protected posts are never served.</li>
+                <li>If a page cache or CDN serves your HTML, agents asking for Markdown on the normal address may get the cached HTML. The <code>.md</code> addresses always work.</li>
+            </ul>
         </div>
         <?php
     }
@@ -280,6 +221,9 @@ class AccessPDFPlugin {
 
 // Initialize the plugin
 new AccessPDFPlugin();
+
+register_activation_hook(__FILE__, ['AccessPDF_Markdown', 'activate']);
+register_deactivation_hook(__FILE__, ['AccessPDF_Markdown', 'deactivate']);
 
 // WordPress cron action for processing PDFs
 add_action('accesspdf_process_pdf', 'accesspdf_process_pdf_callback');
@@ -306,10 +250,9 @@ function accesspdf_process_pdf_callback($args) {
             'client_metadata' => array_merge($args['client_metadata'], [
                 'wordpress_post_id' => null, // Would be set when attached to post
                 'client_domain' => parse_url(home_url(), PHP_URL_HOST),
-                'plugin_version' => '1.0.0',
+                'plugin_version' => ACCESSPDF_VERSION,
             ]),
             'callback_url' => admin_url('admin-ajax.php?action=accesspdf_webhook'),
-            'public_discovery' => get_option('accesspdf_public_discovery', true),
         ]),
         'timeout' => 30,
     ]);
@@ -368,4 +311,3 @@ function accesspdf_webhook_handler() {
     
     wp_send_json_error(['message' => 'Invalid webhook data']);
 }
-?>

@@ -1,6 +1,6 @@
 # LLM Integration Guide - AccessPDF Discovery System
 
-> **Status: disabled.** The `/public/embeddings/*` endpoints described below are no longer mounted in the API (`services/api/app/main.py`). They had no authentication and the rate limiter allowed every request, so any caller could trigger paid Bedrock calls. The code remains in `services/api/app/routes/embeddings.py`. The WordPress plugin and HTML snippets still reference these URLs and will get 404s until they are updated.
+> **Status: disabled.** The `/public/embeddings/*` endpoints described below are no longer mounted in the API (`services/api/app/main.py`). They had no authentication and the rate limiter allowed every request, so any caller could trigger paid Bedrock calls. The code remains in `services/api/app/routes/embeddings.py`. The WordPress plugin no longer uses them; it serves Markdown versions of pages instead (see `integrations/wordpress/README.md`). The HTML snippets in `integrations/html-snippets/` and `web/public/integration.js` still reference these URLs and will get 404s until they are updated.
 
 This guide explains how Large Language Models (LLMs) like ChatGPT, Claude, and Gemini can discover and search accessible documents processed by AccessPDF.
 
