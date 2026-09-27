@@ -12,7 +12,7 @@ A comprehensive monorepo for PDF accessibility tools and services, providing mic
 
 - **🚀 Full UI Applications**: Both web app (3000) and dashboard (3001) fully operational
 - **🤖 AI-Enhanced Processing**: Bedrock integration with confidence scoring and A2I review routing
-- **🔍 LLM Integration**: Public embeddings API for ChatGPT, Claude, Gemini access
+- **🔍 LLM Integration**: Public embeddings API is disabled (it had no auth or working rate limit); see [docs/LLM_INTEGRATION.md](docs/LLM_INTEGRATION.md)
 - **📊 RAG Capabilities**: Semantic search, Q&A generation, citation tracking
 - **🔐 Security**: Enhanced authentication, comprehensive validation, virus scanning ready
 - **🗑️ Document Management**: Two-stage deletion with complete artifact cleanup
@@ -25,7 +25,7 @@ A comprehensive monorepo for PDF accessibility tools and services, providing mic
 - **Semantic HTML Builder**: WCAG-compliant exports using canonical schema
 - **Vector Embeddings**: Titan embeddings with similarity search
 - **AI Learning System**: Feedback loops for continuous improvement
-- **Public Discovery API**: Zero-auth LLM access with rate limiting
+- **Public Discovery API**: Disabled until it has authentication and enforced rate limits
 - **Client Registration**: Domain-based auth for secure integrations
 
 📋 **For detailed status, see:** [STATUS.md](STATUS.md)  

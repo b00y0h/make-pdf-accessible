@@ -21,7 +21,6 @@ from .routes import (
     client,
     demo,
     documents,
-    embeddings,
     feedback,
     quotas,
     registration,
@@ -375,7 +374,9 @@ app.include_router(search.router, prefix="/v1")
 app.include_router(feedback.router)
 app.include_router(client.router)
 app.include_router(registration.router)
-app.include_router(embeddings.router)  # No versioning for public API
+# The public embeddings router (routes/embeddings.py) is deliberately not mounted.
+# It had no authentication and its rate limiter allowed every request, so any
+# caller could trigger paid Bedrock calls. Add real auth and rate limits first.
 
 # Legacy routes (maintain backward compatibility)
 app.include_router(auth.router, tags=["legacy"])
