@@ -1,0 +1,5 @@
+.next
+out
+test-results
+playwright-report
+*.tsbuildinfo
