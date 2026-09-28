@@ -5,11 +5,15 @@ on:
     paths:
       - 'infra/terraform/**'
       - '.github/workflows/infra-ci.yml'
+      - '.tflint.hcl'
+      - '.checkov.yaml'
   push:
     branches: [main]
     paths:
       - 'infra/terraform/**'
       - '.github/workflows/infra-ci.yml'
+      - '.tflint.hcl'
+      - '.checkov.yaml'
   workflow_dispatch:
     inputs:
       environment:
