@@ -2,8 +2,8 @@
 /**
  * Plugin Name: AccessPDF Integration
  * Plugin URI: https://accesspdf.com/wordpress
- * Description: Makes uploaded PDFs accessible and serves Markdown versions of your posts and pages to AI agents
- * Version: 1.1.0
+ * Description: Inventories your PDFs for accessibility, makes uploaded PDFs accessible, and serves Markdown versions of your posts and pages to AI agents
+ * Version: 1.2.0
  * Author: AccessPDF
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -14,10 +14,14 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ACCESSPDF_VERSION', '1.1.0');
+define('ACCESSPDF_VERSION', '1.2.0');
+define('ACCESSPDF_PLUGIN_FILE', __FILE__);
 
 require_once __DIR__ . '/includes/class-accesspdf-html-to-markdown.php';
 require_once __DIR__ . '/includes/class-accesspdf-markdown.php';
+require_once __DIR__ . '/includes/class-accesspdf-pdf-analyzer.php';
+require_once __DIR__ . '/includes/class-accesspdf-inventory.php';
+require_once __DIR__ . '/includes/class-accesspdf-inventory-page.php';
 
 class AccessPDFPlugin {
     private $api_base = 'https://api.accesspdf.com';
@@ -38,6 +42,12 @@ class AccessPDFPlugin {
         add_filter('attachment_fields_to_save', [$this, 'save_accessibility_fields'], 10, 2);
 
         (new AccessPDF_Markdown())->register();
+
+        $inventory = new AccessPDF_Inventory();
+        $inventory->register();
+        if (is_admin()) {
+            (new AccessPDF_Inventory_Page($inventory))->register();
+        }
     }
 
     public function init() {
@@ -171,9 +181,9 @@ class AccessPDFPlugin {
                 <?php settings_fields('accesspdf_settings'); ?>
                 <table class="form-table">
                     <tr>
-                        <th scope="row">API Key</th>
+                        <th scope="row"><label for="accesspdf_api_key">API Key</label></th>
                         <td>
-                            <input type="password" name="accesspdf_api_key" value="<?php echo esc_attr($this->api_key); ?>" class="regular-text" />
+                            <input type="password" id="accesspdf_api_key" name="accesspdf_api_key" value="<?php echo esc_attr($this->api_key); ?>" class="regular-text" />
                             <p class="description">Get your API key from <a href="https://dashboard.accesspdf.com" target="_blank">AccessPDF Dashboard</a></p>
                         </td>
                     </tr>
@@ -201,6 +211,9 @@ class AccessPDFPlugin {
             </form>
 
             <hr style="margin: 30px 0;" />
+
+            <h2>PDF inventory</h2>
+            <p>See every PDF on your site, which ones need accessibility work, and which pages link to them: <a href="<?php echo esc_url(AccessPDF_Inventory_Page::url()); ?>">Media → PDF Inventory</a>.</p>
 
             <h2>How Markdown versions work</h2>
             <ul style="list-style: disc; padding-left: 20px;">
