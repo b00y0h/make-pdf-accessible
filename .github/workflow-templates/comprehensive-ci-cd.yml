@@ -68,7 +68,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -127,7 +127,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup language environment
         run: |
@@ -203,7 +203,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup language environment
         run: |
@@ -257,7 +257,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup AWS credentials with retry
         uses: ./.github/actions/retry-with-backoff
@@ -328,7 +328,7 @@ jobs:
             temp-scan:latest || true
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.service_name }}-build-${{ needs.prepare.outputs.version }}
           path: |
@@ -357,7 +357,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup AWS credentials
         uses: ./.github/actions/setup-aws
@@ -367,7 +367,7 @@ jobs:
           service_name: ${{ inputs.service_name }}
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ inputs.service_name }}-build-${{ needs.prepare.outputs.version }}
           path: ./artifacts
@@ -455,7 +455,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup AWS credentials (if needed)
         if: inputs.service_type == 'lambda' || inputs.service_type == 'api'
@@ -500,7 +500,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup AWS credentials
         uses: ./.github/actions/setup-aws
@@ -525,7 +525,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Notify deployment start
         if: needs.prepare.outputs.should_deploy == 'true'

@@ -14,12 +14,12 @@ jobs:
   update-python-dependencies:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
@@ -35,7 +35,7 @@ jobs:
           done
 
       - name: Create Pull Request for Python dependencies
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: 'chore: update Python dependencies'
@@ -50,26 +50,24 @@ jobs:
   update-node-dependencies:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: '8'
+        uses: pnpm/action-setup@v5
 
       - name: Update Node.js dependencies
         run: |
           pnpm update --latest
 
       - name: Create Pull Request for Node.js dependencies
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: 'chore: update Node.js dependencies'

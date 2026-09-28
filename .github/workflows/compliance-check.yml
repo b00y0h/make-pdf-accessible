@@ -32,8 +32,8 @@ permissions:
 
 env:
   NODE_VERSION: '24'
-  PNPM_VERSION: '8'
   PYTHON_VERSION: '3.9'
+  # pnpm/action-setup reads the pnpm version from packageManager in package.json.
 
 jobs:
   wcag-compliance:
@@ -43,17 +43,15 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: ${{ env.PNPM_VERSION }}
+        uses: pnpm/action-setup@v5
 
       - name: Install dependencies and build
         run: |
@@ -204,7 +202,7 @@ jobs:
 
       - name: Upload accessibility results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: accessibility-results-${{ github.run_id }}
           path: |
@@ -280,22 +278,20 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: ${{ env.PNPM_VERSION }}
+        uses: pnpm/action-setup@v5
 
       - name: Check security headers configuration
         id: security-headers
@@ -441,17 +437,15 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: ${{ env.PNPM_VERSION }}
+        uses: pnpm/action-setup@v5
 
       - name: Build application
         run: |
@@ -534,7 +528,7 @@ jobs:
 
       - name: Upload performance results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: performance-results-${{ github.run_id }}
           path: lighthouse-performance.json
@@ -651,7 +645,7 @@ jobs:
           echo "4. Re-run compliance checks to verify fixes" >> compliance-summary.md
 
       - name: Upload comprehensive compliance report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: comprehensive-compliance-report-${{ github.run_id }}
           path: compliance-summary.md
@@ -659,7 +653,7 @@ jobs:
 
       - name: Comment PR with compliance summary
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');

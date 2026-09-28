@@ -252,7 +252,7 @@ aws lambda create-function \
 
 ```yaml
 - name: Configure AWS credentials
-  uses: aws-actions/configure-aws-credentials@v4
+  uses: aws-actions/configure-aws-credentials@v6
   with:
     role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
     aws-region: ${{ secrets.AWS_REGION }} # Ensure this matches function region
@@ -332,7 +332,7 @@ pip-compile --dry-run requirements.in
 
 ```yaml
 - name: Build Docker image
-  uses: docker/build-push-action@v5
+  uses: docker/build-push-action@v7
   with:
     context: .
     push: true
@@ -517,7 +517,7 @@ module.exports = {
 
 ```yaml
 - name: Setup Node.js
-  uses: actions/setup-node@v4
+  uses: actions/setup-node@v7
   with:
     node-version: '24'
     cache: 'npm'
@@ -652,7 +652,7 @@ jobs:
 
 ```yaml
 - name: Build with cache
-  uses: docker/build-push-action@v5
+  uses: docker/build-push-action@v7
   with:
     cache-from: type=gha
     cache-to: type=gha,mode=max

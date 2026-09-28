@@ -93,7 +93,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -140,7 +140,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup language environment
         run: |
@@ -213,7 +213,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup language environment
         run: |
@@ -248,7 +248,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup AWS credentials
         uses: ./.github/actions/setup-aws
@@ -320,7 +320,7 @@ jobs:
           esac
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.service_name }}-build-${{ needs.prepare.outputs.version }}
           path: ${{ inputs.working_directory }}/${{ steps.build.outputs.artifact }}
@@ -342,7 +342,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup AWS credentials
         uses: ./.github/actions/setup-aws
@@ -352,7 +352,7 @@ jobs:
           service_name: ${{ inputs.service_name }}
 
       - name: Download build artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ inputs.service_name }}-build-${{ needs.prepare.outputs.version }}
           path: ./artifacts
@@ -459,7 +459,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup AWS credentials
         if: inputs.service_type == 'lambda' || inputs.service_type == 'api'
@@ -487,7 +487,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Notify deployment success
         if: needs.deploy.result == 'success' && (needs.health-check.result == 'success' || needs.health-check.result == 'skipped')

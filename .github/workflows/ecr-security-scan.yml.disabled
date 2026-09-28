@@ -56,10 +56,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.GITHUB_LAMBDA_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -289,7 +289,7 @@ jobs:
 
       - name: Upload ECR scan results
         if: always() && steps.ecr-details.outputs.repository_exists == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ecr-scan-results-${{ matrix.service }}-${{ github.run_id }}
           path: ecr-scan-results-${{ matrix.service }}.md
@@ -332,7 +332,7 @@ jobs:
 
     steps:
       - name: Download all ECR scan results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: ecr-results
 
@@ -451,7 +451,7 @@ jobs:
           echo "5. **Image Signing:** Consider implementing container image signing" >> ecr-security-summary.md
 
       - name: Upload comprehensive ECR security report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: comprehensive-ecr-security-report-${{ github.run_id }}
           path: ecr-security-summary.md
@@ -463,7 +463,7 @@ jobs:
 
       - name: Create security issue if critical vulnerabilities found
         if: contains(needs.ecr-vulnerability-scan.outputs.*, 'total_critical') && needs.ecr-vulnerability-scan.outputs.total_critical > 0
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const title = '🚨 Critical Container Vulnerabilities Found in ECR';

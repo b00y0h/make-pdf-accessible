@@ -328,14 +328,14 @@ Implement container vulnerability scanning:
 
 ```yaml
 - name: Scan container image
-  uses: aquasecurity/trivy-action@master
+  uses: aquasecurity/trivy-action@v0.36.0
   with:
     image-ref: ${{ env.ECR_REGISTRY }}/pdf-accessibility/api:${{ github.sha }}
     format: 'sarif'
     output: 'trivy-results.sarif'
 
 - name: Upload Trivy scan results
-  uses: github/codeql-action/upload-sarif@v2
+  uses: github/codeql-action/upload-sarif@v4
   with:
     sarif_file: 'trivy-results.sarif'
 ```
@@ -346,7 +346,7 @@ Sign container images for integrity verification:
 
 ```yaml
 - name: Sign container image
-  uses: sigstore/cosign-installer@v3
+  uses: sigstore/cosign-installer@v4
 
 - name: Sign the published Docker image
   run: |
