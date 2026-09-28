@@ -245,12 +245,19 @@ make dev
 
 ### Staging/Production
 
-```bash
-# Build production images
-make build
+Environments are separate AWS accounts with their own Terraform state (see `infra/terraform/README.md`):
 
-# Deploy with Terraform
-make deploy
+```bash
+# Once per account: state bucket and lock table
+cd infra/terraform/bootstrap && terraform init && terraform apply -var environment=dev
+
+# Platform
+cd infra/terraform
+terraform init -backend-config=environments/dev.backend.hcl
+terraform plan -var-file=environments/dev.tfvars
+terraform apply -var-file=environments/dev.tfvars
+
+# Marketing site: .github/workflows/marketing-site.yml deploys apps/marketing on merge to main
 ```
 
 ### CI/CD Pipeline
@@ -273,10 +280,16 @@ GitHub Actions workflows handle:
 
 ## 📚 Documentation
 
-- **API Documentation**: Auto-generated with FastAPI/Swagger
-- **Architecture Decisions**: `/docs/adr/`
-- **Deployment Guide**: `/docs/deployment.md`
-- **Contributing Guide**: `/docs/contributing.md`
+Start at [`docs/README.md`](docs/README.md). Highlights:
+
+- **Business plan**: [`docs/business/BUSINESS-PLAN.md`](docs/business/BUSINESS-PLAN.md)
+- **Product requirements**: [`docs/PLATFORM-PRD.md`](docs/PLATFORM-PRD.md) and the feature PRDs (pipeline, inventory and triage, integrations, enterprise readiness, marketing site)
+- **Architecture decisions**: [`docs/adr/`](docs/adr/README.md)
+- **Execution specs**: `docs/*-SPECS.md`, starting with [`docs/AWS-DEPLOYMENT-SPECS.md`](docs/AWS-DEPLOYMENT-SPECS.md)
+- **Research**: [`docs/research/`](docs/research/) (market, regulation, the ITHAKA pipeline benchmark)
+- **API reference**: auto-generated with FastAPI/Swagger at `/docs` on the API
+- **Infrastructure**: [`infra/terraform/README.md`](infra/terraform/README.md)
+- **Marketing site**: [`apps/marketing/README.md`](apps/marketing/README.md)
 
 ## 🤝 Contributing
 
