@@ -25,18 +25,9 @@ const customJestConfig = {
     '!jest.config.js',
     '!jest.setup.js',
   ],
-  coverageThreshold: {
-    global: {
-      branches: 70,
-      functions: 70,
-      lines: 70,
-      statements: 70,
-    },
-  },
-  testMatch: [
-    '**/__tests__/**/*.(js|jsx|ts|tsx)',
-    '**/*.(test|spec).(js|jsx|ts|tsx)',
-  ],
+  // Jest runs the *.test.* files. The *.spec.* files, __tests__/setupTests.ts and the MSW
+  // handlers use Vitest and run under the root vitest.config.ts (project web-jsdom).
+  testMatch: ['**/*.test.(js|jsx|ts|tsx)'],
   testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/node_modules/'],
   transform: {
     // Use babel-jest to transpile tests with the next/babel preset

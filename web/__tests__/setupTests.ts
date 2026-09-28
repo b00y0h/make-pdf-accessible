@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest';
+import { cleanup } from '@testing-library/react';
 import { beforeAll, afterEach, afterAll } from 'vitest';
 import { setupServer } from 'msw/node';
 import { handlers } from './msw/handlers';
@@ -16,6 +17,8 @@ beforeAll(() => {
 });
 
 afterEach(() => {
+  // Testing Library only unmounts automatically when Vitest globals are enabled
+  cleanup();
   server.resetHandlers();
 });
 

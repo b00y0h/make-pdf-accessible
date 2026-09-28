@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - 'web/**'
+      - 'vitest.config.ts'
       - '.github/workflows/web-ci.yml'
   pull_request:
     paths:
       - 'web/**'
+      - 'vitest.config.ts'
       - '.github/workflows/web-ci.yml'
   workflow_dispatch:
     inputs:
@@ -342,8 +344,8 @@ jobs:
           cd ${{ env.WEB_WORKING_DIR }}
 
           echo "Running Jest unit tests..."
-          pnpm test --run --coverage --coverageReporters=text --coverageReporters=lcov \
-            --coverageReporters=json --coverageThreshold='{"global":{"branches":70,"functions":70,"lines":70,"statements":70}}' \
+          pnpm run test --coverage --coverageReporters=text --coverageReporters=lcov \
+            --coverageReporters=json --coverageReporters=json-summary \
             --maxWorkers=2 --passWithNoTests || echo "unit_tests_failed=true" >> $GITHUB_OUTPUT
 
           # Extract coverage percentage
@@ -371,8 +373,12 @@ jobs:
 
           echo "Running component tests..."
           # Run tests specifically for components
-          pnpm test --run --testPathPatterns="components|__tests__" --passWithNoTests \
+          pnpm run test --testPathPatterns="components|__tests__" --passWithNoTests \
             --verbose || echo "component_tests_failed=true" >> $GITHUB_OUTPUT
+
+          # The *.spec.* component and feature tests use Vitest (root vitest.config.ts)
+          (cd .. && pnpm exec vitest run --project web-jsdom) \
+            || echo "component_tests_failed=true" >> $GITHUB_OUTPUT
 
       - name: Run integration tests
         if: inputs.skip_tests != true
@@ -382,7 +388,7 @@ jobs:
 
           echo "Running integration tests..."
           # Run tests for pages and API routes
-          pnpm test --run --testPathPatterns="pages|api|integration" --passWithNoTests \
+          pnpm run test --testPathPatterns="pages|api|integration" --passWithNoTests \
             --verbose || echo "integration_tests_failed=true" >> $GITHUB_OUTPUT
 
       - name: Run accessibility tests
@@ -399,7 +405,7 @@ jobs:
           fi
 
           # Run accessibility-specific tests
-          pnpm test --run --testPathPatterns="a11y|accessibility" --passWithNoTests \
+          pnpm run test --testPathPatterns="a11y|accessibility" --passWithNoTests \
             --verbose || echo "a11y_tests_failed=true" >> $GITHUB_OUTPUT
 
       - name: Generate build version

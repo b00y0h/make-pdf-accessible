@@ -34,6 +34,8 @@ export default defineConfig({
           name: 'web-jsdom',
           root: './web',
           environment: 'jsdom',
+          // web's *.test.* files run under Jest (web/jest.config.js)
+          include: ['__tests__/**/*.spec.{ts,tsx}'],
           setupFiles: ['./__tests__/setupTests.ts'],
         },
       },

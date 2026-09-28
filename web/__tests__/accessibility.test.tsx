@@ -12,7 +12,7 @@ const MockComponent = () => (
       ×
     </button>
     <img src="/test.jpg" alt="Test image description" />
-    <form>
+    <form aria-label="Email sign-up">
       <label htmlFor="email">Email Address</label>
       <input type="email" id="email" required />
       <button type="submit">Submit</button>
