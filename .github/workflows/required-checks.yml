@@ -248,8 +248,8 @@ jobs:
       - name: Verify Docker builds
         run: |
           # Test that Docker images can be built
-          docker build -f services/api/Dockerfile -t test-api .
-          docker build -f services/worker/Dockerfile -t test-worker .
+          docker build -f services/api/Dockerfile -t test-api services
+          docker build -f services/worker/Dockerfile -t test-worker services/worker
 
   # Security scanning
   security-scan:

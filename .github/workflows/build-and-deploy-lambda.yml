@@ -207,6 +207,14 @@ jobs:
           echo "path=$SERVICE_PATH" >> $GITHUB_OUTPUT
           echo "Service path: $SERVICE_PATH"
 
+          # The API image copies the shared package, so it builds from services/
+          if [ "${{ matrix.service }}" = "api" ]; then
+            echo "context=services" >> $GITHUB_OUTPUT
+          else
+            echo "context=$SERVICE_PATH" >> $GITHUB_OUTPUT
+          fi
+          echo "dockerfile=$SERVICE_PATH/Dockerfile" >> $GITHUB_OUTPUT
+
       - name: Run Lambda function tests
         id: function-tests
         run: |
@@ -340,11 +348,10 @@ jobs:
         id: build-local
         if: steps.function-tests.outputs.function_tests_failed != 'true'
         run: |
-          SERVICE_PATH="${{ steps.service-path.outputs.path }}"
           LOCAL_IMAGE="security-scan-${{ matrix.service }}:${{ needs.detect-changes.outputs.version }}"
 
           echo "Building image for security scanning: $LOCAL_IMAGE"
-          docker build -t "$LOCAL_IMAGE" "$SERVICE_PATH"
+          docker build -f "${{ steps.service-path.outputs.dockerfile }}" -t "$LOCAL_IMAGE" "${{ steps.service-path.outputs.context }}"
           echo "local_image=$LOCAL_IMAGE" >> $GITHUB_OUTPUT
 
       - name: Run container security scan with Trivy
@@ -395,7 +402,8 @@ jobs:
         if: steps.function-tests.outputs.function_tests_failed != 'true' && steps.container-security.outputs.container_security_failed != 'true'
         uses: docker/build-push-action@v5
         with:
-          context: ${{ steps.service-path.outputs.path }}
+          context: ${{ steps.service-path.outputs.context }}
+          file: ${{ steps.service-path.outputs.dockerfile }}
           platforms: linux/amd64
           push: true
           tags: |
