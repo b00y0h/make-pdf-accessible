@@ -240,9 +240,10 @@ export default function UploadPage() {
               <Label htmlFor="priority">Priority processing</Label>
             </div>
 
-            <div className="space-y-2">
+            <div>
               <Label htmlFor="webhook">Webhook URL (optional)</Label>
               <Input
+                className="mt-2"
                 id="webhook"
                 type="url"
                 placeholder="https://your-site.com/webhook"
@@ -256,9 +257,10 @@ export default function UploadPage() {
               />
             </div>
 
-            <div className="space-y-2">
+            <div>
               <Label htmlFor="metadata">Additional Metadata (JSON)</Label>
               <Textarea
+                className="mt-2"
                 id="metadata"
                 placeholder='{"project": "test", "department": "legal"}'
                 value={metadataText}

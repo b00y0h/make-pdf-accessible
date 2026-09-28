@@ -104,7 +104,7 @@ export function FileUpload({
 
   const dropzoneClasses = clsx(
     'border-2 border-dashed rounded-lg p-8 text-center transition-colors duration-200 ease-in-out',
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
+    'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
     {
       'border-blue-400 bg-blue-50 text-blue-700':
         isDragActive && isDragAccept && !disabled,
@@ -184,7 +184,7 @@ export function FileUpload({
         >
           <div className="flex">
             <AlertCircle
-              className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5"
+              className="h-5 w-5 text-red-400 shrink-0 mt-0.5"
               aria-hidden="true"
             />
             <div className="ml-3">
@@ -315,7 +315,7 @@ export function FileList({
                     <p className="text-sm font-medium text-gray-900 truncate">
                       {file.name}
                     </p>
-                    <p className="text-sm text-gray-500 ml-2 flex-shrink-0">
+                    <p className="text-sm text-gray-500 ml-2 shrink-0">
                       {formatFileSize(file.size)}
                     </p>
                   </div>
@@ -362,7 +362,7 @@ export function FileList({
                 <button
                   type="button"
                   onClick={() => onRemoveFile(file.id)}
-                  className="ml-3 p-1 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded"
+                  className="ml-3 p-1 text-gray-400 hover:text-gray-600 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded-sm"
                   aria-label={`Remove ${file.name}`}
                 >
                   <X className="w-4 h-4" aria-hidden="true" />

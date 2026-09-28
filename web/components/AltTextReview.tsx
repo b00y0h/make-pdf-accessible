@@ -325,10 +325,10 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
     return (
       <div className={clsx('animate-pulse', className)}>
         <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="h-6 bg-gray-200 rounded mb-4"></div>
+          <div className="h-6 bg-gray-200 rounded-sm mb-4"></div>
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-20 bg-gray-100 rounded"></div>
+              <div key={i} className="h-20 bg-gray-100 rounded-sm"></div>
             ))}
           </div>
         </div>
@@ -382,7 +382,7 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setShowKeyboardHelp(!showKeyboardHelp)}
-              className="p-2 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
+              className="p-2 text-gray-400 hover:text-gray-600 focus:outline-hidden focus:ring-2 focus:ring-blue-500 rounded-md"
               title="Keyboard shortcuts"
             >
               <Keyboard className="w-4 h-4" />
@@ -425,7 +425,7 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Status</option>
               <option value="needs_review">Needs Review</option>
@@ -444,7 +444,7 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
               placeholder="Search alt-text content..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
@@ -462,7 +462,7 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
                   onClick={() =>
                     updateStatus(Array.from(selectedFigures), 'approved')
                   }
-                  className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="px-3 py-1 text-sm bg-green-600 text-white rounded-sm hover:bg-green-700 focus:outline-hidden focus:ring-2 focus:ring-green-500"
                 >
                   <Check className="w-4 h-4 inline mr-1" />
                   Approve
@@ -471,7 +471,7 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
                   onClick={() =>
                     updateStatus(Array.from(selectedFigures), 'rejected')
                   }
-                  className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className="px-3 py-1 text-sm bg-red-600 text-white rounded-sm hover:bg-red-700 focus:outline-hidden focus:ring-2 focus:ring-red-500"
                 >
                   <X className="w-4 h-4 inline mr-1" />
                   Reject
@@ -492,7 +492,7 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
                 type="checkbox"
                 checked={selectedFigures.has(figure.figure_id)}
                 onChange={() => toggleFigureSelection(figure.figure_id)}
-                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded-sm"
               />
 
               <div className="flex-1 min-w-0">
@@ -531,14 +531,14 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
                               saveEdit(figure.figure_id, editText, editComment)
                             }
                             disabled={!editText.trim()}
-                            className="p-1 text-green-600 hover:text-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 rounded disabled:opacity-50"
+                            className="p-1 text-green-600 hover:text-green-800 focus:outline-hidden focus:ring-2 focus:ring-green-500 rounded-sm disabled:opacity-50"
                             title="Save (Enter)"
                           >
                             <Save className="w-4 h-4" />
                           </button>
                           <button
                             onClick={cancelEdit}
-                            className="p-1 text-gray-600 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 rounded"
+                            className="p-1 text-gray-600 hover:text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-gray-500 rounded-sm"
                             title="Cancel (Esc)"
                           >
                             <X className="w-4 h-4" />
@@ -548,7 +548,7 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
                         <>
                           <button
                             onClick={() => startEdit(figure)}
-                            className="p-1 text-blue-600 hover:text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                            className="p-1 text-blue-600 hover:text-blue-800 focus:outline-hidden focus:ring-2 focus:ring-blue-500 rounded-sm"
                             title="Edit"
                           >
                             <Edit3 className="w-4 h-4" />
@@ -561,7 +561,7 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
                                   : figure.figure_id
                               )
                             }
-                            className="p-1 text-gray-600 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 rounded"
+                            className="p-1 text-gray-600 hover:text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-gray-500 rounded-sm"
                             title="Show history"
                           >
                             <History className="w-4 h-4" />
@@ -578,7 +578,7 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
                     <textarea
                       value={editText}
                       onChange={(e) => setEditText(e.target.value)}
-                      className="w-full p-3 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-3 text-sm border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                       rows={3}
                       placeholder="Enter alt text..."
                       onKeyDown={(e) => {
@@ -596,7 +596,7 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
                       value={editComment}
                       onChange={(e) => setEditComment(e.target.value)}
                       placeholder="Optional comment about this change..."
-                      className="w-full p-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-2 text-sm border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 ) : (
@@ -673,36 +673,38 @@ export function AltTextReview({ documentId, className }: AltTextReviewProps) {
 
       {/* Keyboard help overlay */}
       {showKeyboardHelp && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md">
             <h4 className="text-lg font-medium text-gray-900 mb-4">
               Keyboard Shortcuts
             </h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <kbd className="px-2 py-1 bg-gray-100 rounded">?</kbd>
+                <kbd className="px-2 py-1 bg-gray-100 rounded-sm">?</kbd>
                 <span>Show/hide this help</span>
               </div>
               <div className="flex justify-between">
-                <kbd className="px-2 py-1 bg-gray-100 rounded">Esc</kbd>
+                <kbd className="px-2 py-1 bg-gray-100 rounded-sm">Esc</kbd>
                 <span>Cancel editing / Close dialogs</span>
               </div>
               <div className="flex justify-between">
-                <kbd className="px-2 py-1 bg-gray-100 rounded">Ctrl+Enter</kbd>
+                <kbd className="px-2 py-1 bg-gray-100 rounded-sm">
+                  Ctrl+Enter
+                </kbd>
                 <span>Save edit</span>
               </div>
               <div className="flex justify-between">
-                <kbd className="px-2 py-1 bg-gray-100 rounded">Shift+A</kbd>
+                <kbd className="px-2 py-1 bg-gray-100 rounded-sm">Shift+A</kbd>
                 <span>Approve selected</span>
               </div>
               <div className="flex justify-between">
-                <kbd className="px-2 py-1 bg-gray-100 rounded">Shift+R</kbd>
+                <kbd className="px-2 py-1 bg-gray-100 rounded-sm">Shift+R</kbd>
                 <span>Reject selected</span>
               </div>
             </div>
             <button
               onClick={() => setShowKeyboardHelp(false)}
-              className="mt-4 w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="mt-4 w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
             >
               Close
             </button>

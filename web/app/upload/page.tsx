@@ -93,7 +93,7 @@ export default function UploadPage() {
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => router.back()}
-                className="p-2 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
+                className="p-2 text-gray-400 hover:text-gray-600 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
                 aria-label="Go back"
               >
                 <ChevronLeft className="w-5 h-5" />
@@ -108,7 +108,7 @@ export default function UploadPage() {
               <button
                 onClick={() => setShowSettings(!showSettings)}
                 className={clsx(
-                  'p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                  'p-2 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
                   showSettings
                     ? 'text-blue-600 bg-blue-50'
                     : 'text-gray-400 hover:text-gray-600'
@@ -120,7 +120,7 @@ export default function UploadPage() {
               </button>
 
               <button
-                className="p-2 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
+                className="p-2 text-gray-400 hover:text-gray-600 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
                 aria-label="Help"
               >
                 <HelpCircle className="w-5 h-5" />
@@ -203,7 +203,7 @@ export default function UploadPage() {
                 onClick={handleUpload}
                 disabled={!canUpload}
                 className={clsx(
-                  'px-6 py-3 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                  'px-6 py-3 rounded-md text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
                   canUpload
                     ? 'bg-blue-600 text-white hover:bg-blue-700'
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -281,7 +281,7 @@ export default function UploadPage() {
                           priority: e.target.checked,
                         }))
                       }
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded-sm"
                     />
                   </div>
                 </div>
@@ -307,7 +307,7 @@ export default function UploadPage() {
                         webhookUrl: e.target.value,
                       }))
                     }
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-xs focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     placeholder="https://your-site.com/webhook"
                   />
                 </div>
@@ -321,7 +321,7 @@ export default function UploadPage() {
                     <input
                       type="text"
                       placeholder="Add a tag"
-                      className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      className="block w-full border-gray-300 rounded-md shadow-xs focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       onKeyPress={(e) => {
                         if (e.key === 'Enter') {
                           const input = e.target as HTMLInputElement;

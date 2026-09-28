@@ -52,7 +52,7 @@ export function SignOutButton({
     <button
       onClick={handleSignOut}
       disabled={isSigningOut}
-      className={`inline-flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+      className={`inline-flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-md shadow-xs bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
     >
       <LogOut className="h-4 w-4" />
       <span>{isSigningOut ? 'Signing out...' : 'Sign Out'}</span>

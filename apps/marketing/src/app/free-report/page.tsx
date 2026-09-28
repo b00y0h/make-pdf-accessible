@@ -16,7 +16,7 @@ export default function FreeReportPage() {
         <h1 className="text-4xl font-bold tracking-tight">
           Free website inventory report
         </h1>
-        <p className="mt-4 max-w-prose text-lg text-muted">
+        <p className="mt-4 max-w-copy text-lg text-muted">
           Most institutions do not know how many PDFs they publish. Within two
           hours you will.
         </p>
@@ -41,7 +41,7 @@ export default function FreeReportPage() {
           </li>
         </ul>
         <h2 className="mt-8 text-xl font-bold">How we crawl</h2>
-        <p className="mt-2 max-w-prose text-muted">
+        <p className="mt-2 max-w-copy text-muted">
           Our crawler identifies itself, follows robots.txt, fetches no more
           than four pages per second, and reads only the metadata it needs. It
           never stores your documents after the report is sent. See{' '}

@@ -64,7 +64,7 @@ export function AdminSidebar() {
                     isCurrent
                       ? 'text-gray-300'
                       : 'text-gray-400 group-hover:text-gray-300',
-                    'mr-3 flex-shrink-0 h-6 w-6'
+                    'mr-3 shrink-0 h-6 w-6'
                   )}
                   aria-hidden="true"
                 />
@@ -76,11 +76,11 @@ export function AdminSidebar() {
       </div>
 
       {/* User section */}
-      <div className="flex-shrink-0 flex border-t border-gray-700 p-4">
-        <div className="flex-shrink-0 w-full group block">
+      <div className="shrink-0 flex border-t border-gray-700 p-4">
+        <div className="shrink-0 w-full group block">
           <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="inline-block h-10 w-10 rounded-full bg-gray-600 flex items-center justify-center">
+            <div className="shrink-0">
+              <div className="h-10 w-10 rounded-full bg-gray-600 flex items-center justify-center">
                 <span className="text-white text-sm font-medium">
                   {user?.name?.charAt(0)?.toUpperCase() ||
                     user?.email?.charAt(0)?.toUpperCase() ||

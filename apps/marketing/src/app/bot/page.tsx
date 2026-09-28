@@ -18,7 +18,7 @@ Disallow: /`;
 export default function BotPage() {
   return (
     <Container className="py-14">
-      <article className="max-w-prose">
+      <article className="max-w-copy">
         <h1 className="text-4xl font-bold tracking-tight">
           MakePDFAccessibleBot
         </h1>
@@ -30,7 +30,7 @@ export default function BotPage() {
         <h2 className="mt-8 text-2xl font-bold">Identification</h2>
         <p className="mt-2">
           User agent:{' '}
-          <code className="rounded bg-surface px-1 py-0.5 font-mono text-sm">
+          <code className="rounded-sm bg-surface px-1 py-0.5 font-mono text-sm">
             {SITE.crawlerUserAgent}
           </code>
         </p>

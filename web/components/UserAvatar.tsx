@@ -75,7 +75,7 @@ export default function UserAvatar() {
     <div className="relative">
       <button
         onClick={() => setShowMenu(!showMenu)}
-        className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+        className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
       >
         {session.user.image ? (
           <img
@@ -84,7 +84,7 @@ export default function UserAvatar() {
             className="w-8 h-8 rounded-full"
           />
         ) : (
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center text-white text-sm font-medium">
+          <div className="w-8 h-8 rounded-full bg-linear-to-br/srgb from-blue-600 to-cyan-600 flex items-center justify-center text-white text-sm font-medium">
             {initials}
           </div>
         )}

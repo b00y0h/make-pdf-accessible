@@ -1,39 +1,89 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
 
-/* Design tokens. Colors are RGB channel triplets consumed by Tailwind with <alpha-value>.
+/* Design tokens. Tailwind generates the utilities (bg-bg, text-muted, border-line, font-mono,
+   max-w-content) from these variables and the dark theme below overrides the same variables,
+   so light and dark share one token set and contrast is controlled in one place.
    Light theme contrast: ink on bg 15.6:1, muted on bg 7.0:1, accent-ink on accent 8.6:1. */
-:root {
-  --color-bg: 255 255 255;
-  --color-surface: 245 247 250;
-  --color-ink: 17 24 39;
-  --color-muted: 71 85 105;
-  --color-line: 203 213 225;
-  --color-accent: 12 74 110;
-  --color-accent-ink: 255 255 255;
-  --color-warn: 146 64 14;
-  --color-ok: 22 101 52;
+@theme {
+  --color-bg: rgb(255 255 255);
+  --color-surface: rgb(245 247 250);
+  --color-ink: rgb(17 24 39);
+  --color-muted: rgb(71 85 105);
+  --color-line: rgb(203 213 225);
+  --color-accent: rgb(12 74 110);
+  --color-accent-ink: rgb(255 255 255);
+  --color-warn: rgb(146 64 14);
+  --color-ok: rgb(22 101 52);
+
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
   --font-mono:
     ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --container-content: 72rem;
+  /* Reading column. Tailwind v4 fixes max-w-prose at 65ch, so this width has its own name. */
+  --container-copy: 42rem;
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+
+  /* Tailwind v4 no longer gives buttons a pointer cursor; keep the v3 behavior. */
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+
+  /* The v4 preflight also resets the browser's 1px table cell padding and the
+     native file-input button styles, which v3 left alone. */
+  td,
+  th {
+    padding: 1px;
+  }
+
+  ::file-selector-button {
+    box-sizing: revert;
+    margin: revert;
+    padding: revert;
+    border: revert;
+    border-radius: revert;
+    background-color: revert;
+    color: revert;
+    letter-spacing: revert;
+  }
+}
+
+:root {
   --focus-ring: 0 0 0 3px rgb(255 255 255), 0 0 0 6px rgb(12 74 110);
   color-scheme: light dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-bg: 15 23 42;
-    --color-surface: 30 41 59;
-    --color-ink: 241 245 249;
-    --color-muted: 203 213 225;
-    --color-line: 71 85 105;
-    --color-accent: 125 211 252;
-    --color-accent-ink: 15 23 42;
-    --color-warn: 253 186 116;
-    --color-ok: 134 239 172;
+    --color-bg: rgb(15 23 42);
+    --color-surface: rgb(30 41 59);
+    --color-ink: rgb(241 245 249);
+    --color-muted: rgb(203 213 225);
+    --color-line: rgb(71 85 105);
+    --color-accent: rgb(125 211 252);
+    --color-accent-ink: rgb(15 23 42);
+    --color-warn: rgb(253 186 116);
+    --color-ok: rgb(134 239 172);
     --focus-ring: 0 0 0 3px rgb(15 23 42), 0 0 0 6px rgb(125 211 252);
   }
 }
@@ -43,8 +93,8 @@ html {
 }
 
 body {
-  background-color: rgb(var(--color-bg));
-  color: rgb(var(--color-ink));
+  background-color: var(--color-bg);
+  color: var(--color-ink);
   font-family: var(--font-sans);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;

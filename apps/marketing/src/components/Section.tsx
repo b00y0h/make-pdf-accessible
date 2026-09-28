@@ -25,7 +25,7 @@ export function Section({
           {title}
         </h2>
         {lede ? (
-          <p className="mt-3 max-w-prose text-lg text-muted">{lede}</p>
+          <p className="mt-3 max-w-copy text-lg text-muted">{lede}</p>
         ) : null}
         <div className="mt-8">{children}</div>
       </Container>

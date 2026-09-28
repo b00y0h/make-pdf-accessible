@@ -43,7 +43,7 @@ export default function SecurityPage() {
   return (
     <Container className="py-14">
       <h1 className="text-4xl font-bold tracking-tight">Security</h1>
-      <p className="mt-4 max-w-prose text-lg text-muted">
+      <p className="mt-4 max-w-copy text-lg text-muted">
         A summary for security reviewers. The full whitepaper, HECVAT and
         policies are available on request.
       </p>
@@ -56,7 +56,7 @@ export default function SecurityPage() {
         ))}
       </dl>
       <h2 className="mt-12 text-2xl font-bold">Responsible disclosure</h2>
-      <p className="mt-2 max-w-prose">
+      <p className="mt-2 max-w-copy">
         Report vulnerabilities to{' '}
         <a
           href={`mailto:${SITE.securityEmail}`}

@@ -156,7 +156,7 @@ export function BudgetBanner({
               variant="outline"
               size="sm"
               asChild
-              className={`ml-4 ${alertProps.textColor} border-current hover:bg-current hover:bg-opacity-10`}
+              className={`ml-4 ${alertProps.textColor} border-current hover:bg-current/10`}
             >
               <a
                 href={criticalBudget.link}

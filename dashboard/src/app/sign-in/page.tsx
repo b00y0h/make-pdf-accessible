@@ -111,7 +111,7 @@ function SignInPageContent() {
 
   if (isPending) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br/srgb from-blue-50 via-white to-cyan-50 flex items-center justify-center">
         <div className="text-center">
           <Shield className="h-12 w-12 text-blue-600 mx-auto mb-4" />
           <p className="text-gray-600">Loading...</p>
@@ -121,14 +121,14 @@ function SignInPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-linear-to-br/srgb from-blue-50 via-white to-cyan-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       <div className="grid lg:grid-cols-2 min-h-screen">
         {/* Left Side - Hero Content */}
         <div className="flex flex-col justify-center px-8 py-12 lg:px-16">
           <div className="max-w-md mx-auto lg:mx-0">
             {/* Logo */}
             <div className="flex items-center gap-3 mb-8">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center">
+              <div className="h-10 w-10 rounded-xl bg-linear-to-br/srgb from-blue-600 to-cyan-600 flex items-center justify-center">
                 <Shield className="h-6 w-6 text-white" />
               </div>
               <div>
@@ -146,7 +146,7 @@ function SignInPageContent() {
               <div>
                 <h2 className="text-4xl font-bold text-gray-900 dark:text-white leading-tight">
                   Make your PDFs
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-600">
+                  <span className="text-transparent bg-clip-text bg-linear-to-r/srgb from-blue-600 to-cyan-600">
                     {' '}
                     accessible
                   </span>
@@ -170,7 +170,7 @@ function SignInPageContent() {
                 const Icon = feature.icon;
                 return (
                   <div key={index} className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
+                    <div className="shrink-0 w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
                       <Icon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
@@ -189,7 +189,7 @@ function SignInPageContent() {
         </div>
 
         {/* Right Side - Sign In Form */}
-        <div className="flex flex-col justify-center px-8 py-12 lg:px-16 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
+        <div className="flex flex-col justify-center px-8 py-12 lg:px-16 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xs">
           <div className="max-w-sm mx-auto w-full">
             <Card className="border-0 shadow-xl">
               <CardHeader className="space-y-1 text-center">
@@ -365,7 +365,7 @@ export default function SignInPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex items-center justify-center">
+        <div className="min-h-screen bg-linear-to-br/srgb from-blue-50 via-white to-cyan-50 flex items-center justify-center">
           <div className="text-center">
             <Shield className="h-12 w-12 text-blue-600 mx-auto mb-4" />
             <p className="text-gray-600">Loading...</p>

@@ -16,12 +16,12 @@ export default function PilotPage() {
   return (
     <Container className="py-14">
       <h1 className="text-4xl font-bold tracking-tight">Request a pilot</h1>
-      <p className="mt-4 max-w-prose text-lg text-muted">
+      <p className="mt-4 max-w-copy text-lg text-muted">
         Thirty days, one domain, agreed success criteria. The fee ($5,000 to
         $15,000 depending on size) is credited to a plan signed within 90 days.
       </p>
       <h2 className="mt-8 text-xl font-bold">What happens</h2>
-      <ol className="mt-2 max-w-prose list-decimal space-y-2 pl-5">
+      <ol className="mt-2 max-w-copy list-decimal space-y-2 pl-5">
         <li>
           Week 1: crawl and connector setup, inventory review, triage plan with
           counts and costs.
@@ -36,7 +36,7 @@ export default function PilotPage() {
         </li>
       </ol>
       <h2 className="mt-8 text-xl font-bold">Start the conversation</h2>
-      <p className="mt-2 max-w-prose">
+      <p className="mt-2 max-w-copy">
         Email{' '}
         <a
           href={`mailto:${SITE.contactEmail}?subject=${subject}&body=${body}`}

@@ -381,7 +381,7 @@ export default function DocumentDetailPage() {
                     </div>
                     <div className="w-full bg-secondary rounded-full h-4">
                       <div
-                        className="bg-gradient-to-r from-green-500 to-green-600 h-4 rounded-full transition-all duration-500"
+                        className="bg-linear-to-r/srgb from-green-500 to-green-600 h-4 rounded-full transition-all duration-500"
                         style={{ width: `${document.scores.overall || 92}%` }}
                       />
                     </div>

@@ -51,7 +51,7 @@ export default function TrustPage() {
   return (
     <Container className="py-14">
       <h1 className="text-4xl font-bold tracking-tight">Trust center</h1>
-      <p className="mt-4 max-w-prose text-lg text-muted">
+      <p className="mt-4 max-w-copy text-lg text-muted">
         What we do with your documents, how we protect them, and where we are on
         the reviews your procurement office asks for. We state the status
         honestly, including what is not done yet.
@@ -100,7 +100,7 @@ export default function TrustPage() {
       </table>
 
       <h2 className="mt-12 text-2xl font-bold">Subprocessors</h2>
-      <p className="mt-2 max-w-prose text-muted">
+      <p className="mt-2 max-w-copy text-muted">
         Amazon Web Services (hosting, storage, Amazon Bedrock models; United
         States regions), a payment processor for invoices, and an email delivery
         provider. Customer content is never used to train models. The full list

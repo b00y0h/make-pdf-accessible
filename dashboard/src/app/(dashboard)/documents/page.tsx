@@ -351,7 +351,7 @@ export default function DocumentsPage() {
                   key={doc.doc_id}
                   className="flex items-center gap-4 p-4 border rounded-lg hover:bg-accent/50 transition-colors"
                 >
-                  <FileText className="h-8 w-8 text-blue-500 flex-shrink-0" />
+                  <FileText className="h-8 w-8 text-blue-500 shrink-0" />
 
                   <div className="flex-1 min-w-0 space-y-2">
                     <div className="flex items-center justify-between">

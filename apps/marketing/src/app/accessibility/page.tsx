@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function AccessibilityPage() {
   return (
     <Container className="py-14">
-      <article className="max-w-prose">
+      <article className="max-w-copy">
         <h1 className="text-4xl font-bold tracking-tight">
           Accessibility statement
         </h1>
