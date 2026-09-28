@@ -4,6 +4,8 @@ name: Marketing Site
 # deploys the export to the S3 bucket served by CloudFront (infra/terraform/marketing.tf).
 # Deploy targets come from repository variables MARKETING_S3_BUCKET and
 # MARKETING_CLOUDFRONT_DISTRIBUTION_ID (from `terraform output`), with tag-based discovery as a fallback.
+# Until GITHUB_WEB_DEPLOY_ROLE_ARN is set for the target environment, pushes to main skip the deploy
+# with a notice; a manual run fails instead.
 
 on:
   push:
@@ -143,12 +145,41 @@ jobs:
       name: ${{ needs.build.outputs.environment }}-web
       url: ${{ steps.publish.outputs.site_url }}
     steps:
+      # Until the AWS setup in docs/AWS-DEPLOYMENT-SPECS.md (Spec 4) is done there is no deploy role
+      # to assume. A push to main then skips the deploy with a notice instead of failing. A manual run
+      # still fails, because someone asked for a deploy. The check runs inside the job so it also sees
+      # environment-scoped secrets.
+      - name: Check deploy configuration
+        id: preflight
+        env:
+          DEPLOY_ROLE_ARN: ${{ secrets.GITHUB_WEB_DEPLOY_ROLE_ARN }}
+          TARGET_ENVIRONMENT: ${{ needs.build.outputs.environment }}-web
+        run: |
+          if [ -n "$DEPLOY_ROLE_ARN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "enabled=false" >> "$GITHUB_OUTPUT"
+          MESSAGE="The marketing site was not deployed: GITHUB_WEB_DEPLOY_ROLE_ARN is not set for the $TARGET_ENVIRONMENT environment. Finish the AWS setup in docs/AWS-DEPLOYMENT-SPECS.md (Spec 4), then re-run this workflow."
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "::error::$MESSAGE"
+            exit 1
+          fi
+          echo "::notice::$MESSAGE"
+          {
+            echo "## Marketing site not deployed"
+            echo ""
+            echo "$MESSAGE"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/download-artifact@v8
+        if: steps.preflight.outputs.enabled == 'true'
         with:
           name: marketing-site-${{ github.sha }}
           path: out
 
       - name: Configure AWS credentials
+        if: steps.preflight.outputs.enabled == 'true'
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.GITHUB_WEB_DEPLOY_ROLE_ARN }}
@@ -157,6 +188,7 @@ jobs:
 
       - name: Resolve deploy targets
         id: targets
+        if: steps.preflight.outputs.enabled == 'true'
         env:
           BUCKET: ${{ vars.MARKETING_S3_BUCKET }}
           DISTRIBUTION: ${{ vars.MARKETING_CLOUDFRONT_DISTRIBUTION_ID }}
@@ -178,6 +210,7 @@ jobs:
 
       - name: Publish to S3
         id: publish
+        if: steps.preflight.outputs.enabled == 'true'
         env:
           BUCKET: ${{ steps.targets.outputs.bucket }}
           DISTRIBUTION: ${{ steps.targets.outputs.distribution }}
@@ -205,6 +238,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Smoke test
+        if: steps.preflight.outputs.enabled == 'true'
         env:
           SITE_URL: ${{ steps.publish.outputs.site_url }}
         run: |

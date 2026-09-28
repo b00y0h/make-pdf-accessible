@@ -11,11 +11,9 @@ async function getCostByTagHandler(
     const { searchParams } = new URL(request.url);
     const tag = searchParams.get('tag') || 'environment';
     const metric = (searchParams.get('metric') || 'UnblendedCost') as
-      | 'UnblendedCost'
-      | 'AmortizedCost';
+      'UnblendedCost' | 'AmortizedCost';
     const granularity = (searchParams.get('granularity') || 'MONTHLY') as
-      | 'MONTHLY'
-      | 'DAILY';
+      'MONTHLY' | 'DAILY';
     const preset = searchParams.get('preset') || '12months';
 
     // Use preset or custom date range
