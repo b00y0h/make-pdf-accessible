@@ -16,6 +16,7 @@ from .config import settings
 
 try:
     import PyPDF2
+
     PDF_METADATA_EXTRACTION_AVAILABLE = True
 except ImportError:
     PDF_METADATA_EXTRACTION_AVAILABLE = False
@@ -528,10 +529,10 @@ class SecurityService:
         pdf_metadata = None
         if file.filename and file.filename.lower().endswith(".pdf"):
             preflight_result = await self.validate_pdf_preflight(content, file.filename)
-            pdf_metadata = preflight_result['metadata']
+            pdf_metadata = preflight_result["metadata"]
 
             # Log any warnings
-            if preflight_result['warnings']:
+            if preflight_result["warnings"]:
                 logger.info(
                     f"PDF preflight warnings for {file.filename}: {preflight_result['warnings']}"
                 )
@@ -546,12 +547,14 @@ class SecurityService:
             "content_type": file.content_type,
         }
         if pdf_metadata:
-            log_extra.update({
-                "page_count": pdf_metadata['page_count'],
-                "is_encrypted": pdf_metadata['is_encrypted'],
-                "has_forms": pdf_metadata['has_forms'],
-                "has_javascript": pdf_metadata['has_javascript']
-            })
+            log_extra.update(
+                {
+                    "page_count": pdf_metadata["page_count"],
+                    "is_encrypted": pdf_metadata["is_encrypted"],
+                    "has_forms": pdf_metadata["has_forms"],
+                    "has_javascript": pdf_metadata["has_javascript"],
+                }
+            )
 
         logger.info(
             "File validation completed successfully",
@@ -757,18 +760,18 @@ class SecurityService:
             Dictionary containing PDF metadata
         """
         metadata = {
-            'page_count': 0,
-            'is_encrypted': False,
-            'title': None,
-            'author': None,
-            'subject': None,
-            'creator': None,
-            'producer': None,
-            'creation_date': None,
-            'modification_date': None,
-            'pdf_version': None,
-            'has_forms': False,
-            'has_javascript': False,
+            "page_count": 0,
+            "is_encrypted": False,
+            "title": None,
+            "author": None,
+            "subject": None,
+            "creator": None,
+            "producer": None,
+            "creation_date": None,
+            "modification_date": None,
+            "pdf_version": None,
+            "has_forms": False,
+            "has_javascript": False,
         }
 
         if not PDF_METADATA_EXTRACTION_AVAILABLE:
@@ -783,94 +786,98 @@ class SecurityService:
                 temp_path = temp_file.name
 
             try:
-                with open(temp_path, 'rb') as pdf_file:
+                with open(temp_path, "rb") as pdf_file:
                     pdf_reader = PyPDF2.PdfReader(pdf_file)
 
                     # Basic metadata
-                    metadata['page_count'] = len(pdf_reader.pages)
-                    metadata['is_encrypted'] = pdf_reader.is_encrypted
+                    metadata["page_count"] = len(pdf_reader.pages)
+                    metadata["is_encrypted"] = pdf_reader.is_encrypted
 
                     # PDF version
-                    if hasattr(pdf_reader, 'pdf_header'):
-                        metadata['pdf_version'] = pdf_reader.pdf_header
+                    if hasattr(pdf_reader, "pdf_header"):
+                        metadata["pdf_version"] = pdf_reader.pdf_header
 
                     # Document info
                     if pdf_reader.metadata:
                         doc_info = pdf_reader.metadata
-                        metadata['title'] = doc_info.get('/Title')
-                        metadata['author'] = doc_info.get('/Author')
-                        metadata['subject'] = doc_info.get('/Subject')
-                        metadata['creator'] = doc_info.get('/Creator')
-                        metadata['producer'] = doc_info.get('/Producer')
-                        metadata['creation_date'] = doc_info.get('/CreationDate')
-                        metadata['modification_date'] = doc_info.get('/ModDate')
+                        metadata["title"] = doc_info.get("/Title")
+                        metadata["author"] = doc_info.get("/Author")
+                        metadata["subject"] = doc_info.get("/Subject")
+                        metadata["creator"] = doc_info.get("/Creator")
+                        metadata["producer"] = doc_info.get("/Producer")
+                        metadata["creation_date"] = doc_info.get("/CreationDate")
+                        metadata["modification_date"] = doc_info.get("/ModDate")
 
                     # Check for forms and JavaScript
-                    if hasattr(pdf_reader, 'trailer') and pdf_reader.trailer:
-                        root = pdf_reader.trailer.get('/Root')
-                        if root and '/AcroForm' in root:
-                            metadata['has_forms'] = True
+                    if hasattr(pdf_reader, "trailer") and pdf_reader.trailer:
+                        root = pdf_reader.trailer.get("/Root")
+                        if root and "/AcroForm" in root:
+                            metadata["has_forms"] = True
 
                         # Check for JavaScript in document
                         for page_num in range(len(pdf_reader.pages)):
                             page = pdf_reader.pages[page_num]
-                            if '/JS' in str(page) or '/JavaScript' in str(page):
-                                metadata['has_javascript'] = True
+                            if "/JS" in str(page) or "/JavaScript" in str(page):
+                                metadata["has_javascript"] = True
                                 break
 
                     # Validate page count limits
-                    if metadata['page_count'] > settings.max_pdf_pages if hasattr(settings, 'max_pdf_pages') else 1000:
+                    if (
+                        metadata["page_count"] > settings.max_pdf_pages
+                        if hasattr(settings, "max_pdf_pages")
+                        else 1000
+                    ):
                         self.audit_security_event(
                             "EXCESSIVE_PDF_PAGES",
                             "system",
                             {
                                 "file_name": filename,
-                                "page_count": metadata['page_count'],
-                                "limit": getattr(settings, 'max_pdf_pages', 1000)
-                            }
+                                "page_count": metadata["page_count"],
+                                "limit": getattr(settings, "max_pdf_pages", 1000),
+                            },
                         )
                         raise HTTPException(
                             status_code=status.HTTP_400_BAD_REQUEST,
-                            detail=f"PDF has too many pages ({metadata['page_count']}). Maximum allowed: {getattr(settings, 'max_pdf_pages', 1000)}"
+                            detail=f"PDF has too many pages ({metadata['page_count']}). Maximum allowed: {getattr(settings, 'max_pdf_pages', 1000)}",
                         )
 
                     # Log if PDF is encrypted
-                    if metadata['is_encrypted']:
+                    if metadata["is_encrypted"]:
                         logger.warning(f"Encrypted PDF uploaded: {filename}")
                         self.audit_security_event(
                             "ENCRYPTED_PDF_UPLOADED",
                             "system",
                             {
                                 "file_name": filename,
-                                "page_count": metadata['page_count']
-                            }
+                                "page_count": metadata["page_count"],
+                            },
                         )
                         raise HTTPException(
                             status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Encrypted PDFs are not supported. Please remove password protection before uploading."
+                            detail="Encrypted PDFs are not supported. Please remove password protection before uploading.",
                         )
 
                     # Log if PDF has JavaScript
-                    if metadata['has_javascript']:
+                    if metadata["has_javascript"]:
                         logger.warning(f"PDF with JavaScript detected: {filename}")
                         self.audit_security_event(
                             "PDF_WITH_JAVASCRIPT",
                             "system",
                             {
                                 "file_name": filename,
-                                "page_count": metadata['page_count']
-                            }
+                                "page_count": metadata["page_count"],
+                            },
                         )
 
                     logger.info(
                         "PDF metadata extracted successfully",
                         extra={
                             "file_name": filename,
-                            "page_count": metadata['page_count'],
-                            "is_encrypted": metadata['is_encrypted'],
-                            "has_forms": metadata['has_forms'],
-                            "has_javascript": metadata['has_javascript']
-                        }
+                            "page_count": metadata["page_count"],
+                            "is_encrypted": metadata["is_encrypted"],
+                            "has_forms": metadata["has_forms"],
+                            "has_javascript": metadata["has_javascript"],
+                        },
                     )
 
             finally:
@@ -901,40 +908,44 @@ class SecurityService:
             Dictionary containing validation results and metadata
         """
         validation_result = {
-            'is_valid': True,
-            'metadata': {},
-            'warnings': [],
-            'errors': []
+            "is_valid": True,
+            "metadata": {},
+            "warnings": [],
+            "errors": [],
         }
 
         try:
             # Extract PDF metadata
             metadata = self.extract_pdf_metadata(file_content, filename)
-            validation_result['metadata'] = metadata
+            validation_result["metadata"] = metadata
 
             # Validate PDF content (existing security validation)
             self.validate_pdf_content(file_content, filename)
 
             # Additional preflight checks
-            if metadata['page_count'] == 0:
-                validation_result['errors'].append("PDF appears to have no pages")
-                validation_result['is_valid'] = False
+            if metadata["page_count"] == 0:
+                validation_result["errors"].append("PDF appears to have no pages")
+                validation_result["is_valid"] = False
 
-            if metadata['has_javascript']:
-                validation_result['warnings'].append("PDF contains JavaScript which may not be accessible")
+            if metadata["has_javascript"]:
+                validation_result["warnings"].append(
+                    "PDF contains JavaScript which may not be accessible"
+                )
 
-            if metadata['has_forms']:
-                validation_result['warnings'].append("PDF contains forms which may require additional accessibility review")
+            if metadata["has_forms"]:
+                validation_result["warnings"].append(
+                    "PDF contains forms which may require additional accessibility review"
+                )
 
             logger.info(
                 "PDF preflight validation completed",
                 extra={
                     "file_name": filename,
-                    "is_valid": validation_result['is_valid'],
-                    "page_count": metadata['page_count'],
-                    "warnings_count": len(validation_result['warnings']),
-                    "errors_count": len(validation_result['errors'])
-                }
+                    "is_valid": validation_result["is_valid"],
+                    "page_count": metadata["page_count"],
+                    "warnings_count": len(validation_result["warnings"]),
+                    "errors_count": len(validation_result["errors"]),
+                },
             )
 
         except HTTPException:
@@ -942,8 +953,8 @@ class SecurityService:
             raise
         except Exception as e:
             logger.error(f"PDF preflight validation failed: {e}")
-            validation_result['errors'].append(f"Validation error: {str(e)}")
-            validation_result['is_valid'] = False
+            validation_result["errors"].append(f"Validation error: {str(e)}")
+            validation_result["is_valid"] = False
 
         return validation_result
 

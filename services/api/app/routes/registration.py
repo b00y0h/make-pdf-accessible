@@ -22,7 +22,9 @@ class ClientRegistration(BaseModel):
     domain: str = Field(..., description="Primary domain (e.g., agency.gov)")
     additional_domains: list[str] = Field(default=[], description="Additional domains")
     contact_email: str = Field(..., description="Primary contact email")
-    organization_type: str = Field(..., description="Type: government, education, nonprofit, business")
+    organization_type: str = Field(
+        ..., description="Type: government, education, nonprofit, business"
+    )
     use_case: str = Field(..., description="Intended use case")
     integration_type: str = Field(..., description="wordpress, html, api, custom")
 
@@ -30,16 +32,19 @@ class ClientRegistration(BaseModel):
 class IntegrationInfo(BaseModel):
     """Integration information for client."""
 
-    integration_id: str = Field(..., description="Public integration ID (safe to expose)")
+    integration_id: str = Field(
+        ..., description="Public integration ID (safe to expose)"
+    )
     api_key: str = Field(..., description="Private API key (server-side only)")
-    allowed_domains: list[str] = Field(..., description="Domains authorized for this integration")
+    allowed_domains: list[str] = Field(
+        ..., description="Domains authorized for this integration"
+    )
     webhook_secret: str = Field(..., description="Secret for webhook verification")
 
 
 @router.post("/register", response_model=IntegrationInfo)
 async def register_client_integration(
-    registration: ClientRegistration,
-    current_user: UserInfo = Depends(get_current_user)
+    registration: ClientRegistration, current_user: UserInfo = Depends(get_current_user)
 ):
     """
     Register a new client integration with domain-based authentication.
@@ -56,14 +61,15 @@ async def register_client_integration(
         # Validate domains
         all_domains = [registration.domain] + registration.additional_domains
         for domain in all_domains:
-            if not domain or '.' not in domain:
+            if not domain or "." not in domain:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid domain: {domain}"
+                    detail=f"Invalid domain: {domain}",
                 )
 
         # Store registration in database
         from services.shared.mongo.connection import get_database
+
         db = get_database()
         registrations_collection = db["client_registrations"]
 
@@ -84,7 +90,7 @@ async def register_client_integration(
                 "documentsProcessed": 0,
                 "lastActivity": None,
                 "monthlyQuota": 1000,  # Default quota
-            }
+            },
         }
 
         registrations_collection.insert_one(registration_data)
@@ -93,30 +99,30 @@ async def register_client_integration(
             integration_id=integration_id,
             api_key=api_key,
             allowed_domains=all_domains,
-            webhook_secret=webhook_secret
+            webhook_secret=webhook_secret,
         )
 
     except HTTPException:
         raise
     except Exception as e:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.error(f"Client registration failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Registration failed"
+            detail="Registration failed",
         )
 
 
 @router.get("/integrations")
-async def list_client_integrations(
-    current_user: UserInfo = Depends(get_current_user)
-):
+async def list_client_integrations(current_user: UserInfo = Depends(get_current_user)):
     """
     List all client integrations for the current user.
     """
     try:
         from services.shared.mongo.connection import get_database
+
         db = get_database()
         registrations_collection = db["client_registrations"]
 
@@ -125,55 +131,58 @@ async def list_client_integrations(
         if current_user.role == "admin":
             filter_query = {}  # Admin sees all registrations
 
-        registrations = list(registrations_collection.find(
-            filter_query,
-            {
-                "apiKey": 0,        # Don't return API key in list
-                "webhookSecret": 0  # Don't return webhook secret in list
-            }
-        ).sort("registeredAt", -1))
+        registrations = list(
+            registrations_collection.find(
+                filter_query,
+                {
+                    "apiKey": 0,  # Don't return API key in list
+                    "webhookSecret": 0,  # Don't return webhook secret in list
+                },
+            ).sort("registeredAt", -1)
+        )
 
-        return {
-            "total": len(registrations),
-            "integrations": registrations
-        }
+        return {"total": len(registrations), "integrations": registrations}
 
     except Exception as e:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.error(f"Failed to list integrations: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve integrations"
+            detail="Failed to retrieve integrations",
         )
 
 
 @router.get("/integrations/{integration_id}")
 async def get_integration_details(
-    integration_id: str,
-    current_user: UserInfo = Depends(get_current_user)
+    integration_id: str, current_user: UserInfo = Depends(get_current_user)
 ):
     """
     Get detailed information about a specific integration.
     """
     try:
         from services.shared.mongo.connection import get_database
+
         db = get_database()
         registrations_collection = db["client_registrations"]
 
-        registration = registrations_collection.find_one({"integrationId": integration_id})
+        registration = registrations_collection.find_one(
+            {"integrationId": integration_id}
+        )
 
         if not registration:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Integration not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Integration not found"
             )
 
         # Check access (owner or admin)
-        if registration.get("registeredBy") != current_user.sub and current_user.role != "admin":
+        if (
+            registration.get("registeredBy") != current_user.sub
+            and current_user.role != "admin"
+        ):
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied"
+                status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
             )
 
         # Return full details including sensitive data for owner
@@ -193,31 +202,31 @@ async def get_integration_details(
                 "wordpress": {
                     "plugin_download": "https://cdn.accesspdf.com/plugins/wordpress-accesspdf.zip",
                     "api_key": registration.get("apiKey"),
-                    "setup_guide": "https://docs.accesspdf.com/wordpress-setup"
+                    "setup_guide": "https://docs.accesspdf.com/wordpress-setup",
                 },
                 "html": {
                     "script_tag": f'<script>window.accesspdf_config = {{integrationId: "{integration_id}", domain: "{registration.get("domains", [""])[0]}"}};</script>',
                     "cdn_script": '<script src="https://cdn.accesspdf.com/integration.js"></script>',
-                    "setup_guide": "https://docs.accesspdf.com/html-integration"
-                }
-            }
+                    "setup_guide": "https://docs.accesspdf.com/html-integration",
+                },
+            },
         }
 
     except HTTPException:
         raise
     except Exception as e:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.error(f"Failed to get integration details: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve integration details"
+            detail="Failed to retrieve integration details",
         )
 
 
 async def verify_domain_integration(
-    domain: str,
-    integration_id: str
+    domain: str, integration_id: str
 ) -> Optional[dict[str, Any]]:
     """
     Verify that a domain is authorized for the given integration ID.
@@ -225,19 +234,19 @@ async def verify_domain_integration(
     """
     try:
         from services.shared.mongo.connection import get_database
+
         db = get_database()
         registrations_collection = db["client_registrations"]
 
-        registration = registrations_collection.find_one({
-            "integrationId": integration_id,
-            "domains": domain,
-            "status": "active"
-        })
+        registration = registrations_collection.find_one(
+            {"integrationId": integration_id, "domains": domain, "status": "active"}
+        )
 
         return registration
 
     except Exception as e:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.error(f"Domain verification failed: {e}")
         return None
@@ -245,8 +254,7 @@ async def verify_domain_integration(
 
 @router.get("/verify/{integration_id}")
 async def verify_integration(
-    integration_id: str,
-    domain: str = Query(..., description="Domain to verify")
+    integration_id: str, domain: str = Query(..., description="Domain to verify")
 ):
     """
     Public endpoint to verify integration ID and domain combination.
@@ -264,13 +272,15 @@ async def verify_integration(
                 "auto_enhancement": True,
                 "llm_discovery": True,
                 "accessibility_badges": True,
-                "analytics_tracking": registration.get("usage", {}).get("analyticsEnabled", True)
-            }
+                "analytics_tracking": registration.get("usage", {}).get(
+                    "analyticsEnabled", True
+                ),
+            },
         }
     else:
         return {
             "valid": False,
             "integration_id": integration_id,
             "domain": domain,
-            "error": "Integration ID not found or domain not authorized"
+            "error": "Integration ID not found or domain not authorized",
         }

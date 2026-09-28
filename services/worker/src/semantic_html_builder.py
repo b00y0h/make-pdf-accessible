@@ -25,7 +25,7 @@ class SemanticHTMLBuilder:
         self,
         document_structure: dict[str, Any],
         alt_text_data: dict[str, Any] | None = None,
-        metadata: dict[str, Any] | None = None
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         Build complete semantic HTML document from canonical schema.
@@ -44,20 +44,21 @@ class SemanticHTMLBuilder:
             # Extract document metadata
             doc_metadata = metadata or {}
             doc_title = (
-                document_structure.get("title") or
-                doc_metadata.get("title") or
-                "Accessible Document"
+                document_structure.get("title")
+                or doc_metadata.get("title")
+                or "Accessible Document"
             )
             doc_lang = doc_metadata.get("language", "en")
             doc_author = doc_metadata.get("author")
 
             # Build alt-text lookup
-            alt_text_map = self._build_alt_text_map(alt_text_data) if alt_text_data else {}
+            alt_text_map = (
+                self._build_alt_text_map(alt_text_data) if alt_text_data else {}
+            )
 
             # Process document elements
             html_body = self._build_document_body(
-                document_structure.get("elements", []),
-                alt_text_map
+                document_structure.get("elements", []), alt_text_map
             )
 
             # Build complete HTML document
@@ -66,7 +67,7 @@ class SemanticHTMLBuilder:
                 lang=doc_lang,
                 author=doc_author,
                 body_content=html_body,
-                metadata=doc_metadata
+                metadata=doc_metadata,
             )
 
             logger.info("Semantic HTML generation completed")
@@ -82,29 +83,37 @@ class SemanticHTMLBuilder:
         lang: str,
         author: str | None,
         body_content: str,
-        metadata: dict[str, Any]
+        metadata: dict[str, Any],
     ) -> str:
         """Build complete HTML document with proper accessibility metadata."""
 
         # Build metadata tags
         meta_tags = []
         if author:
-            meta_tags.append(f'    <meta name="author" content="{html.escape(author)}">')
+            meta_tags.append(
+                f'    <meta name="author" content="{html.escape(author)}">'
+            )
         if metadata.get("subject"):
-            meta_tags.append(f'    <meta name="description" content="{html.escape(metadata["subject"])}">')
+            meta_tags.append(
+                f'    <meta name="description" content="{html.escape(metadata["subject"])}">'
+            )
         if metadata.get("keyTopics"):
-            meta_tags.append(f'    <meta name="keywords" content="{html.escape(metadata["keyTopics"])}">')
+            meta_tags.append(
+                f'    <meta name="keywords" content="{html.escape(metadata["keyTopics"])}">'
+            )
 
         # Add accessibility metadata
-        meta_tags.extend([
-            '    <meta name="accessibility-compliance" content="WCAG 2.1 AA">',
-            '    <meta name="pdf-ua-compliant" content="true">',
-            '    <meta name="screen-reader-optimized" content="true">',
-        ])
+        meta_tags.extend(
+            [
+                '    <meta name="accessibility-compliance" content="WCAG 2.1 AA">',
+                '    <meta name="pdf-ua-compliant" content="true">',
+                '    <meta name="screen-reader-optimized" content="true">',
+            ]
+        )
 
         meta_section = "\n".join(meta_tags)
 
-        return f'''<!DOCTYPE html>
+        return f"""<!DOCTYPE html>
 <html lang="{html.escape(lang)}" dir="ltr">
 <head>
     <meta charset="UTF-8">
@@ -269,12 +278,10 @@ class SemanticHTMLBuilder:
         </ul>
     </nav>
 </body>
-</html>'''
+</html>"""
 
     def _build_document_body(
-        self,
-        elements: list[dict[str, Any]],
-        alt_text_map: dict[str, str]
+        self, elements: list[dict[str, Any]], alt_text_map: dict[str, str]
     ) -> str:
         """Build the main document body content."""
 
@@ -287,7 +294,9 @@ class SemanticHTMLBuilder:
             element_type = element.get("type", "paragraph")
 
             if element_type in self.element_processors:
-                html_content = self.element_processors[element_type](element, alt_text_map)
+                html_content = self.element_processors[element_type](
+                    element, alt_text_map
+                )
                 if html_content:
                     html_parts.append(html_content)
             else:
@@ -296,18 +305,25 @@ class SemanticHTMLBuilder:
 
         return "\n\n".join(html_parts)
 
-    def _extract_reading_order(self, elements: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _extract_reading_order(
+        self, elements: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """Extract proper reading order from canonical document structure."""
 
         # Elements should already be in reading order from structure analysis
         # Sort by page number and then by any position indicators
-        return sorted(elements, key=lambda x: (
-            x.get("page_number", 1),
-            x.get("reading_order_index", 0),
-            x.get("y_position", 0)  # Fallback to vertical position
-        ))
+        return sorted(
+            elements,
+            key=lambda x: (
+                x.get("page_number", 1),
+                x.get("reading_order_index", 0),
+                x.get("y_position", 0),  # Fallback to vertical position
+            ),
+        )
 
-    def _process_heading(self, element: dict[str, Any], alt_text_map: dict[str, str]) -> str:
+    def _process_heading(
+        self, element: dict[str, Any], alt_text_map: dict[str, str]
+    ) -> str:
         """Process heading elements with proper semantic structure."""
 
         level = element.get("level", 1)
@@ -319,9 +335,11 @@ class SemanticHTMLBuilder:
         # Add skip link target for major headings
         skip_target = f' id="{element_id}"' if level <= 2 else ""
 
-        return f'        <h{level}{skip_target}>{text}</h{level}>'
+        return f"        <h{level}{skip_target}>{text}</h{level}>"
 
-    def _process_paragraph(self, element: dict[str, Any], alt_text_map: dict[str, str]) -> str:
+    def _process_paragraph(
+        self, element: dict[str, Any], alt_text_map: dict[str, str]
+    ) -> str:
         """Process paragraph elements."""
 
         text = html.escape(element.get("text", "")).strip()
@@ -331,9 +349,11 @@ class SemanticHTMLBuilder:
         # Handle line breaks while maintaining paragraph structure
         text = text.replace("\n", "<br>") if "\n" in text else text
 
-        return f'        <p>{text}</p>'
+        return f"        <p>{text}</p>"
 
-    def _process_list(self, element: dict[str, Any], alt_text_map: dict[str, str]) -> str:
+    def _process_list(
+        self, element: dict[str, Any], alt_text_map: dict[str, str]
+    ) -> str:
         """Process list elements with proper semantic structure."""
 
         list_type = element.get("list_type", "unordered")
@@ -354,22 +374,26 @@ class SemanticHTMLBuilder:
 
         for item in items:
             item_text = html.escape(str(item).strip())
-            list_items.append(f'            <li>{item_text}</li>')
+            list_items.append(f"            <li>{item_text}</li>")
 
-        list_html = f'''        <{tag}>
+        list_html = f"""        <{tag}>
 {chr(10).join(list_items)}
-        </{tag}>'''
+        </{tag}>"""
 
         return list_html
 
-    def _process_table(self, element: dict[str, Any], alt_text_map: dict[str, str]) -> str:
+    def _process_table(
+        self, element: dict[str, Any], alt_text_map: dict[str, str]
+    ) -> str:
         """Process table elements with enhanced accessibility."""
 
         table_data = element.get("table_data")
         if not table_data:
             # Fallback to basic representation
             text = html.escape(element.get("text", ""))
-            return f'        <div role="table" aria-label="Data table"><p>{text}</p></div>'
+            return (
+                f'        <div role="table" aria-label="Data table"><p>{text}</p></div>'
+            )
 
         has_headers = element.get("has_headers", False)
         caption = element.get("caption", "")
@@ -379,43 +403,51 @@ class SemanticHTMLBuilder:
 
         # Add caption if available
         if caption:
-            table_html.append(f'            <caption>{html.escape(caption)}</caption>')
+            table_html.append(f"            <caption>{html.escape(caption)}</caption>")
 
         # Process table data
         for row_idx, row in enumerate(table_data):
             if row_idx == 0 and has_headers:
                 # Header row
-                table_html.append('            <thead>')
-                table_html.append('                <tr>')
+                table_html.append("            <thead>")
+                table_html.append("                <tr>")
                 for cell in row:
-                    cell_content = html.escape(str(cell) if cell else '')
-                    table_html.append(f'                    <th scope="col">{cell_content}</th>')
-                table_html.append('                </tr>')
-                table_html.append('            </thead>')
-                table_html.append('            <tbody>')
+                    cell_content = html.escape(str(cell) if cell else "")
+                    table_html.append(
+                        f'                    <th scope="col">{cell_content}</th>'
+                    )
+                table_html.append("                </tr>")
+                table_html.append("            </thead>")
+                table_html.append("            <tbody>")
             else:
                 # Data row
                 if row_idx == 1 and has_headers:
-                    table_html.append('            <tbody>')
-                table_html.append('                <tr>')
+                    table_html.append("            <tbody>")
+                table_html.append("                <tr>")
                 for cell_idx, cell in enumerate(row):
-                    cell_content = html.escape(str(cell) if cell else '')
+                    cell_content = html.escape(str(cell) if cell else "")
                     # Use th for first column if it looks like a row header
                     if cell_idx == 0 and self._is_row_header(cell_content, row):
-                        table_html.append(f'                    <th scope="row">{cell_content}</th>')
+                        table_html.append(
+                            f'                    <th scope="row">{cell_content}</th>'
+                        )
                     else:
-                        table_html.append(f'                    <td>{cell_content}</td>')
-                table_html.append('                </tr>')
+                        table_html.append(
+                            f"                    <td>{cell_content}</td>"
+                        )
+                table_html.append("                </tr>")
 
         # Close tbody if it was opened
         if has_headers or len(table_data) > 1:
-            table_html.append('            </tbody>')
+            table_html.append("            </tbody>")
 
-        table_html.append('        </table>')
+        table_html.append("        </table>")
 
-        return '\n'.join(table_html)
+        return "\n".join(table_html)
 
-    def _process_figure(self, element: dict[str, Any], alt_text_map: dict[str, str]) -> str:
+    def _process_figure(
+        self, element: dict[str, Any], alt_text_map: dict[str, str]
+    ) -> str:
         """Process figure elements with alt-text and captions."""
 
         figure_id = element.get("id", f"figure_{element.get('page_number', 1)}")
@@ -423,7 +455,7 @@ class SemanticHTMLBuilder:
         caption = element.get("caption", "")
 
         # Build figure HTML
-        figure_html = ['        <figure>']
+        figure_html = ["        <figure>"]
 
         # Add image or placeholder
         if element.get("image_data"):
@@ -431,23 +463,29 @@ class SemanticHTMLBuilder:
             img_attrs = [
                 f'alt="{html.escape(alt_text)}"' if alt_text else 'alt=""',
                 'role="img"',
-                'style="max-width: 100%; height: auto;"'
+                'style="max-width: 100%; height: auto;"',
             ]
             figure_html.append(f'            <img {" ".join(img_attrs)}>')
         else:
             # Image placeholder with alt-text
             placeholder_text = alt_text or f"Figure {figure_id}"
-            figure_html.append(f'            <div role="img" aria-label="{html.escape(placeholder_text)}" class="image-placeholder">')
-            figure_html.append(f'                <p>{html.escape(placeholder_text)}</p>')
-            figure_html.append('            </div>')
+            figure_html.append(
+                f'            <div role="img" aria-label="{html.escape(placeholder_text)}" class="image-placeholder">'
+            )
+            figure_html.append(
+                f"                <p>{html.escape(placeholder_text)}</p>"
+            )
+            figure_html.append("            </div>")
 
         # Add caption if available
         if caption:
-            figure_html.append(f'            <figcaption>{html.escape(caption)}</figcaption>')
+            figure_html.append(
+                f"            <figcaption>{html.escape(caption)}</figcaption>"
+            )
 
-        figure_html.append('        </figure>')
+        figure_html.append("        </figure>")
 
-        return '\n'.join(figure_html)
+        return "\n".join(figure_html)
 
     def _is_row_header(self, cell_content: str, row: list[str]) -> bool:
         """Determine if a cell should be treated as a row header."""
@@ -533,7 +571,7 @@ class SemanticHTMLBuilder:
         """Process unknown element types as paragraphs."""
 
         text = html.escape(element.get("text", "")).strip()
-        return f'        <p>{text}</p>' if text else ""
+        return f"        <p>{text}</p>" if text else ""
 
 
 # Global service instance

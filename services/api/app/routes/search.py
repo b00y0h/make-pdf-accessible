@@ -25,10 +25,14 @@ class SearchRequest(BaseModel):
     """Request model for semantic search."""
 
     query: str = Field(..., description="Search query text")
-    doc_ids: Optional[list[str]] = Field(None, description="Limit search to specific documents")
+    doc_ids: Optional[list[str]] = Field(
+        None, description="Limit search to specific documents"
+    )
     chunk_types: Optional[list[str]] = Field(None, description="Filter by chunk types")
     limit: int = Field(10, ge=1, le=50, description="Maximum number of results")
-    min_score: float = Field(0.5, ge=0.0, le=1.0, description="Minimum similarity score")
+    min_score: float = Field(
+        0.5, ge=0.0, le=1.0, description="Minimum similarity score"
+    )
     include_content: bool = Field(True, description="Include full chunk content")
     include_context: bool = Field(False, description="Include surrounding chunks")
 
@@ -56,8 +60,7 @@ class SearchResponse(BaseModel):
 
 @router.post("/semantic", response_model=SearchResponse)
 async def semantic_search(
-    request: SearchRequest,
-    current_user: UserInfo = Depends(get_current_user)
+    request: SearchRequest, current_user: UserInfo = Depends(get_current_user)
 ):
     """
     Perform semantic search across document corpus using embeddings.
@@ -67,6 +70,7 @@ async def semantic_search(
     try:
         # Import embeddings service
         from src.embeddings_service import get_embeddings_service
+
         embeddings_service = get_embeddings_service()
 
         # Generate query embedding
@@ -74,7 +78,7 @@ async def semantic_search(
         if not query_embedding:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to generate embedding for query"
+                detail="Failed to generate embedding for query",
             )
 
         # Initialize S3 client
@@ -91,12 +95,12 @@ async def semantic_search(
         if not doc_ids_to_search:
             # Get user's documents from MongoDB
             from services.shared.mongo.documents import get_document_repository
+
             doc_repo = get_document_repository()
 
             # Get documents owned by user (or all if admin)
             user_docs = doc_repo.find_documents_by_owner(
-                owner_id=current_user.sub,
-                limit=100  # Reasonable limit for search
+                owner_id=current_user.sub, limit=100  # Reasonable limit for search
             )
             doc_ids_to_search = [doc.get("docId") for doc in user_docs]
 
@@ -107,8 +111,7 @@ async def semantic_search(
             try:
                 # Load document embeddings
                 embeddings_data = embeddings_service.load_embeddings_from_s3(
-                    embeddings_s3_key,
-                    bucket_name
+                    embeddings_s3_key, bucket_name
                 )
 
                 if embeddings_data:
@@ -117,7 +120,7 @@ async def semantic_search(
                         query_embedding=query_embedding,
                         document_embeddings=embeddings_data,
                         top_k=request.limit,
-                        min_similarity=request.min_score
+                        min_similarity=request.min_score,
                     )
 
                     all_results.extend(similar_chunks)
@@ -125,6 +128,7 @@ async def semantic_search(
             except Exception as e:
                 # Log error but continue with other documents
                 import logging
+
                 logger = logging.getLogger(__name__)
                 logger.warning(f"Could not search document {doc_id}: {e}")
                 continue
@@ -133,7 +137,7 @@ async def semantic_search(
         all_results.sort(key=lambda x: x["similarity"], reverse=True)
 
         # Limit results
-        final_results = all_results[:request.limit]
+        final_results = all_results[: request.limit]
 
         # Load full chunk data if requested
         search_results = []
@@ -149,7 +153,9 @@ async def semantic_search(
                 # Load corpus to get full chunk data
                 try:
                     corpus_s3_key = f"corpus/{doc_id}/document_corpus.json"
-                    corpus_response = s3_client.get_object(Bucket=bucket_name, Key=corpus_s3_key)
+                    corpus_response = s3_client.get_object(
+                        Bucket=bucket_name, Key=corpus_s3_key
+                    )
                     corpus_data = json.loads(corpus_response["Body"].read())
 
                     # Find the chunk in the corpus
@@ -176,7 +182,7 @@ async def semantic_search(
                 score=result["similarity"],
                 content=chunk_content if request.include_content else None,
                 content_preview=result["contentPreview"],
-                metadata=chunk_metadata
+                metadata=chunk_metadata,
             )
 
             search_results.append(search_result)
@@ -188,7 +194,7 @@ async def semantic_search(
             query=request.query,
             total_results=len(search_results),
             processing_time_ms=processing_time,
-            results=search_results
+            results=search_results,
         )
 
         return response
@@ -197,11 +203,12 @@ async def semantic_search(
         raise
     except Exception as e:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.error(f"Semantic search failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Search failed: {str(e)}"
+            detail=f"Search failed: {str(e)}",
         )
 
 
@@ -210,7 +217,7 @@ async def get_document_chunks(
     doc_id: str,
     page: Optional[int] = Query(None, description="Filter by page number"),
     chunk_type: Optional[str] = Query(None, description="Filter by chunk type"),
-    current_user: UserInfo = Depends(get_current_user)
+    current_user: UserInfo = Depends(get_current_user),
 ):
     """
     Get chunks for a specific document.
@@ -218,20 +225,19 @@ async def get_document_chunks(
     try:
         # Check document access
         from services.shared.mongo.documents import get_document_repository
+
         doc_repo = get_document_repository()
 
         document = doc_repo.get_document(doc_id)
         if not document:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Document not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
             )
 
         # Check ownership (user can only access own docs unless admin)
         if document.get("ownerId") != current_user.sub and current_user.role != "admin":
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied"
+                status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
             )
 
         # Load corpus data
@@ -240,12 +246,14 @@ async def get_document_chunks(
         corpus_s3_key = f"corpus/{doc_id}/document_corpus.json"
 
         try:
-            corpus_response = s3_client.get_object(Bucket=bucket_name, Key=corpus_s3_key)
+            corpus_response = s3_client.get_object(
+                Bucket=bucket_name, Key=corpus_s3_key
+            )
             corpus_data = json.loads(corpus_response["Body"].read())
         except Exception:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Document corpus not found"
+                detail="Document corpus not found",
             )
 
         # Filter chunks
@@ -257,21 +265,18 @@ async def get_document_chunks(
         if chunk_type:
             chunks = [c for c in chunks if c.get("type") == chunk_type]
 
-        return {
-            "doc_id": doc_id,
-            "total_chunks": len(chunks),
-            "chunks": chunks
-        }
+        return {"doc_id": doc_id, "total_chunks": len(chunks), "chunks": chunks}
 
     except HTTPException:
         raise
     except Exception as e:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.error(f"Failed to get document chunks: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve document chunks"
+            detail="Failed to retrieve document chunks",
         )
 
 
@@ -280,7 +285,7 @@ async def get_chunk_detail(
     doc_id: str,
     chunk_id: str,
     include_context: bool = Query(False, description="Include surrounding chunks"),
-    current_user: UserInfo = Depends(get_current_user)
+    current_user: UserInfo = Depends(get_current_user),
 ):
     """
     Get detailed information for a specific chunk.
@@ -288,13 +293,15 @@ async def get_chunk_detail(
     try:
         # Check document access (same as above)
         from services.shared.mongo.documents import get_document_repository
+
         doc_repo = get_document_repository()
 
         document = doc_repo.get_document(doc_id)
-        if not document or (document.get("ownerId") != current_user.sub and current_user.role != "admin"):
+        if not document or (
+            document.get("ownerId") != current_user.sub and current_user.role != "admin"
+        ):
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied"
+                status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
             )
 
         # Load corpus and find chunk
@@ -317,14 +324,10 @@ async def get_chunk_detail(
 
         if not target_chunk:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Chunk not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Chunk not found"
             )
 
-        result = {
-            "chunk": target_chunk,
-            "context": None
-        }
+        result = {"chunk": target_chunk, "context": None}
 
         # Add context if requested
         if include_context:
@@ -339,10 +342,7 @@ async def get_chunk_detail(
             for i in range(chunk_index + 1, min(len(chunks), chunk_index + 3)):
                 context_after.append(chunks[i])
 
-            result["context"] = {
-                "before": context_before,
-                "after": context_after
-            }
+            result["context"] = {"before": context_before, "after": context_after}
 
         return result
 
@@ -350,11 +350,12 @@ async def get_chunk_detail(
         raise
     except Exception as e:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.error(f"Failed to get chunk detail: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve chunk details"
+            detail="Failed to retrieve chunk details",
         )
 
 
@@ -362,9 +363,15 @@ class QARequest(BaseModel):
     """Request model for Q&A generation."""
 
     question: str = Field(..., description="Question to answer")
-    doc_ids: Optional[list[str]] = Field(None, description="Limit search to specific documents")
-    max_chunks: int = Field(5, ge=1, le=20, description="Maximum chunks to use for context")
-    min_score: float = Field(0.6, ge=0.0, le=1.0, description="Minimum similarity score for context")
+    doc_ids: Optional[list[str]] = Field(
+        None, description="Limit search to specific documents"
+    )
+    max_chunks: int = Field(
+        5, ge=1, le=20, description="Maximum chunks to use for context"
+    )
+    min_score: float = Field(
+        0.6, ge=0.0, le=1.0, description="Minimum similarity score for context"
+    )
     include_citations: bool = Field(True, description="Include source citations")
 
 
@@ -395,8 +402,7 @@ class QAResponse(BaseModel):
 
 @router.post("/qa", response_model=QAResponse)
 async def answer_question(
-    request: QARequest,
-    current_user: UserInfo = Depends(get_current_user)
+    request: QARequest, current_user: UserInfo = Depends(get_current_user)
 ):
     """
     Generate answers to questions using document corpus and Bedrock Claude.
@@ -411,7 +417,7 @@ async def answer_question(
             limit=request.max_chunks,
             min_score=request.min_score,
             include_content=True,
-            include_context=False
+            include_context=False,
         )
 
         # Reuse the semantic search function
@@ -423,9 +429,10 @@ async def answer_question(
                 answer="I couldn't find relevant information in the available documents to answer your question.",
                 confidence=0.0,
                 citations=[],
-                processing_time_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+                processing_time_ms=(datetime.utcnow() - start_time).total_seconds()
+                * 1000,
                 model_used="N/A",
-                tokens_used=0
+                tokens_used=0,
             )
 
         # Prepare context from search results
@@ -443,7 +450,7 @@ async def answer_question(
                     page=result.metadata.get("page", 1),
                     section_path=result.metadata.get("sectionPath", []),
                     excerpt=result.content_preview,
-                    confidence=result.score
+                    confidence=result.score,
                 )
                 citations.append(citation)
 
@@ -469,19 +476,14 @@ Please provide a clear, helpful answer based on the available information."""
         payload = {
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": 1000,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
+            "messages": [{"role": "user", "content": prompt}],
         }
 
         response = bedrock_client.invoke_model(
             modelId="anthropic.claude-3-5-sonnet-20241022-v2:0",
             contentType="application/json",
             accept="application/json",
-            body=json.dumps(payload)
+            body=json.dumps(payload),
         )
 
         # Parse response
@@ -490,7 +492,9 @@ Please provide a clear, helpful answer based on the available information."""
         usage = result.get("usage", {})
 
         # Calculate confidence based on search results quality
-        avg_similarity = sum(r.score for r in search_response.results) / len(search_response.results)
+        avg_similarity = sum(r.score for r in search_response.results) / len(
+            search_response.results
+        )
         answer_confidence = min(avg_similarity * 1.1, 1.0)  # Boost slightly, cap at 1.0
 
         processing_time = (datetime.utcnow() - start_time).total_seconds() * 1000
@@ -502,16 +506,17 @@ Please provide a clear, helpful answer based on the available information."""
             citations=citations if request.include_citations else [],
             processing_time_ms=processing_time,
             model_used="anthropic.claude-3-5-sonnet-20241022-v2:0",
-            tokens_used=usage.get("total_tokens")
+            tokens_used=usage.get("total_tokens"),
         )
 
     except HTTPException:
         raise
     except Exception as e:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.error(f"QA generation failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Answer generation failed: {str(e)}"
+            detail=f"Answer generation failed: {str(e)}",
         )

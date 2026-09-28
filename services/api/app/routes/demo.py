@@ -22,15 +22,16 @@ router = APIRouter(prefix="/demo", tags=["demo"])
 
 class ClaimSessionRequest(BaseModel):
     """Request to claim a demo session"""
+
     session_id: str = Field(..., description="Session ID to claim")
     auto_claim_ip: bool = Field(
-        False,
-        description="Also claim other sessions from same IP"
+        False, description="Also claim other sessions from same IP"
     )
 
 
 class ClaimSessionResponse(BaseModel):
     """Response after claiming a session"""
+
     claimed: bool = Field(..., description="Whether claim was successful")
     documents_claimed: int = Field(..., description="Number of documents claimed")
     sessions_claimed: int = Field(..., description="Number of sessions claimed")
@@ -88,7 +89,7 @@ async def claim_demo_session(
         result = doc_repo.update_document_owner(
             doc_id=doc_id,
             old_owner=f"demo-{request_obj.session_id}",
-            new_owner=current_user.id
+            new_owner=current_user.id,
         )
         if result:
             documents_updated += 1
@@ -97,7 +98,7 @@ async def claim_demo_session(
         claimed=len(claimed_sessions) > 0,
         documents_claimed=documents_updated,
         sessions_claimed=len(claimed_sessions),
-        document_ids=all_document_ids
+        document_ids=all_document_ids,
     )
 
 
@@ -120,7 +121,7 @@ async def get_session_documents(
     if x_session_id != session_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Can only view your own session documents"
+            detail="Can only view your own session documents",
         )
 
     demo_repo = get_demo_session_repository()
@@ -129,7 +130,7 @@ async def get_session_documents(
     if not document_ids:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="No documents found for this session"
+            detail="No documents found for this session",
         )
 
     return document_ids
@@ -150,7 +151,7 @@ async def get_session_status(
     if x_session_id != session_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Can only view your own session status"
+            detail="Can only view your own session status",
         )
 
     demo_repo = get_demo_session_repository()
@@ -160,8 +161,7 @@ async def get_session_status(
 
     if not session:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Session not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
         )
 
     return {
@@ -172,7 +172,7 @@ async def get_session_status(
         "hourly_reset_at": session.get("hourly_reset_at"),
         "claimed": session.get("claimed_by_user") is not None,
         "documents": session.get("document_ids", []),
-        "remaining_uploads": max(0, 5 - session.get("hourly_uploads", 0))
+        "remaining_uploads": max(0, 5 - session.get("hourly_uploads", 0)),
     }
 
 
@@ -190,71 +190,71 @@ async def get_processing_steps():
                 "step": 0,
                 "title": "Document Upload",
                 "description": "Securely uploading your PDF document...",
-                "estimated_duration": "5-10 seconds"
+                "estimated_duration": "5-10 seconds",
             },
             {
                 "step": 1,
                 "title": "File Validation",
                 "description": "Validating file format and security...",
-                "estimated_duration": "2-5 seconds"
+                "estimated_duration": "2-5 seconds",
             },
             {
                 "step": 2,
                 "title": "Content Extraction",
                 "description": "Extracting text, images, and structural elements...",
-                "estimated_duration": "10-30 seconds"
+                "estimated_duration": "10-30 seconds",
             },
             {
                 "step": 3,
                 "title": "OCR Processing",
                 "description": "Running OCR on images and scanned content...",
-                "estimated_duration": "20-60 seconds"
+                "estimated_duration": "20-60 seconds",
             },
             {
                 "step": 4,
                 "title": "Structure Analysis",
                 "description": "Analyzing document structure and layout...",
-                "estimated_duration": "15-30 seconds"
+                "estimated_duration": "15-30 seconds",
             },
             {
                 "step": 5,
                 "title": "AI Content Tagging",
                 "description": "Adding semantic tags using AI analysis...",
-                "estimated_duration": "30-90 seconds"
+                "estimated_duration": "30-90 seconds",
             },
             {
                 "step": 6,
                 "title": "Alt Text Generation",
                 "description": "Creating descriptive text for images with AI...",
-                "estimated_duration": "20-60 seconds"
+                "estimated_duration": "20-60 seconds",
             },
             {
                 "step": 7,
                 "title": "Color & Contrast",
                 "description": "Optimizing colors for accessibility compliance...",
-                "estimated_duration": "10-20 seconds"
+                "estimated_duration": "10-20 seconds",
             },
             {
                 "step": 8,
                 "title": "Accessibility Validation",
                 "description": "Verifying WCAG 2.1 AA compliance...",
-                "estimated_duration": "15-30 seconds"
+                "estimated_duration": "15-30 seconds",
             },
             {
                 "step": 9,
                 "title": "Export Generation",
                 "description": "Creating accessible formats (HTML, CSV, Text)...",
-                "estimated_duration": "20-45 seconds"
+                "estimated_duration": "20-45 seconds",
             },
             {
                 "step": 10,
                 "title": "Processing Complete",
                 "description": "Your accessible document is ready for download!",
-                "estimated_duration": "Complete"
-            }
+                "estimated_duration": "Complete",
+            },
         ],
         "total_estimated_time": "2-6 minutes",
-        "pipeline_version": "v2.1.0"
+        "pipeline_version": "v2.1.0",
     }
 
 

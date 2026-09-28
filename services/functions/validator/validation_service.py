@@ -22,7 +22,7 @@ class PDFUAValidationService:
         doc_id: str,
         tagged_pdf_s3_key: str,
         document_structure: dict[str, Any],
-        alt_text_data: Optional[dict[str, Any]] = None
+        alt_text_data: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """
         Comprehensive PDF/UA compliance validation.
@@ -51,7 +51,7 @@ class PDFUAValidationService:
                 "metadata": {
                     "validatorVersion": "1.0",
                     "standardsChecked": ["PDF/UA-1", "WCAG 2.1 AA", "Section 508"],
-                }
+                },
             }
 
             # 1. Structure Validation
@@ -64,16 +64,14 @@ class PDFUAValidationService:
             # 2. Content Validation
             logger.info("Validating content accessibility")
             content_results = self.content_validator.validate_content(
-                document_structure,
-                alt_text_data
+                document_structure, alt_text_data
             )
             validation_report["validationSections"]["content"] = content_results
 
             # 3. WCAG Compliance Check
             logger.info("Checking WCAG compliance")
             wcag_results = self.wcag_validator.validate_wcag_compliance(
-                document_structure,
-                alt_text_data
+                document_structure, alt_text_data
             )
             validation_report["validationSections"]["wcag"] = wcag_results
 
@@ -120,9 +118,11 @@ class PDFUAValidationService:
         report["issues"] = all_issues
 
         # Determine PDF/UA compliance
-        report["pdfUaCompliant"] = overall_score >= 0.9 and len([
-            issue for issue in all_issues if issue.get("level") == "error"
-        ]) == 0
+        report["pdfUaCompliant"] = (
+            overall_score >= 0.9
+            and len([issue for issue in all_issues if issue.get("level") == "error"])
+            == 0
+        )
 
         # Determine WCAG level
         if overall_score >= 0.95:
@@ -191,7 +191,7 @@ class StructureValidator:
                 "heading_hierarchy": False,
                 "reading_order": False,
                 "semantic_structure": False,
-            }
+            },
         }
 
         elements = document_structure.get("elements", [])
@@ -295,7 +295,7 @@ class ContentValidator:
     def validate_content(
         self,
         document_structure: dict[str, Any],
-        alt_text_data: Optional[dict[str, Any]] = None
+        alt_text_data: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """Validate content accessibility."""
 
@@ -306,7 +306,7 @@ class ContentValidator:
                 "alt_text_coverage": False,
                 "table_headers": False,
                 "link_descriptions": False,
-            }
+            },
         }
 
         elements = document_structure.get("elements", [])
@@ -330,7 +330,7 @@ class ContentValidator:
     def _validate_alt_text_coverage(
         self,
         elements: list[dict[str, Any]],
-        alt_text_data: Optional[dict[str, Any]] = None
+        alt_text_data: Optional[dict[str, Any]] = None,
     ) -> float:
         """Validate alt-text coverage for figures."""
 
@@ -357,7 +357,9 @@ class ContentValidator:
                 approved_text = alt_text_info.get("approved_text")
                 ai_text = alt_text_info.get("ai_text")
 
-                if (approved_text and approved_text.strip()) or (ai_text and ai_text.strip()):
+                if (approved_text and approved_text.strip()) or (
+                    ai_text and ai_text.strip()
+                ):
                     covered_figures += 1
 
         return covered_figures / total_figures if total_figures > 0 else 1.0
@@ -397,7 +399,7 @@ class WCAGValidator:
     def validate_wcag_compliance(
         self,
         document_structure: dict[str, Any],
-        alt_text_data: Optional[dict[str, Any]] = None
+        alt_text_data: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """Validate WCAG 2.1 compliance."""
 
@@ -410,7 +412,7 @@ class WCAGValidator:
                 "operable": {"score": 0.0, "issues": []},
                 "understandable": {"score": 0.0, "issues": []},
                 "robust": {"score": 0.0, "issues": []},
-            }
+            },
         }
 
         # 1. Perceivable
@@ -430,7 +432,9 @@ class WCAGValidator:
         results["checks"]["robust"]["score"] = robust_score
 
         # Calculate overall WCAG score
-        overall_score = (perceivable_score + operable_score + understandable_score + robust_score) / 4
+        overall_score = (
+            perceivable_score + operable_score + understandable_score + robust_score
+        ) / 4
         results["score"] = overall_score
 
         # Determine WCAG level
@@ -448,7 +452,7 @@ class WCAGValidator:
     def _check_perceivable(
         self,
         document_structure: dict[str, Any],
-        alt_text_data: Optional[dict[str, Any]] = None
+        alt_text_data: Optional[dict[str, Any]] = None,
     ) -> float:
         """Check WCAG Perceivable principle."""
 
