@@ -17,7 +17,7 @@
     "format": "pnpm -r format",
     "format:check": "pnpm -r format:check",
     "clean": "pnpm -r clean && docker-compose down -v",
-    "postinstall": "husky install"
+    "postinstall": "husky"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
@@ -30,15 +30,15 @@
     "@typescript-eslint/parser": "^6.21.0",
     "@vitest/coverage-v8": "^5.0.2",
     "asl-validator": "^4.0.0",
-    "concurrently": "^8.2.2",
-    "danger": "^13.0.10",
+    "concurrently": "^10.0.5",
+    "danger": "^14.0.7",
     "dotenv": "^18.0.4",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^9.1.2",
     "eslint-plugin-prettier": "^5.5.6",
-    "husky": "^8.0.3",
+    "husky": "^9.1.7",
     "jsdom": "^30.1.1",
-    "lint-staged": "^16.4.0",
+    "lint-staged": "^17.6.0",
     "msw": "^2.15.0",
     "prettier": "^3.9.9",
     "supertest": "^7.3.0",

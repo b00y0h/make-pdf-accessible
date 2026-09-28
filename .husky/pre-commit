@@ -1,6 +1,3 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -28,7 +25,7 @@ if [ ! -z "$python_files" ]; then
     
     # Activate virtual environment if it exists
     if [ -f "venv/bin/activate" ]; then
-        source venv/bin/activate
+        . venv/bin/activate
     fi
     
     # Check if Python files exist and run checks
@@ -165,7 +162,7 @@ if [ "$SKIP_TESTS" != "true" ]; then
     
     # Run tests for Python files
     if [ ! -z "$python_files" ] && [ -f "venv/bin/activate" ]; then
-        source venv/bin/activate
+        . venv/bin/activate
         # Run only fast unit tests, not integration tests, exclude packages/schemas
         if ! python -m pytest --tb=short --maxfail=3 -q -x --ignore=packages/schemas/tests 2>/dev/null; then
             echo "${YELLOW}⚠️  Some tests failed, but allowing commit (run full test suite before push)${NC}"
