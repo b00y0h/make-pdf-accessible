@@ -445,9 +445,13 @@ jobs:
           terraform_version: ${{ env.TF_VERSION }}
 
       - name: Install testing tools
+        env:
+          # Pinned so a new TFLint release cannot break CI unannounced (0.54 removed an
+          # attribute .tflint.hcl relied on). Bump together with the aws plugin in .tflint.hcl.
+          TFLINT_VERSION: v0.64.0
         run: |
           # Install terraform testing tools
-          curl -L "https://github.com/terraform-linters/tflint/releases/latest/download/tflint_linux_amd64.zip" -o tflint.zip
+          curl -fsSL "https://github.com/terraform-linters/tflint/releases/download/${TFLINT_VERSION}/tflint_linux_amd64.zip" -o tflint.zip
           unzip tflint.zip
           sudo mv tflint /usr/local/bin/
 
@@ -456,6 +460,9 @@ jobs:
 
       - name: Run TFLint with tag validation
         id: tflint
+        env:
+          # tflint --init downloads plugins through the GitHub API; a token avoids rate limits.
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           cd ${{ env.TF_WORKING_DIR }}
 
