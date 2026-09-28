@@ -1,6 +1,7 @@
 """
 Celery configuration for API service
 """
+
 from celery import Celery
 
 # Create Celery app

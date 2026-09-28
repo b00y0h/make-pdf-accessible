@@ -26,11 +26,7 @@ export const authClient = createAuthClient({
 
 // Social provider types
 export type SocialProvider =
-  | 'google'
-  | 'github'
-  | 'apple'
-  | 'discord'
-  | 'facebook';
+  'google' | 'github' | 'apple' | 'discord' | 'facebook';
 
 class AuthService {
   async getSession(): Promise<AuthResponse> {

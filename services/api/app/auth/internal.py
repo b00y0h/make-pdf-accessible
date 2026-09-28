@@ -21,8 +21,10 @@ async def get_dashboard_user(
     """
 
     # Check for dashboard internal headers
-    if (x_dashboard_internal == "true" and
-        x_dashboard_secret == "dashboard_internal_secret_123"):
+    if (
+        x_dashboard_internal == "true"
+        and x_dashboard_secret == "dashboard_internal_secret_123"
+    ):
 
         # Return a dashboard system user
         return User(
@@ -36,7 +38,7 @@ async def get_dashboard_user(
     # Not a dashboard internal call
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
-        detail="Dashboard authentication required"
+        detail="Dashboard authentication required",
     )
 
 
@@ -54,8 +56,10 @@ async def get_user_flexible(
     """
 
     # Try dashboard internal auth first
-    if (x_dashboard_internal == "true" and
-        x_dashboard_secret == "dashboard_internal_secret_123"):
+    if (
+        x_dashboard_internal == "true"
+        and x_dashboard_secret == "dashboard_internal_secret_123"
+    ):
         return User(
             sub="dashboard_system_user",
             email="dashboard@system.local",
@@ -70,5 +74,5 @@ async def get_user_flexible(
     except HTTPException:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Authentication required (user or dashboard)"
+            detail="Authentication required (user or dashboard)",
         )

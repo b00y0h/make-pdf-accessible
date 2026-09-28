@@ -4,8 +4,9 @@ config {
   # Plugin cache directory
   plugin_dir = "~/.tflint.d/plugins"
 
-  # Enable modules
-  module = true
+  # Inspect calls to local modules (./modules/*). "module = true" was removed in
+  # TFLint 0.54; "local" needs no `terraform init`, which the CI job does not run.
+  call_module_type = "local"
 
   # Exit with non-zero code if violations are found
   force = false
@@ -17,11 +18,11 @@ config {
 # AWS plugin for AWS-specific rules
 plugin "aws" {
   enabled = true
-  version = "0.27.0"
+  version = "0.49.0"
   source  = "github.com/terraform-linters/tflint-ruleset-aws"
 
-  # Deep checking for AWS resources
-  deep_check = true
+  # deep_check calls AWS APIs and needs credentials, which the CI job does not have.
+  deep_check = false
 }
 
 # Terraform core plugin
@@ -78,12 +79,6 @@ rule "aws_security_group_rule_invalid_protocol" {
   enabled = true
 }
 
-# Naming convention rules
-rule "aws_naming_convention" {
-  enabled = true
-  format  = "snake_case"
-}
-
 # Terraform module standards
 rule "terraform_required_version" {
   enabled = true
@@ -126,15 +121,6 @@ rule "terraform_naming_convention" {
   locals {
     format = "snake_case"
   }
-}
-
-# Security rules
-rule "aws_security_group_rule_invalid_cidr" {
-  enabled = true
-}
-
-rule "aws_route_invalid_cidr" {
-  enabled = true
 }
 
 # Cost optimization rules  

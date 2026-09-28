@@ -5,10 +5,31 @@ BetterAuth JWT Authentication module for worker service
 from functools import wraps
 from typing import Any
 
-from jose import JWTError, jwt
-from jose.exceptions import ExpiredSignatureError, JWTClaimsError
+import jwt
+from jwt.exceptions import (
+    ExpiredSignatureError,
+    ImmatureSignatureError,
+    InvalidAudienceError,
+    InvalidIssuedAtError,
+    InvalidIssuerError,
+    InvalidJTIError,
+    InvalidSubjectError,
+    InvalidTokenError,
+    MissingRequiredClaimError,
+)
 
 from ..src.pdf_worker.core.exceptions import AuthenticationError, AuthorizationError
+
+# PyJWT raises a separate exception for each failed claim check
+_JWT_CLAIMS_ERRORS = (
+    ImmatureSignatureError,
+    InvalidAudienceError,
+    InvalidIssuedAtError,
+    InvalidIssuerError,
+    InvalidJTIError,
+    InvalidSubjectError,
+    MissingRequiredClaimError,
+)
 
 
 class BetterAuthJWT:
@@ -62,6 +83,13 @@ class BetterAuthJWT:
                 },
             )
 
+            # Nothing here can verify an at_hash claim (it needs the matching
+            # access token), so reject tokens that carry one
+            if "at_hash" in claims:
+                raise InvalidTokenError(
+                    "No access_token provided to compare against at_hash claim."
+                )
+
             # Validate required claims exist
             if not claims.get("sub"):
                 raise AuthenticationError("Token missing subject claim")
@@ -70,9 +98,9 @@ class BetterAuthJWT:
 
         except ExpiredSignatureError:
             raise AuthenticationError("Token has expired")
-        except JWTClaimsError as e:
+        except _JWT_CLAIMS_ERRORS as e:
             raise AuthenticationError(f"Token claims validation failed: {str(e)}")
-        except JWTError as e:
+        except InvalidTokenError as e:
             raise AuthenticationError(f"Token validation failed: {str(e)}")
         except Exception as e:
             raise AuthenticationError(f"Token verification error: {str(e)}")
