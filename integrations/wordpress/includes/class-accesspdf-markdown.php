@@ -98,7 +98,7 @@ class AccessPDF_Markdown {
             return;
         }
 
-        $accept = isset($_SERVER['HTTP_ACCEPT']) ? wp_unslash($_SERVER['HTTP_ACCEPT']) : '';
+        $accept = isset($_SERVER['HTTP_ACCEPT']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_ACCEPT'])) : '';
         if ($explicit || self::prefers_markdown($accept)) {
             $this->send_markdown($post, $explicit);
             exit;
@@ -198,7 +198,7 @@ class AccessPDF_Markdown {
 
     public function render(WP_Post $post) {
         setup_postdata($post);
-        $html = apply_filters('the_content', $post->post_content);
+        $html = apply_filters('the_content', $post->post_content); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core filter, so blocks and shortcodes render as on the page.
         wp_reset_postdata();
 
         /** Lets another component supply the HTML, such as a converted PDF. */
@@ -251,7 +251,7 @@ class AccessPDF_Markdown {
 
         // Keep page-cache plugins from storing Markdown under the HTML URL.
         if (!defined('DONOTCACHEPAGE')) {
-            define('DONOTCACHEPAGE', true);
+            define('DONOTCACHEPAGE', true); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- Standard constant page-cache plugins check.
         }
 
         status_header(200);

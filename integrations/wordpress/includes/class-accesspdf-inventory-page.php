@@ -79,7 +79,7 @@ class AccessPDF_Inventory_Page {
             <p><?php esc_html_e('Every PDF in your media library and every PDF your published content links to, checked for the basics screen readers need. Files are checked on this server and nothing is sent anywhere.', 'accesspdf'); ?></p>
 
             <p>
-                <button type="button" class="button button-primary" id="accesspdf-scan">
+                <button type="button" class="button button-primary" id="accesspdf-scan" disabled>
                     <?php $last_scan ? esc_html_e('Scan again', 'accesspdf') : esc_html_e('Scan PDFs', 'accesspdf'); ?>
                 </button>
                 <span id="accesspdf-scan-status" role="status" style="margin-left: 8px;">
@@ -104,8 +104,9 @@ class AccessPDF_Inventory_Page {
                 <?php $table->views(); ?>
                 <form method="get">
                     <input type="hidden" name="page" value="<?php echo esc_attr(self::SLUG); ?>" />
-                    <?php if (!empty($_GET['view'])) : ?>
-                        <input type="hidden" name="view" value="<?php echo esc_attr(sanitize_key(wp_unslash($_GET['view']))); ?>" />
+                    <?php $view = AccessPDF_Inventory_List_Table::query_param('view'); ?>
+                    <?php if ('' !== $view) : ?>
+                        <input type="hidden" name="view" value="<?php echo esc_attr($view); ?>" />
                     <?php endif; ?>
                     <?php $table->display(); ?>
                 </form>

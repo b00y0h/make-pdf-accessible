@@ -48,8 +48,14 @@ class AccessPDF_Inventory_List_Table extends WP_List_Table {
         ];
     }
 
+    /** A view or sort parameter from the URL. These only change what's displayed, so no nonce is involved. */
+    public static function query_param($name) {
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only display parameter.
+        return isset($_GET[$name]) ? sanitize_key(wp_unslash($_GET[$name])) : '';
+    }
+
     private function current_view() {
-        $view = isset($_GET['view']) ? sanitize_key(wp_unslash($_GET['view'])) : 'all';
+        $view = self::query_param('view');
         return isset($this->views_list()[$view]) ? $view : 'all';
     }
 
@@ -94,8 +100,8 @@ class AccessPDF_Inventory_List_Table extends WP_List_Table {
             return $this->matches($row, $view);
         }));
 
-        $orderby = isset($_GET['orderby']) ? sanitize_key(wp_unslash($_GET['orderby'])) : 'file';
-        $desc = isset($_GET['order']) && 'desc' === strtolower(sanitize_key(wp_unslash($_GET['order'])));
+        $orderby = self::query_param('orderby');
+        $desc = 'desc' === self::query_param('order');
         usort($rows, function ($a, $b) use ($orderby, $desc) {
             switch ($orderby) {
                 case 'pages':
@@ -187,6 +193,7 @@ class AccessPDF_Inventory_List_Table extends WP_List_Table {
             $links[] = sprintf(
                 '<a href="%s">%s</a>',
                 esc_url((string) get_permalink($post_id)),
+                /* translators: %d: post ID */
                 esc_html('' !== $title ? $title : sprintf(__('Post %d', 'accesspdf'), $post_id))
             );
         }

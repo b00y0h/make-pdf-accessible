@@ -1,12 +1,15 @@
 <?php
 /**
- * Plugin Name: AccessPDF Integration
+ * Plugin Name: AccessPDF
  * Plugin URI: https://accesspdf.com/wordpress
  * Description: Inventories your PDFs for accessibility, makes uploaded PDFs accessible, and serves Markdown versions of your posts and pages to AI agents
  * Version: 1.2.0
  * Author: AccessPDF
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * Requires at least: 6.5
+ * Requires PHP: 7.4
+ * Text Domain: accesspdf
  */
 
 // Prevent direct access
@@ -30,7 +33,7 @@ class AccessPDFPlugin {
 
     public function __construct() {
         $this->api_key = get_option('accesspdf_api_key', '');
-        $this->client_domain = parse_url(home_url(), PHP_URL_HOST);
+        $this->client_domain = wp_parse_url(home_url(), PHP_URL_HOST);
 
         add_action('init', [$this, 'init']);
         add_action('admin_init', [$this, 'register_settings']);
@@ -95,7 +98,7 @@ class AccessPDFPlugin {
         
         // Skip if no API key configured
         if (empty($this->api_key)) {
-            error_log('AccessPDF: No API key configured, skipping PDF processing');
+            do_action('accesspdf_log', 'No API key configured, skipping PDF processing');
             return $upload;
         }
         
@@ -153,7 +156,7 @@ class AccessPDFPlugin {
                             background: <?php echo $status === 'completed' ? '#dcfce7' : ($status === 'processing' ? '#fef3c7' : '#fee2e2'); ?>;
                             color: <?php echo $status === 'completed' ? '#166534' : ($status === 'processing' ? '#92400e' : '#991b1b'); ?>;
                         ">
-                            <?php echo ucfirst($status ?: 'pending'); ?>
+                            <?php echo esc_html(ucfirst($status ?: 'pending')); ?>
                         </span>
                     </p>
                     <?php if ($score): ?>
@@ -162,10 +165,7 @@ class AccessPDFPlugin {
                 </div>
             <?php else: ?>
                 <div style="padding: 10px; border: 1px solid #orange; border-radius: 4px; background: #fffbf0;">
-                    <p><em>PDF not yet processed by AccessPDF</em></p>
-                    <button type="button" onclick="accesspdf_process_now(<?php echo $post->ID; ?>)" class="button button-secondary">
-                        Process Now
-                    </button>
+                    <p><em>PDF not yet processed by AccessPDF. PDFs are sent for processing when they're uploaded with an API key set and Auto-Process PDFs turned on.</em></p>
                 </div>
             <?php endif; ?>
         </div>
@@ -245,7 +245,7 @@ function accesspdf_process_pdf_callback($args) {
     $api_key = get_option('accesspdf_api_key', '');
     
     if (empty($api_key)) {
-        error_log('AccessPDF: Cannot process PDF, no API key configured');
+        do_action('accesspdf_log', 'Cannot process PDF, no API key configured');
         return;
     }
     
@@ -262,7 +262,7 @@ function accesspdf_process_pdf_callback($args) {
             'filename' => $args['filename'],
             'client_metadata' => array_merge($args['client_metadata'], [
                 'wordpress_post_id' => null, // Would be set when attached to post
-                'client_domain' => parse_url(home_url(), PHP_URL_HOST),
+                'client_domain' => wp_parse_url(home_url(), PHP_URL_HOST),
                 'plugin_version' => ACCESSPDF_VERSION,
             ]),
             'callback_url' => admin_url('admin-ajax.php?action=accesspdf_webhook'),
@@ -271,7 +271,7 @@ function accesspdf_process_pdf_callback($args) {
     ]);
     
     if (is_wp_error($response)) {
-        error_log('AccessPDF: Failed to send PDF for processing: ' . $response->get_error_message());
+        do_action('accesspdf_log', 'Failed to send PDF for processing: ' . $response->get_error_message());
         return;
     }
     
@@ -282,7 +282,7 @@ function accesspdf_process_pdf_callback($args) {
         // Store AccessPDF ID for later reference
         // This would be stored against the WordPress attachment
         update_option('accesspdf_last_id', $result['accesspdf_id']);
-        error_log('AccessPDF: PDF processing initiated, ID: ' . $result['accesspdf_id']);
+        do_action('accesspdf_log', 'PDF processing initiated, ID: ' . $result['accesspdf_id']);
     }
 }
 
@@ -302,8 +302,8 @@ function accesspdf_webhook_handler() {
         
         // Find WordPress post with this AccessPDF ID
         $posts = get_posts([
-            'meta_key' => '_accesspdf_id',
-            'meta_value' => $accesspdf_id,
+            'meta_key' => '_accesspdf_id', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Looks up one attachment by its service ID.
+            'meta_value' => $accesspdf_id, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- As above.
             'post_type' => 'attachment',
         ]);
         

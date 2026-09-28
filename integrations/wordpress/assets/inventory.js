@@ -15,6 +15,8 @@
     return;
   }
 
+  // The button ships disabled so it can't be clicked before this script is ready.
+  button.disabled = false;
   var lastLabel = '';
 
   function show(data) {

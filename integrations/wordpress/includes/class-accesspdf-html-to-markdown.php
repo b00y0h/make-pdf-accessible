@@ -2,7 +2,7 @@
 /**
  * Converts rendered post HTML into Markdown for AI agents.
  *
- * Plain PHP with no WordPress dependencies, so it can be tested on its own.
+ * Plain PHP; its only WordPress call is wp_parse_url(), so it can be tested on its own.
  * Follows the same semantics as a screen reader: aria-hidden content and
  * decorative images (alt="") are skipped, screen-reader-only text is kept.
  */
@@ -394,7 +394,7 @@ class AccessPDF_HTML_To_Markdown {
         if ('' === $this->base_url || preg_match('/^[a-z][a-z0-9+.-]*:/i', $url)) {
             return $url;
         }
-        $base = parse_url($this->base_url);
+        $base = wp_parse_url($this->base_url);
         if (empty($base['scheme']) || empty($base['host'])) {
             return $url;
         }

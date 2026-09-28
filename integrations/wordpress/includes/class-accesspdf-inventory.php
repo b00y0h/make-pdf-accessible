@@ -230,7 +230,7 @@ class AccessPDF_Inventory {
         $urls = [];
         foreach ($m[2] as $raw) {
             $url = trim(html_entity_decode($raw, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
-            $path = parse_url($url, PHP_URL_PATH);
+            $path = wp_parse_url($url, PHP_URL_PATH);
             if (is_string($path) && preg_match('/\.pdf$/i', $path)) {
                 $urls[] = $url;
             }
@@ -273,6 +273,8 @@ class AccessPDF_Inventory {
     private function attachment_map() {
         if (null === $this->attachment_map) {
             global $wpdb;
+            // One query per scan request, kept in $this->attachment_map for the rest of it.
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $rows = $wpdb->get_results(
                 "SELECT post_id, meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_wp_attached_file' AND meta_value LIKE '%.pdf'"
             );
@@ -459,13 +461,11 @@ class AccessPDF_Inventory {
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="pdf-inventory-' . gmdate('Y-m-d') . '.csv"');
 
-        $out = fopen('php://output', 'w');
-        fwrite($out, "\xEF\xBB\xBF");
-        fputcsv($out, ['File', 'URL', 'Location', 'Status', 'Pages', 'Size (bytes)', 'PDF title', 'Language', 'Fillable form', 'Encrypted', 'PDF/UA claimed', 'Linked from (count)', 'Linked from', 'Checked']);
+        $csv = "\xEF\xBB\xBF" . self::csv_line(['File', 'URL', 'Location', 'Status', 'Pages', 'Size (bytes)', 'PDF title', 'Language', 'Fillable form', 'Encrypted', 'PDF/UA claimed', 'Linked from (count)', 'Linked from', 'Checked']);
         foreach ($this->rows() as $row) {
             $a = $row['analysis'];
             $links = array_filter(array_map('get_permalink', $row['linked_from']));
-            fputcsv($out, array_map([__CLASS__, 'csv_cell'], [
+            $csv .= self::csv_line([
                 $row['name'],
                 $row['url'],
                 'library' === $row['source'] ? 'Media library' : 'Outside media library',
@@ -480,9 +480,9 @@ class AccessPDF_Inventory {
                 count($row['linked_from']),
                 implode(' ', $links),
                 $a && !empty($a['checked_at']) ? gmdate('Y-m-d H:i', $a['checked_at']) . ' UTC' : '',
-            ]));
+            ]);
         }
-        fclose($out);
+        echo $csv; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A CSV download, not HTML; csv_line() quotes every cell and neutralizes formulas.
         exit;
     }
 
@@ -494,6 +494,16 @@ class AccessPDF_Inventory {
             return $detail;
         }
         return $value ? 'Yes' : 'No';
+    }
+
+    /** One RFC 4180 CSV line: cells quoted when needed, formulas neutralized. */
+    public static function csv_line(array $cells) {
+        $out = [];
+        foreach ($cells as $cell) {
+            $cell = self::csv_cell($cell);
+            $out[] = preg_match('/[",\r\n]/', $cell) ? '"' . str_replace('"', '""', $cell) . '"' : $cell;
+        }
+        return implode(',', $out) . "\r\n";
     }
 
     /** Stops spreadsheet apps from treating a cell as a formula. */

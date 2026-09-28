@@ -6,7 +6,7 @@
  * Needs only PHP with the DOM extension; WordPress is not loaded.
  */
 
-define('ABSPATH', __DIR__ . '/');
+require __DIR__ . '/fixtures/wp-shims.php';
 
 require __DIR__ . '/../includes/class-accesspdf-html-to-markdown.php';
 require __DIR__ . '/../includes/class-accesspdf-markdown.php';
