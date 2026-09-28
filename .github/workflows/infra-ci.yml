@@ -126,13 +126,13 @@ jobs:
         id: init
         run: |
           cd ${{ env.TF_WORKING_DIR }}
-          terraform init
+          terraform init -input=false -backend-config="environments/${{ inputs.environment || 'dev' }}.backend.hcl"
 
       - name: Terraform Plan
         id: plan
         run: |
           cd ${{ env.TF_WORKING_DIR }}
-          terraform plan -detailed-exitcode -out=tfplan 2>&1 | tee plan_output.txt
+          terraform plan -input=false -detailed-exitcode -out=tfplan -var-file="environments/${{ inputs.environment || 'dev' }}.tfvars" 2>&1 | tee plan_output.txt
           echo "plan_exitcode=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
         continue-on-error: true
 
@@ -337,7 +337,7 @@ jobs:
         id: init
         run: |
           cd ${{ env.TF_WORKING_DIR }}
-          terraform init
+          terraform init -input=false -backend-config="environments/${{ inputs.environment || 'prod' }}.backend.hcl"
 
       - name: Download Plan Artifact (if available)
         if: github.event_name == 'workflow_dispatch'
@@ -357,7 +357,7 @@ jobs:
             terraform apply tfplan
           else
             echo "Creating new plan and applying..."
-            terraform apply -auto-approve
+            terraform apply -input=false -auto-approve -var-file="environments/${{ inputs.environment || 'prod' }}.tfvars"
           fi
 
           # Capture outputs

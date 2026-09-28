@@ -1,26 +1,23 @@
 # Lambda Layer for AWS RDS CA certificates
 resource "aws_lambda_layer_version" "rds_ca_certs" {
-  layer_name          = "${local.name_prefix}-rds-ca-certs"
-  description         = "AWS RDS CA certificates for DocumentDB TLS connections"
-  
+  layer_name  = "${local.name_prefix}-rds-ca-certs"
+  description = "AWS RDS CA certificates for DocumentDB TLS connections"
+
   filename         = "rds-ca-certs-layer.zip"
   source_code_hash = data.archive_file.rds_ca_certs_layer.output_base64sha256
-  
+
   compatible_runtimes = ["python3.9", "python3.10", "python3.11", "python3.12"]
 
-  tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}-rds-ca-certs-layer"
-  })
 }
 
 # Create RDS CA certificates layer
 data "archive_file" "rds_ca_certs_layer" {
   type        = "zip"
   output_path = "rds-ca-certs-layer.zip"
-  
+
   source {
     # AWS RDS CA certificate (2019 root)
-    content = <<EOF
+    content  = <<EOF
 -----BEGIN CERTIFICATE-----
 MIIEBjCCAu6gAwIBAgIJAMc0ZzaSUK51MA0GCSqGSIb3DQEBBQUAMIGYMQswCQYD
 VQQGEwJVUzEQMA4GA1UECAwHQXJpem9uYTETMBEGA1UEBwwKU2NvdHRzZGFsZTEm
@@ -52,26 +49,23 @@ EOF
 
 # Python connection utility layer
 resource "aws_lambda_layer_version" "python_documentdb_utils" {
-  layer_name          = "${local.name_prefix}-documentdb-utils"
-  description         = "Python utilities for DocumentDB connections with connection reuse"
-  
+  layer_name  = "${local.name_prefix}-documentdb-utils"
+  description = "Python utilities for DocumentDB connections with connection reuse"
+
   filename         = "documentdb-utils-layer.zip"
   source_code_hash = data.archive_file.documentdb_utils_layer.output_base64sha256
-  
+
   compatible_runtimes = ["python3.9", "python3.10", "python3.11", "python3.12"]
 
-  tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}-documentdb-utils-layer"
-  })
 }
 
 # Create DocumentDB utilities layer
 data "archive_file" "documentdb_utils_layer" {
   type        = "zip"
   output_path = "documentdb-utils-layer.zip"
-  
+
   source {
-    content = <<EOF
+    content  = <<EOF
 import json
 import boto3
 import pymongo
@@ -169,9 +163,9 @@ def close_documentdb_connection():
 EOF
     filename = "python/documentdb_utils.py"
   }
-  
+
   source {
-    content = ""
+    content  = ""
     filename = "python/__init__.py"
   }
 }

@@ -2,35 +2,35 @@
 resource "aws_lambda_function" "documentdb_test" {
   function_name = "${local.name_prefix}-documentdb-test"
   role          = aws_iam_role.lambda_execution.arn
-  
+
   filename         = "documentdb_test.zip"
   source_code_hash = data.archive_file.documentdb_test.output_base64sha256
-  
+
   handler = "lambda_function.lambda_handler"
   runtime = "python3.11"
   timeout = 60
-  
+
   # Add layers for DocumentDB connectivity
   layers = [
     aws_lambda_layer_version.rds_ca_certs.arn,
     aws_lambda_layer_version.python_documentdb_utils.arn
   ]
-  
+
   # VPC Configuration for DocumentDB access
   vpc_config {
     subnet_ids         = aws_subnet.private[*].id
     security_group_ids = [aws_security_group.lambda_sg.id]
   }
-  
+
   environment {
     variables = {
       DOCUMENTDB_SECRET_NAME = aws_secretsmanager_secret.documentdb_credentials.name
-      DOCUMENTDB_ENDPOINT = aws_docdb_cluster.main.endpoint
-      DOCUMENTDB_PORT = tostring(aws_docdb_cluster.main.port)
-      AWS_REGION = var.aws_region
+      DOCUMENTDB_ENDPOINT    = aws_docdb_cluster.main.endpoint
+      DOCUMENTDB_PORT        = tostring(aws_docdb_cluster.main.port)
+      AWS_REGION             = var.aws_region
     }
   }
-  
+
   depends_on = [
     aws_iam_role_policy_attachment.lambda_basic,
     aws_iam_role_policy_attachment.lambda_vpc,
@@ -39,7 +39,7 @@ resource "aws_lambda_function" "documentdb_test" {
   ]
 
   tags = merge(local.common_tags, {
-    Name = "${local.name_prefix}-documentdb-test"
+    Name    = "${local.name_prefix}-documentdb-test"
     Purpose = "DocumentDB connectivity testing"
   })
 }
@@ -48,9 +48,9 @@ resource "aws_lambda_function" "documentdb_test" {
 data "archive_file" "documentdb_test" {
   type        = "zip"
   output_path = "documentdb_test.zip"
-  
+
   source {
-    content = <<EOF
+    content  = <<EOF
 import json
 from documentdb_utils import get_documentdb_client
 
@@ -116,9 +116,9 @@ def lambda_handler(event, context):
 EOF
     filename = "lambda_function.py"
   }
-  
+
   source {
-    content = "pymongo==4.6.0\nboto3>=1.26.137"
+    content  = "pymongo==4.6.0\nboto3>=1.26.137"
     filename = "requirements.txt"
   }
 }
@@ -127,6 +127,6 @@ EOF
 resource "aws_cloudwatch_log_group" "documentdb_test" {
   name              = "/aws/lambda/${local.name_prefix}-documentdb-test"
   retention_in_days = 7
-  
+
   tags = local.common_tags
 }

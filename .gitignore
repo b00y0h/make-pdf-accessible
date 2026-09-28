@@ -22,6 +22,7 @@ eggs/
 lib/
 !dashboard/src/lib/
 !web/lib/
+!apps/marketing/src/lib/
 lib64/
 parts/
 sdist/
@@ -113,6 +114,9 @@ next-env.d.ts
 *.tfvars.json
 terraform.tfvars
 terraform.tfvars.json
+# Per-environment settings are committed on purpose: they hold no secrets
+# (secrets come from AWS Secrets Manager). See infra/terraform/README.md.
+!infra/terraform/environments/*.tfvars
 
 # Docker
 .docker/
@@ -136,3 +140,9 @@ celerybeat.pid
 tmp/
 temp/
 .sst/
+
+# Terraform plan output and generated layer archives
+tfplan
+*.tfplan
+plan_output.txt
+infra/terraform/*.zip

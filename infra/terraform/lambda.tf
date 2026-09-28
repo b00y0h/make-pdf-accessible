@@ -2,93 +2,93 @@
 resource "aws_lambda_function" "api" {
   function_name = "${local.name_prefix}-api"
   role          = aws_iam_role.lambda_execution.arn
-  
+
   package_type = "Image"
   image_uri    = "${aws_ecr_repository.lambda_repos["api"].repository_url}:latest"
-  
+
   timeout     = 30
   memory_size = 512
-  
+
   # VPC Configuration for DocumentDB access
   vpc_config {
     subnet_ids         = aws_subnet.private[*].id
     security_group_ids = [aws_security_group.lambda_sg.id]
   }
-  
+
   # Environment variables
   environment {
     variables = {
       # AWS Configuration
       AWS_REGION     = var.aws_region
       AWS_ACCOUNT_ID = data.aws_caller_identity.current.account_id
-      
+
       # DynamoDB Tables
-      DOCUMENTS_TABLE      = aws_dynamodb_table.documents.name
+      DOCUMENTS_TABLE     = aws_dynamodb_table.documents.name
       JOBS_TABLE          = aws_dynamodb_table.jobs.name
       USER_SESSIONS_TABLE = aws_dynamodb_table.user_sessions.name
-      
+
       # S3 Buckets
       PDF_ORIGINALS_BUCKET   = aws_s3_bucket.pdf_originals.bucket
       PDF_DERIVATIVES_BUCKET = aws_s3_bucket.pdf_derivatives.bucket
       PDF_TEMP_BUCKET        = aws_s3_bucket.pdf_temp.bucket
       PDF_REPORTS_BUCKET     = aws_s3_bucket.pdf_reports.bucket
-      
+
       # SQS Queues
       INGEST_QUEUE_URL           = aws_sqs_queue.ingest_queue.url
       PROCESS_QUEUE_URL          = aws_sqs_queue.process_queue.url
       CALLBACK_QUEUE_URL         = aws_sqs_queue.callback_queue.url
       PRIORITY_PROCESS_QUEUE_URL = aws_sqs_queue.priority_process_queue.url
-      
+
       # Cognito Configuration
       COGNITO_USER_POOL_ID = aws_cognito_user_pool.main.id
       COGNITO_CLIENT_ID    = aws_cognito_user_pool_client.web_client.id
       COGNITO_REGION       = var.aws_region
-      
+
       # Security
       WEBHOOK_SECRET_KEY = random_password.webhook_secret.result
-      
+
       # Configuration
       ENVIRONMENT = var.environment
       LOG_LEVEL   = var.log_level
-      
+
       # Powertools Configuration
-      POWERTOOLS_SERVICE_NAME        = "pdf-accessibility-api"
-      POWERTOOLS_METRICS_NAMESPACE   = "PDF-Accessibility"
-      POWERTOOLS_LOG_LEVEL          = var.log_level
-      POWERTOOLS_LOGGER_SAMPLE_RATE = "0.1"
-      POWERTOOLS_LOGGER_LOG_EVENT   = "false"
+      POWERTOOLS_SERVICE_NAME            = "pdf-accessibility-api"
+      POWERTOOLS_METRICS_NAMESPACE       = "PDF-Accessibility"
+      POWERTOOLS_LOG_LEVEL               = var.log_level
+      POWERTOOLS_LOGGER_SAMPLE_RATE      = "0.1"
+      POWERTOOLS_LOGGER_LOG_EVENT        = "false"
       POWERTOOLS_TRACER_CAPTURE_RESPONSE = "true"
       POWERTOOLS_TRACER_CAPTURE_ERROR    = "true"
-      
+
       # CORS Origins
       CORS_ORIGINS = jsonencode([
         "http://localhost:3000",
         "https://localhost:3000",
         var.domain_name != "" ? "https://${var.domain_name}" : "https://example.com"
       ])
-      
+
       # DocumentDB Configuration
       DOCUMENTDB_SECRET_NAME = aws_secretsmanager_secret.documentdb_credentials.name
-      DOCUMENTDB_ENDPOINT = aws_docdb_cluster.main.endpoint
-      DOCUMENTDB_PORT = tostring(aws_docdb_cluster.main.port)
+      DOCUMENTDB_ENDPOINT    = aws_docdb_cluster.main.endpoint
+      DOCUMENTDB_PORT        = tostring(aws_docdb_cluster.main.port)
     }
   }
-  
+
   # Tracing configuration
   tracing_config {
     mode = "Active"
   }
-  
+
   # Dead letter queue configuration
   dead_letter_config {
     target_arn = aws_sqs_queue.lambda_dlq.arn
   }
-  
+
   tags = merge(local.lambda_tags, {
-    Name = "${local.name_prefix}-api-lambda"
+    Name      = "${local.name_prefix}-api-lambda"
     component = "api"
   })
-  
+
   depends_on = [
     aws_iam_role_policy_attachment.lambda_basic,
     aws_iam_role_policy_attachment.lambda_vpc,
@@ -102,7 +102,7 @@ resource "aws_security_group" "lambda_sg" {
   name_prefix = "${local.name_prefix}-lambda-"
   vpc_id      = aws_vpc.main.id
   description = "Security group for Lambda functions"
-  
+
   # Allow outbound HTTPS for AWS services
   egress {
     from_port   = 443
@@ -111,7 +111,7 @@ resource "aws_security_group" "lambda_sg" {
     cidr_blocks = ["0.0.0.0/0"]
     description = "HTTPS outbound for AWS services"
   }
-  
+
   # Allow outbound DocumentDB access
   # egress {
   #   from_port       = 27017
@@ -120,7 +120,7 @@ resource "aws_security_group" "lambda_sg" {
   #   security_groups = [aws_security_group.documentdb.id]
   #   description     = "DocumentDB access"
   # }
-  
+
   # Allow outbound HTTP for general internet access (if needed)
   egress {
     from_port   = 80
@@ -129,7 +129,7 @@ resource "aws_security_group" "lambda_sg" {
     cidr_blocks = ["0.0.0.0/0"]
     description = "HTTP outbound"
   }
-  
+
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-lambda-sg"
   })
@@ -139,7 +139,7 @@ resource "aws_security_group" "lambda_sg" {
 resource "aws_cloudwatch_log_group" "lambda_api" {
   name              = "/aws/lambda/${local.name_prefix}-api"
   retention_in_days = var.log_retention_days
-  
+
   tags = local.common_tags
 }
 
@@ -147,7 +147,7 @@ resource "aws_cloudwatch_log_group" "lambda_api" {
 resource "aws_sqs_queue" "lambda_dlq" {
   name                      = "${local.name_prefix}-lambda-dlq"
   message_retention_seconds = 1209600 # 14 days
-  
+
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-lambda-dlq"
   })
@@ -165,7 +165,7 @@ resource "aws_ssm_parameter" "webhook_secret" {
   description = "Webhook secret key for API service"
   type        = "SecureString"
   value       = random_password.webhook_secret.result
-  
+
   tags = local.common_tags
 }
 
@@ -174,14 +174,14 @@ resource "aws_lambda_function_url" "api" {
   count              = var.use_lambda_function_url ? 1 : 0
   function_name      = aws_lambda_function.api.function_name
   authorization_type = "NONE"
-  
+
   cors {
     allow_credentials = false
     allow_origins     = ["*"]
     allow_methods     = ["*"]
     allow_headers     = ["*"]
     expose_headers    = ["keep-alive", "date"]
-    max_age          = 86400
+    max_age           = 86400
   }
 }
 
@@ -191,7 +191,7 @@ resource "aws_apigatewayv2_integration" "api_lambda" {
   integration_type   = "AWS_PROXY"
   integration_method = "POST"
   integration_uri    = aws_lambda_function.api.invoke_arn
-  
+
   payload_format_version = "2.0"
 }
 

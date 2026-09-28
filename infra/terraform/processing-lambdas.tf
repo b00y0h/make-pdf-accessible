@@ -5,37 +5,37 @@ locals {
   lambda_functions = {
     ocr = {
       description = "OCR processing with AWS Textract"
-      timeout     = 900  # 15 minutes
+      timeout     = 900 # 15 minutes
       memory      = 1024
     }
     structure = {
       description = "Document structure analysis with Bedrock"
-      timeout     = 600  # 10 minutes
+      timeout     = 600 # 10 minutes
       memory      = 1024
     }
     alt_text = {
       description = "Alt text generation with Bedrock Vision"
-      timeout     = 600  # 10 minutes
+      timeout     = 600 # 10 minutes
       memory      = 512
     }
     tag_pdf = {
       description = "PDF accessibility tagging with pikepdf"
-      timeout     = 300  # 5 minutes
+      timeout     = 300 # 5 minutes
       memory      = 1024
     }
     exports = {
       description = "Generate accessible exports (HTML/EPUB/CSV)"
-      timeout     = 600  # 10 minutes
+      timeout     = 600 # 10 minutes
       memory      = 1024
     }
     validate = {
       description = "Accessibility validation checks"
-      timeout     = 300  # 5 minutes
+      timeout     = 300 # 5 minutes
       memory      = 512
     }
     notify = {
       description = "Status notifications and DynamoDB updates"
-      timeout     = 60   # 1 minute
+      timeout     = 60 # 1 minute
       memory      = 256
     }
   }
@@ -52,33 +52,38 @@ resource "aws_ecr_repository" "processing_functions" {
     scan_on_push = true
   }
 
-  lifecycle_policy {
-    policy = jsonencode({
-      rules = [
-        {
-          rulePriority = 1
-          description  = "Keep last 10 images"
-          selection = {
-            tagStatus     = "tagged"
-            tagPrefixList = ["latest"]
-            countType     = "imageCountMoreThan"
-            countNumber   = 10
-          }
-          action = {
-            type = "expire"
-          }
-        }
-      ]
-    })
-  }
 
   tags = local.common_tags
+}
+
+# ECR lifecycle policy: keep the last 10 images per processing function
+resource "aws_ecr_lifecycle_policy" "processing_functions" {
+  for_each   = aws_ecr_repository.processing_functions
+  repository = each.value.name
+
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Keep last 10 images"
+        selection = {
+          tagStatus     = "tagged"
+          tagPrefixList = ["latest"]
+          countType     = "imageCountMoreThan"
+          countNumber   = 10
+        }
+        action = {
+          type = "expire"
+        }
+      }
+    ]
+  })
 }
 
 # IAM role for processing Lambda functions
 resource "aws_iam_role" "processing_lambda_role" {
   for_each = local.lambda_functions
-  
+
   name = "${local.app_name}-${var.environment}-${each.key}-lambda-role"
 
   assume_role_policy = jsonencode({
@@ -100,7 +105,7 @@ resource "aws_iam_role" "processing_lambda_role" {
 # IAM policy for processing Lambda functions
 resource "aws_iam_role_policy" "processing_lambda_policy" {
   for_each = local.lambda_functions
-  
+
   name = "${local.app_name}-${var.environment}-${each.key}-lambda-policy"
   role = aws_iam_role.processing_lambda_role[each.key].id
 
@@ -226,7 +231,7 @@ resource "aws_iam_role_policy" "processing_lambda_policy" {
 # Attach AWS managed policy for VPC access (if needed)
 resource "aws_iam_role_policy_attachment" "processing_lambda_vpc_policy" {
   for_each = var.vpc_config != null ? local.lambda_functions : {}
-  
+
   role       = aws_iam_role.processing_lambda_role[each.key].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
@@ -243,15 +248,15 @@ resource "aws_lambda_function" "ocr" {
 
   environment {
     variables = {
-      PDF_DERIVATIVES_BUCKET      = aws_s3_bucket.pdf_derivatives.bucket
-      PDF_ORIGINALS_BUCKET        = aws_s3_bucket.pdf_originals.bucket
-      POWERTOOLS_SERVICE_NAME     = "pdf-ocr"
+      PDF_DERIVATIVES_BUCKET       = aws_s3_bucket.pdf_derivatives.bucket
+      PDF_ORIGINALS_BUCKET         = aws_s3_bucket.pdf_originals.bucket
+      POWERTOOLS_SERVICE_NAME      = "pdf-ocr"
       POWERTOOLS_METRICS_NAMESPACE = "PDF-Accessibility"
-      LOG_LEVEL                   = var.log_level
-      ENVIRONMENT                 = var.environment
-      DOCUMENTDB_SECRET_NAME      = aws_secretsmanager_secret.documentdb_credentials.name
-      DOCUMENTDB_ENDPOINT         = aws_docdb_cluster.main.endpoint
-      DOCUMENTDB_PORT             = tostring(aws_docdb_cluster.main.port)
+      LOG_LEVEL                    = var.log_level
+      ENVIRONMENT                  = var.environment
+      DOCUMENTDB_SECRET_NAME       = aws_secretsmanager_secret.documentdb_credentials.name
+      DOCUMENTDB_ENDPOINT          = aws_docdb_cluster.main.endpoint
+      DOCUMENTDB_PORT              = tostring(aws_docdb_cluster.main.port)
     }
   }
 
@@ -288,15 +293,15 @@ resource "aws_lambda_function" "structure" {
 
   environment {
     variables = {
-      PDF_DERIVATIVES_BUCKET      = aws_s3_bucket.pdf_derivatives.bucket
-      PDF_ORIGINALS_BUCKET        = aws_s3_bucket.pdf_originals.bucket
-      POWERTOOLS_SERVICE_NAME     = "pdf-structure"
+      PDF_DERIVATIVES_BUCKET       = aws_s3_bucket.pdf_derivatives.bucket
+      PDF_ORIGINALS_BUCKET         = aws_s3_bucket.pdf_originals.bucket
+      POWERTOOLS_SERVICE_NAME      = "pdf-structure"
       POWERTOOLS_METRICS_NAMESPACE = "PDF-Accessibility"
-      LOG_LEVEL                   = var.log_level
-      ENVIRONMENT                 = var.environment
-      DOCUMENTDB_SECRET_NAME      = aws_secretsmanager_secret.documentdb_credentials.name
-      DOCUMENTDB_ENDPOINT         = aws_docdb_cluster.main.endpoint
-      DOCUMENTDB_PORT             = tostring(aws_docdb_cluster.main.port)
+      LOG_LEVEL                    = var.log_level
+      ENVIRONMENT                  = var.environment
+      DOCUMENTDB_SECRET_NAME       = aws_secretsmanager_secret.documentdb_credentials.name
+      DOCUMENTDB_ENDPOINT          = aws_docdb_cluster.main.endpoint
+      DOCUMENTDB_PORT              = tostring(aws_docdb_cluster.main.port)
     }
   }
 
@@ -333,15 +338,15 @@ resource "aws_lambda_function" "alt_text" {
 
   environment {
     variables = {
-      PDF_DERIVATIVES_BUCKET      = aws_s3_bucket.pdf_derivatives.bucket
-      PDF_ORIGINALS_BUCKET        = aws_s3_bucket.pdf_originals.bucket
-      POWERTOOLS_SERVICE_NAME     = "pdf-alt-text"
+      PDF_DERIVATIVES_BUCKET       = aws_s3_bucket.pdf_derivatives.bucket
+      PDF_ORIGINALS_BUCKET         = aws_s3_bucket.pdf_originals.bucket
+      POWERTOOLS_SERVICE_NAME      = "pdf-alt-text"
       POWERTOOLS_METRICS_NAMESPACE = "PDF-Accessibility"
-      LOG_LEVEL                   = var.log_level
-      ENVIRONMENT                 = var.environment
-      DOCUMENTDB_SECRET_NAME      = aws_secretsmanager_secret.documentdb_credentials.name
-      DOCUMENTDB_ENDPOINT         = aws_docdb_cluster.main.endpoint
-      DOCUMENTDB_PORT             = tostring(aws_docdb_cluster.main.port)
+      LOG_LEVEL                    = var.log_level
+      ENVIRONMENT                  = var.environment
+      DOCUMENTDB_SECRET_NAME       = aws_secretsmanager_secret.documentdb_credentials.name
+      DOCUMENTDB_ENDPOINT          = aws_docdb_cluster.main.endpoint
+      DOCUMENTDB_PORT              = tostring(aws_docdb_cluster.main.port)
     }
   }
 
@@ -378,15 +383,15 @@ resource "aws_lambda_function" "tag_pdf" {
 
   environment {
     variables = {
-      PDF_DERIVATIVES_BUCKET      = aws_s3_bucket.pdf_derivatives.bucket
-      PDF_ACCESSIBLE_BUCKET       = aws_s3_bucket.pdf_accessible.bucket
-      POWERTOOLS_SERVICE_NAME     = "pdf-tagger"
+      PDF_DERIVATIVES_BUCKET       = aws_s3_bucket.pdf_derivatives.bucket
+      PDF_ACCESSIBLE_BUCKET        = aws_s3_bucket.pdf_accessible.bucket
+      POWERTOOLS_SERVICE_NAME      = "pdf-tagger"
       POWERTOOLS_METRICS_NAMESPACE = "PDF-Accessibility"
-      LOG_LEVEL                   = var.log_level
-      ENVIRONMENT                 = var.environment
-      DOCUMENTDB_SECRET_NAME      = aws_secretsmanager_secret.documentdb_credentials.name
-      DOCUMENTDB_ENDPOINT         = aws_docdb_cluster.main.endpoint
-      DOCUMENTDB_PORT             = tostring(aws_docdb_cluster.main.port)
+      LOG_LEVEL                    = var.log_level
+      ENVIRONMENT                  = var.environment
+      DOCUMENTDB_SECRET_NAME       = aws_secretsmanager_secret.documentdb_credentials.name
+      DOCUMENTDB_ENDPOINT          = aws_docdb_cluster.main.endpoint
+      DOCUMENTDB_PORT              = tostring(aws_docdb_cluster.main.port)
     }
   }
 
@@ -423,15 +428,15 @@ resource "aws_lambda_function" "exports" {
 
   environment {
     variables = {
-      PDF_DERIVATIVES_BUCKET      = aws_s3_bucket.pdf_derivatives.bucket
-      PDF_ACCESSIBLE_BUCKET       = aws_s3_bucket.pdf_accessible.bucket
-      POWERTOOLS_SERVICE_NAME     = "pdf-exports"
+      PDF_DERIVATIVES_BUCKET       = aws_s3_bucket.pdf_derivatives.bucket
+      PDF_ACCESSIBLE_BUCKET        = aws_s3_bucket.pdf_accessible.bucket
+      POWERTOOLS_SERVICE_NAME      = "pdf-exports"
       POWERTOOLS_METRICS_NAMESPACE = "PDF-Accessibility"
-      LOG_LEVEL                   = var.log_level
-      ENVIRONMENT                 = var.environment
-      DOCUMENTDB_SECRET_NAME      = aws_secretsmanager_secret.documentdb_credentials.name
-      DOCUMENTDB_ENDPOINT         = aws_docdb_cluster.main.endpoint
-      DOCUMENTDB_PORT             = tostring(aws_docdb_cluster.main.port)
+      LOG_LEVEL                    = var.log_level
+      ENVIRONMENT                  = var.environment
+      DOCUMENTDB_SECRET_NAME       = aws_secretsmanager_secret.documentdb_credentials.name
+      DOCUMENTDB_ENDPOINT          = aws_docdb_cluster.main.endpoint
+      DOCUMENTDB_PORT              = tostring(aws_docdb_cluster.main.port)
     }
   }
 
@@ -468,15 +473,15 @@ resource "aws_lambda_function" "validate" {
 
   environment {
     variables = {
-      PDF_DERIVATIVES_BUCKET      = aws_s3_bucket.pdf_derivatives.bucket
-      PDF_ACCESSIBLE_BUCKET       = aws_s3_bucket.pdf_accessible.bucket
-      POWERTOOLS_SERVICE_NAME     = "pdf-validator"
+      PDF_DERIVATIVES_BUCKET       = aws_s3_bucket.pdf_derivatives.bucket
+      PDF_ACCESSIBLE_BUCKET        = aws_s3_bucket.pdf_accessible.bucket
+      POWERTOOLS_SERVICE_NAME      = "pdf-validator"
       POWERTOOLS_METRICS_NAMESPACE = "PDF-Accessibility"
-      LOG_LEVEL                   = var.log_level
-      ENVIRONMENT                 = var.environment
-      DOCUMENTDB_SECRET_NAME      = aws_secretsmanager_secret.documentdb_credentials.name
-      DOCUMENTDB_ENDPOINT         = aws_docdb_cluster.main.endpoint
-      DOCUMENTDB_PORT             = tostring(aws_docdb_cluster.main.port)
+      LOG_LEVEL                    = var.log_level
+      ENVIRONMENT                  = var.environment
+      DOCUMENTDB_SECRET_NAME       = aws_secretsmanager_secret.documentdb_credentials.name
+      DOCUMENTDB_ENDPOINT          = aws_docdb_cluster.main.endpoint
+      DOCUMENTDB_PORT              = tostring(aws_docdb_cluster.main.port)
     }
   }
 
@@ -513,16 +518,16 @@ resource "aws_lambda_function" "notify" {
 
   environment {
     variables = {
-      DOCUMENTS_TABLE             = aws_dynamodb_table.documents.name
-      JOBS_TABLE                  = aws_dynamodb_table.jobs.name
-      NOTIFICATIONS_TOPIC_ARN     = aws_sns_topic.notifications.arn
-      POWERTOOLS_SERVICE_NAME     = "pdf-notifier"
+      DOCUMENTS_TABLE              = aws_dynamodb_table.documents.name
+      JOBS_TABLE                   = aws_dynamodb_table.jobs.name
+      NOTIFICATIONS_TOPIC_ARN      = aws_sns_topic.notifications.arn
+      POWERTOOLS_SERVICE_NAME      = "pdf-notifier"
       POWERTOOLS_METRICS_NAMESPACE = "PDF-Accessibility"
-      LOG_LEVEL                   = var.log_level
-      ENVIRONMENT                 = var.environment
-      DOCUMENTDB_SECRET_NAME      = aws_secretsmanager_secret.documentdb_credentials.name
-      DOCUMENTDB_ENDPOINT         = aws_docdb_cluster.main.endpoint
-      DOCUMENTDB_PORT             = tostring(aws_docdb_cluster.main.port)
+      LOG_LEVEL                    = var.log_level
+      ENVIRONMENT                  = var.environment
+      DOCUMENTDB_SECRET_NAME       = aws_secretsmanager_secret.documentdb_credentials.name
+      DOCUMENTDB_ENDPOINT          = aws_docdb_cluster.main.endpoint
+      DOCUMENTDB_PORT              = tostring(aws_docdb_cluster.main.port)
     }
   }
 
@@ -551,10 +556,10 @@ resource "aws_lambda_function" "notify" {
 # CloudWatch Log Groups
 resource "aws_cloudwatch_log_group" "processing_lambda_logs" {
   for_each = local.lambda_functions
-  
+
   name              = "/aws/lambda/${local.app_name}-${var.environment}-${each.key}"
   retention_in_days = var.log_retention_days
-  kms_key_id       = var.cloudwatch_logs_kms_key_id
+  kms_key_id        = var.cloudwatch_logs_kms_key_id
 
   tags = local.common_tags
 }

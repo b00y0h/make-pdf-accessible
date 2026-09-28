@@ -26,3 +26,5 @@ resource "random_id" "suffix" {
   byte_length = 4
 }
 
+# Current region (used by monitoring, OpenSearch and processing IAM policies)
+data "aws_region" "current" {}
