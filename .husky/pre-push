@@ -1,6 +1,3 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -23,7 +20,7 @@ if echo "$protected_branches" | grep -w "$current_branch" > /dev/null; then
     
     # Check if virtual environment exists and run Python tests
     if [ -f "venv/bin/activate" ]; then
-        source venv/bin/activate
+        . venv/bin/activate
         echo "${YELLOW}  Running Python tests...${NC}"
         # Skip all tests as per user request
         echo "${YELLOW}  Tests excluded from pre-push checks${NC}"
@@ -76,7 +73,7 @@ else
     
     # Quick Python check
     if [ -f "venv/bin/activate" ]; then
-        source venv/bin/activate
+        . venv/bin/activate
         if ! ./venv/bin/ruff check .; then
             echo "${RED}❌ Python linting issues found!${NC}"
             echo "${YELLOW}💡 Run: ./venv/bin/ruff check --fix .${NC}"
