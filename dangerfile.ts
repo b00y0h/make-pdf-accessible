@@ -26,7 +26,7 @@ const getChangedFiles = () => [
 ];
 
 const getTotalLines = () =>
-  danger.git.diffstat.insertions + danger.git.diffstat.deletions;
+  danger.github.pr.additions + danger.github.pr.deletions;
 
 const hasChangesInPath = (path: string) =>
   getChangedFiles().some((file) => file.includes(path));
@@ -229,13 +229,25 @@ const checkSecurity = () => {
 
 const checkDependencies = () => {
   const packageJsonChanged = hasChangesInPath('package.json');
-  const lockfileChanged = hasChangesInPath('pnpm-lock.yaml');
   const requirementsChanged = hasChangesInPath('requirements.txt');
   const pyprojectChanged = hasChangesInPath('pyproject.toml');
 
-  if (packageJsonChanged && !lockfileChanged) {
+  // Workspace packages lock in pnpm-lock.yaml; standalone npm projects (such as
+  // the WordPress plugin's e2e tests) have their own package-lock.json.
+  const changedFiles = getChangedFiles();
+  const unlockedPackageJsons = changedFiles
+    .filter((file) => file.endsWith('package.json'))
+    .filter(
+      (file) =>
+        !changedFiles.includes('pnpm-lock.yaml') &&
+        !changedFiles.includes(
+          file.replace(/package\.json$/, 'package-lock.json')
+        )
+    );
+
+  if (unlockedPackageJsons.length > 0) {
     fail(
-      "📦 package.json changed but pnpm-lock.yaml wasn't updated. Run `pnpm install`."
+      `📦 ${unlockedPackageJsons.join(', ')} changed but no lockfile was updated. Run \`pnpm install\` (or \`npm install\` in a standalone npm project).`
     );
   }
 
@@ -285,7 +297,7 @@ const checkInfrastructure = () => {
 
 const checkTitleAndLabels = () => {
   const title = danger.github.pr.title;
-  const labels = danger.github.pr.labels.map((label) => label.name);
+  const labels = danger.github.issue.labels.map((label) => label.name);
 
   // Check conventional commit format in title
   const conventionalPattern =
@@ -411,7 +423,7 @@ markdown(`
 ## 📊 PR Summary
 
 - **Files changed:** ${changedFiles.length}
-- **Lines changed:** ${totalLines} (+${danger.git.diffstat.insertions}, -${danger.git.diffstat.deletions})
+- **Lines changed:** ${totalLines} (+${danger.github.pr.additions}, -${danger.github.pr.deletions})
 - **Commits:** ${danger.git.commits.length}
 
 ### 🔧 Changed Areas
