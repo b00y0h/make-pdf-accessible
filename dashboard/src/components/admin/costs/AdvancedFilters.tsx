@@ -238,7 +238,7 @@ export function AdvancedFilters({
                         : undefined
                     }
                     onSelect={(date) => handleCustomDateChange('start', date)}
-                    initialFocus
+                    autoFocus
                   />
                 </PopoverContent>
               </Popover>
@@ -270,7 +270,7 @@ export function AdvancedFilters({
                         : undefined
                     }
                     onSelect={(date) => handleCustomDateChange('end', date)}
-                    initialFocus
+                    autoFocus
                   />
                 </PopoverContent>
               </Popover>
