@@ -215,7 +215,8 @@ pnpm install
 pnpm add -D @testing-library/jest-dom @testing-library/react jest-axe
 
 # Infrastructure
-curl -L "https://github.com/terraform-linters/tflint/releases/latest/download/tflint_linux_amd64.zip" -o tflint.zip
+# Same TFLint version as infra-ci.yml; .tflint.hcl pins the aws plugin to match
+curl -fsSL "https://github.com/terraform-linters/tflint/releases/download/v0.64.0/tflint_linux_amd64.zip" -o tflint.zip
 pip install checkov
 ```
 
