@@ -24,7 +24,7 @@ export default function ProductPage() {
     <>
       <Container className="py-14">
         <h1 className="text-4xl font-bold tracking-tight">How it works</h1>
-        <p className="mt-4 max-w-prose text-lg text-muted">
+        <p className="mt-4 max-w-copy text-lg text-muted">
           Six stages, one system of record. Each stage is useful on its own;
           together they take an institution from an unknown backlog to a
           defensible position and keep it there.
@@ -38,8 +38,8 @@ export default function ProductPage() {
           title={`${index + 1}. ${stage.name}`}
           tone={index % 2 ? 'surface' : 'default'}
         >
-          <p className="max-w-prose text-lg">{stage.text}</p>
-          <p className="mt-6 max-w-prose text-muted">{DETAILS[index]}</p>
+          <p className="max-w-copy text-lg">{stage.text}</p>
+          <p className="mt-6 max-w-copy text-muted">{DETAILS[index]}</p>
         </Section>
       ))}
 
@@ -48,7 +48,7 @@ export default function ProductPage() {
         title="The Accessible Link"
         lede="Remediate on first request, cache for everyone after."
       >
-        <p className="max-w-prose">
+        <p className="max-w-copy">
           Any inventoried PDF gets a stable link. The first visitor who opens it
           triggers remediation and sees an accessible waiting page; every later
           visitor gets the cached, validated version immediately. Large

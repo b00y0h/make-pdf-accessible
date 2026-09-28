@@ -142,7 +142,7 @@ export function UserDetailDrawer({
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+          <div className="fixed inset-0 bg-gray-500/75 transition-opacity" />
         </Transition.Child>
 
         <div className="fixed inset-0 overflow-hidden">
@@ -170,7 +170,7 @@ export function UserDetailDrawer({
                     <div className="absolute left-0 top-0 -ml-8 flex pr-2 pt-4 sm:-ml-10 sm:pr-4">
                       <button
                         type="button"
-                        className="relative rounded-md text-gray-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-white"
+                        className="relative rounded-md text-gray-300 hover:text-white focus:outline-hidden focus:ring-2 focus:ring-white"
                         onClick={onClose}
                       >
                         <span className="absolute -inset-2.5" />
@@ -191,7 +191,7 @@ export function UserDetailDrawer({
                       {/* User Profile Section */}
                       <div className="pb-6 border-b border-gray-200">
                         <div className="flex items-center space-x-4">
-                          <div className="flex-shrink-0">
+                          <div className="shrink-0">
                             <div className="h-16 w-16 rounded-full bg-gray-300 flex items-center justify-center">
                               <span className="text-xl font-medium text-gray-700">
                                 {(user.name || user.email)
@@ -390,7 +390,7 @@ export function UserDetailDrawer({
                                   user.role === 'admin'
                                     ? 'text-white bg-red-600 hover:bg-red-700 focus:ring-red-500'
                                     : 'text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
-                                } disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2`}
+                                } disabled:opacity-50 disabled:cursor-not-allowed focus:outline-hidden focus:ring-2 focus:ring-offset-2`}
                               >
                                 {isUpdatingRole ? (
                                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
@@ -428,7 +428,7 @@ export function UserDetailDrawer({
                                   {!showDeleteConfirm ? (
                                     <button
                                       onClick={() => setShowDeleteConfirm(true)}
-                                      className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                      className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                                     >
                                       <TrashIcon className="h-4 w-4 mr-2" />
                                       Delete User
@@ -445,7 +445,7 @@ export function UserDetailDrawer({
                                           setDeleteConfirmText(e.target.value)
                                         }
                                         placeholder="Type DELETE to confirm"
-                                        className="block w-full px-3 py-2 border border-red-300 rounded-md shadow-sm focus:ring-red-500 focus:border-red-500"
+                                        className="block w-full px-3 py-2 border border-red-300 rounded-md shadow-xs focus:ring-red-500 focus:border-red-500"
                                       />
                                       <div className="flex space-x-3">
                                         <button
@@ -454,7 +454,7 @@ export function UserDetailDrawer({
                                             deleteConfirmText !== 'DELETE' ||
                                             isDeleting
                                           }
-                                          className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                          className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                                         >
                                           {isDeleting
                                             ? 'Deleting...'
@@ -465,7 +465,7 @@ export function UserDetailDrawer({
                                             setShowDeleteConfirm(false);
                                             setDeleteConfirmText('');
                                           }}
-                                          className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                          className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                                         >
                                           Cancel
                                         </button>

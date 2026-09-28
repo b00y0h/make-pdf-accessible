@@ -198,7 +198,7 @@ export function PdfCheckForm() {
 
   return (
     <div className="space-y-6">
-      <form onSubmit={onSubmit} noValidate className="space-y-4">
+      <form onSubmit={onSubmit} noValidate>
         <div
           onDragOver={(event) => event.preventDefault()}
           onDrop={onDrop}
@@ -236,14 +236,14 @@ export function PdfCheckForm() {
             </p>
           ) : null}
         </div>
-        <Button disabled={busy}>
+        <Button disabled={busy} className="mt-4">
           {state.kind === 'uploading'
             ? 'Uploading…'
             : state.kind === 'checking'
               ? 'Checking…'
               : 'Check this PDF'}
         </Button>
-        <p className="text-sm text-muted" aria-live="polite">
+        <p className="mt-4 text-sm text-muted" aria-live="polite">
           {busy ? 'This usually takes under a minute.' : ''}
         </p>
       </form>

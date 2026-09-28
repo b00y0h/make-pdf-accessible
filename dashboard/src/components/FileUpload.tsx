@@ -182,7 +182,7 @@ export function FileUpload({
     return cn(
       'border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 cursor-pointer',
       'hover:border-primary/50 hover:bg-muted/25',
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+      'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
       {
         'border-green-500 bg-green-50 dark:bg-green-950/20': isDragAccept,
         'border-red-500 bg-red-50 dark:bg-red-950/20': isDragReject,

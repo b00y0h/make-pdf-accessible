@@ -10,7 +10,7 @@ export default function NotFound() {
   return (
     <Container className="py-20">
       <h1 className="text-4xl font-bold tracking-tight">Page not found</h1>
-      <p className="mt-4 max-w-prose text-lg text-muted">
+      <p className="mt-4 max-w-copy text-lg text-muted">
         The address may have changed. Try the home page, or email us and we will
         point you to the right place.
       </p>

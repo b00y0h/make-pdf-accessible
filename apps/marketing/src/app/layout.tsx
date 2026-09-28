@@ -40,7 +40,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="flex min-h-screen flex-col">
         <SkipLink />
         <SiteHeader />
-        <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
+        <main id="main" tabIndex={-1} className="flex-1 focus:outline-hidden">
           {children}
         </main>
         <SiteFooter />

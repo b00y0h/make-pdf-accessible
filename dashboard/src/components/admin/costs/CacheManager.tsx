@@ -278,9 +278,9 @@ export function CacheManager({ onCacheCleared }: CacheManagerProps) {
             </div>
 
             {/* Pattern-based clearing */}
-            <div className="space-y-2">
+            <div>
               <Label htmlFor="cache-pattern">Clear by Pattern</Label>
-              <div className="flex gap-2">
+              <div className="mt-2 flex gap-2">
                 <Input
                   id="cache-pattern"
                   placeholder="e.g., timeseries, summary, services"
@@ -319,7 +319,7 @@ export function CacheManager({ onCacheCleared }: CacheManagerProps) {
                   </AlertDialogContent>
                 </AlertDialog>
               </div>
-              <p className="text-xs text-gray-600">
+              <p className="mt-2 text-xs text-gray-600">
                 Common patterns: <code>timeseries</code>, <code>summary</code>,{' '}
                 <code>services</code>, <code>forecast</code>
               </p>

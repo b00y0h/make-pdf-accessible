@@ -387,9 +387,9 @@ export function FilterPresets({
             </div>
 
             {/* Preview of current filters */}
-            <div className="space-y-2">
+            <div>
               <label className="text-sm font-medium">Current Filters:</label>
-              <div className="flex flex-wrap gap-2 text-xs">
+              <div className="mt-2 flex flex-wrap gap-2 text-xs">
                 <Badge variant="secondary">
                   {currentFilters.dateRange.preset === 'custom'
                     ? `${currentFilters.dateRange.custom?.start} to ${currentFilters.dateRange.custom?.end}`

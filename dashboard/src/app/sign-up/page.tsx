@@ -107,7 +107,7 @@ function SignUpPageContent() {
 
   if (isPending) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br/srgb from-blue-50 via-white to-cyan-50 flex items-center justify-center">
         <div className="text-center">
           <Shield className="h-12 w-12 text-blue-600 mx-auto mb-4" />
           <p className="text-gray-600">Loading...</p>
@@ -117,14 +117,14 @@ function SignUpPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-linear-to-br/srgb from-blue-50 via-white to-cyan-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       <div className="grid lg:grid-cols-2 min-h-screen">
         {/* Left Side - Hero Content */}
         <div className="flex flex-col justify-center px-8 py-12 lg:px-16">
           <div className="max-w-md mx-auto lg:mx-0">
             {/* Logo */}
             <div className="flex items-center gap-3 mb-8">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center">
+              <div className="h-10 w-10 rounded-xl bg-linear-to-br/srgb from-blue-600 to-cyan-600 flex items-center justify-center">
                 <Shield className="h-6 w-6 text-white" />
               </div>
               <div>
@@ -159,7 +159,7 @@ function SignUpPageContent() {
         </div>
 
         {/* Right Side - Sign Up Form */}
-        <div className="flex flex-col justify-center px-8 py-12 lg:px-16 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
+        <div className="flex flex-col justify-center px-8 py-12 lg:px-16 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xs">
           <div className="max-w-sm mx-auto w-full">
             <Card className="border-0 shadow-xl">
               <CardHeader className="space-y-1 text-center">
@@ -365,7 +365,7 @@ export default function SignUpPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex items-center justify-center">
+        <div className="min-h-screen bg-linear-to-br/srgb from-blue-50 via-white to-cyan-50 flex items-center justify-center">
           <div className="text-center">
             <Shield className="h-12 w-12 text-blue-600 mx-auto mb-4" />
             <p className="text-gray-600">Loading...</p>

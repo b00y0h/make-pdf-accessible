@@ -365,11 +365,14 @@ export function AdvancedFilters({
       {showAdvanced && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
           {/* Services Filter */}
-          <div className="space-y-2">
+          <div>
             <Label className="text-sm font-medium">AWS Services</Label>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full justify-between">
+                <Button
+                  variant="outline"
+                  className="mt-2 w-full justify-between"
+                >
                   {filters.services && filters.services.length > 0
                     ? `${filters.services.length} service(s)`
                     : 'All services'}
@@ -410,11 +413,14 @@ export function AdvancedFilters({
           </div>
 
           {/* Accounts Filter */}
-          <div className="space-y-2">
+          <div>
             <Label className="text-sm font-medium">AWS Accounts</Label>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full justify-between">
+                <Button
+                  variant="outline"
+                  className="mt-2 w-full justify-between"
+                >
                   {filters.accounts && filters.accounts.length > 0
                     ? `${filters.accounts.length} account(s)`
                     : 'All accounts'}
@@ -455,11 +461,14 @@ export function AdvancedFilters({
           </div>
 
           {/* Regions Filter */}
-          <div className="space-y-2">
+          <div>
             <Label className="text-sm font-medium">AWS Regions</Label>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full justify-between">
+                <Button
+                  variant="outline"
+                  className="mt-2 w-full justify-between"
+                >
                   {filters.regions && filters.regions.length > 0
                     ? `${filters.regions.length} region(s)`
                     : 'All regions'}
@@ -498,9 +507,9 @@ export function AdvancedFilters({
           </div>
 
           {/* Tag Filters */}
-          <div className="space-y-2 md:col-span-2 lg:col-span-3">
+          <div className="md:col-span-2 lg:col-span-3">
             <Label className="text-sm font-medium">Resource Tags</Label>
-            <div className="flex gap-2">
+            <div className="mt-2 flex gap-2">
               <Select value={newTagKey} onValueChange={setNewTagKey}>
                 <SelectTrigger className="w-[150px]">
                   <SelectValue placeholder="Tag key" />

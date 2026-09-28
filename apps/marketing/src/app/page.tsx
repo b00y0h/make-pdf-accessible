@@ -18,7 +18,7 @@ export default function HomePage() {
             >
               {SITE.tagline}
             </h1>
-            <p className="mt-5 max-w-prose text-lg text-muted">
+            <p className="mt-5 max-w-copy text-lg text-muted">
               Public universities, colleges, school districts and local
               governments have a fixed deadline and a backlog of PDFs nobody has
               counted. {SITE.name} finds every document, decides what the rule
@@ -111,7 +111,7 @@ export default function HomePage() {
         lede="No software makes a document accessible on its own, and we will not tell you otherwise."
         tone="surface"
       >
-        <ul className="max-w-prose list-disc space-y-2 pl-5">
+        <ul className="max-w-copy list-disc space-y-2 pl-5">
           <li>
             We validate every output with independent tools and publish our
             measured accuracy by document type. Where automation is weak (scans,

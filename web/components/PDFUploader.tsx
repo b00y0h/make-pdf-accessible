@@ -385,7 +385,7 @@ The document now meets WCAG 2.1 Level AA standards and is fully accessible to us
                   <ul className="space-y-2">
                     {result.analysisReport.recommendations.map((rec, index) => (
                       <li key={index} className="flex items-start">
-                        <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                        <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 shrink-0" />
                         <span className="text-sm text-gray-700">{rec}</span>
                       </li>
                     ))}

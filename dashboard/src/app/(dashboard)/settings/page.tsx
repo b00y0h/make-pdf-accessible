@@ -48,28 +48,37 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
+              <div>
                 <label className="text-sm font-medium">Full Name</label>
-                <Input placeholder="John Doe" defaultValue="John Doe" />
+                <Input
+                  className="mt-2"
+                  placeholder="John Doe"
+                  defaultValue="John Doe"
+                />
               </div>
-              <div className="space-y-2">
+              <div>
                 <label className="text-sm font-medium">Email Address</label>
                 <Input
+                  className="mt-2"
                   placeholder="john@example.com"
                   defaultValue="admin@example.com"
                 />
               </div>
             </div>
-            <div className="space-y-2">
+            <div>
               <label className="text-sm font-medium">Organization</label>
-              <Input placeholder="Company Name" defaultValue="AccessPDF Corp" />
+              <Input
+                className="mt-2"
+                placeholder="Company Name"
+                defaultValue="AccessPDF Corp"
+              />
             </div>
             <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
+              <div>
                 <label className="text-sm font-medium">
                   Two-Factor Authentication
                 </label>
-                <p className="text-sm text-muted-foreground">
+                <p className="mt-0.5 text-sm text-muted-foreground">
                   Add an extra layer of security to your account
                 </p>
               </div>
@@ -95,11 +104,11 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
+              <div>
                 <label className="text-sm font-medium">
                   Auto-process uploads
                 </label>
-                <p className="text-sm text-muted-foreground">
+                <p className="mt-0.5 text-sm text-muted-foreground">
                   Automatically start processing when documents are uploaded
                 </p>
               </div>
@@ -107,11 +116,11 @@ export default function SettingsPage() {
             </div>
 
             <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
+              <div>
                 <label className="text-sm font-medium">
                   AI Alt-text generation
                 </label>
-                <p className="text-sm text-muted-foreground">
+                <p className="mt-0.5 text-sm text-muted-foreground">
                   Use AI to automatically generate alternative text for images
                 </p>
               </div>
@@ -119,11 +128,11 @@ export default function SettingsPage() {
             </div>
 
             <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
+              <div>
                 <label className="text-sm font-medium">
                   Advanced OCR processing
                 </label>
-                <p className="text-sm text-muted-foreground">
+                <p className="mt-0.5 text-sm text-muted-foreground">
                   Use advanced OCR for better text extraction from scanned
                   documents
                 </p>
@@ -131,11 +140,11 @@ export default function SettingsPage() {
               <Switch defaultChecked />
             </div>
 
-            <div className="space-y-2">
+            <div>
               <label className="text-sm font-medium">
                 Default WCAG compliance level
               </label>
-              <select className="w-full p-2 border rounded-md">
+              <select className="mt-2 w-full p-2 border rounded-md">
                 <option value="A">WCAG A</option>
                 <option value="AA" selected>
                   WCAG AA
@@ -145,17 +154,27 @@ export default function SettingsPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
+              <div>
                 <label className="text-sm font-medium">
                   Processing timeout (minutes)
                 </label>
-                <Input type="number" placeholder="30" defaultValue="30" />
+                <Input
+                  className="mt-2"
+                  type="number"
+                  placeholder="30"
+                  defaultValue="30"
+                />
               </div>
-              <div className="space-y-2">
+              <div>
                 <label className="text-sm font-medium">
                   Max file size (MB)
                 </label>
-                <Input type="number" placeholder="50" defaultValue="50" />
+                <Input
+                  className="mt-2"
+                  type="number"
+                  placeholder="50"
+                  defaultValue="50"
+                />
               </div>
             </div>
           </CardContent>
@@ -174,11 +193,11 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
+              <div>
                 <label className="text-sm font-medium">
                   Email notifications
                 </label>
-                <p className="text-sm text-muted-foreground">
+                <p className="mt-0.5 text-sm text-muted-foreground">
                   Receive email updates about document processing
                 </p>
               </div>
@@ -186,11 +205,11 @@ export default function SettingsPage() {
             </div>
 
             <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
+              <div>
                 <label className="text-sm font-medium">
                   Processing completion
                 </label>
-                <p className="text-sm text-muted-foreground">
+                <p className="mt-0.5 text-sm text-muted-foreground">
                   Get notified when document processing is complete
                 </p>
               </div>
@@ -198,11 +217,11 @@ export default function SettingsPage() {
             </div>
 
             <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
+              <div>
                 <label className="text-sm font-medium">
                   Processing failures
                 </label>
-                <p className="text-sm text-muted-foreground">
+                <p className="mt-0.5 text-sm text-muted-foreground">
                   Get notified when document processing fails
                 </p>
               </div>
@@ -210,9 +229,9 @@ export default function SettingsPage() {
             </div>
 
             <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
+              <div>
                 <label className="text-sm font-medium">Weekly summary</label>
-                <p className="text-sm text-muted-foreground">
+                <p className="mt-0.5 text-sm text-muted-foreground">
                   Receive a weekly summary of processing activity
                 </p>
               </div>

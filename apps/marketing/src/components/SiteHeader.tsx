@@ -13,7 +13,7 @@ export function SiteHeader() {
         >
           <span
             aria-hidden="true"
-            className="inline-block h-6 w-6 rounded-sm bg-accent"
+            className="inline-block h-6 w-6 rounded-xs bg-accent"
           />
           {SITE.name}
         </Link>

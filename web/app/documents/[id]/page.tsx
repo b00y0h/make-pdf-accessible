@@ -159,7 +159,7 @@ export default function DocumentDetailPage() {
           </p>
           <button
             onClick={() => router.back()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
             Go Back
           </button>
@@ -182,7 +182,7 @@ export default function DocumentDetailPage() {
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => router.back()}
-                className="p-2 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
+                className="p-2 text-gray-400 hover:text-gray-600 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
                 aria-label="Go back"
               >
                 <ChevronLeft className="w-5 h-5" />
@@ -210,7 +210,7 @@ export default function DocumentDetailPage() {
               {/* Manual refresh */}
               <button
                 onClick={() => refetch()}
-                className="p-2 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
+                className="p-2 text-gray-400 hover:text-gray-600 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
                 aria-label="Refresh"
               >
                 <RefreshCw className="w-5 h-5" />
@@ -311,7 +311,7 @@ export default function DocumentDetailPage() {
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-3">
                     <div
-                      className="bg-gradient-to-r from-green-400 to-green-600 h-3 rounded-full"
+                      className="bg-linear-to-r/srgb from-green-400 to-green-600 h-3 rounded-full"
                       style={{ width: `${document.scores.overall || 92}%` }}
                     />
                   </div>
@@ -399,7 +399,7 @@ export default function DocumentDetailPage() {
                       </div>
                       <a
                         href={`/api/documents/${document.doc_id}/downloads?document_type=${type}`}
-                        className="p-2 text-blue-600 hover:text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
+                        className="p-2 text-blue-600 hover:text-blue-800 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
                         aria-label={`Download ${type} version`}
                       >
                         <Download className="w-4 h-4" />
@@ -495,14 +495,14 @@ export default function DocumentDetailPage() {
               <div className="space-y-3">
                 <button
                   onClick={() => router.push('/upload')}
-                  className="w-full px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  className="w-full px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 >
                   Upload Another Document
                 </button>
 
                 <button
                   onClick={() => router.push('/documents')}
-                  className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 >
                   View All Documents
                 </button>
@@ -510,7 +510,7 @@ export default function DocumentDetailPage() {
                 {isCompleted && (
                   <button
                     onClick={() => setShowDeleteConfirmation(true)}
-                    className="w-full px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center justify-center gap-2"
+                    className="w-full px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 focus:outline-hidden focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center justify-center gap-2"
                   >
                     <Trash2 className="w-4 h-4" />
                     Delete Document
@@ -524,7 +524,7 @@ export default function DocumentDetailPage() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirmation && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
             <div className="flex items-center space-x-3 mb-4">
               <div className="bg-red-100 p-2 rounded-full">
@@ -560,13 +560,13 @@ export default function DocumentDetailPage() {
             <div className="flex space-x-3">
               <button
                 onClick={() => setShowDeleteConfirmation(false)}
-                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteDocument}
-                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-hidden focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center justify-center gap-2"
               >
                 <Trash2 className="w-4 h-4" />
                 Delete Forever

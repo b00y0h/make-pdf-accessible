@@ -8,7 +8,7 @@ export function SiteFooter() {
       <Container className="grid gap-10 py-12 md:grid-cols-3">
         <div>
           <p className="text-lg font-bold">{SITE.name}</p>
-          <p className="mt-2 max-w-prose text-muted">{SITE.tagline}</p>
+          <p className="mt-2 max-w-copy text-muted">{SITE.tagline}</p>
           <p className="mt-4 text-sm text-muted">
             We describe what our software does and what it does not do. We do
             not claim that any tool, ours included, makes a document accessible

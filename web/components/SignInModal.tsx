@@ -58,7 +58,7 @@ export default function SignInModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative text-center">
         <button
           onClick={onClose}
@@ -68,7 +68,7 @@ export default function SignInModal({
         </button>
 
         <div className="flex justify-center mb-6">
-          <div className="h-16 w-16 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center">
+          <div className="h-16 w-16 rounded-xl bg-linear-to-br/srgb from-blue-600 to-cyan-600 flex items-center justify-center">
             <Shield className="h-10 w-10 text-white" />
           </div>
         </div>
@@ -84,7 +84,7 @@ export default function SignInModal({
 
         <button
           onClick={openAuthPopup}
-          className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-colors font-medium"
+          className="w-full py-3 px-4 bg-linear-to-r/srgb from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-colors font-medium"
         >
           Open Sign In
         </button>

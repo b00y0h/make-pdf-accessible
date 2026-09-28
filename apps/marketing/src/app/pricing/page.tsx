@@ -39,7 +39,7 @@ export default function PricingPage() {
     <>
       <Container className="py-14">
         <h1 className="text-4xl font-bold tracking-tight">Pricing</h1>
-        <p className="mt-4 max-w-prose text-lg text-muted">
+        <p className="mt-4 max-w-copy text-lg text-muted">
           Every price is on this page. Annual plans include a page allowance;
           overage is per page; human verification is an add-on priced per page.
         </p>
@@ -90,7 +90,7 @@ export default function PricingPage() {
         lede="Human review where automation is weakest, recorded in the evidence pack."
         tone="surface"
       >
-        <table className="w-full max-w-prose border-collapse text-left">
+        <table className="w-full max-w-copy border-collapse text-left">
           <caption className="sr-only-focusable">
             Verified tier prices per page
           </caption>
@@ -136,7 +136,7 @@ export default function PricingPage() {
         <h3 className="mt-8 text-xl font-bold">
           Inventory and triage engagement
         </h3>
-        <p className="mt-2 max-w-prose">
+        <p className="mt-2 max-w-copy">
           ${INVENTORY_ENGAGEMENT.price.toLocaleString('en-US')}{' '}
           {INVENTORY_ENGAGEMENT.unit}. {INVENTORY_ENGAGEMENT.includes}
         </p>
@@ -151,7 +151,7 @@ export default function PricingPage() {
       </Section>
 
       <Section id="faq" title="Questions" tone="surface">
-        <dl className="max-w-prose space-y-6">
+        <dl className="max-w-copy space-y-6">
           {FAQ.map((item) => (
             <div key={item.q}>
               <dt className="text-lg font-bold">{item.q}</dt>

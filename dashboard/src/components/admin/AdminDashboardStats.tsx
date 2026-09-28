@@ -50,7 +50,7 @@ export function AdminDashboardStats() {
         {stats.map((item) => (
           <div
             key={item.name}
-            className="relative bg-white pt-5 px-4 pb-12 sm:pt-6 sm:px-6 shadow rounded-lg overflow-hidden"
+            className="relative bg-white pt-5 px-4 pb-12 sm:pt-6 sm:px-6 shadow-sm rounded-lg overflow-hidden"
           >
             <dt>
               <div className="absolute bg-indigo-500 rounded-md p-3">
@@ -74,7 +74,7 @@ export function AdminDashboardStats() {
               >
                 {item.changeType === 'increase' ? (
                   <svg
-                    className="self-center flex-shrink-0 h-5 w-5 text-green-500"
+                    className="self-center shrink-0 h-5 w-5 text-green-500"
                     fill="currentColor"
                     viewBox="0 0 20 20"
                     aria-hidden="true"
@@ -87,7 +87,7 @@ export function AdminDashboardStats() {
                   </svg>
                 ) : (
                   <svg
-                    className="self-center flex-shrink-0 h-5 w-5 text-red-500"
+                    className="self-center shrink-0 h-5 w-5 text-red-500"
                     fill="currentColor"
                     viewBox="0 0 20 20"
                     aria-hidden="true"

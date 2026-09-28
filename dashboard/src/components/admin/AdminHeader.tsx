@@ -15,7 +15,7 @@ export function AdminHeader() {
   const user = session?.user;
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200">
+    <header className="bg-white shadow-xs border-b border-gray-200">
       <div className="mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Left side */}
@@ -23,7 +23,7 @@ export function AdminHeader() {
             {/* Mobile menu button */}
             <button
               type="button"
-              className="md:hidden -ml-2 mr-2 h-12 w-12 inline-flex items-center justify-center rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+              className="md:hidden -ml-2 mr-2 h-12 w-12 inline-flex items-center justify-center rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-hidden focus:ring-2 focus:ring-inset focus:ring-indigo-500"
             >
               <span className="sr-only">Open sidebar</span>
               <Bars3Icon className="h-6 w-6" aria-hidden="true" />
@@ -48,7 +48,7 @@ export function AdminHeader() {
             {/* Notifications */}
             <button
               type="button"
-              className="bg-white p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="bg-white p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               <span className="sr-only">View notifications</span>
               <BellIcon className="h-6 w-6" aria-hidden="true" />
@@ -67,7 +67,7 @@ export function AdminHeader() {
                   {(user as any)?.role} Access
                 </div>
               </div>
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
                   <span className="text-indigo-600 text-sm font-medium">
                     {user?.name?.charAt(0)?.toUpperCase() ||

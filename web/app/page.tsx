@@ -11,7 +11,7 @@ const PDFProcessor = dynamic(() => import('../components/PDFProcessor'), {
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+    <div className="min-h-screen bg-linear-to-br/srgb from-blue-50 via-white to-indigo-50">
       {/* Header with User Avatar */}
       <header className="absolute top-0 right-0 p-4 z-10">
         <UserAvatar />
@@ -22,7 +22,7 @@ export default function Home() {
         <div className="pt-16 pb-8 text-center">
           <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
             <span className="block">Make Your PDFs</span>
-            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
+            <span className="block text-transparent bg-clip-text bg-linear-to-r/srgb from-blue-600 to-indigo-600">
               Instantly Accessible
             </span>
           </h1>
@@ -111,7 +111,7 @@ export default function Home() {
             <div className="mt-8">
               <button
                 onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transform hover:-translate-y-0.5 transition-all duration-200"
+                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-linear-to-r/srgb from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transform hover:-translate-y-0.5 transition-all duration-200"
               >
                 <Upload className="w-5 h-5 mr-2" />
                 Try It Now
