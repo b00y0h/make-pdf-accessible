@@ -47,7 +47,7 @@ export function UsersList() {
   });
 
   const [searchInput, setSearchInput] = useState('');
-  const lastParamsRef = useRef<UserListParams>();
+  const lastParamsRef = useRef<UserListParams | undefined>(undefined);
 
   useEffect(() => {
     if (!apiService) return;

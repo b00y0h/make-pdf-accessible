@@ -118,7 +118,7 @@ setDataSource('cost-explorer'); // or 'athena'
 
 ### Frontend Stack
 
-- **Framework**: Next.js 15 with App Router
+- **Framework**: Next.js 16 with App Router
 - **Styling**: Tailwind CSS + shadcn/ui components
 - **State**: TanStack Query for server state, React Context for UI state
 - **Charts**: Recharts for data visualization

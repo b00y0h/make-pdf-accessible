@@ -7,7 +7,7 @@
     "dev": "next dev --port 3002",
     "build": "next build",
     "start": "serve out -l 3100 --no-clipboard",
-    "lint": "next lint",
+    "lint": "eslint src",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "type-check": "tsc --noEmit",
@@ -17,7 +17,7 @@
     "clean": "rm -rf .next out"
   },
   "dependencies": {
-    "next": "^15.5.10",
+    "next": "^16.3.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -25,11 +25,11 @@
     "@axe-core/playwright": "^4.10.2",
     "@playwright/test": "^1.52.0",
     "@types/node": "^24.19.0",
-    "@types/react": "^18.3.0",
-    "@types/react-dom": "^18.3.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.0.0",
-    "eslint-config-next": "^15.5.10",
+    "eslint-config-next": "^16.3.6",
     "eslint-config-prettier": "^9.1.2",
     "postcss": "^8.5.3",
     "prettier": "^3.0.3",
