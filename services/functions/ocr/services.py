@@ -372,7 +372,7 @@ class OCRService:
             return "UNKNOWN"
 
     def _extract_metadata_from_queries(
-        self, query_results: List[TextractQueryResult]
+        self, query_results: list[TextractQueryResult]
     ) -> DocumentMetadata:
         """
         Extract document metadata from Textract query results.
