@@ -76,17 +76,16 @@ async def sign_up(request: SignUpRequest):
     # Check if user already exists
     if request.email in users_db:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User already exists"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="User already exists"
         )
 
     # Create user
     user = {
         "id": secrets.token_hex(8),
         "email": request.email,
-        "name": request.name or request.email.split('@')[0],
+        "name": request.name or request.email.split("@")[0],
         "password_hash": hash_password(request.password),
-        "created_at": datetime.utcnow().isoformat()
+        "created_at": datetime.utcnow().isoformat(),
     }
     users_db[request.email] = user
 
@@ -95,11 +94,7 @@ async def sign_up(request: SignUpRequest):
     tokens_db[token] = request.email
 
     # Return user info without password
-    user_response = {
-        "id": user["id"],
-        "email": user["email"],
-        "name": user["name"]
-    }
+    user_response = {"id": user["id"], "email": user["email"], "name": user["name"]}
 
     return AuthResponse(token=token, user=user_response)
 
@@ -110,8 +105,7 @@ async def sign_in(request: SignInRequest):
     # Check if user exists
     if request.email not in users_db:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password"
         )
 
     user = users_db[request.email]
@@ -119,8 +113,7 @@ async def sign_in(request: SignInRequest):
     # Verify password
     if user["password_hash"] != hash_password(request.password):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password"
         )
 
     # Create token
@@ -128,11 +121,7 @@ async def sign_in(request: SignInRequest):
     tokens_db[token] = request.email
 
     # Return user info without password
-    user_response = {
-        "id": user["id"],
-        "email": user["email"],
-        "name": user["name"]
-    }
+    user_response = {"id": user["id"], "email": user["email"], "name": user["name"]}
 
     return AuthResponse(token=token, user=user_response)
 
@@ -142,8 +131,7 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
     """Verify if token is valid"""
     if not credentials or credentials.credentials not in tokens_db:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
         )
 
     user_email = tokens_db[credentials.credentials]
@@ -151,8 +139,7 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
 
     if not current_user:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
         )
 
     return {
@@ -160,6 +147,6 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
         "user": {
             "id": current_user["id"],
             "email": current_user["email"],
-            "name": current_user["name"]
-        }
+            "name": current_user["name"],
+        },
     }

@@ -178,6 +178,7 @@ No marketing site exists; `web/` is a demo app with a deploy path that cannot ru
 5A. `next.config.mjs`: `output: 'export'`, `trailingSlash: true`, `images: { unoptimized: true }`, `reactStrictMode: true`.
 5B. Cache headers on upload (workflow): `_next/static/**` and other hashed assets `public, max-age=31536000, immutable`; `*.html` and `*.txt`/`*.xml` `public, max-age=0, must-revalidate`.
 5C. Repository variables `MARKETING_S3_BUCKET` and `MARKETING_CLOUDFRONT_DISTRIBUTION_ID` come from `terraform output marketing_site_bucket` and `marketing_site_distribution_id`; the workflow falls back to discovery by the `Name` tag when they are unset.
+5D. Until `GITHUB_WEB_DEPLOY_ROLE_ARN` is set for the target environment (4A), a push to `main` skips the deploy job's steps with a notice rather than failing; a manual run fails with the same message.
 
 ---
 

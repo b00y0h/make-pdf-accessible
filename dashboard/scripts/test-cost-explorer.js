@@ -94,9 +94,8 @@ async function testCostExplorerAccess() {
 
     // Test dimension values
     console.log('\\n--- Testing GetDimensionValues ---');
-    const { GetDimensionValuesCommand } = await import(
-      '@aws-sdk/client-cost-explorer'
-    );
+    const { GetDimensionValuesCommand } =
+      await import('@aws-sdk/client-cost-explorer');
 
     const dimensionCommand = new GetDimensionValuesCommand({
       TimePeriod: {

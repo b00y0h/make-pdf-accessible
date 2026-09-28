@@ -70,6 +70,7 @@ async def validate_document(
     # Import and use enhanced validation service
     try:
         from validation_service import get_validation_service
+
         validation_service = get_validation_service()
 
         # Run comprehensive PDF/UA validation
@@ -77,7 +78,7 @@ async def validate_document(
             doc_id=doc_id,
             tagged_pdf_s3_key=tagged_pdf_s3_key,
             document_structure=document_structure,
-            alt_text_data=alt_text_data
+            alt_text_data=alt_text_data,
         )
 
         validation_result = {

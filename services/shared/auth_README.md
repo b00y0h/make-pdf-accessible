@@ -20,7 +20,7 @@ The authentication system uses BetterAuth JWT tokens with a shared secret for va
 1. **Install Dependencies**: Add to your service's `requirements.txt`:
 
    ```
-   python-jose[cryptography]>=3.3.0
+   PyJWT[crypto]>=2.15.0
    fastapi>=0.100.0
    ```
 

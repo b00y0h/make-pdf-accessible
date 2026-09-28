@@ -98,9 +98,15 @@ class OCRService:
         try:
             # Define queries for metadata extraction
             queries = [
-                {"Text": "What is the title of this document?", "Alias": "DOCUMENT_TITLE"},
+                {
+                    "Text": "What is the title of this document?",
+                    "Alias": "DOCUMENT_TITLE",
+                },
                 {"Text": "What is the main heading?", "Alias": "MAIN_HEADING"},
-                {"Text": "What is the subject of this document?", "Alias": "DOCUMENT_SUBJECT"},
+                {
+                    "Text": "What is the subject of this document?",
+                    "Alias": "DOCUMENT_SUBJECT",
+                },
                 {"Text": "Who is the author?", "Alias": "DOCUMENT_AUTHOR"},
                 {"Text": "What are the key topics covered?", "Alias": "KEY_TOPICS"},
             ]
@@ -236,13 +242,15 @@ class OCRService:
                     # Check if this block is part of a query result
                     if block["BlockType"] == "QUERY_RESULT":
                         # Find the associated query to get the alias
-                        query_alias = self._find_query_alias(block, response.get("Blocks", []))
+                        query_alias = self._find_query_alias(
+                            block, response.get("Blocks", [])
+                        )
 
                         # Store query result
                         query_result = TextractQueryResult(
                             alias=query_alias or "UNKNOWN",
                             text=block.get("Text"),
-                            confidence=block.get("Confidence")
+                            confidence=block.get("Confidence"),
                         )
                         query_results.append(query_result)
 
@@ -308,7 +316,11 @@ class OCRService:
                 "total_pages": textract_response.total_pages,
                 "blocks": [block.dict() for block in textract_response.blocks],
                 "query_results": [qr.dict() for qr in textract_response.query_results],
-                "extracted_metadata": textract_response.extracted_metadata.dict() if textract_response.extracted_metadata else None,
+                "extracted_metadata": (
+                    textract_response.extracted_metadata.dict()
+                    if textract_response.extracted_metadata
+                    else None
+                ),
             }
 
             # Upload to S3
@@ -349,14 +361,19 @@ class OCRService:
                 if relationship["Type"] == "ANSWER":
                     # Find the QUERY block this result answers
                     for block in all_blocks:
-                        if block["Id"] in relationship["Ids"] and block["BlockType"] == "QUERY":
+                        if (
+                            block["Id"] in relationship["Ids"]
+                            and block["BlockType"] == "QUERY"
+                        ):
                             return block.get("Query", {}).get("Alias", "UNKNOWN")
             return "UNKNOWN"
         except Exception as e:
             logger.warning(f"Error finding query alias: {e}")
             return "UNKNOWN"
 
-    def _extract_metadata_from_queries(self, query_results: list[TextractQueryResult]) -> DocumentMetadata:
+    def _extract_metadata_from_queries(
+        self, query_results: list[TextractQueryResult]
+    ) -> DocumentMetadata:
         """
         Extract document metadata from Textract query results.
 

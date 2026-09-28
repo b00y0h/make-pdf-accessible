@@ -23,9 +23,7 @@ class EmbeddingsService:
         self.dimensions = 1536  # Titan text embeddings dimension
 
     def generate_embeddings_for_corpus(
-        self,
-        doc_id: str,
-        document_corpus: dict[str, Any]
+        self, doc_id: str, document_corpus: dict[str, Any]
     ) -> dict[str, Any]:
         """
         Generate embeddings for all chunks in a document corpus.
@@ -46,11 +44,13 @@ class EmbeddingsService:
             # Process chunks in batches to avoid rate limiting
             batch_size = 10
             for i in range(0, len(chunks), batch_size):
-                batch = chunks[i:i + batch_size]
+                batch = chunks[i : i + batch_size]
                 batch_embeddings = self._generate_batch_embeddings(batch)
                 embeddings.extend(batch_embeddings)
 
-                logger.info(f"Generated embeddings for batch {i//batch_size + 1}/{(len(chunks) + batch_size - 1)//batch_size}")
+                logger.info(
+                    f"Generated embeddings for batch {i//batch_size + 1}/{(len(chunks) + batch_size - 1)//batch_size}"
+                )
 
             # Update corpus with embeddings
             enhanced_corpus = document_corpus.copy()
@@ -66,7 +66,9 @@ class EmbeddingsService:
             logger.error(f"Failed to generate embeddings for document {doc_id}: {e}")
             raise
 
-    def _generate_batch_embeddings(self, chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _generate_batch_embeddings(
+        self, chunks: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """Generate embeddings for a batch of chunks."""
 
         embeddings = []
@@ -103,7 +105,9 @@ class EmbeddingsService:
                     embeddings.append(embedding)
 
             except Exception as e:
-                logger.error(f"Failed to generate embedding for chunk {chunk.get('id')}: {e}")
+                logger.error(
+                    f"Failed to generate embedding for chunk {chunk.get('id')}: {e}"
+                )
                 # Continue with other chunks
                 continue
 
@@ -114,16 +118,14 @@ class EmbeddingsService:
 
         try:
             # Prepare request payload
-            payload = {
-                "inputText": text
-            }
+            payload = {"inputText": text}
 
             # Call Bedrock Titan embeddings
             response = self.bedrock.invoke_model(
                 modelId=self.model_id,
                 contentType="application/json",
                 accept="application/json",
-                body=json.dumps(payload)
+                body=json.dumps(payload),
             )
 
             # Parse response
@@ -136,7 +138,9 @@ class EmbeddingsService:
 
             # Validate embedding dimensions
             if len(embedding) != self.dimensions:
-                logger.warning(f"Unexpected embedding dimensions: {len(embedding)} (expected {self.dimensions})")
+                logger.warning(
+                    f"Unexpected embedding dimensions: {len(embedding)} (expected {self.dimensions})"
+                )
 
             return embedding
 
@@ -172,7 +176,7 @@ class EmbeddingsService:
         query_embedding: list[float],
         document_embeddings: list[dict[str, Any]],
         top_k: int = 10,
-        min_similarity: float = 0.5
+        min_similarity: float = 0.5,
     ) -> list[dict[str, Any]]:
         """
         Find the most similar chunks to a query embedding.
@@ -197,13 +201,15 @@ class EmbeddingsService:
                 similarity = self.calculate_similarity(query_embedding, chunk_vector)
 
                 if similarity >= min_similarity:
-                    similarities.append({
-                        "chunkId": embedding_data.get("chunkId"),
-                        "docId": embedding_data.get("docId"),
-                        "similarity": similarity,
-                        "contentPreview": embedding_data.get("contentPreview"),
-                        "embedding": embedding_data,
-                    })
+                    similarities.append(
+                        {
+                            "chunkId": embedding_data.get("chunkId"),
+                            "docId": embedding_data.get("docId"),
+                            "similarity": similarity,
+                            "contentPreview": embedding_data.get("contentPreview"),
+                            "embedding": embedding_data,
+                        }
+                    )
 
             # Sort by similarity (descending) and return top-k
             similarities.sort(key=lambda x: x["similarity"], reverse=True)
@@ -214,10 +220,7 @@ class EmbeddingsService:
             return []
 
     def save_embeddings_to_s3(
-        self,
-        doc_id: str,
-        embeddings: list[dict[str, Any]],
-        bucket_name: str
+        self, doc_id: str, embeddings: list[dict[str, Any]], bucket_name: str
     ) -> str:
         """
         Save embeddings to S3 for later retrieval.
@@ -259,9 +262,7 @@ class EmbeddingsService:
             raise
 
     def load_embeddings_from_s3(
-        self,
-        s3_key: str,
-        bucket_name: str
+        self, s3_key: str, bucket_name: str
     ) -> list[dict[str, Any]] | None:
         """
         Load embeddings from S3.
@@ -297,9 +298,7 @@ class EmbeddingsService:
         return self._generate_single_embedding(cleaned_query)
 
     def prepare_embedding_batch(
-        self,
-        chunks: list[dict[str, Any]],
-        include_context: bool = True
+        self, chunks: list[dict[str, Any]], include_context: bool = True
     ) -> list[str]:
         """
         Prepare text content for embedding generation.
