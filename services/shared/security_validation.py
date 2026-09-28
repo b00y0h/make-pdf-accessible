@@ -13,10 +13,10 @@ from typing import Any, Optional
 import magic
 
 try:
-    import PyPDF2
-    from PyPDF2 import PdfReader
+    import pypdf
+    from pypdf import PdfReader
 except ImportError:
-    PyPDF2 = None
+    pypdf = None
     PdfReader = None
 
 try:
@@ -253,9 +253,9 @@ class PDFSecurityValidator:
             # Try pikepdf first (more robust)
             if pikepdf:
                 return self._extract_metadata_pikepdf(file_path)
-            # Fallback to PyPDF2
-            elif PyPDF2:
-                return self._extract_metadata_pypdf2(file_path)
+            # Fallback to pypdf
+            elif pypdf:
+                return self._extract_metadata_pypdf(file_path)
             else:
                 return None
         except Exception:
@@ -306,8 +306,8 @@ class PDFSecurityValidator:
         except Exception:
             return None
 
-    def _extract_metadata_pypdf2(self, file_path: str) -> Optional[PDFMetadata]:
-        """Extract metadata using PyPDF2 library (fallback)"""
+    def _extract_metadata_pypdf(self, file_path: str) -> Optional[PDFMetadata]:
+        """Extract metadata using pypdf library (fallback)"""
         try:
             with open(file_path, "rb") as f:
                 reader = PdfReader(f)

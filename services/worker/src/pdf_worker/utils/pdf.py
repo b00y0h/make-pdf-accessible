@@ -3,7 +3,7 @@
 import io
 from typing import Any
 
-import PyPDF2
+import pypdf
 from aws_lambda_powertools import Logger, Tracer
 from pdfminer.layout import LTFigure, LTImage, LTTextBox
 
@@ -32,7 +32,7 @@ class PDFUtils:
         """
         try:
             pdf_stream = io.BytesIO(pdf_data)
-            reader = PyPDF2.PdfReader(pdf_stream)
+            reader = pypdf.PdfReader(pdf_stream)
 
             page_count = len(reader.pages)
             total_text_length = 0
@@ -347,7 +347,7 @@ class PDFUtils:
             pdf_stream = io.BytesIO(pdf_data)
 
             try:
-                reader = PyPDF2.PdfReader(pdf_stream)
+                reader = pypdf.PdfReader(pdf_stream)
                 validation_results["page_count"] = len(reader.pages)
 
                 # Check if encrypted
@@ -371,7 +371,7 @@ class PDFUtils:
                     if reader.metadata.get("/Title"):
                         validation_results["has_title"] = True
 
-            except PyPDF2.PdfReadError as e:
+            except pypdf.errors.PdfReadError as e:
                 validation_results["is_valid"] = False
                 validation_results["issues"].append(f"PDF read error: {str(e)}")
 
@@ -402,7 +402,7 @@ class PDFUtils:
 
         try:
             pdf_stream = io.BytesIO(pdf_data)
-            reader = PyPDF2.PdfReader(pdf_stream)
+            reader = pypdf.PdfReader(pdf_stream)
 
             for page_num, page in enumerate(reader.pages, 1):
                 if "/XObject" in page.get("/Resources", {}):

@@ -15,12 +15,12 @@ from fastapi import HTTPException, UploadFile, status
 from .config import settings
 
 try:
-    import PyPDF2
+    import pypdf
 
     PDF_METADATA_EXTRACTION_AVAILABLE = True
 except ImportError:
     PDF_METADATA_EXTRACTION_AVAILABLE = False
-    PyPDF2 = None
+    pypdf = None
 
 # Add shared services to path
 sys.path.append(os.path.join(os.path.dirname(__file__), "../shared"))
@@ -775,7 +775,7 @@ class SecurityService:
         }
 
         if not PDF_METADATA_EXTRACTION_AVAILABLE:
-            logger.warning("PyPDF2 not available, skipping PDF metadata extraction")
+            logger.warning("pypdf not available, skipping PDF metadata extraction")
             return metadata
 
         try:
@@ -787,7 +787,7 @@ class SecurityService:
 
             try:
                 with open(temp_path, "rb") as pdf_file:
-                    pdf_reader = PyPDF2.PdfReader(pdf_file)
+                    pdf_reader = pypdf.PdfReader(pdf_file)
 
                     # Basic metadata
                     metadata["page_count"] = len(pdf_reader.pages)

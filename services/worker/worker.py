@@ -60,7 +60,7 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
             pdf_response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
             pdf_content = pdf_response["Body"].read()
 
-            # Extract text from PDF - try pdfplumber first, fallback to PyPDF2
+            # Extract text from PDF - try pdfplumber first, fallback to pypdf
             from io import BytesIO
 
             pdf_file = BytesIO(pdf_content)
@@ -210,12 +210,12 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
                             pdf_text += page_data["text"]
 
             except ImportError:
-                # Fallback to PyPDF2 if pdfplumber is not available
-                logger.warning("pdfplumber not available, falling back to PyPDF2")
-                import PyPDF2
+                # Fallback to pypdf if pdfplumber is not available
+                logger.warning("pdfplumber not available, falling back to pypdf")
+                import pypdf
 
                 pdf_file.seek(0)  # Reset file pointer
-                pdf_reader = PyPDF2.PdfReader(pdf_file)
+                pdf_reader = pypdf.PdfReader(pdf_file)
 
                 # Extract metadata
                 if pdf_reader.metadata:

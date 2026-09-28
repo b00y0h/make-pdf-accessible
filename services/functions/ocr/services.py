@@ -2,7 +2,7 @@ import json
 import time
 
 import boto3
-import PyPDF2
+import pypdf
 from aws_lambda_powertools import Logger, Metrics, Tracer
 from aws_lambda_powertools.metrics import MetricUnit
 from botocore.exceptions import ClientError
@@ -56,8 +56,8 @@ class OCRService:
             response = self.s3.get_object(Bucket=self.bucket_name, Key=s3_key)
             pdf_content = response["Body"].read()
 
-            # Analyze PDF with PyPDF2
-            pdf_reader = PyPDF2.PdfReader(pdf_content)
+            # Analyze PDF with pypdf
+            pdf_reader = pypdf.PdfReader(pdf_content)
             page_count = len(pdf_reader.pages)
             total_text_length = 0
 
