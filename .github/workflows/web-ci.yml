@@ -375,7 +375,7 @@ jobs:
 
           echo "Running component tests..."
           # Run tests specifically for components
-          pnpm test --run --testPathPattern="components|__tests__" --passWithNoTests \
+          pnpm test --run --testPathPatterns="components|__tests__" --passWithNoTests \
             --verbose || echo "component_tests_failed=true" >> $GITHUB_OUTPUT
 
       - name: Run integration tests
@@ -386,7 +386,7 @@ jobs:
 
           echo "Running integration tests..."
           # Run tests for pages and API routes
-          pnpm test --run --testPathPattern="pages|api|integration" --passWithNoTests \
+          pnpm test --run --testPathPatterns="pages|api|integration" --passWithNoTests \
             --verbose || echo "integration_tests_failed=true" >> $GITHUB_OUTPUT
 
       - name: Run accessibility tests
@@ -403,7 +403,7 @@ jobs:
           fi
 
           # Run accessibility-specific tests
-          pnpm test --run --testPathPattern="a11y|accessibility" --passWithNoTests \
+          pnpm test --run --testPathPatterns="a11y|accessibility" --passWithNoTests \
             --verbose || echo "a11y_tests_failed=true" >> $GITHUB_OUTPUT
 
       - name: Generate build version

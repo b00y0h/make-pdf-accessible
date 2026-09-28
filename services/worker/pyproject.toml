@@ -33,7 +33,7 @@ dependencies = [
     "httpx>=0.28.1",
     "python-multipart>=0.0.32",
     "typing-extensions>=4.16.0",
-    "python-jose[cryptography]>=3.5.0",
+    "PyJWT[crypto]>=2.15.0",
     "requests>=2.34.2",
     "flask>=3.1.3",
 ]
@@ -129,6 +129,8 @@ known-first-party = ["pdf_worker"]
 minversion = "7.0"
 addopts = "-ra -q --strict-markers --strict-config"
 testpaths = ["tests"]
+# pdf_worker lives in src/; services.shared lives at the repository root.
+pythonpath = ["src", "../.."]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
