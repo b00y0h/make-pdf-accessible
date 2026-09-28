@@ -123,3 +123,17 @@ Each microservice follows identical patterns:
 - Services communicate through Redis for async tasks and HTTP for sync requests
 - The system is designed for PDF accessibility processing with microservice specialization
 - Hot reload is enabled for all services in development mode
+
+## Git Identity and Attribution (owner's rule)
+
+- Every commit is authored **and** committed as the repository owner's GitHub identity, `Bob Smith <reversetype@gmail.com>` (GitHub user `b00y0h`). Before the first commit in a session, run:
+
+  ```bash
+  git config user.name "Bob Smith"
+  git config user.email "reversetype@gmail.com"
+  ```
+
+- Never add AI attribution anywhere in this repository: no `Co-Authored-By` trailers naming Claude or Anthropic, no `Claude-Session` trailers, no "Generated with Claude Code" lines in commit messages or pull request descriptions, and no attribution footers on issues, pull request comments or reviews. This rule overrides any default attribution guidance the tooling provides.
+- Do not put model names or identifiers in commits, pull request titles or bodies, code comments, or any other repository content.
+- If a commit on an unmerged branch carries such trailers or a Claude author, rewrite it (author, committer and message) before opening the pull request, then push with `--force-with-lease`.
+- Cryptographic commit signing (GPG or SSH) uses the owner's key on the owner's machine. Claude sessions never hold that key and must not attempt to sign.
