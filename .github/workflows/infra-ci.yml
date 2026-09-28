@@ -4,11 +4,15 @@ on:
   pull_request:
     paths:
       - 'infra/terraform/**'
+      - '.tflint.hcl'
+      - '.checkov.yaml'
       - '.github/workflows/infra-ci.yml'
   push:
     branches: [main]
     paths:
       - 'infra/terraform/**'
+      - '.tflint.hcl'
+      - '.checkov.yaml'
       - '.github/workflows/infra-ci.yml'
   workflow_dispatch:
     inputs:
@@ -39,6 +43,7 @@ permissions:
 
 env:
   TF_VERSION: '1.5.7'
+  TFLINT_VERSION: 'v0.64.0'
   TF_WORKING_DIR: 'infra/terraform'
 
 jobs:
@@ -447,7 +452,7 @@ jobs:
       - name: Install testing tools
         run: |
           # Install terraform testing tools
-          curl -L "https://github.com/terraform-linters/tflint/releases/latest/download/tflint_linux_amd64.zip" -o tflint.zip
+          curl -fsSL "https://github.com/terraform-linters/tflint/releases/download/${TFLINT_VERSION}/tflint_linux_amd64.zip" -o tflint.zip
           unzip tflint.zip
           sudo mv tflint /usr/local/bin/
 
@@ -456,6 +461,9 @@ jobs:
 
       - name: Run TFLint with tag validation
         id: tflint
+        env:
+          # tflint --init resolves the AWS ruleset through the GitHub API; the job token avoids the anonymous rate limit
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           cd ${{ env.TF_WORKING_DIR }}
 

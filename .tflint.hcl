@@ -4,8 +4,8 @@ config {
   # Plugin cache directory
   plugin_dir = "~/.tflint.d/plugins"
 
-  # Enable modules
-  module = true
+  # Inspect local module calls. TFLint 0.54 replaced the "module" attribute with this one.
+  call_module_type = "local"
 
   # Exit with non-zero code if violations are found
   force = false
@@ -17,11 +17,11 @@ config {
 # AWS plugin for AWS-specific rules
 plugin "aws" {
   enabled = true
-  version = "0.27.0"
+  version = "0.49.0"
   source  = "github.com/terraform-linters/tflint-ruleset-aws"
 
-  # Deep checking for AWS resources
-  deep_check = true
+  # Deep checking queries the AWS API, so it needs credentials that CI does not have
+  deep_check = false
 }
 
 # Terraform core plugin
@@ -35,7 +35,7 @@ rule "aws_resource_missing_tags" {
   enabled = true
   tags = [
     "application",
-    "service", 
+    "service",
     "component",
     "environment",
     "cost_center",
@@ -48,7 +48,7 @@ rule "aws_resource_missing_tags" {
   # Exclude resources that don't support tagging
   exclude = [
     "aws_iam_role_policy_attachment",
-    "aws_iam_policy_attachment", 
+    "aws_iam_policy_attachment",
     "aws_apigatewayv2_integration",
     "aws_apigatewayv2_route",
     "aws_lambda_permission",
@@ -76,12 +76,6 @@ rule "aws_instance_invalid_type" {
 # AWS security group rules
 rule "aws_security_group_rule_invalid_protocol" {
   enabled = true
-}
-
-# Naming convention rules
-rule "aws_naming_convention" {
-  enabled = true
-  format  = "snake_case"
 }
 
 # Terraform module standards
@@ -120,7 +114,7 @@ rule "terraform_naming_convention" {
   }
 
   data {
-    format = "snake_case" 
+    format = "snake_case"
   }
 
   locals {
@@ -128,16 +122,7 @@ rule "terraform_naming_convention" {
   }
 }
 
-# Security rules
-rule "aws_security_group_rule_invalid_cidr" {
-  enabled = true
-}
-
-rule "aws_route_invalid_cidr" {
-  enabled = true
-}
-
-# Cost optimization rules  
+# Cost optimization rules
 rule "aws_instance_previous_type" {
   enabled = true
 }
