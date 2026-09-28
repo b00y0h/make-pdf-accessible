@@ -1,0 +1,20 @@
+{
+  "name": "make-pdf-accessible-wordpress-e2e",
+  "private": true,
+  "description": "End-to-end tests for the Make PDF Accessible WordPress plugin, run against WordPress Playground.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.18"
+  },
+  "scripts": {
+    "wp": "node scripts/start-wordpress.mjs",
+    "test": "playwright test",
+    "matrix": "node scripts/matrix.mjs",
+    "fetch-wordpress": "node scripts/fetch-wordpress.mjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.56.1",
+    "@wp-playground/cli": "3.1.55"
+  }
+}

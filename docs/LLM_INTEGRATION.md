@@ -1,5 +1,7 @@
 # LLM Integration Guide - AccessPDF Discovery System
 
+> **Status: disabled.** The `/public/embeddings/*` endpoints described below are no longer mounted in the API (`services/api/app/main.py`). They had no authentication and the rate limiter allowed every request, so any caller could trigger paid Bedrock calls. The code remains in `services/api/app/routes/embeddings.py`. The WordPress plugin no longer uses them; it serves Markdown versions of pages instead (see `integrations/wordpress/README.md`). The HTML snippets in `integrations/html-snippets/` and `web/public/integration.js` still reference these URLs and will get 404s until they are updated.
+
 This guide explains how Large Language Models (LLMs) like ChatGPT, Claude, and Gemini can discover and search accessible documents processed by AccessPDF.
 
 ## 🎯 Architecture Overview
@@ -70,9 +72,9 @@ curl -X POST "https://api.accesspdf.com/v1/client/upload" \
 
 ### 1. Install Plugin
 ```bash
-# Upload accesspdf-plugin.php to /wp-content/plugins/
+# Upload the make-pdf-accessible plugin folder to /wp-content/plugins/
 # Activate in WordPress admin
-# Configure API key in Settings → AccessPDF
+# Configure API key in Settings → Make PDF Accessible
 ```
 
 ### 2. Plugin Auto-Processing

@@ -1,0 +1,14 @@
+{
+  "comment": "WordPress and PHP combinations tested in CI and by `npm run matrix`. Keep the oldest WordPress here in sync with 'Requires at least' in readme.txt, and the lowest PHP with 'Requires PHP'.",
+  "include": [
+    { "wp": "7.1", "php": "8.3", "experimental": false },
+    { "wp": "7.1", "php": "7.4", "experimental": false },
+    { "wp": "7.1", "php": "8.4", "experimental": false },
+    { "wp": "7.0", "php": "8.2", "experimental": false },
+    { "wp": "6.9", "php": "8.2", "experimental": false },
+    { "wp": "6.8", "php": "8.1", "experimental": false },
+    { "wp": "6.5", "php": "7.4", "experimental": false },
+    { "wp": "7.1", "php": "8.5", "experimental": true },
+    { "wp": "nightly", "php": "8.4", "experimental": true }
+  ]
+}

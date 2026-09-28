@@ -1,0 +1,7 @@
+# Files left out of the plugin as it ships to WordPress.org (see bin/build.sh).
+/.distignore
+/.wordpress-org
+/bin
+/dist
+/tests
+/README.md

@@ -125,8 +125,6 @@ async def upload_from_client(
         # Prepare response with discovery endpoints
         discovery_endpoints = {
             "document_info": f"{request.client_metadata.get('site_url')}/wp-json/accesspdf/v1/documents/{accesspdf_id}",
-            "search_api": f"/public/embeddings/search?doc_ids={accesspdf_id}",
-            "direct_access": f"/public/embeddings/documents/{accesspdf_id}",
         }
 
         return ClientUploadResponse(
@@ -253,10 +251,6 @@ async def send_client_webhook(
                 "html": f"/v1/documents/{accesspdf_id}/downloads?document_type=html",
                 "text": f"/v1/documents/{accesspdf_id}/downloads?document_type=text",
             },
-            "discovery_metadata": {
-                "search_endpoint": f"/public/embeddings/search?doc_ids={accesspdf_id}",
-                "document_info": f"/public/embeddings/documents/{accesspdf_id}",
-            }
         }
 
         # Send webhook to client
