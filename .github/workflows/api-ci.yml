@@ -48,7 +48,7 @@ permissions:
   pull-requests: write
 
 env:
-  PYTHON_VERSION: '3.9'
+  PYTHON_VERSION: '3.11'
   API_WORKING_DIR: 'services/api'
   AWS_REGION: us-east-1
 
