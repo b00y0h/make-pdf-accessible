@@ -10,27 +10,31 @@ resource "aws_ecr_repository" "router" {
     scan_on_push = true
   }
 
-  lifecycle_policy {
-    policy = jsonencode({
-      rules = [
-        {
-          rulePriority = 1
-          description  = "Keep last 10 images"
-          selection = {
-            tagStatus     = "tagged"
-            tagPrefixList = ["latest"]
-            countType     = "imageCountMoreThan"
-            countNumber   = 10
-          }
-          action = {
-            type = "expire"
-          }
-        }
-      ]
-    })
-  }
 
   tags = local.common_tags
+}
+
+# ECR lifecycle policy: keep the last 10 router images
+resource "aws_ecr_lifecycle_policy" "router" {
+  repository = aws_ecr_repository.router.name
+
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Keep last 10 images"
+        selection = {
+          tagStatus     = "tagged"
+          tagPrefixList = ["latest"]
+          countType     = "imageCountMoreThan"
+          countNumber   = 10
+        }
+        action = {
+          type = "expire"
+        }
+      }
+    ]
+  })
 }
 
 # IAM role for router function
@@ -157,20 +161,20 @@ resource "aws_lambda_function" "router" {
   package_type  = "Image"
   image_uri     = "${aws_ecr_repository.router.repository_url}:latest"
 
-  timeout     = 300  # 5 minutes
+  timeout     = 300 # 5 minutes
   memory_size = 512
 
   environment {
     variables = {
-      DOCUMENTS_TABLE             = aws_dynamodb_table.documents.name
-      JOBS_TABLE                 = aws_dynamodb_table.jobs.name
-      PDF_ORIGINALS_BUCKET       = aws_s3_bucket.pdf_originals.bucket
-      PROCESS_QUEUE_URL          = aws_sqs_queue.process_queue.url
-      PRIORITY_PROCESS_QUEUE_URL = aws_sqs_queue.priority_process_queue.url
-      POWERTOOLS_SERVICE_NAME    = "pdf-router"
+      DOCUMENTS_TABLE              = aws_dynamodb_table.documents.name
+      JOBS_TABLE                   = aws_dynamodb_table.jobs.name
+      PDF_ORIGINALS_BUCKET         = aws_s3_bucket.pdf_originals.bucket
+      PROCESS_QUEUE_URL            = aws_sqs_queue.process_queue.url
+      PRIORITY_PROCESS_QUEUE_URL   = aws_sqs_queue.priority_process_queue.url
+      POWERTOOLS_SERVICE_NAME      = "pdf-router"
       POWERTOOLS_METRICS_NAMESPACE = "PDF-Accessibility"
-      LOG_LEVEL                  = var.log_level
-      ENVIRONMENT               = var.environment
+      LOG_LEVEL                    = var.log_level
+      ENVIRONMENT                  = var.environment
     }
   }
 
@@ -190,7 +194,7 @@ resource "aws_lambda_function" "router" {
 
   # Dead letter queue
   dead_letter_config {
-    target_arn = aws_sqs_queue.dlq.arn
+    target_arn = aws_sqs_queue.lambda_dlq.arn
   }
 
   depends_on = [
@@ -210,7 +214,7 @@ resource "aws_lambda_function" "router" {
 resource "aws_cloudwatch_log_group" "router_lambda_logs" {
   name              = "/aws/lambda/${local.app_name}-${var.environment}-router"
   retention_in_days = var.log_retention_days
-  kms_key_id       = var.cloudwatch_logs_kms_key_id
+  kms_key_id        = var.cloudwatch_logs_kms_key_id
 
   tags = local.common_tags
 }
@@ -219,9 +223,9 @@ resource "aws_cloudwatch_log_group" "router_lambda_logs" {
 resource "aws_lambda_event_source_mapping" "router_sqs_trigger" {
   event_source_arn                   = aws_sqs_queue.ingest_queue.arn
   function_name                      = aws_lambda_function.router.function_name
-  batch_size                        = var.sqs_batch_size
+  batch_size                         = var.sqs_batch_size
   maximum_batching_window_in_seconds = var.sqs_batching_window
-  
+
   # Error handling
   scaling_config {
     maximum_concurrency = var.router_max_concurrency
@@ -244,8 +248,8 @@ resource "aws_cloudwatch_metric_alarm" "router_errors" {
   threshold           = "5"
   alarm_description   = "This metric monitors router function errors"
   alarm_actions       = [aws_sns_topic.alerts.arn]
-  ok_actions         = [aws_sns_topic.alerts.arn]
-  treat_missing_data = "notBreaching"
+  ok_actions          = [aws_sns_topic.alerts.arn]
+  treat_missing_data  = "notBreaching"
 
   dimensions = {
     FunctionName = aws_lambda_function.router.function_name
@@ -262,10 +266,10 @@ resource "aws_cloudwatch_metric_alarm" "router_duration" {
   namespace           = "AWS/Lambda"
   period              = "300"
   statistic           = "Average"
-  threshold           = "240000"  # 4 minutes (80% of timeout)
+  threshold           = "240000" # 4 minutes (80% of timeout)
   alarm_description   = "This metric monitors router function duration"
   alarm_actions       = [aws_sns_topic.alerts.arn]
-  treat_missing_data = "notBreaching"
+  treat_missing_data  = "notBreaching"
 
   dimensions = {
     FunctionName = aws_lambda_function.router.function_name
@@ -285,7 +289,7 @@ resource "aws_cloudwatch_metric_alarm" "router_throttles" {
   threshold           = "0"
   alarm_description   = "This metric monitors router function throttles"
   alarm_actions       = [aws_sns_topic.alerts.arn]
-  treat_missing_data = "notBreaching"
+  treat_missing_data  = "notBreaching"
 
   dimensions = {
     FunctionName = aws_lambda_function.router.function_name
@@ -342,8 +346,6 @@ resource "aws_cloudwatch_dashboard" "router" {
       }
     ]
   })
-
-  tags = local.common_tags
 }
 
 # Outputs

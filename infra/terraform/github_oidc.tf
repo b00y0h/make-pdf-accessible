@@ -345,8 +345,21 @@ resource "aws_iam_role_policy" "github_web_deploy" {
         ]
         Resource = [
           "arn:aws:s3:::${local.name_prefix}-web-*",
-          "arn:aws:s3:::${local.name_prefix}-web-*/*"
+          "arn:aws:s3:::${local.name_prefix}-web-*/*",
+          "arn:aws:s3:::${local.name_prefix}-marketing-*",
+          "arn:aws:s3:::${local.name_prefix}-marketing-*/*"
         ]
+      },
+      # Deploy-target discovery (bucket and distribution lookup by name/tag)
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:ListAllMyBuckets",
+          "s3:GetBucketTagging",
+          "cloudfront:ListDistributions",
+          "cloudfront:ListTagsForResource"
+        ]
+        Resource = "*"
       },
       # CloudFront invalidation
       {

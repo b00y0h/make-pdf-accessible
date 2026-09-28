@@ -15,7 +15,7 @@ resource "aws_opensearchserverless_collection" "pdf_embeddings" {
 resource "aws_opensearchserverless_access_policy" "pdf_embeddings_data" {
   name = "${local.app_name}-${var.environment}-embeddings-data-access"
   type = "data"
-  
+
   policy = jsonencode([
     {
       Rules = [
@@ -58,7 +58,7 @@ resource "aws_opensearchserverless_access_policy" "pdf_embeddings_data" {
 resource "aws_opensearchserverless_security_policy" "pdf_embeddings_network" {
   name = "${local.app_name}-${var.environment}-embeddings-network"
   type = "network"
-  
+
   policy = jsonencode([
     {
       Description = "Network access for PDF embeddings collection"
@@ -71,7 +71,7 @@ resource "aws_opensearchserverless_security_policy" "pdf_embeddings_network" {
         }
       ]
       AllowFromPublic = false
-      SourceVPCs = [aws_vpc.main.id]
+      SourceVPCs      = [aws_vpc.main.id]
     }
   ])
 }
@@ -80,7 +80,7 @@ resource "aws_opensearchserverless_security_policy" "pdf_embeddings_network" {
 resource "aws_opensearchserverless_security_policy" "pdf_embeddings_encryption" {
   name = "${local.app_name}-${var.environment}-embeddings-encryption"
   type = "encryption"
-  
+
   policy = jsonencode({
     Rules = [
       {
@@ -136,7 +136,7 @@ resource "aws_iam_role_policy" "opensearch_policy" {
         Effect = "Allow"
         Action = [
           "logs:CreateLogGroup",
-          "logs:CreateLogStream", 
+          "logs:CreateLogStream",
           "logs:PutLogEvents"
         ]
         Resource = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
@@ -147,8 +147,8 @@ resource "aws_iam_role_policy" "opensearch_policy" {
 
 # Add OpenSearch permissions to processing Lambda roles
 resource "aws_iam_role_policy" "lambda_opensearch_access" {
-  for_each = toset(["structure", "alt_text", "exports"])  # Functions that might need vector search
-  
+  for_each = toset(["structure", "alt_text", "exports"]) # Functions that might need vector search
+
   name = "${local.app_name}-${var.environment}-${each.key}-opensearch-policy"
   role = aws_iam_role.processing_lambda_role[each.key].id
 
@@ -175,12 +175,12 @@ resource "aws_vpc_endpoint" "opensearch" {
   vpc_endpoint_type  = "Interface"
   subnet_ids         = aws_subnet.private[*].id
   security_group_ids = [aws_security_group.opensearch_sg.id]
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
+        Effect    = "Allow"
         Principal = "*"
         Action = [
           "aoss:*"

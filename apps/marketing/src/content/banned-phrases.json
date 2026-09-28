@@ -1,0 +1,18 @@
+{
+  "description": "Phrases that must not appear in marketing copy or the exported site. Checked by scripts/check-banned-phrases.mjs. Rationale: FTC v. accessiBe (2025) and the product principle 'evidence over claims'.",
+  "phrases": [
+    "automatic compliance",
+    "automatically compliant",
+    "guaranteed compliant",
+    "guarantee compliance",
+    "guarantees compliance",
+    "100% compliant",
+    "fully compliant",
+    "instantly accessible",
+    "instantly compliant",
+    "compliance overlay",
+    "one-click compliance",
+    "ada compliant pdf",
+    "makes your site compliant"
+  ]
+}

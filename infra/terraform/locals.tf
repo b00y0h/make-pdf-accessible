@@ -3,16 +3,17 @@ locals {
   # Naming convention
   name_prefix = "${var.project_name}-${var.environment}"
   name_suffix = random_id.suffix.hex
+  app_name    = var.project_name
 
   # Common tags applied to all resources
   # These tags are required for the costs dashboard to function properly
   common_tags = {
     # Required tags for dashboard filtering
-    application  = var.application
-    service      = var.service
-    component    = var.component
-    environment  = var.environment
-    cost_center  = var.cost_center
+    application = var.application
+    service     = var.service
+    component   = var.component
+    environment = var.environment
+    cost_center = var.cost_center
 
     # Additional organizational tags
     owner            = var.owner

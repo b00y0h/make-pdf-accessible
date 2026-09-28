@@ -73,39 +73,43 @@ These tags enable cost dashboard features:
 
 ## Quick Start
 
-### 1. Configure Variables
+### 0. One-time bootstrap per AWS account
 
-Copy and customize the example variables file:
-
-```bash
-cp terraform.tfvars.example terraform.tfvars
-```
-
-Edit `terraform.tfvars` with your specific values:
-
-```hcl
-# Required
-aws_region   = "us-east-1"
-project_name = "pdf-accessibility"
-environment  = "dev"
-github_repo  = "your-org/your-repo"
-
-# Optional
-domain_name     = "myapp.example.com"
-certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/..."
-```
-
-### 2. Initialize and Deploy
+Each environment (`dev`, `staging`, `prod`) is its own AWS account (ADR-0010). Create the state bucket and lock table once per account with an administrator credential:
 
 ```bash
-# Initialize Terraform
+cd infra/terraform/bootstrap
 terraform init
+terraform apply -var environment=dev
+```
 
-# Review the plan
-terraform plan
+### 1. Initialize against the environment's backend
 
-# Apply the configuration
-terraform apply
+```bash
+cd infra/terraform
+terraform init -backend-config=environments/dev.backend.hcl
+```
+
+### 2. Plan and apply with the environment's variables
+
+```bash
+terraform plan  -var-file=environments/dev.tfvars
+terraform apply -var-file=environments/dev.tfvars
+```
+
+`environments/<env>.tfvars` holds the non-secret settings for each account (sizing, WAF, logging, domains). Secrets (OAuth clients, engine licenses) are read from AWS Secrets Manager at apply time, never from tfvars. Copy `terraform.tfvars.example` only for local experiments with a throwaway account.
+
+### 3. Configure DNS
+
+`terraform output dns_configuration` prints the records for DNSimple (see `DNSIMPLE_SETUP.md`). Production uses `makepdfaccessible.com`, `www`, `dashboard` and `api`; other environments use `<env>.makepdfaccessible.com`, `dashboard-<env>` and `api-<env>`.
+
+### 4. Deploy the marketing site
+
+The marketing site (`apps/marketing`) is a static export deployed by `.github/workflows/marketing-site.yml` to the bucket and distribution created by `marketing.tf` (module `modules/static-site`). Set the repository variables `MARKETING_S3_BUCKET` and `MARKETING_CLOUDFRONT_DISTRIBUTION_ID` from:
+
+```bash
+terraform output marketing_site_bucket
+terraform output marketing_site_distribution_id
 ```
 
 ## Configuration
@@ -210,30 +214,20 @@ You can find the exact ARN in the Terraform outputs after deployment.
 
 ## State Management
 
-### Backend Configuration (Recommended)
+State is remote and per environment. `backend.tf` declares a partial S3 backend; `environments/<env>.backend.hcl` supplies the bucket (`pdf-accessibility-terraform-state-<env>`), key and lock table (`pdf-accessibility-terraform-locks-<env>`), both created by `bootstrap/`. The GitHub infrastructure CI role (`github_oidc.tf`) is scoped to exactly those names.
 
-Create a `backend.tf` file for remote state:
+Never commit `terraform.tfstate`, `tfplan` or `.terraform/`; they are ignored in `.gitignore`.
 
-```hcl
-terraform {
-  backend "s3" {
-    bucket         = "your-terraform-state-bucket"
-    key            = "pdf-accessibility/terraform.tfstate"
-    region         = "us-east-1"
-    encrypt        = true
-    dynamodb_table = "terraform-locks"
-  }
-}
-```
+## Layout
 
-### Local State (Development)
-
-For development, you can use local state (not recommended for production):
-
-```bash
-# State is stored in terraform.tfstate locally
-terraform init
-```
+| Path | Purpose |
+|---|---|
+| `*.tf` | Platform root: network, storage, queues, Lambda and Step Functions, Cognito, API Gateway, CloudFront, monitoring, SNS |
+| `marketing.tf` | Marketing site (module instance) |
+| `modules/static-site/` | Reusable private S3 + CloudFront static site with security headers |
+| `environments/` | Per-account backend and variable files |
+| `bootstrap/` | State bucket and lock table per account |
+| `cur-athena/` | Cost and Usage Report tables for the cost dashboard |
 
 ## Security Features
 

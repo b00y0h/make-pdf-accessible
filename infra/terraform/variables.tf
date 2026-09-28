@@ -73,7 +73,7 @@ variable "log_level" {
   description = "Log level for Lambda functions"
   type        = string
   default     = "INFO"
-  
+
   validation {
     condition     = contains(["DEBUG", "INFO", "WARN", "ERROR"], var.log_level)
     error_message = "Log level must be one of: DEBUG, INFO, WARN, ERROR."
@@ -206,7 +206,7 @@ variable "data_sensitivity" {
   description = "Data sensitivity classification"
   type        = string
   default     = "internal"
-  
+
   validation {
     condition     = contains(["public", "internal", "confidential", "restricted"], var.data_sensitivity)
     error_message = "Data sensitivity must be one of: public, internal, confidential, restricted."
@@ -230,7 +230,7 @@ variable "documentdb_instance_class" {
   description = "DocumentDB instance class"
   type        = string
   default     = "db.r5.large"
-  
+
   validation {
     condition = contains([
       "db.t3.medium", "db.t4g.medium",
@@ -245,4 +245,34 @@ variable "documentdb_performance_insights_enabled" {
   description = "Enable Performance Insights for DocumentDB instances"
   type        = bool
   default     = false
+}
+
+variable "alerts_email" {
+  description = "E-mail address subscribed to the operational alerts SNS topic (empty to skip)"
+  type        = string
+  default     = ""
+}
+
+variable "root_domain" {
+  description = "Registered root domain. Production serves it directly; other environments use <environment>.<root_domain>"
+  type        = string
+  default     = "makepdfaccessible.com"
+}
+
+variable "marketing_extra_connect_src" {
+  description = "Extra CSP connect-src origins for the marketing site (analytics collector, CAPTCHA verification)"
+  type        = list(string)
+  default     = []
+}
+
+variable "marketing_extra_frame_src" {
+  description = "Extra CSP frame-src origins for the marketing site (CAPTCHA widget)"
+  type        = list(string)
+  default     = []
+}
+
+variable "marketing_extra_script_src" {
+  description = "Extra CSP script-src origins for the marketing site (CAPTCHA or analytics scripts)"
+  type        = list(string)
+  default     = []
 }

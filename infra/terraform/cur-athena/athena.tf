@@ -5,33 +5,33 @@ resource "aws_athena_workgroup" "cost_analytics" {
   name        = local.athena_workgroup_name
   description = "Workgroup for AWS cost analytics queries"
   state       = "ENABLED"
-  
+
   configuration {
     enforce_workgroup_configuration    = true
     publish_cloudwatch_metrics_enabled = true
-    
+
     result_configuration {
       output_location = "s3://${aws_s3_bucket.athena_results.bucket}/query-results/"
-      
+
       encryption_configuration {
         encryption_option = "SSE_S3"
       }
     }
-    
+
     # Query execution settings
-    bytes_scanned_cutoff_per_query     = var.athena_bytes_scanned_cutoff
+    bytes_scanned_cutoff_per_query = var.athena_bytes_scanned_cutoff
     engine_version {
       selected_engine_version = "Athena engine version 3"
     }
   }
-  
+
   tags = local.common_tags
 }
 
 # IAM role for Athena query execution (for the application)
 resource "aws_iam_role" "athena_execution" {
   name = "${local.name_prefix}-athena-execution-role"
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -56,7 +56,7 @@ resource "aws_iam_role" "athena_execution" {
       }
     ]
   })
-  
+
   tags = local.common_tags
 }
 

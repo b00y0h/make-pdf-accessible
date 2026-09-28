@@ -85,23 +85,3 @@ resource "aws_cloudwatch_log_group" "api_gateway" {
 # API routes are now handled by Lambda function in lambda.tf
 # All routes are proxied to the Lambda function via the ANY /{proxy+} route
 
-# Custom Domain (optional)
-resource "aws_apigatewayv2_domain_name" "api" {
-  count       = var.certificate_arn != "" ? 1 : 0
-  domain_name = "api.${var.domain_name}"
-
-  domain_name_configuration {
-    certificate_arn = var.certificate_arn
-    endpoint_type   = "REGIONAL"
-    security_policy = "TLS_1_2"
-  }
-
-  tags = local.common_tags
-}
-
-resource "aws_apigatewayv2_api_mapping" "api" {
-  count       = var.certificate_arn != "" ? 1 : 0
-  api_id      = aws_apigatewayv2_api.main.id
-  domain_name = aws_apigatewayv2_domain_name.api[0].id
-  stage       = aws_apigatewayv2_stage.default.id
-}
