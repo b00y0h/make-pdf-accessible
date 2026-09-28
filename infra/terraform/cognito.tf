@@ -131,11 +131,11 @@ resource "aws_cognito_identity_provider" "google" {
   }
 
   attribute_mapping = {
-    email         = "email"
-    given_name    = "given_name"
-    family_name   = "family_name"
-    picture       = "picture"
-    username      = "sub"
+    email       = "email"
+    given_name  = "given_name"
+    family_name = "family_name"
+    picture     = "picture"
+    username    = "sub"
   }
 
   lifecycle {

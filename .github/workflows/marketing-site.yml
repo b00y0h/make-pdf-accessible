@@ -1,0 +1,220 @@
+name: Marketing Site
+
+# Builds the static marketing site (apps/marketing), checks copy and accessibility, and on main
+# deploys the export to the S3 bucket served by CloudFront (infra/terraform/marketing.tf).
+# Deploy targets come from repository variables MARKETING_S3_BUCKET and
+# MARKETING_CLOUDFRONT_DISTRIBUTION_ID (from `terraform output`), with tag-based discovery as a fallback.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/marketing/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/marketing-site.yml'
+  pull_request:
+    paths:
+      - 'apps/marketing/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/marketing-site.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'prod'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: marketing-site-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_VERSION: '22'
+  APP_DIR: apps/marketing
+
+jobs:
+  build:
+    name: Build and check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      environment: ${{ steps.env.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve environment
+        id: env
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "environment=${{ inputs.environment }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "environment=prod" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter mpa-marketing...
+
+      - name: Build static export
+        env:
+          NEXT_PUBLIC_SITE_URL: ${{ vars.MARKETING_SITE_URL || 'https://makepdfaccessible.com' }}
+          NEXT_PUBLIC_API_BASE_URL: ${{ vars.MARKETING_API_BASE_URL || 'https://api.makepdfaccessible.com' }}
+          NEXT_PUBLIC_APP_URL: ${{ vars.MARKETING_APP_URL || 'https://dashboard.makepdfaccessible.com' }}
+        run: pnpm --filter mpa-marketing build
+
+      - name: Lint
+        run: pnpm --filter mpa-marketing lint
+
+      - name: Type check
+        run: pnpm --filter mpa-marketing type-check
+
+      - name: Banned-phrase check (source and export)
+        run: pnpm --filter mpa-marketing check:copy
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter mpa-marketing exec playwright install --with-deps chromium
+
+      - name: Accessibility tests (axe on every route)
+        run: pnpm --filter mpa-marketing test:a11y
+
+      - name: Upload accessibility report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: marketing-a11y-report-${{ github.run_id }}
+          path: ${{ env.APP_DIR }}/playwright-report
+          retention-days: 7
+
+      - name: Upload site export
+        uses: actions/upload-artifact@v4
+        with:
+          name: marketing-site-${{ github.sha }}
+          path: ${{ env.APP_DIR }}/out
+          retention-days: 7
+          if-no-files-found: error
+
+  lighthouse:
+    name: Lighthouse budgets
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            apps/marketing/lighthouserc.json
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: marketing-site-${{ github.sha }}
+          path: ${{ env.APP_DIR }}/out
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Run Lighthouse CI
+        working-directory: ${{ env.APP_DIR }}
+        run: npx --yes @lhci/cli@0.14.x autorun --config=lighthouserc.json
+
+  deploy:
+    name: Deploy to S3 and CloudFront
+    runs-on: ubuntu-latest
+    needs: [build, lighthouse]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    timeout-minutes: 15
+    environment:
+      name: ${{ needs.build.outputs.environment }}-web
+      url: ${{ steps.publish.outputs.site_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: marketing-site-${{ github.sha }}
+          path: out
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.GITHUB_WEB_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          role-session-name: GitHubActions-MarketingDeploy-${{ github.run_id }}
+
+      - name: Resolve deploy targets
+        id: targets
+        env:
+          BUCKET: ${{ vars.MARKETING_S3_BUCKET }}
+          DISTRIBUTION: ${{ vars.MARKETING_CLOUDFRONT_DISTRIBUTION_ID }}
+          PREFIX: pdf-accessibility-${{ needs.build.outputs.environment }}-marketing
+        run: |
+          set -euo pipefail
+          if [ -z "$BUCKET" ]; then
+            BUCKET=$(aws s3api list-buckets --query "Buckets[?starts_with(Name, '${PREFIX}-site-')].Name | [0]" --output text)
+          fi
+          if [ -z "$DISTRIBUTION" ] || [ "$DISTRIBUTION" = "None" ]; then
+            DISTRIBUTION=$(aws cloudfront list-distributions --query "DistributionList.Items[?Comment != null && starts_with(Comment, 'Marketing site')].Id | [0]" --output text)
+          fi
+          if [ -z "$BUCKET" ] || [ "$BUCKET" = "None" ] || [ -z "$DISTRIBUTION" ] || [ "$DISTRIBUTION" = "None" ]; then
+            echo "::error::Could not resolve the marketing bucket or distribution; set MARKETING_S3_BUCKET and MARKETING_CLOUDFRONT_DISTRIBUTION_ID repository variables from terraform output."
+            exit 1
+          fi
+          echo "bucket=$BUCKET" >> "$GITHUB_OUTPUT"
+          echo "distribution=$DISTRIBUTION" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to S3
+        id: publish
+        env:
+          BUCKET: ${{ steps.targets.outputs.bucket }}
+          DISTRIBUTION: ${{ steps.targets.outputs.distribution }}
+        run: |
+          set -euo pipefail
+          # Hashed assets: cache for a year. Everything else: revalidate every request.
+          aws s3 sync out/ "s3://$BUCKET/" --delete --exclude "*" --include "_next/static/*" \
+            --cache-control "public, max-age=31536000, immutable"
+          aws s3 sync out/ "s3://$BUCKET/" --delete --exclude "_next/static/*" \
+            --cache-control "public, max-age=0, must-revalidate"
+          aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION" --paths "/*" \
+            --query 'Invalidation.Id' --output text
+          DOMAIN=$(aws cloudfront get-distribution --id "$DISTRIBUTION" --query 'Distribution.DistributionConfig.Aliases.Items[0]' --output text)
+          if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "None" ]; then
+            DOMAIN=$(aws cloudfront get-distribution --id "$DISTRIBUTION" --query 'Distribution.DomainName' --output text)
+          fi
+          echo "site_url=https://$DOMAIN" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Marketing site deployed"
+            echo ""
+            echo "- Environment: ${{ needs.build.outputs.environment }}"
+            echo "- Bucket: $BUCKET"
+            echo "- Distribution: $DISTRIBUTION"
+            echo "- URL: https://$DOMAIN"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Smoke test
+        env:
+          SITE_URL: ${{ steps.publish.outputs.site_url }}
+        run: |
+          set -euo pipefail
+          sleep 20
+          for path in / /pricing/ /free-report/; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$SITE_URL$path")
+            echo "$path -> $code"
+            [ "$code" = "200" ]
+          done
+          curl -sI "$SITE_URL/" | grep -i 'strict-transport-security' >/dev/null

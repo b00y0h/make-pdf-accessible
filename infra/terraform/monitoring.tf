@@ -4,7 +4,7 @@
 resource "aws_cloudwatch_log_group" "api_logs" {
   name              = "/aws/lambda/${local.app_name}-${var.environment}-api"
   retention_in_days = var.log_retention_days
-  kms_key_id       = var.cloudwatch_logs_kms_key_id
+  kms_key_id        = var.cloudwatch_logs_kms_key_id
 
   tags = local.monitoring_tags
 }
@@ -12,7 +12,7 @@ resource "aws_cloudwatch_log_group" "api_logs" {
 resource "aws_cloudwatch_log_group" "worker_logs" {
   name              = "/aws/ecs/${local.app_name}-${var.environment}-worker"
   retention_in_days = var.log_retention_days
-  kms_key_id       = var.cloudwatch_logs_kms_key_id
+  kms_key_id        = var.cloudwatch_logs_kms_key_id
 
   tags = local.monitoring_tags
 }
@@ -96,15 +96,15 @@ resource "aws_cloudwatch_dashboard" "pdf_processing_dashboard" {
 resource "aws_cloudwatch_metric_alarm" "lambda_error_rate" {
   for_each = local.lambda_functions
 
-  alarm_name          = "${local.app_name}-${var.environment}-${each.key}-error-rate"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "Errors"
-  namespace           = "AWS/Lambda"
-  period              = "300"
-  statistic           = "Sum"
-  threshold           = "5"
-  alarm_description   = "This metric monitors error rate for ${each.key} function"
+  alarm_name                = "${local.app_name}-${var.environment}-${each.key}-error-rate"
+  comparison_operator       = "GreaterThanThreshold"
+  evaluation_periods        = "2"
+  metric_name               = "Errors"
+  namespace                 = "AWS/Lambda"
+  period                    = "300"
+  statistic                 = "Sum"
+  threshold                 = "5"
+  alarm_description         = "This metric monitors error rate for ${each.key} function"
   insufficient_data_actions = []
 
   dimensions = {
@@ -122,15 +122,15 @@ resource "aws_cloudwatch_metric_alarm" "lambda_error_rate" {
 resource "aws_cloudwatch_metric_alarm" "lambda_duration" {
   for_each = local.lambda_functions
 
-  alarm_name          = "${local.app_name}-${var.environment}-${each.key}-duration"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "Duration"
-  namespace           = "AWS/Lambda"
-  period              = "300"
-  statistic           = "Average"
-  threshold           = tostring(each.value.timeout * 1000 * 0.8) # 80% of timeout
-  alarm_description   = "This metric monitors duration for ${each.key} function"
+  alarm_name                = "${local.app_name}-${var.environment}-${each.key}-duration"
+  comparison_operator       = "GreaterThanThreshold"
+  evaluation_periods        = "2"
+  metric_name               = "Duration"
+  namespace                 = "AWS/Lambda"
+  period                    = "300"
+  statistic                 = "Average"
+  threshold                 = tostring(each.value.timeout * 1000 * 0.8) # 80% of timeout
+  alarm_description         = "This metric monitors duration for ${each.key} function"
   insufficient_data_actions = []
 
   dimensions = {
@@ -146,15 +146,15 @@ resource "aws_cloudwatch_metric_alarm" "lambda_duration" {
 
 # Step Functions execution failure alarm
 resource "aws_cloudwatch_metric_alarm" "step_functions_failures" {
-  alarm_name          = "${local.app_name}-${var.environment}-stepfunctions-failures"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "1"
-  metric_name         = "ExecutionsFailed"
-  namespace           = "AWS/States"
-  period              = "300"
-  statistic           = "Sum"
-  threshold           = "1"
-  alarm_description   = "This metric monitors Step Functions execution failures"
+  alarm_name                = "${local.app_name}-${var.environment}-stepfunctions-failures"
+  comparison_operator       = "GreaterThanThreshold"
+  evaluation_periods        = "1"
+  metric_name               = "ExecutionsFailed"
+  namespace                 = "AWS/States"
+  period                    = "300"
+  statistic                 = "Sum"
+  threshold                 = "1"
+  alarm_description         = "This metric monitors Step Functions execution failures"
   insufficient_data_actions = []
 
   dimensions = {
@@ -175,15 +175,15 @@ resource "aws_cloudwatch_metric_alarm" "dynamodb_read_throttles" {
     jobs      = aws_dynamodb_table.jobs.name
   }
 
-  alarm_name          = "${local.app_name}-${var.environment}-${each.key}-read-throttles"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "ThrottledRequests"
-  namespace           = "AWS/DynamoDB"
-  period              = "300"
-  statistic           = "Sum"
-  threshold           = "1"
-  alarm_description   = "This metric monitors read throttling for ${each.key} table"
+  alarm_name                = "${local.app_name}-${var.environment}-${each.key}-read-throttles"
+  comparison_operator       = "GreaterThanThreshold"
+  evaluation_periods        = "2"
+  metric_name               = "ThrottledRequests"
+  namespace                 = "AWS/DynamoDB"
+  period                    = "300"
+  statistic                 = "Sum"
+  threshold                 = "1"
+  alarm_description         = "This metric monitors read throttling for ${each.key} table"
   insufficient_data_actions = []
 
   dimensions = {
@@ -207,15 +207,15 @@ resource "aws_cloudwatch_metric_alarm" "s3_4xx_errors" {
     reports     = aws_s3_bucket.pdf_reports.bucket
   }
 
-  alarm_name          = "${local.app_name}-${var.environment}-s3-${each.key}-4xx-errors"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "4xxErrors"
-  namespace           = "AWS/S3"
-  period              = "300"
-  statistic           = "Sum"
-  threshold           = "10"
-  alarm_description   = "This metric monitors 4xx errors for S3 bucket ${each.key}"
+  alarm_name                = "${local.app_name}-${var.environment}-s3-${each.key}-4xx-errors"
+  comparison_operator       = "GreaterThanThreshold"
+  evaluation_periods        = "2"
+  metric_name               = "4xxErrors"
+  namespace                 = "AWS/S3"
+  period                    = "300"
+  statistic                 = "Sum"
+  threshold                 = "10"
+  alarm_description         = "This metric monitors 4xx errors for S3 bucket ${each.key}"
   insufficient_data_actions = []
 
   dimensions = {
@@ -232,15 +232,15 @@ resource "aws_cloudwatch_metric_alarm" "s3_4xx_errors" {
 
 # OpenSearch collection health alarm
 resource "aws_cloudwatch_metric_alarm" "opensearch_indexing_rate" {
-  alarm_name          = "${local.app_name}-${var.environment}-opensearch-indexing-failures"
-  comparison_operator = "LessThanThreshold"
-  evaluation_periods  = "3"
-  metric_name         = "IndexingRate"
-  namespace           = "AWS/AOSS"
-  period              = "300"
-  statistic           = "Average"
-  threshold           = "0.95"  # 95% success rate
-  alarm_description   = "This metric monitors OpenSearch indexing success rate"
+  alarm_name                = "${local.app_name}-${var.environment}-opensearch-indexing-failures"
+  comparison_operator       = "LessThanThreshold"
+  evaluation_periods        = "3"
+  metric_name               = "IndexingRate"
+  namespace                 = "AWS/AOSS"
+  period                    = "300"
+  statistic                 = "Average"
+  threshold                 = "0.95" # 95% success rate
+  alarm_description         = "This metric monitors OpenSearch indexing success rate"
   insufficient_data_actions = []
 
   dimensions = {
@@ -258,15 +258,15 @@ resource "aws_cloudwatch_metric_alarm" "opensearch_indexing_rate" {
 
 # Custom application metrics alarms
 resource "aws_cloudwatch_metric_alarm" "processing_success_rate" {
-  alarm_name          = "${local.app_name}-${var.environment}-processing-success-rate"
-  comparison_operator = "LessThanThreshold"
-  evaluation_periods  = "3"
-  metric_name         = "ProcessingSuccessRate"
-  namespace           = "PDF-Accessibility"
-  period              = "900"  # 15 minutes
-  statistic           = "Average"
-  threshold           = "0.9"  # 90% success rate
-  alarm_description   = "Overall PDF processing success rate too low"
+  alarm_name                = "${local.app_name}-${var.environment}-processing-success-rate"
+  comparison_operator       = "LessThanThreshold"
+  evaluation_periods        = "3"
+  metric_name               = "ProcessingSuccessRate"
+  namespace                 = "PDF-Accessibility"
+  period                    = "900" # 15 minutes
+  statistic                 = "Average"
+  threshold                 = "0.9" # 90% success rate
+  alarm_description         = "Overall PDF processing success rate too low"
   insufficient_data_actions = []
 
   alarm_actions = [
@@ -302,7 +302,7 @@ resource "aws_cloudwatch_log_metric_filter" "processing_failures" {
     namespace     = "PDF-Accessibility"
     value         = "1"
     default_value = "0"
-    
+
     dimensions = {
       FunctionName = each.key
     }

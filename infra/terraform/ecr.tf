@@ -1,11 +1,11 @@
 # ECR Repositories for Lambda Functions
+# NOTE: "router" is owned by router.tf and the processing functions
+# (ocr, structure, alt_text, tag_pdf, exports, validate, notify) are owned by
+# processing-lambdas.tf so their repository names do not collide.
 locals {
-  lambda_functions = [
+  service_repositories = [
     "api",
     "worker",
-    "router",
-    "ocr",
-    "structure",
     "tagger",
     "exporter",
     "validator",
@@ -14,7 +14,7 @@ locals {
 }
 
 resource "aws_ecr_repository" "lambda_repos" {
-  for_each = toset(local.lambda_functions)
+  for_each = toset(local.service_repositories)
 
   name                 = "${local.name_prefix}-${each.value}"
   image_tag_mutability = "MUTABLE"

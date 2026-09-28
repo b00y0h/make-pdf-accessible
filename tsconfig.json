@@ -1,6 +1,7 @@
 {
   "files": [],
   "references": [
+    { "path": "./apps/marketing" },
     { "path": "./dashboard" },
     { "path": "./web" }
   ]
