@@ -587,6 +587,13 @@ jobs:
     runs-on: ubuntu-latest
     needs: terraform-validate
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    # Uploading SARIF to code scanning needs security-events: write, and
+    # actions: read in private repositories. The workflow-level token grants
+    # neither, so the upload failed on every push to main.
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
 
     steps:
       - name: Checkout repository
