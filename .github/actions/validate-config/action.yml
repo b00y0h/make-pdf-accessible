@@ -350,7 +350,7 @@ runs:
 
     - name: Upload validation results
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: config-validation-${{ inputs.config_type }}-${{ github.run_id }}
         path: |

@@ -49,7 +49,7 @@ jobs:
     outputs:
       environment: ${{ steps.env.outputs.environment }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Resolve environment
         id: env
@@ -60,11 +60,9 @@ jobs:
             echo "environment=prod" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 8.15.0
+      - uses: pnpm/action-setup@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -96,14 +94,14 @@ jobs:
 
       - name: Upload accessibility report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: marketing-a11y-report-${{ github.run_id }}
           path: ${{ env.APP_DIR }}/playwright-report
           retention-days: 7
 
       - name: Upload site export
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: marketing-site-${{ github.sha }}
           path: ${{ env.APP_DIR }}/out
@@ -116,18 +114,18 @@ jobs:
     needs: build
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           sparse-checkout: |
             apps/marketing/lighthouserc.json
           sparse-checkout-cone-mode: false
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: marketing-site-${{ github.sha }}
           path: ${{ env.APP_DIR }}/out
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -145,13 +143,13 @@ jobs:
       name: ${{ needs.build.outputs.environment }}-web
       url: ${{ steps.publish.outputs.site_url }}
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: marketing-site-${{ github.sha }}
           path: out
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.GITHUB_WEB_DEPLOY_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}

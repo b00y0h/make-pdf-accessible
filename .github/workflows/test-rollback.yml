@@ -43,7 +43,7 @@ jobs:
       baseline_versions: ${{ steps.baseline.outputs.versions }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup test environment
         id: setup
@@ -62,7 +62,7 @@ jobs:
           echo "Testing services: $SERVICES"
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -115,10 +115,10 @@ jobs:
     needs: prepare-test
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -154,10 +154,10 @@ jobs:
     needs: prepare-test
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -176,7 +176,7 @@ jobs:
     if: contains(needs.prepare-test.outputs.test_services, 'api')
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Test database migration rollback (dry run)
         uses: ./.github/actions/db-migration-rollback
@@ -195,7 +195,7 @@ jobs:
         service: ${{ fromJson(needs.prepare-test.outputs.test_services) }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Test auto-rollback decision logic
         uses: ./.github/actions/auto-rollback
@@ -216,10 +216,10 @@ jobs:
         service: ${{ fromJson(needs.prepare-test.outputs.test_services) }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -257,7 +257,7 @@ jobs:
     needs: prepare-test
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Validate rollback workflow syntax
         run: |
