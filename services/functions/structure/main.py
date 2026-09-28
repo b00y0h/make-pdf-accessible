@@ -77,17 +77,25 @@ def lambda_handler(event: dict[str, Any], context: LambdaContext) -> dict[str, A
 
         # Evaluate confidence scores for structure analysis
         confidence_scores = {
-            "structureExtraction": sum(elem.confidence for elem in document_structure.elements) / len(document_structure.elements) if document_structure.elements else 0.8,
+            "structureExtraction": (
+                sum(elem.confidence for elem in document_structure.elements)
+                / len(document_structure.elements)
+                if document_structure.elements
+                else 0.8
+            ),
             "headingLevels": 0.85,  # Mock confidence for heading analysis
-            "readingOrder": 0.9,    # Mock confidence for reading order
+            "readingOrder": 0.9,  # Mock confidence for reading order
         }
 
         # Check if review is needed
         review_assessment = None
         try:
             from src.review_service import get_review_service
+
             review_service = get_review_service()
-            review_assessment = review_service.evaluate_confidence_scores(doc_id, confidence_scores)
+            review_assessment = review_service.evaluate_confidence_scores(
+                doc_id, confidence_scores
+            )
 
             if review_assessment.get("needsReview"):
                 logger.info(f"Document {doc_id} structure needs human review")

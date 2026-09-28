@@ -23,23 +23,28 @@ class ClientUploadRequest(BaseModel):
     file_url: str = Field(..., description="URL where the PDF can be downloaded")
     filename: str = Field(..., description="Original filename")
     client_metadata: dict[str, Any] = Field(..., description="Client site metadata")
-    callback_url: Optional[str] = Field(None, description="Webhook URL for completion notification")
+    callback_url: Optional[str] = Field(
+        None, description="Webhook URL for completion notification"
+    )
     public_discovery: bool = Field(True, description="Allow public LLM discovery")
 
 
 class ClientUploadResponse(BaseModel):
     """Response model for client upload."""
 
-    accesspdf_id: str = Field(..., description="AccessPDF document ID for client tracking")
+    accesspdf_id: str = Field(
+        ..., description="AccessPDF document ID for client tracking"
+    )
     status: str = Field(..., description="Initial processing status")
     estimated_completion: str = Field(..., description="Estimated completion time")
-    discovery_endpoints: dict[str, str] = Field(..., description="Endpoints for LLM discovery")
+    discovery_endpoints: dict[str, str] = Field(
+        ..., description="Endpoints for LLM discovery"
+    )
 
 
 @router.post("/upload", response_model=ClientUploadResponse)
 async def upload_from_client(
-    request: ClientUploadRequest,
-    current_user: UserInfo = Depends(get_current_user)
+    request: ClientUploadRequest, current_user: UserInfo = Depends(get_current_user)
 ):
     """
     Process PDF upload from client websites (WordPress, etc.).
@@ -58,14 +63,15 @@ async def upload_from_client(
             pdf_content = response.content
 
         # Validate PDF
-        if not pdf_content.startswith(b'%PDF'):
+        if not pdf_content.startswith(b"%PDF"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="File is not a valid PDF"
+                detail="File is not a valid PDF",
             )
 
         # Extract client domain for organization
         from urllib.parse import urlparse
+
         client_domain = urlparse(request.client_metadata.get("site_url", "")).hostname
 
         # Store PDF in your S3 with client metadata
@@ -86,11 +92,12 @@ async def upload_from_client(
                 "public-discovery": str(request.public_discovery).lower(),
                 "callback-url": request.callback_url or "",
                 "upload-source": "client-integration",
-            }
+            },
         )
 
         # Create document record with client metadata
         from services.shared.mongo.documents import get_document_repository
+
         doc_repo = get_document_repository()
 
         document_data = {
@@ -109,18 +116,15 @@ async def upload_from_client(
                 "callbackUrl": request.callback_url,
                 "publicDiscovery": request.public_discovery,
                 "uploadSource": "client-integration",
-            }
+            },
         }
 
         doc_repo.create_document(document_data)
 
         # Trigger processing pipeline
         from services.worker.worker import process_pdf
-        process_pdf.delay(
-            doc_id=accesspdf_id,
-            s3_key=s3_key,
-            user_id=current_user.sub
-        )
+
+        process_pdf.delay(doc_id=accesspdf_id, s3_key=s3_key, user_id=current_user.sub)
 
         # Prepare response with discovery endpoints
         discovery_endpoints = {
@@ -131,25 +135,25 @@ async def upload_from_client(
             accesspdf_id=accesspdf_id,
             status="processing",
             estimated_completion="2-5 minutes",
-            discovery_endpoints=discovery_endpoints
+            discovery_endpoints=discovery_endpoints,
         )
 
     except HTTPException:
         raise
     except Exception as e:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.error(f"Client upload failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Upload processing failed: {str(e)}"
+            detail=f"Upload processing failed: {str(e)}",
         )
 
 
 @router.get("/status/{accesspdf_id}")
 async def get_client_document_status(
-    accesspdf_id: str,
-    current_user: UserInfo = Depends(get_current_user)
+    accesspdf_id: str, current_user: UserInfo = Depends(get_current_user)
 ):
     """
     Get processing status for client-uploaded document.
@@ -158,20 +162,19 @@ async def get_client_document_status(
     """
     try:
         from services.shared.mongo.documents import get_document_repository
+
         doc_repo = get_document_repository()
 
         document = doc_repo.get_document(accesspdf_id)
         if not document:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Document not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
             )
 
         # Check access (document owner or admin)
         if document.get("ownerId") != current_user.sub and current_user.role != "admin":
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied"
+                status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
             )
 
         response_data = {
@@ -184,7 +187,9 @@ async def get_client_document_status(
             },
             "accessibility_results": {
                 "overall_score": document.get("scores", {}).get("overall"),
-                "wcag_level": "AA" if document.get("scores", {}).get("overall", 0) >= 85 else "A",
+                "wcag_level": (
+                    "AA" if document.get("scores", {}).get("overall", 0) >= 85 else "A"
+                ),
                 "pdf_ua_compliant": document.get("scores", {}).get("overall", 0) >= 90,
             },
             "available_formats": {},
@@ -206,19 +211,17 @@ async def get_client_document_status(
         raise
     except Exception as e:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.error(f"Failed to get client document status: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve document status"
+            detail="Failed to retrieve document status",
         )
 
 
 @router.post("/webhook/notify/{accesspdf_id}")
-async def send_client_webhook(
-    accesspdf_id: str,
-    webhook_data: dict[str, Any]
-):
+async def send_client_webhook(accesspdf_id: str, webhook_data: dict[str, Any]):
     """
     Send webhook notification to client when processing completes.
 
@@ -227,13 +230,13 @@ async def send_client_webhook(
     """
     try:
         from services.shared.mongo.documents import get_document_repository
+
         doc_repo = get_document_repository()
 
         document = doc_repo.get_document(accesspdf_id)
         if not document:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Document not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
             )
 
         callback_url = document.get("metadata", {}).get("callbackUrl")
@@ -260,7 +263,7 @@ async def send_client_webhook(
                     callback_url,
                     json=webhook_payload,
                     timeout=10.0,
-                    headers={"User-Agent": "AccessPDF-Webhook/1.0"}
+                    headers={"User-Agent": "AccessPDF-Webhook/1.0"},
                 )
                 response.raise_for_status()
 
@@ -268,25 +271,23 @@ async def send_client_webhook(
                     "success": True,
                     "webhook_sent": True,
                     "callback_url": callback_url,
-                    "status_code": response.status_code
+                    "status_code": response.status_code,
                 }
 
             except Exception as e:
                 import logging
+
                 logger = logging.getLogger(__name__)
                 logger.error(f"Webhook delivery failed: {e}")
 
-                return {
-                    "success": False,
-                    "webhook_sent": False,
-                    "error": str(e)
-                }
+                return {"success": False, "webhook_sent": False, "error": str(e)}
 
     except Exception as e:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.error(f"Webhook processing failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to process webhook"
+            detail="Failed to process webhook",
         )

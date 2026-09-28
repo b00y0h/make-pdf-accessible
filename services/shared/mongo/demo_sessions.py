@@ -27,20 +27,32 @@ class DemoSession(BaseModel):
     last_activity: datetime = Field(default_factory=datetime.utcnow)
 
     # Upload tracking
-    document_ids: list[str] = Field(default_factory=list, description="List of uploaded document IDs")
+    document_ids: list[str] = Field(
+        default_factory=list, description="List of uploaded document IDs"
+    )
     upload_count: int = Field(default=0, description="Total uploads in this session")
-    last_upload_at: Optional[datetime] = Field(None, description="Last upload timestamp")
+    last_upload_at: Optional[datetime] = Field(
+        None, description="Last upload timestamp"
+    )
 
     # User attribution
-    claimed_by_user: Optional[str] = Field(None, description="User ID who claimed these uploads")
-    claimed_at: Optional[datetime] = Field(None, description="When the session was claimed")
+    claimed_by_user: Optional[str] = Field(
+        None, description="User ID who claimed these uploads"
+    )
+    claimed_at: Optional[datetime] = Field(
+        None, description="When the session was claimed"
+    )
 
     # Rate limiting
     hourly_uploads: int = Field(default=0, description="Uploads in the last hour")
-    hourly_reset_at: datetime = Field(default_factory=lambda: datetime.utcnow() + timedelta(hours=1))
+    hourly_reset_at: datetime = Field(
+        default_factory=lambda: datetime.utcnow() + timedelta(hours=1)
+    )
 
     # Browser fingerprint components
-    fingerprint_data: dict = Field(default_factory=dict, description="Browser fingerprint data")
+    fingerprint_data: dict = Field(
+        default_factory=dict, description="Browser fingerprint data"
+    )
 
 
 class DemoSessionRepository(BaseRepository):
@@ -63,7 +75,7 @@ class DemoSessionRepository(BaseRepository):
             IndexModel(
                 [("last_activity", ASCENDING)],
                 expireAfterSeconds=30 * 24 * 60 * 60,  # 30 days
-                partialFilterExpression={"claimed_by_user": None}
+                partialFilterExpression={"claimed_by_user": None},
             ),
         ]
         self.collection.create_indexes(indexes)
@@ -73,7 +85,7 @@ class DemoSessionRepository(BaseRepository):
         session_id: str,
         ip_address: str,
         user_agent: str,
-        fingerprint_data: dict = None
+        fingerprint_data: dict = None,
     ) -> DemoSession:
         """Get existing session or create new one"""
 
@@ -84,7 +96,7 @@ class DemoSessionRepository(BaseRepository):
             # Update last activity
             self.collection.update_one(
                 {"session_id": session_id},
-                {"$set": {"last_activity": datetime.utcnow()}}
+                {"$set": {"last_activity": datetime.utcnow()}},
             )
             return DemoSession(**session_doc)
 
@@ -93,7 +105,7 @@ class DemoSessionRepository(BaseRepository):
             session_id=session_id,
             ip_address=ip_address,
             user_agent=user_agent,
-            fingerprint_data=fingerprint_data or {}
+            fingerprint_data=fingerprint_data or {},
         )
 
         try:
@@ -104,7 +116,9 @@ class DemoSessionRepository(BaseRepository):
             session_doc = self.collection.find_one({"session_id": session_id})
             return DemoSession(**session_doc)
 
-    def check_rate_limit(self, session_id: str, ip_address: str, max_per_hour: int = 5) -> tuple[bool, str]:
+    def check_rate_limit(
+        self, session_id: str, ip_address: str, max_per_hour: int = 5
+    ) -> tuple[bool, str]:
         """
         Check if session/IP is within rate limits
 
@@ -115,6 +129,7 @@ class DemoSessionRepository(BaseRepository):
         # Check if rate limiting is disabled via environment variable
         try:
             import os
+
             if os.getenv("DISABLE_RATE_LIMITING", "").lower() in ["true", "1", "yes"]:
                 return True, "Rate limiting disabled for development"
         except:
@@ -134,9 +149,9 @@ class DemoSessionRepository(BaseRepository):
                     {
                         "$set": {
                             "hourly_uploads": 0,
-                            "hourly_reset_at": now + timedelta(hours=1)
+                            "hourly_reset_at": now + timedelta(hours=1),
                         }
-                    }
+                    },
                 )
                 session.hourly_uploads = 0
 
@@ -146,10 +161,9 @@ class DemoSessionRepository(BaseRepository):
 
         # Check IP-based limit (across all sessions)
         hour_ago = now - timedelta(hours=1)
-        ip_uploads = self.collection.count_documents({
-            "ip_address": ip_address,
-            "last_upload_at": {"$gte": hour_ago}
-        })
+        ip_uploads = self.collection.count_documents(
+            {"ip_address": ip_address, "last_upload_at": {"$gte": hour_ago}}
+        )
 
         if ip_uploads >= max_per_hour * 2:  # Allow 2x limit per IP
             return False, "Too many uploads from this IP address. Try again later."
@@ -166,12 +180,9 @@ class DemoSessionRepository(BaseRepository):
             {
                 "$push": {"document_ids": document_id},
                 "$inc": {"upload_count": 1, "hourly_uploads": 1},
-                "$set": {
-                    "last_upload_at": now,
-                    "last_activity": now
-                }
+                "$set": {"last_upload_at": now, "last_activity": now},
             },
-            return_document=True
+            return_document=True,
         )
 
         return DemoSession(**result) if result else None
@@ -186,14 +197,9 @@ class DemoSessionRepository(BaseRepository):
         result = self.collection.update_one(
             {
                 "session_id": session_id,
-                "claimed_by_user": None  # Only claim unclaimed sessions
+                "claimed_by_user": None,  # Only claim unclaimed sessions
             },
-            {
-                "$set": {
-                    "claimed_by_user": user_id,
-                    "claimed_at": datetime.utcnow()
-                }
-            }
+            {"$set": {"claimed_by_user": user_id, "claimed_at": datetime.utcnow()}},
         )
 
         return result.modified_count > 0
@@ -202,21 +208,21 @@ class DemoSessionRepository(BaseRepository):
         """Get all document IDs for a session"""
 
         session_doc = self.collection.find_one(
-            {"session_id": session_id},
-            {"document_ids": 1}
+            {"session_id": session_id}, {"document_ids": 1}
         )
 
         return session_doc.get("document_ids", []) if session_doc else []
 
-    def get_unclaimed_sessions_by_ip(self, ip_address: str, limit: int = 10) -> list[DemoSession]:
+    def get_unclaimed_sessions_by_ip(
+        self, ip_address: str, limit: int = 10
+    ) -> list[DemoSession]:
         """Get recent unclaimed sessions from an IP (for auto-attribution)"""
 
-        cursor = self.collection.find(
-            {
-                "ip_address": ip_address,
-                "claimed_by_user": None
-            }
-        ).sort("created_at", DESCENDING).limit(limit)
+        cursor = (
+            self.collection.find({"ip_address": ip_address, "claimed_by_user": None})
+            .sort("created_at", DESCENDING)
+            .limit(limit)
+        )
 
         return [DemoSession(**doc) for doc in cursor]
 
@@ -225,10 +231,9 @@ class DemoSessionRepository(BaseRepository):
 
         cutoff = datetime.utcnow() - timedelta(days=days)
 
-        result = self.collection.delete_many({
-            "last_activity": {"$lt": cutoff},
-            "claimed_by_user": None
-        })
+        result = self.collection.delete_many(
+            {"last_activity": {"$lt": cutoff}, "claimed_by_user": None}
+        )
 
         return result.deleted_count
 
