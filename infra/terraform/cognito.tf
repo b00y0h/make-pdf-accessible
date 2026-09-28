@@ -227,7 +227,7 @@ resource "aws_cognito_user_pool_client" "web_client" {
 # Uncomment and configure with real SAML metadata URL when ready
 # resource "aws_cognito_identity_provider" "saml_example" {
 #   user_pool_id  = aws_cognito_user_pool.main.id
-#   provider_name = var.saml_provider_name
+#   provider_name = "ExampleSAML"
 #   provider_type = "SAML"
 
 #   attribute_mapping = {

@@ -112,12 +112,6 @@ variable "github_oidc_session_duration" {
   }
 }
 
-variable "saml_provider_name" {
-  description = "Name for SAML identity provider"
-  type        = string
-  default     = "ExampleSAML"
-}
-
 variable "domain_name" {
   description = "Domain name for CloudFront distribution"
   type        = string

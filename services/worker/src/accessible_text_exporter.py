@@ -22,7 +22,7 @@ class AccessibleTextExporter:
         self,
         document_structure: dict[str, Any],
         alt_text_data: dict[str, Any] | None = None,
-        metadata: dict[str, Any] | None = None
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         Export document to accessible plain text with reading order preservation.
@@ -39,7 +39,9 @@ class AccessibleTextExporter:
             logger.info("Generating reading-order aware text export")
 
             # Build alt-text lookup
-            alt_text_map = self._build_alt_text_map(alt_text_data) if alt_text_data else {}
+            alt_text_map = (
+                self._build_alt_text_map(alt_text_data) if alt_text_data else {}
+            )
 
             # Extract and sort elements by reading order
             elements = document_structure.get("elements", [])
@@ -56,9 +58,7 @@ class AccessibleTextExporter:
 
             for element in ordered_elements:
                 element_text = self._process_element_for_text(
-                    element,
-                    alt_text_map,
-                    current_section_path
+                    element, alt_text_map, current_section_path
                 )
 
                 if element_text:
@@ -69,7 +69,7 @@ class AccessibleTextExporter:
                     current_section_path = self._update_section_path(
                         current_section_path,
                         element.get("text", ""),
-                        element.get("level", 1)
+                        element.get("level", 1),
                     )
 
             # Add document footer
@@ -86,9 +86,7 @@ class AccessibleTextExporter:
             raise
 
     def _build_document_header(
-        self,
-        document_structure: dict[str, Any],
-        metadata: dict[str, Any] | None = None
+        self, document_structure: dict[str, Any], metadata: dict[str, Any] | None = None
     ) -> str:
         """Build document header with accessibility metadata."""
 
@@ -96,9 +94,9 @@ class AccessibleTextExporter:
 
         # Document title
         title = (
-            document_structure.get("title") or
-            metadata.get("title") if metadata else None or
-            "Accessible Document"
+            document_structure.get("title") or metadata.get("title")
+            if metadata
+            else None or "Accessible Document"
         )
         header_parts.append(f"DOCUMENT: {title.upper()}")
         header_parts.append("=" * (len(title) + 10))
@@ -118,17 +116,19 @@ class AccessibleTextExporter:
             header_parts.append("")
 
         # Accessibility statement
-        header_parts.extend([
-            "ACCESSIBILITY INFORMATION:",
-            "- This document has been processed for screen reader accessibility",
-            "- Content is presented in logical reading order",
-            "- Images include alternative text descriptions",
-            "- Tables include structural information",
-            "",
-            "DOCUMENT CONTENT:",
-            "-" * 50,
-            ""
-        ])
+        header_parts.extend(
+            [
+                "ACCESSIBILITY INFORMATION:",
+                "- This document has been processed for screen reader accessibility",
+                "- Content is presented in logical reading order",
+                "- Images include alternative text descriptions",
+                "- Tables include structural information",
+                "",
+                "DOCUMENT CONTENT:",
+                "-" * 50,
+                "",
+            ]
+        )
 
         return "\n".join(header_parts)
 
@@ -148,7 +148,9 @@ class AccessibleTextExporter:
 
         return "\n".join(footer_parts)
 
-    def _sort_by_reading_order(self, elements: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _sort_by_reading_order(
+        self, elements: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """Sort elements by proper reading order."""
 
         # Primary sort: page number
@@ -173,7 +175,7 @@ class AccessibleTextExporter:
         self,
         element: dict[str, Any],
         alt_text_map: dict[str, str],
-        section_path: list[str]
+        section_path: list[str],
     ) -> str:
         """Process individual element for text export."""
 
@@ -284,13 +286,19 @@ class AccessibleTextExporter:
                 for col_idx, cell in enumerate(row):
                     header_ref = ""
                     if has_headers and table_data:
-                        header_ref = f" (Column: {table_data[0][col_idx]})" if col_idx < len(table_data[0]) else ""
+                        header_ref = (
+                            f" (Column: {table_data[0][col_idx]})"
+                            if col_idx < len(table_data[0])
+                            else ""
+                        )
                     text_parts.append(f"  {cell}{header_ref}")
                 text_parts.append("")
 
         return "\n".join(text_parts)
 
-    def _format_figure_for_text(self, element: dict[str, Any], alt_text_map: dict[str, str]) -> str:
+    def _format_figure_for_text(
+        self, element: dict[str, Any], alt_text_map: dict[str, str]
+    ) -> str:
         """Format figure elements for accessible text."""
 
         figure_id = element.get("id", f"figure_{element.get('page_number', 1)}")
@@ -318,25 +326,25 @@ class AccessibleTextExporter:
             return ""
 
         # Normalize whitespace
-        cleaned = re.sub(r'\s+', ' ', text.strip())
+        cleaned = re.sub(r"\s+", " ", text.strip())
 
         # Expand common abbreviations for screen readers
         abbreviations = {
-            r'\bDr\b': 'Doctor',
-            r'\bMr\b': 'Mister',
-            r'\bMrs\b': 'Missus',
-            r'\bMs\b': 'Miss',
-            r'\betc\b': 'etcetera',
-            r'\bie\b': 'that is',
-            r'\beg\b': 'for example',
-            r'\bvs\b': 'versus',
+            r"\bDr\b": "Doctor",
+            r"\bMr\b": "Mister",
+            r"\bMrs\b": "Missus",
+            r"\bMs\b": "Miss",
+            r"\betc\b": "etcetera",
+            r"\bie\b": "that is",
+            r"\beg\b": "for example",
+            r"\bvs\b": "versus",
         }
 
         for abbrev, expansion in abbreviations.items():
             cleaned = re.sub(abbrev, expansion, cleaned, flags=re.IGNORECASE)
 
         # Ensure proper sentence spacing
-        cleaned = re.sub(r'([.!?])\s*([A-Z])', r'\1 \2', cleaned)
+        cleaned = re.sub(r"([.!?])\s*([A-Z])", r"\1 \2", cleaned)
 
         return cleaned
 
@@ -352,11 +360,11 @@ class AccessibleTextExporter:
                 continue
 
             # Remove list markers and extract content
-            if re.match(r'^[•\-\*]\s+', line):
+            if re.match(r"^[•\-\*]\s+", line):
                 items.append(line[2:].strip())
-            elif re.match(r'^\d+[.\)]\s+', line):
+            elif re.match(r"^\d+[.\)]\s+", line):
                 # Remove number prefix
-                content = re.sub(r'^\d+[.\)]\s+', '', line)
+                content = re.sub(r"^\d+[.\)]\s+", "", line)
                 items.append(content)
             else:
                 # Treat as list item without explicit marker
@@ -365,21 +373,19 @@ class AccessibleTextExporter:
         return items
 
     def _update_section_path(
-        self,
-        current_path: list[str],
-        heading_text: str,
-        heading_level: int
+        self, current_path: list[str], heading_text: str, heading_level: int
     ) -> list[str]:
         """Update section path based on heading hierarchy."""
 
         # Remove sections at same or lower level
-        new_path = [section for section in current_path if section.get("level", 1) < heading_level]
+        new_path = [
+            section
+            for section in current_path
+            if section.get("level", 1) < heading_level
+        ]
 
         # Add current heading
-        new_path.append({
-            "text": heading_text,
-            "level": heading_level
-        })
+        new_path.append({"text": heading_text, "level": heading_level})
 
         return new_path
 
@@ -393,7 +399,7 @@ class AccessibleTextExporter:
         result = "\n\n".join(non_empty_parts)
 
         # Ensure no more than 2 consecutive newlines
-        result = re.sub(r'\n{3,}', '\n\n', result)
+        result = re.sub(r"\n{3,}", "\n\n", result)
 
         return result.strip()
 

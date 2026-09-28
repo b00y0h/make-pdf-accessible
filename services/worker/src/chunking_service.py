@@ -22,7 +22,7 @@ class ChunkingService:
         doc_id: str,
         document_structure: dict[str, Any],
         textract_results: dict[str, Any] | None = None,
-        alt_text_data: dict[str, Any] | None = None
+        alt_text_data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Create a complete document corpus for LLM processing.
@@ -41,15 +41,12 @@ class ChunkingService:
 
             # Extract basic metadata
             metadata = self._extract_document_metadata(
-                document_structure,
-                textract_results
+                document_structure, textract_results
             )
 
             # Create chunks from structured elements
             chunks = self._create_chunks_from_structure(
-                doc_id,
-                document_structure.get("elements", []),
-                alt_text_data
+                doc_id, document_structure.get("elements", []), alt_text_data
             )
 
             # Build section hierarchy
@@ -69,7 +66,9 @@ class ChunkingService:
                 "processingVersion": "1.0",
             }
 
-            logger.info(f"Created corpus with {len(chunks_with_hierarchy)} chunks for document {doc_id}")
+            logger.info(
+                f"Created corpus with {len(chunks_with_hierarchy)} chunks for document {doc_id}"
+            )
             return corpus
 
         except Exception as e:
@@ -79,7 +78,7 @@ class ChunkingService:
     def _extract_document_metadata(
         self,
         document_structure: dict[str, Any],
-        textract_results: dict[str, Any] | None = None
+        textract_results: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Extract enhanced metadata from document structure and Textract queries."""
 
@@ -92,12 +91,14 @@ class ChunkingService:
         if textract_results and "extracted_metadata" in textract_results:
             extracted_meta = textract_results["extracted_metadata"]
             if extracted_meta:
-                metadata.update({
-                    "author": extracted_meta.get("author"),
-                    "subject": extracted_meta.get("subject"),
-                    "keyTopics": extracted_meta.get("key_topics"),
-                    "mainHeading": extracted_meta.get("main_heading"),
-                })
+                metadata.update(
+                    {
+                        "author": extracted_meta.get("author"),
+                        "subject": extracted_meta.get("subject"),
+                        "keyTopics": extracted_meta.get("key_topics"),
+                        "mainHeading": extracted_meta.get("main_heading"),
+                    }
+                )
 
         return metadata
 
@@ -105,7 +106,7 @@ class ChunkingService:
         self,
         doc_id: str,
         elements: list[dict[str, Any]],
-        alt_text_data: dict[str, Any] | None = None
+        alt_text_data: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """Create text chunks from structured document elements."""
 
@@ -146,12 +147,14 @@ class ChunkingService:
             "table": "table",
             "figure": "figure",
             "list": "list",
-            "paragraph": "text"
+            "paragraph": "text",
         }
 
         return type_mapping.get(element_type, "text")
 
-    def _create_heading_chunk(self, doc_id: str, index: int, element: dict[str, Any]) -> dict[str, Any]:
+    def _create_heading_chunk(
+        self, doc_id: str, index: int, element: dict[str, Any]
+    ) -> dict[str, Any]:
         """Create a chunk for heading elements."""
 
         text = element.get("text", "").strip()
@@ -176,7 +179,9 @@ class ChunkingService:
             "updatedAt": datetime.utcnow(),
         }
 
-    def _create_table_chunk(self, doc_id: str, index: int, element: dict[str, Any]) -> dict[str, Any]:
+    def _create_table_chunk(
+        self, doc_id: str, index: int, element: dict[str, Any]
+    ) -> dict[str, Any]:
         """Create a chunk for table elements with structured representation."""
 
         text = element.get("text", "").strip()
@@ -206,7 +211,9 @@ class ChunkingService:
                 "hasHeaders": element.get("has_headers", False),
                 "markdownRepresentation": markdown_table,
                 "jsonRepresentation": json_representation,
-                "columnTypes": json_representation.get("structure", {}).get("column_types", []),
+                "columnTypes": json_representation.get("structure", {}).get(
+                    "column_types", []
+                ),
                 "accessibility": json_representation.get("accessibility", {}),
             },
             "extractionMethod": "textract",
@@ -220,7 +227,7 @@ class ChunkingService:
         doc_id: str,
         index: int,
         element: dict[str, Any],
-        alt_text_map: dict[str, str]
+        alt_text_map: dict[str, str],
     ) -> dict[str, Any]:
         """Create a chunk for figure elements with alt-text."""
 
@@ -260,7 +267,9 @@ class ChunkingService:
             "updatedAt": datetime.utcnow(),
         }
 
-    def _create_list_chunk(self, doc_id: str, index: int, element: dict[str, Any]) -> dict[str, Any]:
+    def _create_list_chunk(
+        self, doc_id: str, index: int, element: dict[str, Any]
+    ) -> dict[str, Any]:
         """Create a chunk for list elements."""
 
         text = element.get("text", "").strip()
@@ -285,7 +294,9 @@ class ChunkingService:
             "updatedAt": datetime.utcnow(),
         }
 
-    def _create_text_chunk(self, doc_id: str, index: int, element: dict[str, Any]) -> dict[str, Any]:
+    def _create_text_chunk(
+        self, doc_id: str, index: int, element: dict[str, Any]
+    ) -> dict[str, Any]:
         """Create a chunk for text/paragraph elements."""
 
         text = element.get("text", "").strip()
@@ -320,7 +331,9 @@ class ChunkingService:
             return [chunk]
 
         sub_chunks = []
-        text_parts = self._smart_split_text(content, self.max_chunk_size, self.chunk_overlap)
+        text_parts = self._smart_split_text(
+            content, self.max_chunk_size, self.chunk_overlap
+        )
 
         for i, part in enumerate(text_parts):
             sub_chunk = chunk.copy()
@@ -341,7 +354,7 @@ class ChunkingService:
             return [text]
 
         # Split by sentences
-        sentences = re.split(r'[.!?]+\s+', text)
+        sentences = re.split(r"[.!?]+\s+", text)
 
         chunks = []
         current_chunk = ""
@@ -386,13 +399,15 @@ class ChunkingService:
         overlap_text = text[overlap_start:]
 
         # Try to break at sentence boundary
-        sentence_match = re.search(r'[.!?]+\s+', overlap_text)
+        sentence_match = re.search(r"[.!?]+\s+", overlap_text)
         if sentence_match:
-            return overlap_text[sentence_match.end():]
+            return overlap_text[sentence_match.end() :]
 
         return overlap_text
 
-    def _build_section_hierarchy(self, chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _build_section_hierarchy(
+        self, chunks: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """Build section path hierarchy for all chunks."""
 
         current_sections = []
@@ -407,10 +422,7 @@ class ChunkingService:
                 current_sections = [s for s in current_sections if s["level"] < level]
 
                 # Add this heading as new section
-                current_sections.append({
-                    "level": level,
-                    "text": heading_text
-                })
+                current_sections.append({"level": level, "text": heading_text})
 
                 # Set section path for heading itself
                 chunk["sectionPath"] = [s["text"] for s in current_sections]
@@ -421,7 +433,9 @@ class ChunkingService:
 
         return chunks
 
-    def _build_alt_text_map(self, alt_text_data: dict[str, Any] | None) -> dict[str, str]:
+    def _build_alt_text_map(
+        self, alt_text_data: dict[str, Any] | None
+    ) -> dict[str, str]:
         """Build map of figure IDs to approved alt-text."""
 
         alt_text_map = {}
@@ -479,17 +493,17 @@ class ChunkingService:
             return ""
 
         # Remove excessive whitespace
-        text = re.sub(r'\s+', ' ', text.strip())
+        text = re.sub(r"\s+", " ", text.strip())
 
         # Remove or normalize special characters that might confuse LLMs
-        text = re.sub(r'[^\w\s\.,;:!?\-\'\"()[\]{}]', ' ', text)
+        text = re.sub(r"[^\w\s\.,;:!?\-\'\"()[\]{}]", " ", text)
 
         # Remove excessive punctuation
-        text = re.sub(r'[.,;]{3,}', '...', text)
+        text = re.sub(r"[.,;]{3,}", "...", text)
 
         # Normalize quotes
         text = re.sub(r'[""]', '"', text)
-        text = re.sub(r'['']', "'", text)
+        text = re.sub(r"[" "]", "'", text)
 
         return text.strip()
 
@@ -497,11 +511,11 @@ class ChunkingService:
         """Detect if text contains code snippets."""
 
         code_indicators = [
-            r'\b(function|class|def|public|private|protected)\b',
-            r'\b(import|include|require|from)\b',
-            r'[{}();]',
-            r'\/\/|\/\*|\*\/',
-            r'=>|->|<-',
+            r"\b(function|class|def|public|private|protected)\b",
+            r"\b(import|include|require|from)\b",
+            r"[{}();]",
+            r"\/\/|\/\*|\*\/",
+            r"=>|->|<-",
         ]
 
         for pattern in code_indicators:
@@ -513,11 +527,11 @@ class ChunkingService:
         """Detect if text contains mathematical expressions."""
 
         math_indicators = [
-            r'[∀∃∄∅∆∇∈∉∋∌∏∑∫∬∭]',  # Math symbols
-            r'[αβγδεζηθικλμνξοπρστυφχψω]',  # Greek letters
-            r'\b(equation|formula|theorem|proof|lemma)\b',
-            r'[₀₁₂₃₄₅₆₇₈₉]|[⁰¹²³⁴⁵⁶⁷⁸⁹]',  # Sub/superscripts
-            r'\$.*?\$',  # LaTeX math
+            r"[∀∃∄∅∆∇∈∉∋∌∏∑∫∬∭]",  # Math symbols
+            r"[αβγδεζηθικλμνξοπρστυφχψω]",  # Greek letters
+            r"\b(equation|formula|theorem|proof|lemma)\b",
+            r"[₀₁₂₃₄₅₆₇₈₉]|[⁰¹²³⁴⁵⁶⁷⁸⁹]",  # Sub/superscripts
+            r"\$.*?\$",  # LaTeX math
         ]
 
         for pattern in math_indicators:
@@ -529,9 +543,9 @@ class ChunkingService:
         """Detect if text contains URLs or email addresses."""
 
         link_patterns = [
-            r'https?://[^\s]+',
-            r'www\.[^\s]+',
-            r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}',
+            r"https?://[^\s]+",
+            r"www\.[^\s]+",
+            r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
         ]
 
         for pattern in link_patterns:
@@ -551,17 +565,23 @@ class ChunkingService:
         # Check if we have structured table data
         table_data = element.get("table_data")
         if table_data:
-            return self._build_markdown_table(table_data, element.get("has_headers", False))
+            return self._build_markdown_table(
+                table_data, element.get("has_headers", False)
+            )
 
         # Fall back to parsing from text content if available
         text = element.get("text", "")
         if text:
-            return self._parse_table_from_text(text, rows, cols, element.get("has_headers", False))
+            return self._parse_table_from_text(
+                text, rows, cols, element.get("has_headers", False)
+            )
 
         # Final fallback - basic placeholder
         return f"| Table ({rows}x{cols}) |\n|{'---|' * cols}\n| Content not available |"
 
-    def _build_markdown_table(self, table_data: list[list[str]], has_headers: bool = False) -> str:
+    def _build_markdown_table(
+        self, table_data: list[list[str]], has_headers: bool = False
+    ) -> str:
         """Build markdown table from structured data."""
 
         if not table_data:
@@ -579,7 +599,11 @@ class ChunkingService:
                     # Clean cell content for markdown
                     cell_str = str(cell).strip()
                     # Escape markdown special characters in table cells
-                    cell_str = cell_str.replace("|", "\\|").replace("\n", " ").replace("\r", "")
+                    cell_str = (
+                        cell_str.replace("|", "\\|")
+                        .replace("\n", " ")
+                        .replace("\r", "")
+                    )
                     cleaned_cells.append(cell_str)
 
             # Build table row
@@ -593,7 +617,9 @@ class ChunkingService:
 
         return "\n".join(markdown_rows)
 
-    def _parse_table_from_text(self, text: str, rows: int, cols: int, has_headers: bool = False) -> str:
+    def _parse_table_from_text(
+        self, text: str, rows: int, cols: int, has_headers: bool = False
+    ) -> str:
         """Parse table structure from raw text content."""
 
         # Attempt to identify table structure from text
@@ -608,15 +634,15 @@ class ChunkingService:
 
         for line in table_lines:
             # Look for patterns that suggest tabular data
-            if any(separator in line for separator in ['\t', '  ', '|']):
+            if any(separator in line for separator in ["\t", "  ", "|"]):
                 # Split on common separators
-                if '\t' in line:
-                    cells = line.split('\t')
-                elif '|' in line:
-                    cells = [cell.strip() for cell in line.split('|') if cell.strip()]
+                if "\t" in line:
+                    cells = line.split("\t")
+                elif "|" in line:
+                    cells = [cell.strip() for cell in line.split("|") if cell.strip()]
                 else:
                     # Split on multiple spaces
-                    cells = [cell.strip() for cell in line.split('  ') if cell.strip()]
+                    cells = [cell.strip() for cell in line.split("  ") if cell.strip()]
 
                 if len(cells) >= 2:  # At least 2 columns for a table
                     potential_rows.append(cells)
@@ -632,7 +658,9 @@ class ChunkingService:
 | {text[:200]}... |
 """
 
-    def _enhance_table_json_representation(self, element: dict[str, Any]) -> dict[str, Any]:
+    def _enhance_table_json_representation(
+        self, element: dict[str, Any]
+    ) -> dict[str, Any]:
         """Create enhanced JSON representation for complex tables."""
 
         table_json = {
@@ -650,7 +678,7 @@ class ChunkingService:
                 "has_caption": bool(element.get("caption")),
                 "has_summary": bool(element.get("summary")),
                 "header_scope": "col" if element.get("has_headers") else None,
-            }
+            },
         }
 
         # Add structured data if available
@@ -658,13 +686,21 @@ class ChunkingService:
         if table_data:
             table_json["data"] = {
                 "rows": table_data,
-                "headers": table_data[0] if element.get("has_headers") and table_data else None,
-                "body": table_data[1:] if element.get("has_headers") and len(table_data) > 1 else table_data,
+                "headers": (
+                    table_data[0] if element.get("has_headers") and table_data else None
+                ),
+                "body": (
+                    table_data[1:]
+                    if element.get("has_headers") and len(table_data) > 1
+                    else table_data
+                ),
             }
 
             # Analyze column types
             if table_data and len(table_data) > 1:
-                column_types = self._analyze_column_types(table_data, element.get("has_headers", False))
+                column_types = self._analyze_column_types(
+                    table_data, element.get("has_headers", False)
+                )
                 table_json["structure"]["column_types"] = column_types
 
         # Add relationships to other elements
@@ -676,7 +712,9 @@ class ChunkingService:
 
         return table_json
 
-    def _analyze_column_types(self, table_data: list[list[str]], has_headers: bool = False) -> list[dict[str, Any]]:
+    def _analyze_column_types(
+        self, table_data: list[list[str]], has_headers: bool = False
+    ) -> list[dict[str, Any]]:
         """Analyze column data types and patterns."""
 
         if not table_data or len(table_data) < 2:
@@ -722,10 +760,30 @@ class ChunkingService:
                     pass
 
                 # Check if date-like
-                if any(pattern in value.lower() for pattern in ["jan", "feb", "mar", "apr", "may", "jun",
-                                                               "jul", "aug", "sep", "oct", "nov", "dec",
-                                                               "monday", "tuesday", "wednesday", "thursday",
-                                                               "friday", "saturday", "sunday"]):
+                if any(
+                    pattern in value.lower()
+                    for pattern in [
+                        "jan",
+                        "feb",
+                        "mar",
+                        "apr",
+                        "may",
+                        "jun",
+                        "jul",
+                        "aug",
+                        "sep",
+                        "oct",
+                        "nov",
+                        "dec",
+                        "monday",
+                        "tuesday",
+                        "wednesday",
+                        "thursday",
+                        "friday",
+                        "saturday",
+                        "sunday",
+                    ]
+                ):
                     date_count += 1
                 elif any(char in value for char in ["/", "-"]) and len(value) >= 6:
                     date_count += 1

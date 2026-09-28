@@ -21,9 +21,7 @@ class ReviewService:
         self.confidence_threshold = 0.8  # Default threshold for auto-approval
 
     def evaluate_confidence_scores(
-        self,
-        doc_id: str,
-        ai_confidence_scores: dict[str, float]
+        self, doc_id: str, ai_confidence_scores: dict[str, float]
     ) -> dict[str, Any]:
         """
         Evaluate AI confidence scores and determine if human review is needed.
@@ -69,15 +67,19 @@ class ReviewService:
 
                     # Check if below threshold
                     if score < self.confidence_threshold:
-                        low_confidence_areas.append({
-                            "area": area,
-                            "score": score,
-                            "threshold": self.confidence_threshold,
-                            "weight": weight
-                        })
+                        low_confidence_areas.append(
+                            {
+                                "area": area,
+                                "score": score,
+                                "threshold": self.confidence_threshold,
+                                "weight": weight,
+                            }
+                        )
 
             # Calculate overall confidence
-            overall_confidence = total_weighted_score / total_weight if total_weight > 0 else 0.0
+            overall_confidence = (
+                total_weighted_score / total_weight if total_weight > 0 else 0.0
+            )
             review_assessment["overallConfidence"] = overall_confidence
             review_assessment["lowConfidenceAreas"] = low_confidence_areas
 
@@ -94,8 +96,8 @@ class ReviewService:
                     review_assessment["reviewPriority"] = "low"
 
                 # Generate recommendations
-                review_assessment["reviewRecommendations"] = self._generate_review_recommendations(
-                    low_confidence_areas
+                review_assessment["reviewRecommendations"] = (
+                    self._generate_review_recommendations(low_confidence_areas)
                 )
 
             logger.info(
@@ -111,8 +113,7 @@ class ReviewService:
             raise
 
     def _generate_review_recommendations(
-        self,
-        low_confidence_areas: list[dict[str, Any]]
+        self, low_confidence_areas: list[dict[str, Any]]
     ) -> list[str]:
         """Generate specific review recommendations based on low confidence areas."""
 
@@ -166,7 +167,7 @@ class ReviewService:
         review_assessment: dict[str, Any],
         document_data: dict[str, Any],
         flow_definition_arn: str,
-        review_team_arn: str
+        review_team_arn: str,
     ) -> str | None:
         """
         Create an Amazon A2I human review job for low-confidence results.
@@ -187,24 +188,30 @@ class ReviewService:
                 "docId": doc_id,
                 "reviewAssessment": review_assessment,
                 "documentPreview": {
-                    "title": document_data.get("metadata", {}).get("title", "Untitled Document"),
+                    "title": document_data.get("metadata", {}).get(
+                        "title", "Untitled Document"
+                    ),
                     "pageCount": document_data.get("metadata", {}).get("pageCount", 0),
                     "author": document_data.get("metadata", {}).get("author"),
                     "subject": document_data.get("metadata", {}).get("subject"),
                 },
-                "reviewInstructions": self._generate_review_instructions(review_assessment),
+                "reviewInstructions": self._generate_review_instructions(
+                    review_assessment
+                ),
                 "priority": review_assessment.get("reviewPriority", "low"),
             }
 
             # Save review data to S3 for A2I access
-            review_s3_key = f"review/{doc_id}/review_data_{int(datetime.utcnow().timestamp())}.json"
+            review_s3_key = (
+                f"review/{doc_id}/review_data_{int(datetime.utcnow().timestamp())}.json"
+            )
 
             bucket_name = "pdf-derivatives"  # Use appropriate bucket
             self.s3.put_object(
                 Bucket=bucket_name,
                 Key=review_s3_key,
                 Body=json.dumps(review_data, default=str),
-                ContentType="application/json"
+                ContentType="application/json",
             )
 
             # Create A2I human review job
@@ -213,12 +220,10 @@ class ReviewService:
             response = self.sagemaker.start_human_loop(
                 HumanLoopName=job_name,
                 FlowDefinitionArn=flow_definition_arn,
-                HumanLoopInput={
-                    "InputContent": json.dumps(review_data)
-                },
+                HumanLoopInput={"InputContent": json.dumps(review_data)},
                 DataAttributes={
                     "ContentClassifiers": ["FreeOfPersonallyIdentifiableInformation"]
-                }
+                },
             )
 
             review_job_arn = response.get("HumanLoopArn")
@@ -234,8 +239,7 @@ class ReviewService:
             return None
 
     def _generate_review_instructions(
-        self,
-        review_assessment: dict[str, Any]
+        self, review_assessment: dict[str, Any]
     ) -> dict[str, Any]:
         """Generate specific instructions for human reviewers."""
 
@@ -252,11 +256,13 @@ class ReviewService:
             area = area_data["area"]
             score = area_data["score"]
 
-            instructions["specificAreas"].append({
-                "area": area,
-                "confidence": score,
-                "description": self._get_area_description(area)
-            })
+            instructions["specificAreas"].append(
+                {
+                    "area": area,
+                    "confidence": score,
+                    "description": self._get_area_description(area),
+                }
+            )
 
         # Add recommended tasks
         instructions["tasks"] = review_assessment.get("reviewRecommendations", [])
@@ -273,7 +279,7 @@ class ReviewService:
             "tableStructure": "Table structure and accessibility",
             "contentClassification": "Content type identification",
             "metadataExtraction": "Document metadata extraction",
-            "readingOrder": "Logical reading order"
+            "readingOrder": "Logical reading order",
         }
 
         return descriptions.get(area, area.replace("_", " ").title())
@@ -292,9 +298,7 @@ class ReviewService:
             # Extract job name from ARN
             job_name = review_job_arn.split("/")[-1]
 
-            response = self.sagemaker.describe_human_loop(
-                HumanLoopName=job_name
-            )
+            response = self.sagemaker.describe_human_loop(HumanLoopName=job_name)
 
             status_info = {
                 "status": response.get("HumanLoopStatus"),
@@ -307,7 +311,9 @@ class ReviewService:
                 output_location = response.get("HumanLoopOutput", {}).get("OutputS3Uri")
                 if output_location:
                     status_info["outputLocation"] = output_location
-                    status_info["reviewResults"] = self._load_review_results(output_location)
+                    status_info["reviewResults"] = self._load_review_results(
+                        output_location
+                    )
 
             return status_info
 
@@ -334,9 +340,7 @@ class ReviewService:
         return None
 
     def process_review_completion(
-        self,
-        doc_id: str,
-        review_results: dict[str, Any]
+        self, doc_id: str, review_results: dict[str, Any]
     ) -> bool:
         """
         Process completed human review and update document accordingly.

@@ -13,11 +13,13 @@ with pdfplumber.open(pdf_path) as pdf:
         print(f"\nPage {page_num}:")
 
         # Check for images
-        if hasattr(page, 'images'):
+        if hasattr(page, "images"):
             print(f"  Images found: {len(page.images) if page.images else 0}")
             if page.images:
                 for idx, img in enumerate(page.images):
-                    print(f"    Image {idx}: bbox={img.get('bbox', 'N/A')}, size={img.get('width', 0)}x{img.get('height', 0)}")
+                    print(
+                        f"    Image {idx}: bbox={img.get('bbox', 'N/A')}, size={img.get('width', 0)}x{img.get('height', 0)}"
+                    )
 
         # Check for tables
         tables = page.extract_tables()
@@ -25,7 +27,9 @@ with pdfplumber.open(pdf_path) as pdf:
         if tables:
             for idx, table in enumerate(tables):
                 if table:
-                    print(f"    Table {idx}: {len(table)} rows x {len(table[0]) if table else 0} columns")
+                    print(
+                        f"    Table {idx}: {len(table)} rows x {len(table[0]) if table else 0} columns"
+                    )
 
 # Test with PyMuPDF
 print("\n=== PYMUPDF (fitz) ===")
