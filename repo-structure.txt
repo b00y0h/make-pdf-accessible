@@ -217,7 +217,7 @@
 │   │   └── sample_document_structure.json
 │   └── test_pipeline_integration.py
 ├── tsconfig.json
-├── vitest.workspace.ts
+├── vitest.config.ts
 └── [1;36mweb[0m
     ├── Dockerfile
     ├── [1;36m__tests__[0m
