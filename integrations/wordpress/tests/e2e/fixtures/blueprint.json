@@ -1,0 +1,27 @@
+{
+  "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+  "landingPage": "/",
+  "steps": [
+    {
+      "step": "defineWpConfigConsts",
+      "consts": {
+        "ACCESSPDF_E2E": true,
+        "WP_HTTP_BLOCK_EXTERNAL": true,
+        "DISABLE_WP_CRON": true,
+        "AUTOMATIC_UPDATER_DISABLED": true
+      }
+    },
+    {
+      "step": "setSiteOptions",
+      "options": { "permalink_structure": "/%postname%/" }
+    },
+    {
+      "step": "activatePlugin",
+      "pluginPath": "/wordpress/wp-content/plugins/accesspdf/accesspdf-plugin.php"
+    },
+    {
+      "step": "runPHP",
+      "code": "<?php require '/wordpress/wp-load.php'; require '/wordpress/wp-content/plugins/accesspdf/tests/e2e/fixtures/seed.php';"
+    }
+  ]
+}
