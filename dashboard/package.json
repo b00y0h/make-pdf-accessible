@@ -20,9 +20,6 @@
     "test:coverage:check": "jest --coverage --coverageThreshold='{}' --passWithNoTests",
     "test:watch": "jest --watch --testPathPattern=tests/unit",
     "seed:admin": "tsx ../packages/scripts/seed-admin-mongo.ts",
-    "db:generate": "prisma generate",
-    "db:push": "prisma db push",
-    "db:migrate": "prisma migrate dev",
     "db:auth:migrate": "better-auth migrate --config src/lib/auth-server.ts --yes"
   },
   "dependencies": {
@@ -30,7 +27,6 @@
     "@aws-sdk/client-athena": "^3.1141.0",
     "@aws-sdk/client-cost-explorer": "^3.1141.0",
     "@headlessui/react": "^2.2.10",
-    "@prisma/client": "^6.19.3",
     "@radix-ui/react-alert-dialog": "^1.1.23",
     "@radix-ui/react-avatar": "^1.2.6",
     "@radix-ui/react-checkbox": "^1.3.11",
@@ -74,7 +70,6 @@
     "next": "^15.5.26",
     "pg": "^8.23.0",
     "postcss": "^8.5.28",
-    "prisma": "^6.19.3",
     "react": "19.3.0",
     "react-day-picker": "^9.14.0",
     "react-dom": "19.3.0",
