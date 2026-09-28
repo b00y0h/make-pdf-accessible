@@ -4,7 +4,7 @@ import pytest
 from app.auth import CognitoJWTBearer, JWKSClient, User, get_current_user
 from app.models import UserRole
 from fastapi import HTTPException
-from jose import JWTError
+from jwt import InvalidTokenError
 
 
 class TestUser:
@@ -269,7 +269,7 @@ class TestGetCurrentUser:
         )
 
         with patch("app.auth.jwt.get_unverified_claims") as mock_claims:
-            mock_claims.side_effect = JWTError("Invalid token")
+            mock_claims.side_effect = InvalidTokenError("Invalid token")
 
             with pytest.raises(HTTPException) as exc_info:
                 await get_current_user(mock_credentials)

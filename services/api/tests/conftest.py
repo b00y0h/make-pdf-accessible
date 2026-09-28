@@ -1,11 +1,17 @@
 import os
+import sys
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import boto3
 import pytest
-from app.main import app
 from fastapi.testclient import TestClient
 from moto import mock_aws
+
+# The API imports services.shared.*, which lives at the repository root.
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
+from app.main import app  # noqa: E402
 
 
 # Test settings

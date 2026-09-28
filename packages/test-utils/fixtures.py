@@ -126,13 +126,11 @@ async def _clean_postgres_database(container: DatabaseTestContainer) -> None:
     pool = await container.get_connection_pool()
     async with pool.acquire() as conn:
         # Drop all tables in the public schema
-        await conn.execute(
-            """
+        await conn.execute("""
             DROP SCHEMA public CASCADE;
             CREATE SCHEMA public;
             GRANT ALL ON SCHEMA public TO public;
-        """
-        )
+        """)
 
 
 @pytest.fixture
