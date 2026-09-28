@@ -136,3 +136,9 @@ celerybeat.pid
 tmp/
 temp/
 .sst/
+
+# Terraform plan output and generated layer archives
+tfplan
+*.tfplan
+plan_output.txt
+infra/terraform/*.zip

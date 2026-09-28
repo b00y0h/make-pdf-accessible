@@ -35,6 +35,11 @@ output "s3_bucket_pdf_reports" {
   value       = aws_s3_bucket.pdf_reports.id
 }
 
+output "s3_bucket_pdf_accessible" {
+  description = "Name of the S3 bucket holding remediated outputs and evidence packs"
+  value       = aws_s3_bucket.pdf_accessible.bucket
+}
+
 output "s3_bucket_web_assets" {
   description = "Name of the S3 bucket for web assets"
   value       = aws_s3_bucket.web_assets.id
@@ -244,6 +249,11 @@ output "step_functions_state_machine_arn" {
   value       = aws_sfn_state_machine.pdf_processing.arn
 }
 
+output "step_functions_state_machine_name" {
+  description = "Name of the PDF processing Step Functions state machine"
+  value       = aws_sfn_state_machine.pdf_processing.name
+}
+
 # KMS Outputs
 output "kms_s3_key_id" {
   description = "ID of the S3 KMS key"
@@ -264,19 +274,19 @@ output "kms_sqs_key_id" {
 output "environment_config" {
   description = "Environment configuration for applications"
   value = {
-    region                  = var.aws_region
-    project_name           = var.project_name
-    environment            = var.environment
-    vpc_id                 = aws_vpc.main.id
-    private_subnet_ids     = aws_subnet.private[*].id
-    api_gateway_url        = aws_apigatewayv2_api.main.api_endpoint
-    api_lambda_function    = aws_lambda_function.api.function_name
-    cognito_user_pool_id   = aws_cognito_user_pool.main.id
-    cognito_client_id      = aws_cognito_user_pool_client.web_client.id
-    cognito_domain         = aws_cognito_user_pool_domain.main.domain
-    webhook_secret_param   = aws_ssm_parameter.webhook_secret.name
-    web_app_url           = var.domain_name != "" && var.certificate_arn != "" ? "https://${var.domain_name}" : "https://${aws_cloudfront_distribution.web.domain_name}"
-    lambda_function_url   = var.use_lambda_function_url ? aws_lambda_function_url.api[0].function_url : null
+    region               = var.aws_region
+    project_name         = var.project_name
+    environment          = var.environment
+    vpc_id               = aws_vpc.main.id
+    private_subnet_ids   = aws_subnet.private[*].id
+    api_gateway_url      = aws_apigatewayv2_api.main.api_endpoint
+    api_lambda_function  = aws_lambda_function.api.function_name
+    cognito_user_pool_id = aws_cognito_user_pool.main.id
+    cognito_client_id    = aws_cognito_user_pool_client.web_client.id
+    cognito_domain       = aws_cognito_user_pool_domain.main.domain
+    webhook_secret_param = aws_ssm_parameter.webhook_secret.name
+    web_app_url          = var.domain_name != "" && var.certificate_arn != "" ? "https://${var.domain_name}" : "https://${aws_cloudfront_distribution.web.domain_name}"
+    lambda_function_url  = var.use_lambda_function_url ? aws_lambda_function_url.api[0].function_url : null
   }
   sensitive = false
 }
@@ -313,9 +323,9 @@ output "resource_names" {
 output "application_urls" {
   value = {
     marketing_site = "https://makepdfaccessible.com"
-    www_site      = "https://www.makepdfaccessible.com"
-    dashboard     = "https://dashboard.makepdfaccessible.com"
-    api          = "https://api.makepdfaccessible.com"
+    www_site       = "https://www.makepdfaccessible.com"
+    dashboard      = "https://dashboard.makepdfaccessible.com"
+    api            = "https://api.makepdfaccessible.com"
   }
   description = "Application URLs after DNS configuration"
 }
@@ -324,9 +334,9 @@ output "application_urls" {
 output "cloudfront_distributions_domains" {
   value = {
     marketing = {
-      id          = aws_cloudfront_distribution.marketing.id
-      domain_name = aws_cloudfront_distribution.marketing.domain_name
-      status      = aws_cloudfront_distribution.marketing.status
+      id          = module.marketing_site.distribution_id
+      domain_name = module.marketing_site.distribution_domain_name
+      bucket      = module.marketing_site.bucket_name
     }
     dashboard = {
       id          = aws_cloudfront_distribution.dashboard.id
@@ -340,13 +350,13 @@ output "cloudfront_distributions_domains" {
 # Certificate ARNs (from domains.tf)
 output "certificates" {
   value = {
-    cloudfront_cert_arn = aws_acm_certificate.main.arn
+    cloudfront_cert_arn    = aws_acm_certificate.main.arn
     cloudfront_cert_status = aws_acm_certificate.main.status
-    api_cert_arn = aws_acm_certificate.api_regional.arn
-    api_cert_status = aws_acm_certificate.api_regional.status
+    api_cert_arn           = aws_acm_certificate.api_regional.arn
+    api_cert_status        = aws_acm_certificate.api_regional.status
   }
   description = "SSL certificate information"
-  sensitive = false
+  sensitive   = false
 }
 
 output "cognito_user_pool_arn" {
@@ -379,10 +389,10 @@ output "cognito_hosted_ui_url" {
 output "auth_urls" {
   description = "Authentication-related URLs for frontend configuration"
   value = {
-    login_url = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${data.aws_region.current.name}.amazoncognito.com/sign-in?client_id=${aws_cognito_user_pool_client.web_client.id}&response_type=code&scope=email+openid+profile+aws.cognito.signin.user.admin&redirect_uri="
+    login_url  = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${data.aws_region.current.name}.amazoncognito.com/sign-in?client_id=${aws_cognito_user_pool_client.web_client.id}&response_type=code&scope=email+openid+profile+aws.cognito.signin.user.admin&redirect_uri="
     logout_url = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${data.aws_region.current.name}.amazoncognito.com/logout?client_id=${aws_cognito_user_pool_client.web_client.id}&logout_uri="
-    token_url = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${data.aws_region.current.name}.amazoncognito.com/oauth2/token"
-    jwks_url = "https://cognito-idp.${data.aws_region.current.name}.amazonaws.com/${aws_cognito_user_pool.main.id}/.well-known/jwks.json"
+    token_url  = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${data.aws_region.current.name}.amazoncognito.com/oauth2/token"
+    jwks_url   = "https://cognito-idp.${data.aws_region.current.name}.amazonaws.com/${aws_cognito_user_pool.main.id}/.well-known/jwks.json"
   }
 }
 

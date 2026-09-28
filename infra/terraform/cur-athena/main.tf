@@ -16,27 +16,27 @@ terraform {
 locals {
   name_prefix = var.name_prefix
   environment = var.environment
-  
+
   # Common tags applied to all resources
   common_tags = merge(var.additional_tags, {
-    Environment   = var.environment
-    Project       = "AccessPDF-CostsDashboard"
-    Component     = "CUR-Athena"
-    ManagedBy     = "Terraform"
-    Application   = "cost-analytics"
+    Environment = var.environment
+    Project     = "AccessPDF-CostsDashboard"
+    Component   = "CUR-Athena"
+    ManagedBy   = "Terraform"
+    Application = "cost-analytics"
   })
-  
+
   # CUR report configuration
   cur_report_name = "${local.name_prefix}-cur-report"
-  
+
   # S3 bucket names (must be globally unique)
-  cur_bucket_name     = "${local.name_prefix}-cur-data-${random_id.bucket_suffix.hex}"
-  athena_bucket_name  = "${local.name_prefix}-athena-results-${random_id.bucket_suffix.hex}"
-  
+  cur_bucket_name    = "${local.name_prefix}-cur-data-${random_id.bucket_suffix.hex}"
+  athena_bucket_name = "${local.name_prefix}-athena-results-${random_id.bucket_suffix.hex}"
+
   # Glue database and table names
   glue_database_name = "${local.name_prefix}_cost_analytics"
   glue_table_name    = "${local.name_prefix}_cur_table"
-  
+
   # Athena workgroup name
   athena_workgroup_name = "${local.name_prefix}-cost-analytics"
 }
@@ -147,7 +147,7 @@ resource "aws_s3_bucket_policy" "cur_data" {
         Principal = {
           Service = "billingreports.amazonaws.com"
         }
-        Action = "s3:PutObject"
+        Action   = "s3:PutObject"
         Resource = "${aws_s3_bucket.cur_data.arn}/*"
         Condition = {
           StringEquals = {
@@ -214,19 +214,19 @@ resource "aws_s3_bucket_lifecycle_configuration" "athena_results" {
 
 # Cost and Usage Report definition
 resource "aws_cur_report_definition" "main" {
-  report_name          = local.cur_report_name
-  time_unit            = "HOURLY"
-  format               = "Parquet"
-  compression          = "GZIP"
+  report_name                = local.cur_report_name
+  time_unit                  = "HOURLY"
+  format                     = "Parquet"
+  compression                = "GZIP"
   additional_schema_elements = ["RESOURCES"]
-  s3_bucket            = aws_s3_bucket.cur_data.bucket
-  s3_prefix            = "cur-data"
-  s3_region            = data.aws_region.current.name
-  additional_artifacts = ["ATHENA"]
-  
+  s3_bucket                  = aws_s3_bucket.cur_data.bucket
+  s3_prefix                  = "cur-data"
+  s3_region                  = data.aws_region.current.name
+  additional_artifacts       = ["ATHENA"]
+
   # Enable refresh for closed reports
   refresh_closed_reports = true
-  
+
   # Report versioning for schema changes
   report_versioning = "OVERWRITE_REPORT"
 

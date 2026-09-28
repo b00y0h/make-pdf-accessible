@@ -10,10 +10,11 @@ aws_region   = "us-east-1"
 github_repo = "your-github-username/make-pdf-accessible"
 
 # Domain Configuration
-# Note: The domain is hardcoded in domains.tf as makepdfaccessible.com
-# These variables are for backwards compatibility
-domain_name     = "makepdfaccessible.com"
-certificate_arn = ""  # Leave empty - will be created automatically
+# root_domain is served directly in production; other environments use <environment>.<root_domain>
+# (see domains.tf). Per-environment values live in environments/<env>.tfvars.
+root_domain     = "makepdfaccessible.com"
+domain_name     = ""  # legacy (web distribution alias); leave empty
+certificate_arn = ""  # Leave empty - certificates are created by domains.tf
 
 # Security
 enable_waf = true  # Enable AWS WAF for CloudFront distributions

@@ -67,7 +67,7 @@ output "monthly_costs_query_name" {
 }
 
 output "costs_by_tag_query_name" {
-  description = "Name of the costs by tag named query"  
+  description = "Name of the costs by tag named query"
   value       = aws_athena_named_query.costs_by_tag.name
 }
 
@@ -85,10 +85,10 @@ output "resource_level_costs_query_name" {
 output "application_config" {
   description = "Configuration values needed by the application"
   value = {
-    athena_workgroup        = aws_athena_workgroup.cost_analytics.name
-    athena_database         = aws_glue_catalog_database.cost_analytics.name
-    athena_table           = aws_glue_catalog_table.cur_table.name
-    athena_results_bucket  = aws_s3_bucket.athena_results.bucket
+    athena_workgroup      = aws_athena_workgroup.cost_analytics.name
+    athena_database       = aws_glue_catalog_database.cost_analytics.name
+    athena_table          = aws_glue_catalog_table.cur_table.name
+    athena_results_bucket = aws_s3_bucket.athena_results.bucket
     cur_bucket            = aws_s3_bucket.cur_data.bucket
     execution_role_arn    = aws_iam_role.athena_execution.arn
   }

@@ -58,6 +58,17 @@ resource "aws_s3_bucket" "pdf_reports" {
   })
 }
 
+# S3 Bucket: Accessible outputs (tagged PDFs, HTML exports, evidence packs)
+resource "aws_s3_bucket" "pdf_accessible" {
+  bucket = "${local.name_prefix}-pdf-accessible-${local.name_suffix}"
+
+  tags = merge(local.common_tags, {
+    Name      = "${local.name_prefix}-pdf-accessible"
+    Purpose   = "Store remediated PDFs, HTML exports and evidence packs"
+    DataClass = "processed"
+  })
+}
+
 # S3 Bucket: Web Assets
 resource "aws_s3_bucket" "web_assets" {
   bucket = "${local.name_prefix}-web-assets-${local.name_suffix}"
@@ -282,6 +293,61 @@ resource "aws_s3_bucket_lifecycle_configuration" "pdf_reports" {
     transition {
       days          = 365
       storage_class = "GLACIER"
+    }
+  }
+}
+
+# S3 Bucket Configurations - Accessible outputs
+resource "aws_s3_bucket_server_side_encryption_configuration" "pdf_accessible" {
+  bucket = aws_s3_bucket.pdf_accessible.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      kms_master_key_id = aws_kms_key.s3.arn
+      sse_algorithm     = "aws:kms"
+    }
+    bucket_key_enabled = true
+  }
+}
+
+resource "aws_s3_bucket_versioning" "pdf_accessible" {
+  bucket = aws_s3_bucket.pdf_accessible.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "pdf_accessible" {
+  bucket = aws_s3_bucket.pdf_accessible.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "pdf_accessible" {
+  bucket = aws_s3_bucket.pdf_accessible.id
+
+  rule {
+    id     = "transition_to_ia"
+    status = "Enabled"
+
+    filter {
+      prefix = ""
+    }
+
+    transition {
+      days          = 90
+      storage_class = "STANDARD_IA"
+    }
+
+    noncurrent_version_expiration {
+      noncurrent_days = 90
+    }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
     }
   }
 }

@@ -45,13 +45,3 @@ resource "aws_cloudwatch_log_group" "step_functions" {
   tags = local.common_tags
 }
 
-# Outputs
-output "step_functions_state_machine_arn" {
-  description = "ARN of the PDF processing Step Functions state machine"
-  value       = aws_sfn_state_machine.pdf_processing.arn
-}
-
-output "step_functions_state_machine_name" {
-  description = "Name of the PDF processing Step Functions state machine"
-  value       = aws_sfn_state_machine.pdf_processing.name
-}
