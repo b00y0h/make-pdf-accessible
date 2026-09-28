@@ -106,11 +106,81 @@ Known issues, not yet fixed:
 - The returned document ID is never saved on the attachment, so the completion webhook can't update its status.
 - The webhook doesn't verify a signature.
 
+Status and error messages go to the `accesspdf_log` action (message as the first argument) instead of the PHP error log, so a logging plugin can pick them up.
+
 ## Tests
 
-These tests run with plain PHP (no WordPress needed):
+### Unit tests
+
+Plain PHP, no WordPress needed:
 
 ```bash
 php integrations/wordpress/tests/markdown-test.php       # Markdown converter and Accept header logic
 php integrations/wordpress/tests/pdf-inventory-test.php  # PDF checker, link extraction, CSV safety
 ```
+
+### End-to-end tests
+
+`tests/e2e` runs the plugin in a real WordPress, with no Docker, database or manual setup. [WordPress Playground](https://wordpress.github.io/wordpress-playground/developers/local-development/wp-playground-cli) runs WordPress and PHP (compiled to WebAssembly) inside Node, and [Playwright](https://playwright.dev) drives it. Each run starts a fresh site from `fixtures/blueprint.json`, which activates the plugin and seeds test content (`fixtures/seed.php`): pages in each publishing state, PDFs that are tagged, untagged, scanned, encrypted and linked in different ways, and a subscriber account.
+
+Needs Node 20.18 or newer.
+
+```bash
+cd integrations/wordpress/tests/e2e
+npm ci
+npx playwright install chromium   # once
+
+npm test                                  # latest WordPress, PHP 8.3 (about 2 minutes)
+WP_VERSION=6.5 PHP_VERSION=7.4 npm test   # a specific combination
+npm run matrix                            # every required combination in matrix.json, 3 at a time
+npm run matrix -- --all                   # also the experimental ones (nightly WordPress, newest PHP)
+npm run matrix -- 7.1:8.3 6.8:8.1         # chosen combinations
+```
+
+The specs cover Markdown responses and headers, which content is never served, the inventory scan, summary and CSV export, the admin screens in a browser, and an automated WCAG 2.2 A and AA check (axe) of the plugin's admin screens.
+
+While developing, `npm run wp` keeps a seeded site running at http://127.0.0.1:9400 (log in as `admin` / `password`). `npm test` reuses it instead of starting its own, which skips the startup.
+
+**Offline.** Playground downloads WordPress from wordpress.org. Where that's blocked, `npm run fetch-wordpress` clones each version in `matrix.json` from the official GitHub mirror into `.cache/wordpress`. Then run with `WP_SOURCES_DIR=.cache/wordpress npm test` (or `npm run matrix`).
+
+### Which versions are tested
+
+`tests/e2e/matrix.json` lists the WordPress and PHP combinations. Keep its oldest WordPress and lowest PHP in line with `Requires at least` and `Requires PHP` in `readme.txt`. When a new WordPress major version ships, add it to the matrix and raise `Tested up to` in `readme.txt` (the release check enforces this).
+
+### CI
+
+`.github/workflows/wordpress-plugin.yml` runs on pull requests and pushes that touch the plugin, and weekly to catch breakage from new WordPress releases:
+
+- Unit tests and a syntax check on PHP 7.4 through 8.5.
+- End-to-end tests for every combination in `matrix.json`, in parallel. Experimental combinations report failures without failing the run.
+- [Plugin Check](https://github.com/WordPress/plugin-check-action), the same checks WordPress.org's reviewers run, on the plugin as it ships.
+- The release metadata check below.
+
+To require it in branch protection, use the **WordPress plugin checks** job, which stays the same when the matrix changes.
+
+## Releasing to WordPress.org
+
+`bin/build.sh` builds the plugin as it ships (`dist/accesspdf/` and `dist/accesspdf.zip`), leaving out what `.distignore` lists: tests, build scripts and this README. The directory listing comes from `readme.txt`.
+
+### One-time setup
+
+1. **Finish `readme.txt`.** Replace `REPLACE-WITH-WPORG-USERNAME` under Contributors with the WordPress.org username that will own the plugin. Make sure https://accesspdf.com/terms and https://accesspdf.com/privacy exist, since the External services section links to them.
+2. **Submit the plugin.** Upload `dist/accesspdf.zip` at https://wordpress.org/plugins/developers/add/. The first version is reviewed by hand, which can take a few weeks. The requested slug is `accesspdf`, matching the text domain. If the review team assigns a different slug, update `SLUG` in `bin/build.sh` and `.github/workflows/wordpress-plugin-release.yml`, and the text domain.
+3. **Add repository secrets** once the plugin is approved: `SVN_USERNAME` (the WordPress.org username) and `SVN_PASSWORD` (the SVN password set under Account & Security on the WordPress.org profile, not the login password).
+4. **Create a `wordpress-org` environment** under Settings → Environments, with required reviewers, so every deploy waits for approval.
+5. Optionally, put listing images in `.wordpress-org/` (`banner-772x250.png`, `banner-1544x500.png`, `icon-128x128.png`, `icon-256x256.png`, `screenshot-1.png`...). They're published to the SVN `assets` directory.
+
+### Each release
+
+1. Update the version in three places: the `Version:` header and `ACCESSPDF_VERSION` in `accesspdf-plugin.php`, and `Stable tag` in `readme.txt`. Add a Changelog entry to `readme.txt` (and an Upgrade Notice if useful).
+2. Run `bin/check-release.sh 1.2.1` to confirm everything agrees, then merge.
+3. Tag the merged commit and push the tag:
+
+   ```bash
+   git tag wordpress-plugin-v1.2.1
+   git push origin wordpress-plugin-v1.2.1
+   ```
+
+`.github/workflows/wordpress-plugin-release.yml` then checks the version against the tag, runs the full test suite, waits for approval on the `wordpress-org` environment, commits to WordPress.org SVN (`trunk` plus `tags/1.2.1`), and creates a GitHub release with the zip. The `wordpress-plugin-v` prefix keeps these tags apart from the platform's `v*` releases.
+
+To rehearse, run the workflow manually (Actions → WordPress Plugin Release → Run workflow) with **Dry run** on. It stages the release in a checkout of the SVN repository and stops before committing. It needs the secrets and an approved slug.

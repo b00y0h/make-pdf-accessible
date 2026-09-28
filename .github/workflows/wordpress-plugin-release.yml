@@ -1,0 +1,155 @@
+name: WordPress Plugin Release
+
+# Deploys the AccessPDF plugin to the WordPress.org plugin directory.
+#
+# Release: bump the version in accesspdf-plugin.php (header and ACCESSPDF_VERSION) and
+# readme.txt (Stable tag, Changelog), merge, then push a tag:
+#   git tag wordpress-plugin-v1.2.0 && git push origin wordpress-plugin-v1.2.0
+# The tag prefix keeps these releases apart from the platform's v* releases (release.yml).
+#
+# The full test suite runs first, then the deploy waits for approval on the
+# "wordpress-org" environment. Run it manually with "dry run" on to rehearse: it checks
+# out the WordPress.org SVN repository and stages the files without committing.
+#
+# Needs repository secrets SVN_USERNAME and SVN_PASSWORD (the WordPress.org account's
+# SVN password from its profile's Account & Security page). See integrations/wordpress/README.md.
+
+on:
+  push:
+    tags:
+      - 'wordpress-plugin-v*'
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Dry run: stage the release in SVN without committing'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wordpress-plugin-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SLUG: accesspdf
+
+jobs:
+  prepare:
+    name: Check and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      dry-run: ${{ steps.version.outputs.dry-run }}
+    defaults:
+      run:
+        working-directory: integrations/wordpress
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/wordpress-plugin-v* ]]; then
+            version="${GITHUB_REF#refs/tags/wordpress-plugin-v}"
+            expected="$version"
+          elif [[ "$DRY_RUN" == true ]]; then
+            # A dry run from a branch rehearses the version currently in the plugin header.
+            version=$(sed -n 's/^ \* Version: *//p' accesspdf-plugin.php | tr -d '\r')
+            expected=""
+          else
+            echo "::error::Deploy from a wordpress-plugin-v* tag, or turn on dry run."
+            exit 1
+          fi
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+            echo "::error::'$version' isn't a WordPress.org version number (like 1.2 or 1.2.0)."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "dry-run=$DRY_RUN" >> "$GITHUB_OUTPUT"
+          echo "Deploying $SLUG $version (dry run: $DRY_RUN)"
+          bin/check-release.sh ${expected:+"$expected"}
+
+      - name: Build
+        run: bin/build.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.SLUG }}-${{ steps.version.outputs.version }}
+          path: integrations/wordpress/dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  test:
+    name: Test
+    uses: ./.github/workflows/wordpress-plugin.yml
+
+  deploy:
+    name: Deploy to WordPress.org
+    needs: [prepare, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: wordpress-org
+      url: https://wordpress.org/plugins/${{ env.SLUG }}/
+    steps:
+      # Checked out for the WordPress.org listing assets (banners, icons, screenshots).
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.SLUG }}-${{ needs.prepare.outputs.version }}
+          path: integrations/wordpress/dist/
+
+      - name: Install Subversion
+        run: command -v svn || (sudo apt-get update && sudo apt-get install -y subversion)
+
+      - uses: 10up/action-wordpress-plugin-deploy@stable
+        with:
+          dry-run: ${{ needs.prepare.outputs.dry-run }}
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+          SLUG: ${{ env.SLUG }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          BUILD_DIR: integrations/wordpress/dist/${{ env.SLUG }}
+          ASSETS_DIR: integrations/wordpress/.wordpress-org
+
+  github-release:
+    name: GitHub release
+    needs: [prepare, deploy]
+    if: needs.prepare.outputs.dry-run != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.SLUG }}-${{ needs.prepare.outputs.version }}
+          path: dist/
+
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          zip="dist/$SLUG-$VERSION.zip"
+          mv "dist/$SLUG.zip" "$zip"
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" "$zip" --clobber
+          else
+            {
+              integrations/wordpress/bin/changelog.sh "$VERSION"
+              echo
+              echo "Published to https://wordpress.org/plugins/$SLUG/"
+            } > notes.md
+            gh release create "$TAG" "$zip" --title "AccessPDF for WordPress $VERSION" --notes-file notes.md --latest=false
+          fi

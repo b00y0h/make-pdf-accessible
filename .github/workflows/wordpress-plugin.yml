@@ -1,0 +1,170 @@
+name: WordPress Plugin
+
+# Tests the AccessPDF WordPress plugin (integrations/wordpress):
+#   - unit tests and a syntax check on every supported PHP version,
+#   - release metadata (versions, "Tested up to") is consistent,
+#   - end-to-end tests on each WordPress and PHP combination in
+#     integrations/wordpress/tests/e2e/matrix.json, using WordPress Playground,
+#   - WordPress.org Plugin Check on the plugin as it ships.
+# The weekly run catches breakage from new WordPress releases and nightly builds.
+# wordpress-plugin-release.yml reuses this workflow before deploying.
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'integrations/wordpress/**'
+      - '.github/workflows/wordpress-plugin.yml'
+  pull_request:
+    paths:
+      - 'integrations/wordpress/**'
+      - '.github/workflows/wordpress-plugin.yml'
+  schedule:
+    - cron: '23 7 * * 1'
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wordpress-plugin-ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  unit:
+    name: Unit tests (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4', '8.0', '8.1', '8.2', '8.3', '8.4', '8.5']
+    defaults:
+      run:
+        working-directory: integrations/wordpress
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: dom, mbstring, zlib
+          coverage: none
+          tools: none
+
+      - name: Check PHP syntax
+        run: find . -name '*.php' -not -path '*/node_modules/*' -print0 | xargs -0 -n1 php -l
+
+      - name: Markdown converter tests
+        run: php tests/markdown-test.php
+
+      - name: PDF inventory tests
+        run: php tests/pdf-inventory-test.php
+
+  release-metadata:
+    name: Release metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      # Placeholders are allowed here and blocked by the release workflow.
+      - name: Check versions and readme.txt
+        run: integrations/wordpress/bin/check-release.sh --allow-placeholders
+
+  e2e-matrix:
+    name: Load E2E matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.load.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: load
+        run: |
+          echo "matrix=$(jq -c '{include: .include}' integrations/wordpress/tests/e2e/matrix.json)" >> "$GITHUB_OUTPUT"
+
+  e2e:
+    name: E2E (WordPress ${{ matrix.wp }}, PHP ${{ matrix.php }})
+    needs: e2e-matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Experimental combinations (nightly WordPress, unreleased PHP) report but don't fail the run.
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.e2e-matrix.outputs.matrix) }}
+    defaults:
+      run:
+        working-directory: integrations/wordpress/tests/e2e
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: integrations/wordpress/tests/e2e/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('integrations/wordpress/tests/e2e/package-lock.json') }}
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run end-to-end tests
+        run: npx playwright test
+        env:
+          WP_VERSION: ${{ matrix.wp }}
+          PHP_VERSION: ${{ matrix.php }}
+
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-wp-${{ matrix.wp }}-php-${{ matrix.php }}
+          path: |
+            integrations/wordpress/tests/e2e/playwright-report/
+            integrations/wordpress/tests/e2e/test-results/
+          retention-days: 14
+
+  plugin-check:
+    name: Plugin Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the plugin as it ships
+        run: integrations/wordpress/bin/build.sh
+
+      - uses: wordpress/plugin-check-action@v1
+        with:
+          build-dir: integrations/wordpress/dist/accesspdf
+          slug: accesspdf
+
+  # One stable check name to require in branch protection, since the matrix job names
+  # change whenever matrix.json does.
+  result:
+    name: WordPress plugin checks
+    if: always()
+    needs: [unit, release-metadata, e2e, plugin-check]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check job results
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Job results: $RESULTS"
+          for result in $RESULTS; do
+            [ "$result" = success ] || exit 1
+          done
