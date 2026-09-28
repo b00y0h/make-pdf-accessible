@@ -21,6 +21,10 @@ class MockLambdaContext:
         self.function_name = "test-router"
         self.function_version = "1"
         self.aws_request_id = "test-request-id"
+        self.memory_limit_in_mb = 512
+        self.invoked_function_arn = (
+            "arn:aws:lambda:us-east-1:123456789012:function:test-router"
+        )
 
 
 class TestProcessDocument:
@@ -39,11 +43,8 @@ class TestProcessDocument:
         mock_service.create_job_record = Mock()
         mock_service.enqueue_process_message = Mock()
 
-        # Mock tracer
-        with patch("main.tracer") as mock_tracer:
-            mock_tracer.provider.get_start_time.return_value = 1234567890
-            mock_tracer.provider.get_elapsed_time_ms.return_value = 150
-
+        # Fix the clock so processing takes 150 ms
+        with patch("main.perf_counter", side_effect=[100.0, 100.15]):
             # Create test message
             ingest_message = IngestMessage(
                 doc_id="test-doc-123",
@@ -86,11 +87,8 @@ class TestProcessDocument:
         mock_service.create_job_record = Mock()
         mock_service.enqueue_process_message = Mock()
 
-        # Mock tracer
-        with patch("main.tracer") as mock_tracer:
-            mock_tracer.provider.get_start_time.return_value = 1234567890
-            mock_tracer.provider.get_elapsed_time_ms.return_value = 300
-
+        # Fix the clock so processing takes 300 ms
+        with patch("main.perf_counter", side_effect=[100.0, 100.3]):
             # Create test message
             ingest_message = IngestMessage(
                 doc_id="test-doc-456",

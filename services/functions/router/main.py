@@ -6,8 +6,10 @@ Actions: Save Documents record, store original to pdf-originals, create Jobs row
 Features: Idempotency (dedupe by docId), structured logs, X-Ray tracing.
 """
 
+import asyncio
 import json
 import os
+from time import perf_counter
 from typing import Any
 
 from aws_lambda_powertools import Logger, Metrics, Tracer
@@ -64,7 +66,7 @@ async def process_document(ingest_message: IngestMessage) -> dict[str, Any]:
     doc_id = ingest_message.doc_id
     logger.info(f"Processing document {doc_id}", extra={"doc_id": doc_id})
 
-    processing_start = tracer.provider.get_start_time()
+    processing_start = perf_counter()
     result = {
         "doc_id": doc_id,
         "status": "success",
@@ -150,7 +152,7 @@ async def process_document(ingest_message: IngestMessage) -> dict[str, Any]:
         result["actions_performed"].append("process_message_enqueued")
 
         # Add processing metrics
-        processing_time = tracer.provider.get_elapsed_time_ms(processing_start)
+        processing_time = round((perf_counter() - processing_start) * 1000, 2)
         result["processing_time_ms"] = processing_time
         result["job_id"] = ocr_job.job_id
         result["s3_key_original"] = s3_key_original
@@ -213,7 +215,9 @@ def lambda_handler(event: SQSEvent, context: LambdaContext) -> dict[str, Any]:
     Processes documents with idempotency, stores originals, creates jobs,
     and enqueues to process-queue.
     """
-    logger.info(f"Processing {len(event.records)} messages from ingest queue")
+    # event.records is a generator, so count the raw records
+    record_count = len(event["Records"])
+    logger.info(f"Processing {record_count} messages from ingest queue")
 
     results = {"processed": 0, "skipped": 0, "failed": 0, "results": []}
 
@@ -227,7 +231,7 @@ def lambda_handler(event: SQSEvent, context: LambdaContext) -> dict[str, Any]:
             ingest_message = IngestMessage.model_validate(message_body)
 
             # Process the document
-            result = process_document(ingest_message)
+            result = asyncio.run(process_document(ingest_message))
             results["results"].append(result)
 
             # Update counters
@@ -255,7 +259,7 @@ def lambda_handler(event: SQSEvent, context: LambdaContext) -> dict[str, Any]:
     logger.info(
         "Batch processing complete",
         extra={
-            "total_records": len(event.records),
+            "total_records": record_count,
             "processed": results["processed"],
             "skipped": results["skipped"],
             "failed": results["failed"],
@@ -264,7 +268,7 @@ def lambda_handler(event: SQSEvent, context: LambdaContext) -> dict[str, Any]:
 
     # Add batch metrics
     metrics.add_metric(name="BatchesProcessed", unit="Count", value=1)
-    metrics.add_metric(name="RecordsPerBatch", unit="Count", value=len(event.records))
+    metrics.add_metric(name="RecordsPerBatch", unit="Count", value=record_count)
 
     return results
 

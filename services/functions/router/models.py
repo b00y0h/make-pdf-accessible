@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class DocumentSource(str, Enum):
@@ -66,21 +66,19 @@ class IngestMessage(BaseModel):
 
     @field_validator("source_url")
     @classmethod
-    def validate_source_url(cls, v, values):
-        source = values.data.get("source") if hasattr(values, "data") else None
-        if source == DocumentSource.URL and not v:
-            raise ValueError("source_url is required when source is URL")
+    def validate_source_url(cls, v):
         if v and not (v.startswith("http://") or v.startswith("https://")):
             raise ValueError("source_url must be a valid HTTP/HTTPS URL")
         return v
 
-    @field_validator("s3_key")
-    @classmethod
-    def validate_s3_key(cls, v, values):
-        source = values.data.get("source") if hasattr(values, "data") else None
-        if source == DocumentSource.UPLOAD and not v:
+    # A model validator, because field validators don't run on omitted fields
+    @model_validator(mode="after")
+    def validate_source_fields(self):
+        if self.source == DocumentSource.URL and not self.source_url:
+            raise ValueError("source_url is required when source is URL")
+        if self.source == DocumentSource.UPLOAD and not self.s3_key:
             raise ValueError("s3_key is required when source is upload")
-        return v
+        return self
 
 
 class DocumentRecord(BaseModel):
