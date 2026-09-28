@@ -83,7 +83,6 @@ def test_heading_detection():
     try:
         import main
 
-
         # Test heading detection logic if available
         if hasattr(main, "detect_headings") or hasattr(main, "identify_headings"):
             assert True

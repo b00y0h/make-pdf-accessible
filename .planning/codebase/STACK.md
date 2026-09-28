@@ -50,7 +50,7 @@
 
 ## Security
 
-- **python-jose**: JWT token handling (HS256)
+- **PyJWT**: JWT token handling (HS256)
 - **BetterAuth**: 1.3.9 - Authentication framework
 - **ClamAV**: Virus scanning (docker-clamav alpine)
 
