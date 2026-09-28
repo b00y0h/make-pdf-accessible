@@ -27,7 +27,7 @@ export function useDocumentPolling(
 
   const {
     data: document,
-    isLoading,
+    isPending,
     isError,
     error,
     refetch,
@@ -42,7 +42,8 @@ export function useDocumentPolling(
       return response.data;
     },
     enabled: enabled && !!docId,
-    refetchInterval: (data) => {
+    refetchInterval: (query) => {
+      const data = query.state.data;
       // Stop polling if document has reached a final state
       if (data && stopPollingOnStatus.includes(data.status)) {
         return false;
@@ -78,7 +79,8 @@ export function useDocumentPolling(
 
   return {
     document,
-    isLoading,
+    // react-query 5 renamed v4's isLoading (no data yet) to isPending
+    isLoading: isPending,
     isError,
     error,
     isPolling,
