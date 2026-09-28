@@ -10,11 +10,9 @@ async function getCostForecastHandler(
     // Extract query parameters
     const { searchParams } = new URL(request.url);
     const metric = (searchParams.get('metric') || 'UNBLENDED_COST') as
-      | 'UNBLENDED_COST'
-      | 'BLENDED_COST';
+      'UNBLENDED_COST' | 'BLENDED_COST';
     const granularity = (searchParams.get('granularity') || 'MONTHLY') as
-      | 'MONTHLY'
-      | 'DAILY';
+      'MONTHLY' | 'DAILY';
     const predictionIntervalLevel = parseInt(
       searchParams.get('predictionInterval') || '80'
     );
