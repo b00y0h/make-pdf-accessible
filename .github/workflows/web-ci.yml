@@ -192,31 +192,34 @@ jobs:
 
           echo "Running ESLint with security rules..."
 
-          # Create security-focused ESLint config
-          cat > .eslintrc.security.js << 'EOF'
-          module.exports = {
-            extends: [
-              './.eslintrc.js'
-            ],
-            plugins: ['security'],
-            rules: {
-              'security/detect-object-injection': 'error',
-              'security/detect-non-literal-regexp': 'error',
-              'security/detect-unsafe-regex': 'error',
-              'security/detect-buffer-noassert': 'error',
-              'security/detect-child-process': 'error',
-              'security/detect-disable-mustache-escape': 'error',
-              'security/detect-eval-with-expression': 'error',
-              'security/detect-no-csrf-before-method-override': 'error',
-              'security/detect-non-literal-fs-filename': 'error',
-              'security/detect-non-literal-require': 'error',
-              'security/detect-possible-timing-attacks': 'error',
-              'security/detect-pseudoRandomBytes': 'error'
+          # Create security-focused ESLint config (flat config, extends the app's eslint.config.mjs)
+          cat > eslint.config.security.mjs << 'EOF'
+          import security from 'eslint-plugin-security';
+          import baseConfig from './eslint.config.mjs';
+
+          export default [
+            ...baseConfig,
+            {
+              plugins: { security },
+              rules: {
+                'security/detect-object-injection': 'error',
+                'security/detect-non-literal-regexp': 'error',
+                'security/detect-unsafe-regex': 'error',
+                'security/detect-buffer-noassert': 'error',
+                'security/detect-child-process': 'error',
+                'security/detect-disable-mustache-escape': 'error',
+                'security/detect-eval-with-expression': 'error',
+                'security/detect-no-csrf-before-method-override': 'error',
+                'security/detect-non-literal-fs-filename': 'error',
+                'security/detect-non-literal-require': 'error',
+                'security/detect-possible-timing-attacks': 'error',
+                'security/detect-pseudoRandomBytes': 'error'
+              }
             }
-          };
+          ];
           EOF
 
-          npx eslint . --config .eslintrc.security.js --format json --output-file ../eslint-security-results.json || echo "eslint_security_failed=true" >> $GITHUB_OUTPUT
+          npx eslint . --config eslint.config.security.mjs --format json --output-file ../eslint-security-results.json || echo "eslint_security_failed=true" >> $GITHUB_OUTPUT
 
           cd ..
 

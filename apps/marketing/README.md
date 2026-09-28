@@ -1,6 +1,6 @@
 # Marketing site (`apps/marketing`)
 
-The public site for makepdfaccessible.com: a Next.js 15 static export (`output: 'export'`) deployed to a private S3 bucket behind CloudFront by `.github/workflows/marketing-site.yml`. Product requirements: `docs/MARKETING-SITE-PRD.md`; hosting decision: `docs/adr/0009-marketing-site-static-export-on-s3-cloudfront.md`; infrastructure: `infra/terraform/marketing.tf` and `infra/terraform/modules/static-site`.
+The public site for makepdfaccessible.com: a Next.js 16 static export (`output: 'export'`) deployed to a private S3 bucket behind CloudFront by `.github/workflows/marketing-site.yml`. Product requirements: `docs/MARKETING-SITE-PRD.md`; hosting decision: `docs/adr/0009-marketing-site-static-export-on-s3-cloudfront.md`; infrastructure: `infra/terraform/marketing.tf` and `infra/terraform/modules/static-site`.
 
 ## Commands
 
