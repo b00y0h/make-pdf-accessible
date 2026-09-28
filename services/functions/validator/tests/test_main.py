@@ -40,7 +40,6 @@ def test_wcag_validation():
     try:
         import main
 
-
         if hasattr(main, "validate_wcag") or hasattr(main, "check_accessibility"):
             assert True
         else:
@@ -84,7 +83,6 @@ def test_validation_report_generation():
     """Test validation report generation"""
     try:
         import main
-
 
         if hasattr(main, "generate_report") or hasattr(
             main, "create_validation_report"
