@@ -31,7 +31,7 @@ permissions:
   pull-requests: write
 
 env:
-  NODE_VERSION: '18'
+  NODE_VERSION: '24'
   PNPM_VERSION: '8'
   PYTHON_VERSION: '3.9'
 
