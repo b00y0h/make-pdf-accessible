@@ -300,8 +300,9 @@ const checkTitleAndLabels = () => {
   const labels = danger.github.issue.labels.map((label) => label.name);
 
   // Check conventional commit format in title
+  // "!" before the colon marks a change existing callers must adapt to.
   const conventionalPattern =
-    /^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?: .+/;
+    /^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?!?: .+/;
 
   if (!conventionalPattern.test(title)) {
     warn(
