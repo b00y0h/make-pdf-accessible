@@ -100,7 +100,7 @@ jobs:
 
       - name: Install pnpm
         if: needs.changes.outputs.frontend == 'true'
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@v6
 
       - name: Cache pnpm dependencies
         if: needs.changes.outputs.frontend == 'true'
@@ -172,7 +172,7 @@ jobs:
 
       - name: Install pnpm
         if: needs.changes.outputs.frontend == 'true'
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@v6
 
       - name: Restore pnpm cache
         if: needs.changes.outputs.frontend == 'true'
@@ -280,7 +280,7 @@ jobs:
 
       - name: Install pnpm
         if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.tests == 'true'
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@v6
 
       - name: Restore pnpm cache
         if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.tests == 'true'
@@ -372,7 +372,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@v6
 
       - name: Restore pnpm cache
         uses: actions/cache@v6
@@ -446,7 +446,7 @@ jobs:
 
       - name: Install pnpm for audit
         if: needs.changes.outputs.frontend == 'true'
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@v6
 
       - name: Install dependencies for audit
         if: needs.changes.outputs.frontend == 'true'
