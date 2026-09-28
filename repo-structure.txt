@@ -130,7 +130,6 @@
 │   │   └── [1;36mtests[0m
 │   ├── [1;36mscripts[0m
 │   │   ├── seed-admin-mongo.ts
-│   │   ├── seed-admin.ts
 │   │   └── [1;36mtests[0m
 │   └── [1;36mtest-utils[0m
 │       ├── fixtures.py

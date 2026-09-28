@@ -79,11 +79,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Generate Prisma client
-        env:
-          DATABASE_URL: file:./placeholder.db
-        run: pnpm --filter=accesspdf-dashboard run db:generate
-
       - name: TypeScript type check
         run: |
           pnpm --filter=accesspdf-dashboard run type-check

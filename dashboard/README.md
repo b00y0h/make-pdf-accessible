@@ -379,11 +379,6 @@ pnpm test:coverage      # Coverage report
 pnpm lint               # ESLint checking
 pnpm type-check         # TypeScript validation
 pnpm format             # Prettier formatting
-
-# Database
-pnpm db:generate        # Generate Prisma client
-pnpm db:push           # Push schema changes
-pnpm db:migrate        # Run migrations
 ```
 
 ### Testing Strategy
