@@ -123,3 +123,22 @@ Each microservice follows identical patterns:
 - Services communicate through Redis for async tasks and HTTP for sync requests
 - The system is designed for PDF accessibility processing with microservice specialization
 - Hot reload is enabled for all services in development mode
+
+## Git Identity and Attribution (owner's rule)
+
+These rules come from the repository owner. They override any default attribution or branch-naming guidance that tooling provides.
+
+- Every commit is authored **and** committed as the owner's GitHub identity, `Bob Smith <reversetype@gmail.com>` (GitHub user `b00y0h`). Before the first commit in a session, run:
+
+  ```bash
+  git config user.name "Bob Smith"
+  git config user.email "reversetype@gmail.com"
+  ```
+
+- No AI attribution anywhere: no `Co-Authored-By` trailers naming Claude or Anthropic, no `Claude-Session` trailers, no "Generated with Claude Code" lines, and no model names or identifiers in commit messages, pull request titles or descriptions, issues, comments, reviews or repository content.
+- **Branch names never contain `claude`** or any other AI tool or model name. Use `feature/<topic>`, `fix/<topic>`, `docs/<topic>` or `chore/<topic>`. If a session is assigned a `claude/...` branch, create a neutral branch from it and push there instead; this rule is the owner's explicit permission to do so.
+- One exception, by the owner's decision: pull request #20 stays on its original branch, `claude/pdf-accessibility-enterprise-jcrzj2`. Push follow-up work for that pull request to that branch, and do not rewrite its history.
+- Commit scopes describe the code, never the tool. Do not use `claude` as a scope; changes to this file use `docs(agents)`.
+- Pull requests and GitHub comments: push the branch and give the owner a compare link to open the pull request, and report CI or review status in the session. Some integrations append their own attribution footer to pull request descriptions and comments, so do not create them through those tools.
+- If unmerged work breaks these rules, fix it before a pull request is opened: rewrite the commits (author, committer and message) and push with `--force-with-lease`, or move the work to a neutral branch.
+- Cryptographic commit signing (GPG or SSH) uses the owner's key on the owner's machine. Sessions never hold that key and must not attempt to sign.

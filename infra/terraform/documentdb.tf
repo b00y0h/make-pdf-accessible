@@ -76,21 +76,21 @@ resource "random_password" "documentdb_password" {
 # DocumentDB Cluster
 resource "aws_docdb_cluster" "main" {
   cluster_identifier              = "${local.name_prefix}-docdb-cluster"
-  engine                         = "docdb"
-  engine_version                 = "5.0.0"
-  master_username                = "docdbadmin"
-  master_password                = random_password.documentdb_password.result
-  backup_retention_period        = 7
-  preferred_backup_window        = "07:00-09:00"
-  preferred_maintenance_window   = "sun:09:00-sun:10:00"
-  skip_final_snapshot           = var.environment == "dev" ? true : false
-  final_snapshot_identifier     = var.environment == "dev" ? null : "${local.name_prefix}-docdb-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
-  storage_encrypted             = true
-  kms_key_id                    = var.cloudwatch_logs_kms_key_id
+  engine                          = "docdb"
+  engine_version                  = "5.0.0"
+  master_username                 = "docdbadmin"
+  master_password                 = random_password.documentdb_password.result
+  backup_retention_period         = 7
+  preferred_backup_window         = "07:00-09:00"
+  preferred_maintenance_window    = "sun:09:00-sun:10:00"
+  skip_final_snapshot             = var.environment == "dev" ? true : false
+  final_snapshot_identifier       = var.environment == "dev" ? null : "${local.name_prefix}-docdb-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
+  storage_encrypted               = true
+  kms_key_id                      = var.cloudwatch_logs_kms_key_id
   db_cluster_parameter_group_name = aws_docdb_cluster_parameter_group.main.name
-  db_subnet_group_name          = aws_docdb_subnet_group.main.name
-  vpc_security_group_ids        = [aws_security_group.documentdb.id]
-  deletion_protection           = var.environment == "dev" ? false : true
+  db_subnet_group_name            = aws_docdb_subnet_group.main.name
+  vpc_security_group_ids          = [aws_security_group.documentdb.id]
+  deletion_protection             = var.environment == "dev" ? false : true
   enabled_cloudwatch_logs_exports = ["audit", "profiler"]
 
   # Enable backtrack for point-in-time recovery (if supported)
@@ -108,13 +108,13 @@ resource "aws_docdb_cluster" "main" {
 
 # DocumentDB Cluster Instances
 resource "aws_docdb_cluster_instance" "cluster_instances" {
-  count                        = var.documentdb_instance_count
-  identifier                   = "${local.name_prefix}-docdb-${count.index}"
-  cluster_identifier           = aws_docdb_cluster.main.id
-  instance_class               = var.documentdb_instance_class
-  auto_minor_version_upgrade   = true
-  performance_insights_enabled = var.documentdb_performance_insights_enabled
-  
+  count                       = var.documentdb_instance_count
+  identifier                  = "${local.name_prefix}-docdb-${count.index}"
+  cluster_identifier          = aws_docdb_cluster.main.id
+  instance_class              = var.documentdb_instance_class
+  auto_minor_version_upgrade  = true
+  enable_performance_insights = var.documentdb_performance_insights_enabled
+
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-docdb-instance-${count.index}"
   })
@@ -123,7 +123,7 @@ resource "aws_docdb_cluster_instance" "cluster_instances" {
 # Store DocumentDB credentials in AWS Secrets Manager
 resource "aws_secretsmanager_secret" "documentdb_credentials" {
   name                    = "${local.name_prefix}/documentdb/credentials"
-  description            = "DocumentDB cluster credentials"
+  description             = "DocumentDB cluster credentials"
   recovery_window_in_days = var.environment == "dev" ? 0 : 7
 
   tags = local.common_tags
@@ -144,7 +144,7 @@ resource "aws_secretsmanager_secret_version" "documentdb_credentials" {
 resource "aws_cloudwatch_log_group" "documentdb_audit" {
   name              = "/aws/docdb/${aws_docdb_cluster.main.cluster_identifier}/audit"
   retention_in_days = var.log_retention_days
-  kms_key_id       = var.cloudwatch_logs_kms_key_id
+  kms_key_id        = var.cloudwatch_logs_kms_key_id
 
   tags = local.common_tags
 }
@@ -152,7 +152,7 @@ resource "aws_cloudwatch_log_group" "documentdb_audit" {
 resource "aws_cloudwatch_log_group" "documentdb_profiler" {
   name              = "/aws/docdb/${aws_docdb_cluster.main.cluster_identifier}/profiler"
   retention_in_days = var.log_retention_days
-  kms_key_id       = var.cloudwatch_logs_kms_key_id
+  kms_key_id        = var.cloudwatch_logs_kms_key_id
 
   tags = local.common_tags
 }
