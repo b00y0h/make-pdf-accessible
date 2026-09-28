@@ -7,7 +7,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-class AccessPDF_Inventory_List_Table extends WP_List_Table {
+class Make_PDF_Accessible_Inventory_List_Table extends WP_List_Table {
     const PER_PAGE = 50;
 
     /** @var array[] */
@@ -20,11 +20,11 @@ class AccessPDF_Inventory_List_Table extends WP_List_Table {
 
     public function get_columns() {
         return [
-            'file' => __('File', 'accesspdf'),
-            'status' => __('Status', 'accesspdf'),
-            'pages' => __('Pages', 'accesspdf'),
-            'checks' => __('Other checks', 'accesspdf'),
-            'linked' => __('Linked from', 'accesspdf'),
+            'file' => __('File', 'make-pdf-accessible'),
+            'status' => __('Status', 'make-pdf-accessible'),
+            'pages' => __('Pages', 'make-pdf-accessible'),
+            'checks' => __('Other checks', 'make-pdf-accessible'),
+            'linked' => __('Linked from', 'make-pdf-accessible'),
         ];
     }
 
@@ -39,12 +39,12 @@ class AccessPDF_Inventory_List_Table extends WP_List_Table {
 
     private function views_list() {
         return [
-            'all' => __('All', 'accesspdf'),
-            'needs_work' => __('Needs work', 'accesspdf'),
-            'no_text' => __('No text layer', 'accesspdf'),
-            'tagged' => __('Tagged', 'accesspdf'),
-            'unlinked' => __('Not linked', 'accesspdf'),
-            'unchecked' => __('Couldn’t check', 'accesspdf'),
+            'all' => __('All', 'make-pdf-accessible'),
+            'needs_work' => __('Needs work', 'make-pdf-accessible'),
+            'no_text' => __('No text layer', 'make-pdf-accessible'),
+            'tagged' => __('Tagged', 'make-pdf-accessible'),
+            'unlinked' => __('Not linked', 'make-pdf-accessible'),
+            'unchecked' => __('Couldn’t check', 'make-pdf-accessible'),
         ];
     }
 
@@ -62,15 +62,15 @@ class AccessPDF_Inventory_List_Table extends WP_List_Table {
     private function matches(array $row, $view) {
         switch ($view) {
             case 'needs_work':
-                return AccessPDF_Inventory::needs_work($row['status']);
+                return Make_PDF_Accessible_Inventory::needs_work($row['status']);
             case 'no_text':
-                return AccessPDF_PDF_Analyzer::STATUS_NO_TEXT === $row['status'];
+                return Make_PDF_Accessible_PDF_Analyzer::STATUS_NO_TEXT === $row['status'];
             case 'tagged':
-                return AccessPDF_PDF_Analyzer::STATUS_TAGGED === $row['status'];
+                return Make_PDF_Accessible_PDF_Analyzer::STATUS_TAGGED === $row['status'];
             case 'unlinked':
                 return empty($row['linked_from']);
             case 'unchecked':
-                return AccessPDF_Inventory::unchecked($row['status']);
+                return Make_PDF_Accessible_Inventory::unchecked($row['status']);
         }
         return true;
     }
@@ -85,7 +85,7 @@ class AccessPDF_Inventory_List_Table extends WP_List_Table {
             }
             $views[$view] = sprintf(
                 '<a href="%s"%s>%s <span class="count">(%s)</span></a>',
-                esc_url(AccessPDF_Inventory_Page::url('all' === $view ? [] : ['view' => $view])),
+                esc_url(Make_PDF_Accessible_Inventory_Page::url('all' === $view ? [] : ['view' => $view])),
                 $view === $current ? ' class="current" aria-current="page"' : '',
                 esc_html($label),
                 esc_html(number_format_i18n($count))
@@ -111,7 +111,7 @@ class AccessPDF_Inventory_List_Table extends WP_List_Table {
                     $cmp = count($a['linked_from']) <=> count($b['linked_from']);
                     break;
                 case 'status':
-                    $cmp = strcmp(AccessPDF_Inventory::status_label($a['status']), AccessPDF_Inventory::status_label($b['status']));
+                    $cmp = strcmp(Make_PDF_Accessible_Inventory::status_label($a['status']), Make_PDF_Accessible_Inventory::status_label($b['status']));
                     break;
                 default:
                     $cmp = strcasecmp($a['name'], $b['name']);
@@ -135,17 +135,17 @@ class AccessPDF_Inventory_List_Table extends WP_List_Table {
         $out = sprintf('<strong><a href="%s">%s</a></strong>', esc_url($link), esc_html($row['name']));
         $details = [];
         if ('outside' === $row['source']) {
-            $details[] = esc_html__('Not in the media library', 'accesspdf');
+            $details[] = esc_html__('Not in the media library', 'make-pdf-accessible');
         }
         if ('' !== $row['url']) {
-            $details[] = sprintf('<a href="%s">%s</a>', esc_url($row['url']), esc_html__('Open file', 'accesspdf'));
+            $details[] = sprintf('<a href="%s">%s</a>', esc_url($row['url']), esc_html__('Open file', 'make-pdf-accessible'));
         }
         return $out . ($details ? '<br />' . implode(' · ', $details) : '');
     }
 
     protected function column_status($row) {
-        $label = esc_html(AccessPDF_Inventory::status_label($row['status']));
-        if (AccessPDF_Inventory::needs_work($row['status'])) {
+        $label = esc_html(Make_PDF_Accessible_Inventory::status_label($row['status']));
+        if (Make_PDF_Accessible_Inventory::needs_work($row['status'])) {
             return '<strong>' . $label . '</strong>';
         }
         if ($row['analysis'] && !empty($row['analysis']['error'])) {
@@ -156,36 +156,36 @@ class AccessPDF_Inventory_List_Table extends WP_List_Table {
 
     protected function column_pages($row) {
         $pages = $this->pages($row);
-        return $pages < 0 ? esc_html__('Unknown', 'accesspdf') : esc_html(number_format_i18n($pages));
+        return $pages < 0 ? esc_html__('Unknown', 'make-pdf-accessible') : esc_html(number_format_i18n($pages));
     }
 
     protected function column_checks($row) {
         $a = $row['analysis'];
-        if (!$a || AccessPDF_Inventory::unchecked($row['status'])) {
-            return esc_html__('Not available', 'accesspdf');
+        if (!$a || Make_PDF_Accessible_Inventory::unchecked($row['status'])) {
+            return esc_html__('Not available', 'make-pdf-accessible');
         }
         $notes = [];
         if (false === $a['has_title']) {
-            $notes[] = __('No document title', 'accesspdf');
+            $notes[] = __('No document title', 'make-pdf-accessible');
         }
         if (false === $a['has_language']) {
-            $notes[] = __('No document language', 'accesspdf');
+            $notes[] = __('No document language', 'make-pdf-accessible');
         }
         if (true === $a['has_form']) {
-            $notes[] = __('Fillable form', 'accesspdf');
+            $notes[] = __('Fillable form', 'make-pdf-accessible');
         }
         if ($a['encrypted']) {
-            $notes[] = __('Encrypted', 'accesspdf');
+            $notes[] = __('Encrypted', 'make-pdf-accessible');
         }
         if ($a['pdf_ua']) {
-            $notes[] = __('Claims PDF/UA', 'accesspdf');
+            $notes[] = __('Claims PDF/UA', 'make-pdf-accessible');
         }
-        return $notes ? esc_html(implode(', ', $notes)) : esc_html__('No other issues found', 'accesspdf');
+        return $notes ? esc_html(implode(', ', $notes)) : esc_html__('No other issues found', 'make-pdf-accessible');
     }
 
     protected function column_linked($row) {
         if (empty($row['linked_from'])) {
-            return esc_html__('Not linked', 'accesspdf');
+            return esc_html__('Not linked', 'make-pdf-accessible');
         }
         $links = [];
         foreach (array_slice($row['linked_from'], 0, 3) as $post_id) {
@@ -194,18 +194,18 @@ class AccessPDF_Inventory_List_Table extends WP_List_Table {
                 '<a href="%s">%s</a>',
                 esc_url((string) get_permalink($post_id)),
                 /* translators: %d: post ID */
-                esc_html('' !== $title ? $title : sprintf(__('Post %d', 'accesspdf'), $post_id))
+                esc_html('' !== $title ? $title : sprintf(__('Post %d', 'make-pdf-accessible'), $post_id))
             );
         }
         $more = count($row['linked_from']) - count($links);
         if ($more > 0) {
             /* translators: %s: number of additional pages */
-            $links[] = esc_html(sprintf(__('and %s more', 'accesspdf'), number_format_i18n($more)));
+            $links[] = esc_html(sprintf(__('and %s more', 'make-pdf-accessible'), number_format_i18n($more)));
         }
         return implode('<br />', $links);
     }
 
     public function no_items() {
-        esc_html_e('No PDFs match this view.', 'accesspdf');
+        esc_html_e('No PDFs match this view.', 'make-pdf-accessible');
     }
 }

@@ -8,8 +8,8 @@
 
 require __DIR__ . '/fixtures/wp-shims.php';
 
-require __DIR__ . '/../includes/class-accesspdf-html-to-markdown.php';
-require __DIR__ . '/../includes/class-accesspdf-markdown.php';
+require __DIR__ . '/../includes/class-make-pdf-accessible-html-to-markdown.php';
+require __DIR__ . '/../includes/class-make-pdf-accessible-markdown.php';
 
 $failures = 0;
 $total = 0;
@@ -26,7 +26,7 @@ function check($name, $expected, $actual) {
 }
 
 function md($html, $base = 'https://example.edu/admissions/apply/') {
-    return (new AccessPDF_HTML_To_Markdown($base))->convert($html);
+    return (new Make_PDF_Accessible_HTML_To_Markdown($base))->convert($html);
 }
 
 // Structure
@@ -181,7 +181,7 @@ $negotiation = [
     ['', false],
 ];
 foreach ($negotiation as $case) {
-    check('Accept: ' . ('' === $case[0] ? '(empty)' : $case[0]), $case[1], AccessPDF_Markdown::prefers_markdown($case[0]));
+    check('Accept: ' . ('' === $case[0] ? '(empty)' : $case[0]), $case[1], Make_PDF_Accessible_Markdown::prefers_markdown($case[0]));
 }
 
 echo "\n" . ($total - $failures) . " of $total passed\n";

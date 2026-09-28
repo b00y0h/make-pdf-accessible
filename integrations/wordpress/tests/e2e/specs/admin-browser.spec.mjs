@@ -13,12 +13,12 @@ test.beforeEach(async ({ page, baseURL }) => {
   );
 
   await page.goto(
-    `/wp-login.php?redirect_to=${encodeURIComponent(`${baseURL}/wp-admin/upload.php?page=accesspdf-inventory`)}`
+    `/wp-login.php?redirect_to=${encodeURIComponent(`${baseURL}/wp-admin/upload.php?page=make-pdf-accessible-inventory`)}`
   );
   await page.fill('#user_login', 'admin');
   await page.fill('#user_pass', 'password');
   await Promise.all([
-    page.waitForURL(/accesspdf-inventory/),
+    page.waitForURL(/make-pdf-accessible-inventory/),
     page.click('#wp-submit'),
   ]);
 });
@@ -45,17 +45,20 @@ test('the Media menu opens the inventory, and Scan runs to completion', async ({
   await page.goto('/wp-admin/upload.php?mode=list');
   const menuLink = page.locator('#menu-media a', { hasText: 'PDF Inventory' });
   await expect(menuLink).toHaveCount(1);
-  await Promise.all([page.waitForURL(/accesspdf-inventory/), menuLink.click()]);
+  await Promise.all([
+    page.waitForURL(/make-pdf-accessible-inventory/),
+    menuLink.click(),
+  ]);
 
   // The button is enabled only once the scan script has loaded.
-  const button = page.locator('#accesspdf-scan');
+  const button = page.locator('#make-pdf-accessible-scan');
   await expect(button).toBeEnabled();
   await button.click();
-  await expect(page.locator('#accesspdf-scan-status')).toContainText(
+  await expect(page.locator('#make-pdf-accessible-scan-status')).toContainText(
     'Last full scan',
     { timeout: 60_000 }
   );
-  await expect(page.locator('#accesspdf-scan-progress')).toBeHidden();
+  await expect(page.locator('#make-pdf-accessible-scan-progress')).toBeHidden();
   await expect(page.locator('#the-list tr')).toHaveCount(8);
   expect(errors).toEqual([]);
 });
@@ -63,12 +66,14 @@ test('the Media menu opens the inventory, and Scan runs to completion', async ({
 test('the inventory page has no WCAG 2.2 A/AA violations', async ({ page }) => {
   await expectNoViolations(page);
   await page.goto(
-    '/wp-admin/upload.php?page=accesspdf-inventory&view=needs_work'
+    '/wp-admin/upload.php?page=make-pdf-accessible-inventory&view=needs_work'
   );
   await expectNoViolations(page);
 });
 
 test('the settings page has no WCAG 2.2 A/AA violations', async ({ page }) => {
-  await page.goto('/wp-admin/options-general.php?page=accesspdf-settings');
+  await page.goto(
+    '/wp-admin/options-general.php?page=make-pdf-accessible-settings'
+  );
   await expectNoViolations(page);
 });

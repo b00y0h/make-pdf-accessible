@@ -2,7 +2,7 @@
 /**
  * Serves a Markdown version of published posts and pages to AI agents.
  *
- * - /some-page.md (or ?accesspdf_md=1 without pretty permalinks) always returns Markdown.
+ * - /some-page.md (or ?make_pdf_accessible_md=1 without pretty permalinks) always returns Markdown.
  * - The normal URL returns Markdown when the request's Accept header prefers text/markdown.
  * - HTML responses advertise the Markdown version with a <link rel="alternate"> tag and header.
  *
@@ -13,9 +13,9 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-class AccessPDF_Markdown {
-    const QUERY_VAR = 'accesspdf_md';
-    const PATH_VAR = 'accesspdf_md_path';
+class Make_PDF_Accessible_Markdown {
+    const QUERY_VAR = 'make_pdf_accessible_md';
+    const PATH_VAR = 'make_pdf_accessible_md_path';
     const REWRITE_REGEX = '^(.+?)\.md/?$';
     const REWRITE_VERSION = '1';
 
@@ -28,14 +28,14 @@ class AccessPDF_Markdown {
     }
 
     public static function activate() {
-        delete_option('accesspdf_rewrite_version');
+        delete_option('make_pdf_accessible_rewrite_version');
         (new self())->add_rewrite_rule();
     }
 
     public static function deactivate() {
         global $wp_rewrite;
         unset($wp_rewrite->extra_rules_top[self::REWRITE_REGEX]);
-        delete_option('accesspdf_rewrite_version');
+        delete_option('make_pdf_accessible_rewrite_version');
         flush_rewrite_rules();
     }
 
@@ -43,9 +43,9 @@ class AccessPDF_Markdown {
         add_rewrite_rule(self::REWRITE_REGEX, 'index.php?' . self::PATH_VAR . '=$matches[1]', 'top');
 
         // Sites that update the plugin without reactivating it still need the rule saved.
-        if (self::REWRITE_VERSION !== get_option('accesspdf_rewrite_version')) {
+        if (self::REWRITE_VERSION !== get_option('make_pdf_accessible_rewrite_version')) {
             flush_rewrite_rules(false);
-            update_option('accesspdf_rewrite_version', self::REWRITE_VERSION);
+            update_option('make_pdf_accessible_rewrite_version', self::REWRITE_VERSION);
         }
     }
 
@@ -202,10 +202,10 @@ class AccessPDF_Markdown {
         wp_reset_postdata();
 
         /** Lets another component supply the HTML, such as a converted PDF. */
-        $html = apply_filters('accesspdf_markdown_source_html', $html, $post);
+        $html = apply_filters('make_pdf_accessible_markdown_source_html', $html, $post);
 
         $permalink = get_permalink($post);
-        $converter = new AccessPDF_HTML_To_Markdown($permalink);
+        $converter = new Make_PDF_Accessible_HTML_To_Markdown($permalink);
         $title = html_entity_decode(wp_strip_all_tags(get_the_title($post)), ENT_QUOTES, 'UTF-8');
         $json = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
 
@@ -218,11 +218,11 @@ class AccessPDF_Markdown {
             . ('' === $title ? '' : '# ' . $title . "\n\n")
             . $converter->convert($html);
 
-        return apply_filters('accesspdf_markdown_output', $markdown, $post);
+        return apply_filters('make_pdf_accessible_markdown_output', $markdown, $post);
     }
 
     private function is_enabled() {
-        return (bool) get_option('accesspdf_serve_markdown', true);
+        return (bool) get_option('make_pdf_accessible_serve_markdown', true);
     }
 
     /** The queried post, if this request is for content we may serve as Markdown. */
@@ -239,11 +239,11 @@ class AccessPDF_Markdown {
             return false;
         }
         $types = array_diff(get_post_types(['public' => true]), ['attachment']);
-        $types = (array) apply_filters('accesspdf_markdown_post_types', array_values($types));
+        $types = (array) apply_filters('make_pdf_accessible_markdown_post_types', array_values($types));
         if (!in_array($post->post_type, $types, true)) {
             return false;
         }
-        return (bool) apply_filters('accesspdf_markdown_enabled_for_post', true, $post);
+        return (bool) apply_filters('make_pdf_accessible_markdown_enabled_for_post', true, $post);
     }
 
     private function send_markdown(WP_Post $post, $explicit) {

@@ -1,7 +1,7 @@
 {
-  "name": "accesspdf-wordpress-e2e",
+  "name": "make-pdf-accessible-wordpress-e2e",
   "private": true,
-  "description": "End-to-end tests for the AccessPDF WordPress plugin, run against WordPress Playground.",
+  "description": "End-to-end tests for the Make PDF Accessible WordPress plugin, run against WordPress Playground.",
   "type": "module",
   "engines": {
     "node": ">=20.18"

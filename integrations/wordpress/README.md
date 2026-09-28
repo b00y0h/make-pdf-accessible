@@ -1,6 +1,6 @@
-# AccessPDF WordPress plugin
+# Make PDF Accessible WordPress plugin
 
-Inventories a site's PDFs for accessibility, serves a Markdown version of published posts and pages to AI agents, and sends uploaded PDFs to the AccessPDF service for processing.
+Inventories a site's PDFs for accessibility, serves a Markdown version of published posts and pages to AI agents, and sends uploaded PDFs to the Make PDF Accessible service for processing.
 
 ## PDF inventory
 
@@ -19,7 +19,7 @@ Inventories a site's PDFs for accessibility, serves a Markdown version of publis
 | Encrypted     | The trailer has `/Encrypt`. When encryption hides the catalog, the file is reported as "Encrypted, couldn't check"; fields hidden by encryption are reported as unknown, not as missing. |
 | PDF/UA claim  | `pdfuaid:part` in XMP metadata.                                                                                                                                                          |
 
-The checker is a small parser in plain PHP (`includes/class-accesspdf-pdf-analyzer.php`). It reads the trailer to find the catalog and document info, including inside compressed object streams, and handles incremental updates. Files over 50 MB are reported as "Too large to check here".
+The checker is a small parser in plain PHP (`includes/class-make-pdf-accessible-pdf-analyzer.php`). It reads the trailer to find the catalog and document info, including inside compressed object streams, and handles incremental updates. Files over 50 MB are reported as "Too large to check here".
 
 ### Links
 
@@ -34,7 +34,7 @@ PDFs that no published content links to are called out separately. Under the ADA
 ### Scanning
 
 - New uploads are checked automatically.
-- **Scan PDFs** runs a full scan in batches through `POST /wp-json/accesspdf/v1/inventory/scan` (requires `manage_options`), so large sites don't time out.
+- **Scan PDFs** runs a full scan in batches through `POST /wp-json/make-pdf-accessible/v1/inventory/scan` (requires `manage_options`), so large sites don't time out.
 - Rescans skip files whose size and modified time haven't changed.
 - **Download CSV** exports every row, with cells that start with `=`, `+`, `-` or `@` prefixed so spreadsheets don't run them as formulas.
 
@@ -51,11 +51,11 @@ Pages in untagged and scanned PDFs, multiplied by typical manual remediation rat
 
 ### Filters
 
-| Filter                           | Purpose                                                             |
-| -------------------------------- | ------------------------------------------------------------------- |
-| `accesspdf_inventory_capability` | Capability needed to view and scan. Defaults to `manage_options`.   |
-| `accesspdf_inventory_max_bytes`  | Largest file that will be read. Defaults to 50 MB.                  |
-| `accesspdf_inventory_rates`      | `['low' => 2.50, 'high' => 12.00]` per-page rates for the estimate. |
+| Filter                                     | Purpose                                                             |
+| ------------------------------------------ | ------------------------------------------------------------------- |
+| `make_pdf_accessible_inventory_capability` | Capability needed to view and scan. Defaults to `manage_options`.   |
+| `make_pdf_accessible_inventory_max_bytes`  | Largest file that will be read. Defaults to 50 MB.                  |
+| `make_pdf_accessible_inventory_rates`      | `['low' => 2.50, 'high' => 12.00]` per-page rates for the estimate. |
 
 ## Markdown for AI agents
 
@@ -67,7 +67,7 @@ AI agents read Markdown more reliably than full web pages, which carry navigatio
 | `GET /admissions.md`                            | Markdown (`text/markdown`), with a `Link: rel="canonical"` header pointing at the HTML page                            |
 | `GET /admissions/` with `Accept: text/markdown` | Markdown, marked `Cache-Control: no-store, private` so shared caches don't store it under the HTML address             |
 | `GET /index.md`                                 | The static front page, when one is set                                                                                 |
-| `GET /?page_id=5&accesspdf_md=1`                | Markdown, for sites without pretty permalinks                                                                          |
+| `GET /?page_id=5&make_pdf_accessible_md=1`      | Markdown, for sites without pretty permalinks                                                                          |
 
 `text/markdown` must appear in the `Accept` header with a higher q-value than `text/html`, or the same q-value and listed first. Browsers never send it, so they always get HTML.
 
@@ -85,20 +85,20 @@ Full-page caches and CDNs that key only on the URL may hand agents the cached HT
 
 ### Settings
 
-**Settings → AccessPDF → Markdown for AI agents** turns the feature on or off. It is on by default.
+**Settings → Make PDF Accessible → Markdown for AI agents** turns the feature on or off. It is on by default.
 
 ### Filters
 
-| Filter                                | Purpose                                                                               |
-| ------------------------------------- | ------------------------------------------------------------------------------------- |
-| `accesspdf_markdown_post_types`       | Post types that get a Markdown version. Defaults to public types except `attachment`. |
-| `accesspdf_markdown_enabled_for_post` | Return `false` to exclude a specific post.                                            |
-| `accesspdf_markdown_source_html`      | Replace the HTML that gets converted, for example with a converted PDF.               |
-| `accesspdf_markdown_output`           | Change the final Markdown.                                                            |
+| Filter                                          | Purpose                                                                               |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `make_pdf_accessible_markdown_post_types`       | Post types that get a Markdown version. Defaults to public types except `attachment`. |
+| `make_pdf_accessible_markdown_enabled_for_post` | Return `false` to exclude a specific post.                                            |
+| `make_pdf_accessible_markdown_source_html`      | Replace the HTML that gets converted, for example with a converted PDF.               |
+| `make_pdf_accessible_markdown_output`           | Change the final Markdown.                                                            |
 
 ## PDF processing
 
-When **Auto-Process PDFs** is on and an API key is set, uploaded PDFs are sent to the AccessPDF API.
+When **Auto-Process PDFs** is on and an API key is set, uploaded PDFs are sent to the Make PDF Accessible API.
 
 Known issues, not yet fixed:
 
@@ -106,7 +106,7 @@ Known issues, not yet fixed:
 - The returned document ID is never saved on the attachment, so the completion webhook can't update its status.
 - The webhook doesn't verify a signature.
 
-Status and error messages go to the `accesspdf_log` action (message as the first argument) instead of the PHP error log, so a logging plugin can pick them up.
+Status and error messages go to the `make_pdf_accessible_log` action (message as the first argument) instead of the PHP error log, so a logging plugin can pick them up.
 
 ## Tests
 
@@ -160,19 +160,20 @@ To require it in branch protection, use the **WordPress plugin checks** job, whi
 
 ## Releasing to WordPress.org
 
-`bin/build.sh` builds the plugin as it ships (`dist/accesspdf/` and `dist/accesspdf.zip`), leaving out what `.distignore` lists: tests, build scripts and this README. The directory listing comes from `readme.txt`.
+`bin/build.sh` builds the plugin as it ships (`dist/make-pdf-accessible/` and `dist/make-pdf-accessible.zip`), leaving out what `.distignore` lists: tests, build scripts and this README. The directory listing comes from `readme.txt`.
 
 ### One-time setup
 
-1. **Finish `readme.txt`.** Replace `REPLACE-WITH-WPORG-USERNAME` under Contributors with the WordPress.org username that will own the plugin. Make sure https://accesspdf.com/terms and https://accesspdf.com/privacy exist, since the External services section links to them.
-2. **Submit the plugin.** Upload `dist/accesspdf.zip` at https://wordpress.org/plugins/developers/add/. The first version is reviewed by hand, which can take a few weeks. The requested slug is `accesspdf`, matching the text domain. If the review team assigns a different slug, update `SLUG` in `bin/build.sh` and `.github/workflows/wordpress-plugin-release.yml`, and the text domain.
-3. **Add repository secrets** once the plugin is approved: `SVN_USERNAME` (the WordPress.org username) and `SVN_PASSWORD` (the SVN password set under Account & Security on the WordPress.org profile, not the login password).
-4. **Create a `wordpress-org` environment** under Settings → Environments, with required reviewers, so every deploy waits for approval.
-5. Optionally, put listing images in `.wordpress-org/` (`banner-772x250.png`, `banner-1544x500.png`, `icon-128x128.png`, `icon-256x256.png`, `screenshot-1.png`...). They're published to the SVN `assets` directory.
+1. **Create a WordPress.org account for the business**, with an email address at makepdfaccessible.com. WordPress.org only accepts a plugin named after a brand from an account that represents the brand, and checks the email domain. Each person who commits code also needs their own account.
+2. **Finish `readme.txt`.** Replace `REPLACE-WITH-WPORG-USERNAME` under Contributors with the business account's username (add your personal username too, comma separated). Make sure https://makepdfaccessible.com/terms and https://makepdfaccessible.com/privacy exist, since the External services section links to them.
+3. **Submit the plugin** from the business account. Upload `dist/make-pdf-accessible.zip` at https://wordpress.org/plugins/developers/add/. The first version is reviewed by hand, which can take a few weeks. The requested slug is `make-pdf-accessible`, matching the text domain. If the review team assigns a different slug, update `SLUG` in `bin/build.sh` and `.github/workflows/wordpress-plugin-release.yml`, the Plugin Check `slug` and `build-dir` in `.github/workflows/wordpress-plugin.yml`, and the text domain.
+4. **Add repository secrets** once the plugin is approved: `SVN_USERNAME` (the business account's username) and `SVN_PASSWORD` (the SVN password set under Account & Security on the WordPress.org profile, not the login password).
+5. **Create a `wordpress-org` environment** under Settings → Environments, with required reviewers, so every deploy waits for approval.
+6. Optionally, put listing images in `.wordpress-org/` (`banner-772x250.png`, `banner-1544x500.png`, `icon-128x128.png`, `icon-256x256.png`, `screenshot-1.png`...). They're published to the SVN `assets` directory.
 
 ### Each release
 
-1. Update the version in three places: the `Version:` header and `ACCESSPDF_VERSION` in `accesspdf-plugin.php`, and `Stable tag` in `readme.txt`. Add a Changelog entry to `readme.txt` (and an Upgrade Notice if useful).
+1. Update the version in three places: the `Version:` header and `MAKE_PDF_ACCESSIBLE_VERSION` in `make-pdf-accessible.php`, and `Stable tag` in `readme.txt`. Add a Changelog entry to `readme.txt` (and an Upgrade Notice if useful).
 2. Run `bin/check-release.sh 1.2.1` to confirm everything agrees, then merge.
 3. Tag the merged commit and push the tag:
 

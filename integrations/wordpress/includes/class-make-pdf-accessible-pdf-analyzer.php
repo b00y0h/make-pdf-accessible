@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-class AccessPDF_PDF_Analyzer {
+class Make_PDF_Accessible_PDF_Analyzer {
     const STATUS_TAGGED = 'tagged';
     const STATUS_UNTAGGED = 'untagged';
     const STATUS_NO_TEXT = 'no_text';

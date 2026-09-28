@@ -7,10 +7,10 @@
 (function () {
   'use strict';
 
-  var config = window.accesspdfInventory;
-  var button = document.getElementById('accesspdf-scan');
-  var status = document.getElementById('accesspdf-scan-status');
-  var progress = document.getElementById('accesspdf-scan-progress');
+  var config = window.makePdfAccessibleInventory;
+  var button = document.getElementById('make-pdf-accessible-scan');
+  var status = document.getElementById('make-pdf-accessible-scan-status');
+  var progress = document.getElementById('make-pdf-accessible-scan-progress');
   if (!config || !button || !status || !progress) {
     return;
   }

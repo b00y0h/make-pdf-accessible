@@ -28,14 +28,14 @@ const args = [
   'server',
   `--php=${PHP_VERSION}`,
   `--port=${PORT}`,
-  `--mount=${pluginDir}:/wordpress/wp-content/plugins/accesspdf`,
+  `--mount=${pluginDir}:/wordpress/wp-content/plugins/make-pdf-accessible`,
   `--mount=${path.join(e2eDir, 'fixtures/mu-plugins')}:/wordpress/wp-content/mu-plugins`,
   `--blueprint=${path.join(e2eDir, 'fixtures/blueprint.json')}`,
 ];
 
 let copy = null;
 if (WP_SOURCE) {
-  copy = mkdtempSync(path.join(tmpdir(), 'accesspdf-wp-'));
+  copy = mkdtempSync(path.join(tmpdir(), 'make-pdf-accessible-wp-'));
   cpSync(WP_SOURCE, copy, { recursive: true });
   args.push(
     '--wordpress-install-mode=install-from-existing-files',

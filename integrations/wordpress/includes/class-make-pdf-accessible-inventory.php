@@ -11,11 +11,11 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-class AccessPDF_Inventory {
-    const META = '_accesspdf_inventory';
-    const LINKS_META = '_accesspdf_linked_from';
-    const OTHER_OPTION = 'accesspdf_inventory_other';
-    const STATE_OPTION = 'accesspdf_inventory_state';
+class Make_PDF_Accessible_Inventory {
+    const META = '_make_pdf_accessible_inventory';
+    const LINKS_META = '_make_pdf_accessible_linked_from';
+    const OTHER_OPTION = 'make_pdf_accessible_inventory_other';
+    const STATE_OPTION = 'make_pdf_accessible_inventory_state';
 
     /** Bump when the analyzer changes so every file is checked again. */
     const ANALYSIS_VERSION = 1;
@@ -28,7 +28,7 @@ class AccessPDF_Inventory {
     const STATUS_MISSING = 'missing';
     const STATUS_NOT_CHECKED = 'not_checked';
 
-    /** @var AccessPDF_PDF_Analyzer|null */
+    /** @var Make_PDF_Accessible_PDF_Analyzer|null */
     private $analyzer;
 
     /** @var array<string, int>|null Upload-relative path (lowercase) => attachment ID. */
@@ -37,15 +37,15 @@ class AccessPDF_Inventory {
     public function register() {
         add_action('add_attachment', [$this, 'analyze_attachment']);
         add_action('rest_api_init', [$this, 'register_routes']);
-        add_action('admin_post_accesspdf_inventory_csv', [$this, 'export_csv']);
+        add_action('admin_post_make_pdf_accessible_inventory_csv', [$this, 'export_csv']);
     }
 
     public static function capability() {
-        return (string) apply_filters('accesspdf_inventory_capability', 'manage_options');
+        return (string) apply_filters('make_pdf_accessible_inventory_capability', 'manage_options');
     }
 
     public function register_routes() {
-        register_rest_route('accesspdf/v1', '/inventory/scan', [
+        register_rest_route('make-pdf-accessible/v1', '/inventory/scan', [
             'methods' => 'POST',
             'callback' => [$this, 'rest_scan'],
             'permission_callback' => function () {
@@ -72,7 +72,7 @@ class AccessPDF_Inventory {
             foreach (array_slice($ids, $offset, self::FILE_BATCH) as $id) {
                 $this->analyze_attachment($id);
             }
-            return $this->progress('files', $offset + self::FILE_BATCH, count($ids), 'links', __('Checking PDF files', 'accesspdf'));
+            return $this->progress('files', $offset + self::FILE_BATCH, count($ids), 'links', __('Checking PDF files', 'make-pdf-accessible'));
         }
 
         if ('links' === $phase) {
@@ -82,7 +82,7 @@ class AccessPDF_Inventory {
             }
             $ids = $this->published_post_ids();
             $this->record_links(array_slice($ids, $offset, self::POST_BATCH));
-            return $this->progress('links', $offset + self::POST_BATCH, count($ids), 'other', __('Finding links in published content', 'accesspdf'));
+            return $this->progress('links', $offset + self::POST_BATCH, count($ids), 'other', __('Finding links in published content', 'make-pdf-accessible'));
         }
 
         $other = $this->other_pdfs();
@@ -100,7 +100,7 @@ class AccessPDF_Inventory {
             update_option(self::STATE_OPTION, ['last_scan' => time()], false);
             return ['done' => true];
         }
-        return $this->progress('other', $next, count($keys), null, __('Checking linked PDFs outside the media library', 'accesspdf'));
+        return $this->progress('other', $next, count($keys), null, __('Checking linked PDFs outside the media library', 'make-pdf-accessible'));
     }
 
     private function progress($phase, $next, $total, $next_phase, $label) {
@@ -145,8 +145,8 @@ class AccessPDF_Inventory {
 
     private function analyzer() {
         if (null === $this->analyzer) {
-            $max_bytes = (int) apply_filters('accesspdf_inventory_max_bytes', 50 * 1024 * 1024);
-            $this->analyzer = new AccessPDF_PDF_Analyzer($max_bytes);
+            $max_bytes = (int) apply_filters('make_pdf_accessible_inventory_max_bytes', 50 * 1024 * 1024);
+            $this->analyzer = new Make_PDF_Accessible_PDF_Analyzer($max_bytes);
         }
         return $this->analyzer;
     }
@@ -369,15 +369,15 @@ class AccessPDF_Inventory {
 
     /** Statuses that mean the PDF needs remediation work. */
     public static function needs_work($status) {
-        return in_array($status, [AccessPDF_PDF_Analyzer::STATUS_UNTAGGED, AccessPDF_PDF_Analyzer::STATUS_NO_TEXT], true);
+        return in_array($status, [Make_PDF_Accessible_PDF_Analyzer::STATUS_UNTAGGED, Make_PDF_Accessible_PDF_Analyzer::STATUS_NO_TEXT], true);
     }
 
     /** Statuses where the file couldn't be checked. */
     public static function unchecked($status) {
         return in_array($status, [
-            AccessPDF_PDF_Analyzer::STATUS_ENCRYPTED,
-            AccessPDF_PDF_Analyzer::STATUS_TOO_LARGE,
-            AccessPDF_PDF_Analyzer::STATUS_UNREADABLE,
+            Make_PDF_Accessible_PDF_Analyzer::STATUS_ENCRYPTED,
+            Make_PDF_Accessible_PDF_Analyzer::STATUS_TOO_LARGE,
+            Make_PDF_Accessible_PDF_Analyzer::STATUS_UNREADABLE,
             self::STATUS_MISSING,
             self::STATUS_NOT_CHECKED,
         ], true);
@@ -433,29 +433,29 @@ class AccessPDF_Inventory {
 
     /** @return array{low: float, high: float} Per-page rates for the cost estimate. */
     public static function rates() {
-        $rates = (array) apply_filters('accesspdf_inventory_rates', ['low' => 2.50, 'high' => 12.00]);
+        $rates = (array) apply_filters('make_pdf_accessible_inventory_rates', ['low' => 2.50, 'high' => 12.00]);
         return ['low' => (float) $rates['low'], 'high' => (float) $rates['high']];
     }
 
     public static function status_label($status) {
         $labels = [
-            AccessPDF_PDF_Analyzer::STATUS_TAGGED => __('Tagged', 'accesspdf'),
-            AccessPDF_PDF_Analyzer::STATUS_UNTAGGED => __('Untagged', 'accesspdf'),
-            AccessPDF_PDF_Analyzer::STATUS_NO_TEXT => __('No text layer (likely scanned)', 'accesspdf'),
-            AccessPDF_PDF_Analyzer::STATUS_ENCRYPTED => __('Encrypted, couldn’t check', 'accesspdf'),
-            AccessPDF_PDF_Analyzer::STATUS_TOO_LARGE => __('Too large to check here', 'accesspdf'),
-            AccessPDF_PDF_Analyzer::STATUS_UNREADABLE => __('Couldn’t read', 'accesspdf'),
-            self::STATUS_MISSING => __('Linked file not found', 'accesspdf'),
-            self::STATUS_NOT_CHECKED => __('Not checked yet', 'accesspdf'),
+            Make_PDF_Accessible_PDF_Analyzer::STATUS_TAGGED => __('Tagged', 'make-pdf-accessible'),
+            Make_PDF_Accessible_PDF_Analyzer::STATUS_UNTAGGED => __('Untagged', 'make-pdf-accessible'),
+            Make_PDF_Accessible_PDF_Analyzer::STATUS_NO_TEXT => __('No text layer (likely scanned)', 'make-pdf-accessible'),
+            Make_PDF_Accessible_PDF_Analyzer::STATUS_ENCRYPTED => __('Encrypted, couldn’t check', 'make-pdf-accessible'),
+            Make_PDF_Accessible_PDF_Analyzer::STATUS_TOO_LARGE => __('Too large to check here', 'make-pdf-accessible'),
+            Make_PDF_Accessible_PDF_Analyzer::STATUS_UNREADABLE => __('Couldn’t read', 'make-pdf-accessible'),
+            self::STATUS_MISSING => __('Linked file not found', 'make-pdf-accessible'),
+            self::STATUS_NOT_CHECKED => __('Not checked yet', 'make-pdf-accessible'),
         ];
         return isset($labels[$status]) ? $labels[$status] : $status;
     }
 
     public function export_csv() {
         if (!current_user_can(self::capability())) {
-            wp_die(esc_html__('You don’t have permission to export the PDF inventory.', 'accesspdf'), '', ['response' => 403]);
+            wp_die(esc_html__('You don’t have permission to export the PDF inventory.', 'make-pdf-accessible'), '', ['response' => 403]);
         }
-        check_admin_referer('accesspdf_inventory_csv');
+        check_admin_referer('make_pdf_accessible_inventory_csv');
 
         nocache_headers();
         header('Content-Type: text/csv; charset=utf-8');

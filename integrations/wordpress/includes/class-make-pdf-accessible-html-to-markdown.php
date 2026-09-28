@@ -11,7 +11,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-class AccessPDF_HTML_To_Markdown {
+class Make_PDF_Accessible_HTML_To_Markdown {
     /** Elements whose content never appears in the Markdown. */
     const SKIP_TAGS = [
         'button', 'canvas', 'embed', 'head', 'input', 'link', 'meta', 'noscript',

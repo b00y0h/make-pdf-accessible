@@ -1,8 +1,8 @@
 name: WordPress Plugin Release
 
-# Deploys the AccessPDF plugin to the WordPress.org plugin directory.
+# Deploys the Make PDF Accessible plugin to the WordPress.org plugin directory.
 #
-# Release: bump the version in accesspdf-plugin.php (header and ACCESSPDF_VERSION) and
+# Release: bump the version in make-pdf-accessible.php (header and MAKE_PDF_ACCESSIBLE_VERSION) and
 # readme.txt (Stable tag, Changelog), merge, then push a tag:
 #   git tag wordpress-plugin-v1.2.0 && git push origin wordpress-plugin-v1.2.0
 # The tag prefix keeps these releases apart from the platform's v* releases (release.yml).
@@ -33,7 +33,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SLUG: accesspdf
+  SLUG: make-pdf-accessible
 
 jobs:
   prepare:
@@ -59,7 +59,7 @@ jobs:
             expected="$version"
           elif [[ "$DRY_RUN" == true ]]; then
             # A dry run from a branch rehearses the version currently in the plugin header.
-            version=$(sed -n 's/^ \* Version: *//p' accesspdf-plugin.php | tr -d '\r')
+            version=$(sed -n 's/^ \* Version: *//p' make-pdf-accessible.php | tr -d '\r')
             expected=""
           else
             echo "::error::Deploy from a wordpress-plugin-v* tag, or turn on dry run."
@@ -151,5 +151,5 @@ jobs:
               echo
               echo "Published to https://wordpress.org/plugins/$SLUG/"
             } > notes.md
-            gh release create "$TAG" "$zip" --title "AccessPDF for WordPress $VERSION" --notes-file notes.md --latest=false
+            gh release create "$TAG" "$zip" --title "Make PDF Accessible for WordPress $VERSION" --notes-file notes.md --latest=false
           fi

@@ -1,4 +1,4 @@
-=== AccessPDF ===
+=== Make PDF Accessible ===
 Contributors: REPLACE-WITH-WPORG-USERNAME
 Tags: accessibility, pdf, wcag, ada, markdown
 Requires at least: 6.5
@@ -41,7 +41,7 @@ Visitors always see the normal page. Drafts, private and password-protected post
 
 1. Install and activate the plugin.
 2. Go to Media → PDF Inventory and select Scan PDFs.
-3. Optional: adjust Markdown settings under Settings → AccessPDF.
+3. Optional: adjust Markdown settings under Settings → Make PDF Accessible.
 
 == Frequently Asked Questions ==
 
@@ -63,12 +63,12 @@ Markdown responses point search engines to the HTML page as the canonical versio
 
 == External services ==
 
-This plugin can send uploaded PDFs to the AccessPDF API (api.accesspdf.com) to be made accessible. It does this only when you enter an API key and turn on Auto-Process PDFs under Settings → AccessPDF. Both are off until you set them.
+This plugin can send uploaded PDFs to the Make PDF Accessible API (api.makepdfaccessible.com) to be made accessible. It does this only when you enter an API key and turn on Auto-Process PDFs under Settings → Make PDF Accessible. Both are off until you set them.
 
 When a PDF is uploaded, the plugin sends the file's URL and name, your site's URL, name and domain, the upload date, the plugin version and a callback URL for completion notices.
 
-* Terms of service: https://accesspdf.com/terms
-* Privacy policy: https://accesspdf.com/privacy
+* Terms of service: https://makepdfaccessible.com/terms
+* Privacy policy: https://makepdfaccessible.com/privacy
 
 The PDF inventory and Markdown features don't use any external service.
 

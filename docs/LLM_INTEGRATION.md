@@ -72,9 +72,9 @@ curl -X POST "https://api.accesspdf.com/v1/client/upload" \
 
 ### 1. Install Plugin
 ```bash
-# Upload accesspdf-plugin.php to /wp-content/plugins/
+# Upload the make-pdf-accessible plugin folder to /wp-content/plugins/
 # Activate in WordPress admin
-# Configure API key in Settings → AccessPDF
+# Configure API key in Settings → Make PDF Accessible
 ```
 
 ### 2. Plugin Auto-Processing

@@ -1,10 +1,10 @@
 <?php
 /**
  * Test-only helpers for the end-to-end suite. The harness mounts this file as a
- * must-use plugin and defines ACCESSPDF_E2E; it is never shipped with the plugin.
+ * must-use plugin and defines MAKE_PDF_ACCESSIBLE_E2E; it is never shipped with the plugin.
  */
 
-if (!defined('ACCESSPDF_E2E') || !ACCESSPDF_E2E) {
+if (!defined('MAKE_PDF_ACCESSIBLE_E2E') || !MAKE_PDF_ACCESSIBLE_E2E) {
     return;
 }
 
@@ -24,13 +24,13 @@ add_action('init', function () {
     }
     // ?e2e_ids=1: IDs of the seeded content.
     if (isset($_GET['e2e_ids'])) {
-        wp_send_json(get_option('accesspdf_e2e_ids'));
+        wp_send_json(get_option('make_pdf_accessible_e2e_ids'));
     }
     // ?e2e_reset_inventory=1: forget scan results, keeping the checks made on upload.
     if (isset($_GET['e2e_reset_inventory'])) {
-        delete_option('accesspdf_inventory_state');
-        delete_option('accesspdf_inventory_other');
-        delete_post_meta_by_key('_accesspdf_linked_from');
+        delete_option('make_pdf_accessible_inventory_state');
+        delete_option('make_pdf_accessible_inventory_other');
+        delete_post_meta_by_key('_make_pdf_accessible_linked_from');
         wp_send_json(['ok' => true]);
     }
 }, 1);

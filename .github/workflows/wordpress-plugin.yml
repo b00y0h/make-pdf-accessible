@@ -1,6 +1,6 @@
 name: WordPress Plugin
 
-# Tests the AccessPDF WordPress plugin (integrations/wordpress):
+# Tests the Make PDF Accessible WordPress plugin (integrations/wordpress):
 #   - unit tests and a syntax check on every supported PHP version,
 #   - release metadata (versions, "Tested up to") is consistent,
 #   - end-to-end tests on each WordPress and PHP combination in
@@ -148,8 +148,8 @@ jobs:
 
       - uses: wordpress/plugin-check-action@v1
         with:
-          build-dir: integrations/wordpress/dist/accesspdf
-          slug: accesspdf
+          build-dir: integrations/wordpress/dist/make-pdf-accessible
+          slug: make-pdf-accessible
 
   # One stable check name to require in branch protection, since the matrix job names
   # change whenever matrix.json does.

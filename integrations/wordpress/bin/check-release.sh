@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Checks that a release is consistent before it ships:
-#   - the plugin header Version, ACCESSPDF_VERSION and readme.txt Stable tag agree,
+#   - the plugin header Version, MAKE_PDF_ACCESSIBLE_VERSION and readme.txt Stable tag agree,
 #   - they match the expected version (from the release tag), when one is given,
 #   - readme.txt has a Changelog entry for the version,
 #   - "Tested up to" covers the newest WordPress in the test matrix,
@@ -22,15 +22,15 @@ error() {
   fail=1
 }
 
-header=$(sed -n 's/^ \* Version: *//p' accesspdf-plugin.php | tr -d '\r')
-constant=$(sed -n "s/^define('ACCESSPDF_VERSION', '\(.*\)');/\1/p" accesspdf-plugin.php)
+header=$(sed -n 's/^ \* Version: *//p' make-pdf-accessible.php | tr -d '\r')
+constant=$(sed -n "s/^define('MAKE_PDF_ACCESSIBLE_VERSION', '\(.*\)');/\1/p" make-pdf-accessible.php)
 stable=$(sed -n 's/^Stable tag: *//p' readme.txt | tr -d '\r')
 tested=$(sed -n 's/^Tested up to: *//p' readme.txt | tr -d '\r')
 
-echo "Plugin header Version: $header"
-echo "ACCESSPDF_VERSION:     $constant"
-echo "readme Stable tag:     $stable"
-[ "$header" = "$constant" ] || error "Plugin header Version ($header) and ACCESSPDF_VERSION ($constant) differ."
+echo "Plugin header Version:       $header"
+echo "MAKE_PDF_ACCESSIBLE_VERSION: $constant"
+echo "readme Stable tag:           $stable"
+[ "$header" = "$constant" ] || error "Plugin header Version ($header) and MAKE_PDF_ACCESSIBLE_VERSION ($constant) differ."
 [ "$header" = "$stable" ] || error "Plugin header Version ($header) and readme.txt Stable tag ($stable) differ."
 if [ -n "${1:-}" ]; then
   [ "$header" = "$1" ] || error "Release tag version ($1) doesn't match the plugin version ($header)."
@@ -41,7 +41,7 @@ if ! bin/changelog.sh "$header" | grep -q .; then
 fi
 
 newest=$(grep -o '"wp": "[0-9][0-9.]*"' tests/e2e/matrix.json | grep -o '[0-9][0-9.]*' | sort -V | tail -1)
-echo "readme Tested up to:   $tested (newest WordPress in matrix: $newest)"
+echo "readme Tested up to:         $tested (newest WordPress in matrix: $newest)"
 [ "$(printf '%s\n%s\n' "$newest" "$tested" | sort -V | tail -1)" = "$tested" ] || error "readme.txt 'Tested up to' ($tested) is older than the newest tested WordPress ($newest)."
 
 if grep -n 'REPLACE-WITH' readme.txt; then

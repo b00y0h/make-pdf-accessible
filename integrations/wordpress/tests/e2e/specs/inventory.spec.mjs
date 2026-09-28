@@ -3,8 +3,8 @@ import { parseCsv, restNonce, session, summaryRows } from './helpers.mjs';
 
 test.describe.configure({ mode: 'serial' });
 
-const PAGE = '/wp-admin/upload.php?page=accesspdf-inventory';
-const SCAN = '/wp-json/accesspdf/v1/inventory/scan';
+const PAGE = '/wp-admin/upload.php?page=make-pdf-accessible-inventory';
+const SCAN = '/wp-json/make-pdf-accessible/v1/inventory/scan';
 
 let admin;
 let subscriber;
@@ -67,7 +67,7 @@ test('uploads are checked automatically before any full scan', async () => {
 test('a full scan checks files, maps links and totals the backlog', async () => {
   const before = await (await admin.get(PAGE)).text();
   const nonce = before.match(
-    /var accesspdfInventory = [^;]*"nonce":"([a-f0-9]+)"/
+    /var makePdfAccessibleInventory = [^;]*"nonce":"([a-f0-9]+)"/
   )[1];
   expect(await scan(nonce)).toBeLessThan(10);
 
@@ -123,7 +123,7 @@ test('CSV export', async () => {
   const html = await (await admin.get(PAGE)).text();
   const nonce = [...html.matchAll(/name="_wpnonce" value="([^"]+)"/g)].pop()[1];
   const response = await admin.post('/wp-admin/admin-post.php', {
-    form: { action: 'accesspdf_inventory_csv', _wpnonce: nonce },
+    form: { action: 'make_pdf_accessible_inventory_csv', _wpnonce: nonce },
   });
   expect(response.status()).toBe(200);
   expect(response.headers()['content-type']).toContain('text/csv');
@@ -165,7 +165,7 @@ test('CSV export', async () => {
   });
 
   const refused = await admin.post('/wp-admin/admin-post.php', {
-    form: { action: 'accesspdf_inventory_csv', _wpnonce: 'bad' },
+    form: { action: 'make_pdf_accessible_inventory_csv', _wpnonce: 'bad' },
   });
   expect(refused.status()).not.toBe(200);
 });

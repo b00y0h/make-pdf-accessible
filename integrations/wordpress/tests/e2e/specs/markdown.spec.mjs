@@ -21,7 +21,7 @@ test.beforeAll(async ({ baseURL }) => {
 
 test.afterAll(async () => {
   // Leave the site as the other specs expect it, even if a test failed midway.
-  await setOption(visitor, 'accesspdf_serve_markdown', '1');
+  await setOption(visitor, 'make_pdf_accessible_serve_markdown', '1');
   await setOption(visitor, 'permalink_structure', '/%postname%/');
   await visitor.dispose();
 });
@@ -125,7 +125,7 @@ test('drafts, private, password-protected and unknown content is never served', 
     expect(response.status(), slug).toBe(404);
     expect(await response.text(), slug).not.toContain('SECRET');
   }
-  const draft = await visitor.get(`/?p=${ids.draft}&accesspdf_md=1`);
+  const draft = await visitor.get(`/?p=${ids.draft}&make_pdf_accessible_md=1`);
   expect(draft.status()).toBe(404);
   expect(await draft.text()).not.toContain('SECRET');
 
@@ -137,26 +137,28 @@ test('drafts, private, password-protected and unknown content is never served', 
 });
 
 test('turning the setting off stops Markdown everywhere', async () => {
-  await setOption(visitor, 'accesspdf_serve_markdown', '0');
+  await setOption(visitor, 'make_pdf_accessible_serve_markdown', '0');
   expect((await visitor.get('/admissions.md')).status()).toBe(404);
   const negotiated = await visitor.get('/admissions/', {
     headers: { Accept: AGENT_ACCEPT },
   });
   expect(negotiated.headers()['content-type']).toContain('text/html');
   expect(await negotiated.text()).not.toContain('type="text/markdown"');
-  await setOption(visitor, 'accesspdf_serve_markdown', '1');
+  await setOption(visitor, 'make_pdf_accessible_serve_markdown', '1');
 });
 
-test('sites without pretty permalinks use ?accesspdf_md=1', async () => {
+test('sites without pretty permalinks use ?make_pdf_accessible_md=1', async () => {
   await setOption(visitor, 'permalink_structure', '');
   const html = await (
     await visitor.get(`/?page_id=${ids.admissions}`, {
       headers: { Accept: BROWSER_ACCEPT },
     })
   ).text();
-  expect(html).toContain(`?page_id=${ids.admissions}&#038;accesspdf_md=1`);
+  expect(html).toContain(
+    `?page_id=${ids.admissions}&#038;make_pdf_accessible_md=1`
+  );
   const markdown = await visitor.get(
-    `/?page_id=${ids.admissions}&accesspdf_md=1`
+    `/?page_id=${ids.admissions}&make_pdf_accessible_md=1`
   );
   expect(markdown.headers()['content-type']).toContain('text/markdown');
 
@@ -167,20 +169,22 @@ test('sites without pretty permalinks use ?accesspdf_md=1', async () => {
 test('the settings form saves through wp-admin', async ({ baseURL }) => {
   const admin = await session(baseURL, 'admin', 'password');
   const page = await (
-    await admin.get('/wp-admin/options-general.php?page=accesspdf-settings')
+    await admin.get(
+      '/wp-admin/options-general.php?page=make-pdf-accessible-settings'
+    )
   ).text();
-  expect(page).toContain('id="accesspdf_serve_markdown"');
+  expect(page).toContain('id="make_pdf_accessible_serve_markdown"');
   expect(page).toContain(`${baseURL}/about.md`);
   expect(page).not.toContain('embeddings');
 
   const nonce = page.match(/name="_wpnonce" value="([^"]+)"/)[1];
   const saved = await admin.post('/wp-admin/options.php', {
     form: {
-      option_page: 'accesspdf_settings',
+      option_page: 'make_pdf_accessible_settings',
       action: 'update',
       _wpnonce: nonce,
-      accesspdf_api_key: 'test-key',
-      accesspdf_auto_process: '1',
+      make_pdf_accessible_api_key: 'test-key',
+      make_pdf_accessible_auto_process: '1',
     },
     maxRedirects: 0,
   });
@@ -189,11 +193,13 @@ test('the settings form saves through wp-admin', async ({ baseURL }) => {
   expect((await visitor.get('/admissions.md')).status()).toBe(404);
   expect(
     await (
-      await admin.get('/wp-admin/options-general.php?page=accesspdf-settings')
+      await admin.get(
+        '/wp-admin/options-general.php?page=make-pdf-accessible-settings'
+      )
     ).text()
   ).toContain('value="test-key"');
 
-  await setOption(visitor, 'accesspdf_serve_markdown', '1');
-  await setOption(visitor, 'accesspdf_api_key', '');
+  await setOption(visitor, 'make_pdf_accessible_serve_markdown', '1');
+  await setOption(visitor, 'make_pdf_accessible_api_key', '');
   await admin.dispose();
 });

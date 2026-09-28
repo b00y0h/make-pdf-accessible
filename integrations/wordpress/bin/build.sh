@@ -3,7 +3,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-SLUG="${SLUG:-accesspdf}"
+SLUG="${SLUG:-make-pdf-accessible}"
 
 rm -rf dist
 mkdir -p "dist/$SLUG"

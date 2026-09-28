@@ -5,7 +5,7 @@
     {
       "step": "defineWpConfigConsts",
       "consts": {
-        "ACCESSPDF_E2E": true,
+        "MAKE_PDF_ACCESSIBLE_E2E": true,
         "WP_HTTP_BLOCK_EXTERNAL": true,
         "DISABLE_WP_CRON": true,
         "AUTOMATIC_UPDATER_DISABLED": true
@@ -17,11 +17,11 @@
     },
     {
       "step": "activatePlugin",
-      "pluginPath": "/wordpress/wp-content/plugins/accesspdf/accesspdf-plugin.php"
+      "pluginPath": "/wordpress/wp-content/plugins/make-pdf-accessible/make-pdf-accessible.php"
     },
     {
       "step": "runPHP",
-      "code": "<?php require '/wordpress/wp-load.php'; require '/wordpress/wp-content/plugins/accesspdf/tests/e2e/fixtures/seed.php';"
+      "code": "<?php require '/wordpress/wp-load.php'; require '/wordpress/wp-content/plugins/make-pdf-accessible/tests/e2e/fixtures/seed.php';"
     }
   ]
 }

@@ -29,15 +29,15 @@ update_option('page_on_front', $ids['front']);
 
 // Inventory: PDFs in the media library, uploaded after activation so they're checked on upload.
 $pdfs = [
-    'research-paper' => accesspdf_test_build_pdf(accesspdf_test_text_objects([], 14)),
-    'structure-guide' => accesspdf_test_build_pdf(accesspdf_test_text_objects(['/StructTreeRoot 900 0 R', '/Lang (en-US)']) + [900 => '<< /Type /StructTreeRoot /K [] >>']),
-    'scanned-flyer' => accesspdf_test_build_pdf(accesspdf_test_scanned_objects()),
-    'aid-form' => accesspdf_test_build_pdf(accesspdf_test_text_objects(['/StructTreeRoot 900 0 R', '/Lang (FR)', '/AcroForm << /Fields [901 0 R] >>']) + [
+    'research-paper' => make_pdf_accessible_test_build_pdf(make_pdf_accessible_test_text_objects([], 14)),
+    'structure-guide' => make_pdf_accessible_test_build_pdf(make_pdf_accessible_test_text_objects(['/StructTreeRoot 900 0 R', '/Lang (en-US)']) + [900 => '<< /Type /StructTreeRoot /K [] >>']),
+    'scanned-flyer' => make_pdf_accessible_test_build_pdf(make_pdf_accessible_test_scanned_objects()),
+    'aid-form' => make_pdf_accessible_test_build_pdf(make_pdf_accessible_test_text_objects(['/StructTreeRoot 900 0 R', '/Lang (FR)', '/AcroForm << /Fields [901 0 R] >>']) + [
         900 => '<< /Type /StructTreeRoot /K [] >>',
         901 => '<< /FT /Tx /T (name) /Subtype /Widget /Rect [0 0 100 20] >>',
     ]),
-    'old-memo' => accesspdf_test_build_pdf(accesspdf_test_text_objects()),
-    'encrypted-report' => accesspdf_test_encrypted_pdf(),
+    'old-memo' => make_pdf_accessible_test_build_pdf(make_pdf_accessible_test_text_objects()),
+    'encrypted-report' => make_pdf_accessible_test_encrypted_pdf(),
 ];
 $url = [];
 foreach ($pdfs as $name => $bytes) {
@@ -48,7 +48,7 @@ foreach ($pdfs as $name => $bytes) {
 
 // A PDF outside the media library, the way FTP uploads land on many sites.
 wp_mkdir_p(ABSPATH . 'files');
-file_put_contents(ABSPATH . 'files/old-catalog.pdf', accesspdf_test_build_pdf(accesspdf_test_scanned_objects(4)));
+file_put_contents(ABSPATH . 'files/old-catalog.pdf', make_pdf_accessible_test_build_pdf(make_pdf_accessible_test_scanned_objects(4)));
 
 $ids['pdf_links'] = wp_insert_post(['post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Forms and documents', 'post_name' => 'forms-and-documents', 'post_content' =>
     '<p><a href="' . $url['research-paper'] . '">Research paper</a></p>'
@@ -61,4 +61,4 @@ $ids['library_news'] = wp_insert_post(['post_type' => 'post', 'post_status' => '
 wp_update_post(['ID' => $ids['draft'], 'post_content' => '<p>DRAFT-SECRET</p><a href="' . $url['aid-form'] . '">Form</a>']);
 
 wp_insert_user(['user_login' => 'sub', 'user_pass' => 'subpass', 'user_email' => 'sub@example.org', 'role' => 'subscriber']);
-update_option('accesspdf_e2e_ids', $ids);
+update_option('make_pdf_accessible_e2e_ids', $ids);
