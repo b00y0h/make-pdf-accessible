@@ -19,3 +19,4 @@ test-results/
 # Generated files
 *.min.js
 *.min.css
+next-env.d.ts
