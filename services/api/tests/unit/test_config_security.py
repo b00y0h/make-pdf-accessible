@@ -24,9 +24,11 @@ class TestAWSCredentialValidation:
 
                 from pydantic import ValidationError
 
-                import services.api.app.config as config_module
-
                 with pytest.raises(ValidationError) as exc_info:
+                    # The first import runs Settings() itself, so it raises here;
+                    # if another test imported the module already, the reload does.
+                    import services.api.app.config as config_module
+
                     importlib.reload(config_module)
 
                 error_str = str(exc_info.value)
