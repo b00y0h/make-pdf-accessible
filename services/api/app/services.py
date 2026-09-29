@@ -139,7 +139,7 @@ class DocumentService:
 
         except Exception as e:
             logger.error(f"Failed to create document: {e}")
-            raise AWSServiceError(f"Failed to create document: {e}")
+            raise AWSServiceError(f"Failed to create document: {e}") from e
 
     @tracer.capture_method
     async def get_document(
@@ -185,7 +185,7 @@ class DocumentService:
 
         except Exception as e:
             logger.error(f"Failed to get document {doc_id}: {e}")
-            raise AWSServiceError(f"Failed to get document: {e}")
+            raise AWSServiceError(f"Failed to get document: {e}") from e
 
     @tracer.capture_method
     async def generate_presigned_upload_url(
@@ -252,7 +252,7 @@ class DocumentService:
 
         except ClientError as e:
             logger.error(f"Failed to generate pre-signed upload URL: {e}")
-            raise AWSServiceError(f"Failed to generate upload URL: {e}")
+            raise AWSServiceError(f"Failed to generate upload URL: {e}") from e
 
     @tracer.capture_method
     async def create_document_from_s3(
@@ -288,7 +288,7 @@ class DocumentService:
             except ClientError as e:
                 if e.response["Error"]["Code"] == "404":
                     logger.error(f"S3 object not found: {s3_key}")
-                    raise AWSServiceError("Uploaded file not found in S3")
+                    raise AWSServiceError("Uploaded file not found in S3") from e
                 raise
 
             now = datetime.utcnow()
@@ -373,7 +373,7 @@ class DocumentService:
 
         except Exception as e:
             logger.error(f"Failed to create document from S3: {e}")
-            raise AWSServiceError(f"Failed to create document from S3: {e}")
+            raise AWSServiceError(f"Failed to create document from S3: {e}") from e
 
     @tracer.capture_method
     async def list_user_documents(
@@ -435,7 +435,7 @@ class DocumentService:
 
         except Exception as e:
             logger.error(f"Failed to list documents for user {user_id}: {e}")
-            raise AWSServiceError(f"Failed to list documents: {e}")
+            raise AWSServiceError(f"Failed to list documents: {e}") from e
 
     @tracer.capture_method
     async def generate_presigned_url(
@@ -474,7 +474,7 @@ class DocumentService:
                 if e.response["Error"]["Code"] == "404":
                     raise AWSServiceError(
                         f"Document {document_type.value} not available"
-                    )
+                    ) from e
                 raise
 
             # Generate pre-signed URL
@@ -492,7 +492,7 @@ class DocumentService:
 
         except ClientError as e:
             logger.error(f"Failed to generate presigned URL for {doc_id}: {e}")
-            raise AWSServiceError(f"Failed to generate download URL: {e}")
+            raise AWSServiceError(f"Failed to generate download URL: {e}") from e
 
 
 class WebhookService:
@@ -602,7 +602,7 @@ class ReportsService:
 
         except Exception as e:
             logger.error(f"Failed to generate summary report: {e}")
-            raise AWSServiceError(f"Failed to generate report: {e}")
+            raise AWSServiceError(f"Failed to generate report: {e}") from e
 
     @tracer.capture_method
     async def export_documents_csv(
@@ -712,7 +712,7 @@ class ReportsService:
 
         except Exception as e:
             logger.error(f"Failed to export documents to CSV: {e}")
-            raise AWSServiceError(f"Failed to export CSV: {e}")
+            raise AWSServiceError(f"Failed to export CSV: {e}") from e
 
 
 class AltTextService:
@@ -793,7 +793,7 @@ class AltTextService:
 
         except Exception as e:
             logger.error(f"Failed to get alt text for document {doc_id}: {e}")
-            raise AWSServiceError(f"Failed to get alt text: {e}")
+            raise AWSServiceError(f"Failed to get alt text: {e}") from e
 
     @tracer.capture_method
     async def edit_figure_alt_text(
@@ -840,7 +840,7 @@ class AltTextService:
 
         except Exception as e:
             logger.error(f"Failed to edit alt text for figure {figure_id}: {e}")
-            raise AWSServiceError(f"Failed to edit alt text: {e}")
+            raise AWSServiceError(f"Failed to edit alt text: {e}") from e
 
     @tracer.capture_method
     async def bulk_update_status(
@@ -865,7 +865,7 @@ class AltTextService:
 
         except Exception as e:
             logger.error(f"Failed to bulk update status: {e}")
-            raise AWSServiceError(f"Failed to bulk update status: {e}")
+            raise AWSServiceError(f"Failed to bulk update status: {e}") from e
 
     @tracer.capture_method
     async def get_figure_history(
@@ -905,7 +905,7 @@ class AltTextService:
 
         except Exception as e:
             logger.error(f"Failed to get history for figure {figure_id}: {e}")
-            raise AWSServiceError(f"Failed to get figure history: {e}")
+            raise AWSServiceError(f"Failed to get figure history: {e}") from e
 
     @tracer.capture_method
     async def revert_to_version(
@@ -958,7 +958,7 @@ class AltTextService:
             logger.error(
                 f"Failed to revert figure {figure_id} to version {version}: {e}"
             )
-            raise AWSServiceError(f"Failed to revert to version: {e}")
+            raise AWSServiceError(f"Failed to revert to version: {e}") from e
 
     @tracer.capture_method
     async def verify_document_access(self, doc_id: str, user_id: str) -> bool:
@@ -1012,7 +1012,7 @@ class AltTextService:
 
         except Exception as e:
             logger.error(f"Failed to get dashboard stats: {e}")
-            raise AWSServiceError(f"Failed to get dashboard stats: {e}")
+            raise AWSServiceError(f"Failed to get dashboard stats: {e}") from e
 
 
 # Global service instances

@@ -137,7 +137,7 @@ async def get_presigned_upload_url(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate upload URL",
-        )
+        ) from e
 
 
 @router.post(
@@ -234,7 +234,7 @@ async def demo_presigned_upload(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate upload URL",
-        )
+        ) from e
 
 
 @router.post(
@@ -284,7 +284,7 @@ async def demo_create_document(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create document",
-        )
+        ) from e
 
 
 @router.post(
@@ -366,7 +366,7 @@ async def create_document_after_upload(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"File rejected: virus detected ({e.virus_name})",
-            )
+            ) from e
         except VirusScanError as e:
             logger.error(
                 f"S3 file security validation failed: {str(e)}",
@@ -379,7 +379,7 @@ async def create_document_after_upload(
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="File security validation failed. Please try again.",
-            )
+            ) from e
 
         # Create document record and enqueue for processing
         document = await document_service.create_document_from_upload(
@@ -424,11 +424,11 @@ async def create_document_after_upload(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Uploaded file not found in S3",
-            )
+            ) from e
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create document record",
-        )
+        ) from e
 
 
 @router.post(
@@ -502,7 +502,7 @@ async def upload_document(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"File rejected: virus detected ({e.virus_name})",
-            )
+            ) from e
         except VirusScanError as e:
             logger.error(
                 f"Virus scanning failed: {str(e)}",
@@ -511,7 +511,7 @@ async def upload_document(
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="File security validation failed. Please try again.",
-            )
+            ) from e
 
         filename = filename or file.filename
 
@@ -520,11 +520,11 @@ async def upload_document(
 
     try:
         metadata_dict = json.loads(metadata) if metadata != "{}" else {}
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as err:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid JSON in metadata field",
-        )
+        ) from err
 
     # Validate webhook URL if provided
     if webhook_url:
@@ -589,7 +589,7 @@ async def upload_document(
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to upload file. Please try again.",
-            )
+            ) from e
 
     try:
         # Create document record
@@ -648,7 +648,7 @@ async def upload_document(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to process document upload",
-        )
+        ) from e
 
 
 @router.get(
@@ -692,7 +692,7 @@ async def list_documents(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve documents",
-        )
+        ) from e
 
 
 @router.get(
@@ -730,7 +730,7 @@ async def demo_get_document(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve document",
-        )
+        ) from e
 
 
 @router.get(
@@ -774,7 +774,7 @@ async def get_document(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve document",
-        )
+        ) from e
 
 
 # Commented out - using demo.py endpoint instead
@@ -1074,11 +1074,11 @@ async def get_download_url(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Document {document_type.value} not available",
-            )
+            ) from e
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate download URL",
-        )
+        ) from e
 
 
 @router.delete(
@@ -1216,7 +1216,7 @@ async def delete_document(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete document",
-        )
+        ) from e
 
 
 @router.post(
@@ -1296,7 +1296,7 @@ async def generate_document_preview(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate preview",
-        )
+        ) from e
 
 
 @router.get(

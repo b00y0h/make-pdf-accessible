@@ -148,7 +148,7 @@ async def upload_from_client(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Upload processing failed: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/status/{accesspdf_id}")
@@ -217,7 +217,7 @@ async def get_client_document_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve document status",
-        )
+        ) from e
 
 
 @router.post("/webhook/notify/{accesspdf_id}")
@@ -290,4 +290,4 @@ async def send_client_webhook(accesspdf_id: str, webhook_data: dict[str, Any]):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to process webhook",
-        )
+        ) from e

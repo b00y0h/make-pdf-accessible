@@ -125,11 +125,11 @@ async def search_embeddings(
                     if len(parts) >= 2 and parts[0] == "corpus":
                         doc_ids_to_search.append(parts[1])
 
-            except Exception:
+            except Exception as err:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Failed to discover available documents",
-                )
+                ) from err
 
         # Search each document's embeddings
         documents_searched = 0
@@ -231,7 +231,7 @@ async def search_embeddings(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Search failed: {str(e)}",
-        )
+        ) from e
 
 
 async def _load_document_metadata(
@@ -293,11 +293,11 @@ async def get_document_by_id(
                 Bucket=bucket_name, Key=corpus_s3_key
             )
             corpus_data = json.loads(corpus_response["Body"].read())
-        except Exception:
+        except Exception as err:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Document {accesspdf_id} not found or not publicly accessible",
-            )
+            ) from err
 
         # Get client information (would be stored in document metadata)
         metadata = corpus_data.get("metadata", {})
@@ -341,7 +341,7 @@ async def get_document_by_id(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve document information",
-        )
+        ) from e
 
 
 @router.get("/documents", response_model=dict[str, Any])
@@ -416,7 +416,7 @@ async def list_available_documents(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve document list",
-        )
+        ) from e
 
 
 @router.get("/health")

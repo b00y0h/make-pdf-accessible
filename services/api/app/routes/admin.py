@@ -41,7 +41,7 @@ def get_better_auth_db():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="User database unavailable",
-        )
+        ) from e
 
 
 def get_document_stats(user_id: str) -> dict:

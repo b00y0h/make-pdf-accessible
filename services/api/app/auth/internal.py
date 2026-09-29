@@ -6,7 +6,7 @@ from typing import Optional
 
 from fastapi import Header, HTTPException, status
 
-from ..auth import User
+from ..auth import User, get_current_user
 
 
 async def get_dashboard_user(
@@ -43,7 +43,6 @@ async def get_dashboard_user(
 
 
 # Optional: Create a combined auth dependency that tries both methods
-from ..auth import get_current_user
 
 
 async def get_user_flexible(
@@ -71,8 +70,8 @@ async def get_user_flexible(
     # Fallback to normal user authentication
     try:
         return await get_current_user(request)
-    except HTTPException:
+    except HTTPException as err:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Authentication required (user or dashboard)",
-        )
+        ) from err

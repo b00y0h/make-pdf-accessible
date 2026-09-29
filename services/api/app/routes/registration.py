@@ -112,7 +112,7 @@ async def register_client_integration(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Registration failed",
-        )
+        ) from e
 
 
 @router.get("/integrations")
@@ -151,7 +151,7 @@ async def list_client_integrations(current_user: UserInfo = Depends(get_current_
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve integrations",
-        )
+        ) from e
 
 
 @router.get("/integrations/{integration_id}")
@@ -222,7 +222,7 @@ async def get_integration_details(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve integration details",
-        )
+        ) from e
 
 
 async def verify_domain_integration(

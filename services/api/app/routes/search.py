@@ -209,7 +209,7 @@ async def semantic_search(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Search failed: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/documents/{doc_id}/chunks")
@@ -250,11 +250,11 @@ async def get_document_chunks(
                 Bucket=bucket_name, Key=corpus_s3_key
             )
             corpus_data = json.loads(corpus_response["Body"].read())
-        except Exception:
+        except Exception as err:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Document corpus not found",
-            )
+            ) from err
 
         # Filter chunks
         chunks = corpus_data.get("chunks", [])
@@ -277,7 +277,7 @@ async def get_document_chunks(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve document chunks",
-        )
+        ) from e
 
 
 @router.get("/documents/{doc_id}/chunks/{chunk_id}")
@@ -356,7 +356,7 @@ async def get_chunk_detail(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve chunk details",
-        )
+        ) from e
 
 
 class QARequest(BaseModel):
@@ -519,4 +519,4 @@ Please provide a clear, helpful answer based on the available information."""
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Answer generation failed: {str(e)}",
-        )
+        ) from e
