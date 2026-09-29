@@ -148,7 +148,7 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"API key validation error: {str(e)}",
-            )
+            ) from e
 
         response = await call_next(request)
         return response

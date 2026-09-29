@@ -76,7 +76,7 @@ async def receive_webhook(request: Request) -> dict[str, str]:
             logger.error(f"Invalid JSON in webhook payload: {e}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON payload"
-            )
+            ) from e
 
         # Validate required fields
         required_fields = ["event_type", "doc_id", "status", "timestamp"]
@@ -126,13 +126,13 @@ async def receive_webhook(request: Request) -> dict[str, str]:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal service error",
-        )
+        ) from e
     except Exception as e:
         logger.error(f"Unexpected error processing webhook: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Unexpected error processing webhook",
-        )
+        ) from e
 
 
 @router.get(

@@ -142,10 +142,10 @@ class SecurityService:
         except VirusDetectedError:
             # Re-raise virus detection errors
             raise
-        except asyncio.TimeoutError:
-            raise VirusScanError("ClamAV scan timeout")
+        except asyncio.TimeoutError as err:
+            raise VirusScanError("ClamAV scan timeout") from err
         except Exception as e:
-            raise VirusScanError(f"ClamAV scan failed: {str(e)}")
+            raise VirusScanError(f"ClamAV scan failed: {str(e)}") from e
 
     async def validate_file_signature(self, file_content: bytes, filename: str) -> bool:
         """
@@ -267,7 +267,7 @@ class SecurityService:
                     # Clean up temporary file
                     try:
                         os.unlink(temp_path)
-                    except:
+                    except OSError:
                         pass
 
             except HTTPException:
@@ -418,7 +418,7 @@ class SecurityService:
                     # Clean up temporary file
                     try:
                         os.unlink(temp_path)
-                    except:
+                    except OSError:
                         pass
 
             except HTTPException:
@@ -612,7 +612,7 @@ class SecurityService:
             # Re-raise virus detection errors
             raise
         except Exception as e:
-            raise VirusScanError(f"S3 file validation failed: {str(e)}")
+            raise VirusScanError(f"S3 file validation failed: {str(e)}") from e
 
     def validate_file_metadata(
         self, filename: str, content_type: str = None, metadata: dict = None
@@ -884,7 +884,7 @@ class SecurityService:
                 # Clean up temporary file
                 try:
                     os.unlink(temp_path)
-                except:
+                except OSError:
                     pass
 
         except HTTPException:

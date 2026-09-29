@@ -71,7 +71,7 @@ async def get_document_alt_text(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve alt text data",
-        )
+        ) from e
 
 
 @router.patch(
@@ -136,7 +136,7 @@ async def edit_figure_alt_text(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update alt text",
-        )
+        ) from e
 
 
 @router.patch(
@@ -200,7 +200,7 @@ async def update_figure_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update figure status",
-        )
+        ) from e
 
 
 @router.get(
@@ -245,7 +245,7 @@ async def get_figure_history(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve figure history",
-        )
+        ) from e
 
 
 @router.post(
@@ -309,7 +309,7 @@ async def revert_to_version(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to revert to previous version",
-        )
+        ) from e
 
 
 @router.get(
@@ -335,4 +335,4 @@ async def get_alt_text_dashboard(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve dashboard data",
-        )
+        ) from e

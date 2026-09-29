@@ -142,7 +142,7 @@ async def submit_document_feedback(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to submit feedback",
-        )
+        ) from e
 
 
 @router.get("/metrics", response_model=AILearningMetrics)
@@ -264,7 +264,7 @@ async def get_ai_learning_metrics(current_user: UserInfo = Depends(get_current_u
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve AI learning metrics",
-        )
+        ) from e
 
 
 async def _analyze_feedback_patterns(
@@ -396,4 +396,4 @@ async def get_improvement_suggestions(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve improvement suggestions",
-        )
+        ) from e

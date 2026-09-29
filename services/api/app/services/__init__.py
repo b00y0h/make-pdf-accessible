@@ -2,7 +2,11 @@
 Services module for business logic
 """
 
+import logging
+
 from .preview import preview_service
+
+logger = logging.getLogger(__name__)
 
 
 class AWSServiceError(Exception):
@@ -74,7 +78,7 @@ class DocumentService:
         except Exception as e:
             from . import AWSServiceError
 
-            raise AWSServiceError(f"Failed to generate presigned URL: {e}")
+            raise AWSServiceError(f"Failed to generate presigned URL: {e}") from e
 
     async def create_document_from_upload(
         self,
@@ -147,7 +151,7 @@ class DocumentService:
         except Exception as e:
             from . import AWSServiceError
 
-            raise AWSServiceError(f"Failed to create document record: {e}")
+            raise AWSServiceError(f"Failed to create document record: {e}") from e
 
     async def get_document(self, doc_id: str, user_id: str = None):
         """Get a document by ID"""
@@ -182,7 +186,7 @@ class DocumentService:
         except Exception as e:
             from . import AWSServiceError
 
-            raise AWSServiceError(f"Failed to get document: {e}")
+            raise AWSServiceError(f"Failed to get document: {e}") from e
 
     async def list_user_documents(
         self, user_id: str, skip: int = 0, limit: int = 20, status_filter: str = None
@@ -235,7 +239,7 @@ class DocumentService:
         except Exception as e:
             from . import AWSServiceError
 
-            raise AWSServiceError(f"Failed to list documents: {e}")
+            raise AWSServiceError(f"Failed to list documents: {e}") from e
 
     async def create_document(
         self,
@@ -327,7 +331,7 @@ class DocumentService:
         except Exception as e:
             from . import AWSServiceError
 
-            raise AWSServiceError(f"Failed to create document: {e}")
+            raise AWSServiceError(f"Failed to create document: {e}") from e
 
     async def generate_presigned_url(
         self, doc_id: str, document_type, expires_in: int = 3600
@@ -432,7 +436,7 @@ class DocumentService:
             return download_url, content_type, filename
 
         except Exception as e:
-            raise AWSServiceError(f"Failed to generate download URL: {e}")
+            raise AWSServiceError(f"Failed to generate download URL: {e}") from e
 
 
 class ReportsService:

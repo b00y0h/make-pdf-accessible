@@ -51,7 +51,7 @@ async def get_summary_report(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate summary report",
-        )
+        ) from e
 
 
 @router.get(
@@ -170,7 +170,7 @@ async def export_documents_csv(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to export CSV",
-        )
+        ) from e
 
 
 @router.get(

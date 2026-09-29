@@ -52,7 +52,7 @@ async def get_quota_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve quota status",
-        )
+        ) from e
 
 
 @router.post(
@@ -95,7 +95,7 @@ async def initialize_org_quotas(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to initialize quotas",
-        )
+        ) from e
 
 
 @router.get(
@@ -126,7 +126,7 @@ async def get_org_quota_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve quota status",
-        )
+        ) from e
 
 
 @router.get(

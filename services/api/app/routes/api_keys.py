@@ -152,7 +152,7 @@ async def create_api_key(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create API key: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/", response_model=list[APIKeyResponse])
@@ -166,7 +166,7 @@ async def list_api_keys(current_user: dict = Depends(get_current_user)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to list API keys: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/permissions", response_model=dict[str, list[str]])
@@ -189,7 +189,7 @@ async def get_usage_stats(current_user: dict = Depends(get_current_user)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get usage stats: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/{key_id}", response_model=APIKeyResponse)
@@ -220,7 +220,7 @@ async def get_api_key(key_id: str, current_user: dict = Depends(get_current_user
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get API key: {str(e)}",
-        )
+        ) from e
 
 
 @router.put("/{key_id}", response_model=APIKeyResponse)
@@ -285,7 +285,7 @@ async def update_api_key(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update API key: {str(e)}",
-        )
+        ) from e
 
 
 @router.delete("/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -321,7 +321,7 @@ async def delete_api_key(key_id: str, current_user: dict = Depends(get_current_u
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete API key: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/{key_id}/deactivate", response_model=APIKeyResponse)
@@ -363,7 +363,7 @@ async def deactivate_api_key(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to deactivate API key: {str(e)}",
-        )
+        ) from e
 
 
 # Admin-only endpoints
@@ -386,7 +386,7 @@ async def list_all_api_keys(current_user: dict = Depends(get_current_user)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to list all API keys: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/admin/cleanup", response_model=dict[str, int])
@@ -405,4 +405,4 @@ async def cleanup_expired_keys(current_user: dict = Depends(get_current_user)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to cleanup expired keys: {str(e)}",
-        )
+        ) from e

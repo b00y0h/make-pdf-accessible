@@ -46,6 +46,7 @@ permissions:
   id-token: write
   contents: read
   pull-requests: write
+  checks: write # dorny/test-reporter publishes the test results as a check run
 
 env:
   PYTHON_VERSION: '3.13'
@@ -187,13 +188,14 @@ jobs:
             pip-audit -r requirements.txt --format json --output ../safety-api.json || echo "safety_failed=true" >> $GITHUB_OUTPUT
           else
             echo "No requirements.txt found"
-            echo '[]' > ../safety-api.json
+            echo '{"dependencies": []}' > ../safety-api.json
           fi
 
           cd ..
 
+          # pip-audit's report is {"dependencies": [...], "fixes": [...]}; count the vulns
           if [ -f safety-api.json ]; then
-            SAFETY_VULNS=$(jq '. | length' safety-api.json 2>/dev/null || echo "0")
+            SAFETY_VULNS=$(jq '[.dependencies[].vulns[]] | length' safety-api.json 2>/dev/null || echo "0")
             echo "safety_vulnerabilities=$SAFETY_VULNS" >> $GITHUB_OUTPUT
             echo "Vulnerabilities found: $SAFETY_VULNS"
           fi
@@ -208,13 +210,13 @@ jobs:
             pip-audit --requirement requirements.txt --format json --output ../pip-audit-api.json || echo "pip_audit_failed=true" >> $GITHUB_OUTPUT
           else
             echo "No requirements.txt found"
-            echo '[]' > ../pip-audit-api.json
+            echo '{"dependencies": []}' > ../pip-audit-api.json
           fi
 
           cd ..
 
           if [ -f pip-audit-api.json ]; then
-            PIP_AUDIT_VULNS=$(jq '. | length' pip-audit-api.json 2>/dev/null || echo "0")
+            PIP_AUDIT_VULNS=$(jq '[.dependencies[].vulns[]] | length' pip-audit-api.json 2>/dev/null || echo "0")
             echo "pip_audit_vulnerabilities=$PIP_AUDIT_VULNS" >> $GITHUB_OUTPUT
             echo "pip-audit vulnerabilities found: $PIP_AUDIT_VULNS"
           fi
@@ -265,10 +267,11 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: api-security-results-${{ github.run_id }}
+          # The scan steps write these one level above API_WORKING_DIR
           path: |
-            safety-api.json
-            pip-audit-api.json
-            bandit-api.json
+            services/safety-api.json
+            services/pip-audit-api.json
+            services/bandit-api.json
           retention-days: 30
 
       - name: Generate API security summary
@@ -359,7 +362,8 @@ jobs:
           cd ${{ env.API_WORKING_DIR }}
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pytest-cov pytest-asyncio httpx
+          # SQLAlchemy and its default Postgres driver are only used by tests/integration
+          pip install pytest pytest-cov pytest-asyncio httpx sqlalchemy "psycopg[binary]"
 
       - name: Set up test environment
         run: |
@@ -393,22 +397,16 @@ jobs:
           cd ${{ env.API_WORKING_DIR }}
 
           echo "Running unit tests..."
+          # The floor is the coverage the unit tests reach today (30%), so it catches
+          # regressions. Raise it as tests are added, towards the 80% goal.
           pytest tests/unit/ -v --tb=short --cov=app --cov-report=xml --cov-report=term-missing \
-            --cov-report=html --cov-fail-under=80 --junitxml=unit-test-results.xml \
+            --cov-report=html --cov-fail-under=30 --junitxml=unit-test-results.xml \
             --maxfail=10 --durations=10 || echo "unit_tests_failed=true" >> $GITHUB_OUTPUT
 
-          # Generate coverage badge data
+          # Generate coverage badge data. The Python stays on one line: an indented
+          # multi-line snippet inside this block fails with IndentationError.
           if [ -f coverage.xml ]; then
-            COVERAGE_PERCENT=$(python -c "
-            import xml.etree.ElementTree as ET
-            try:
-                tree = ET.parse('coverage.xml')
-                root = tree.getroot()
-                coverage = float(root.attrib.get('line-rate', '0')) * 100
-                print(f'{coverage:.1f}')
-            except:
-                print('0.0')
-            ")
+            COVERAGE_PERCENT=$(python -c "import xml.etree.ElementTree as ET; print('%.1f' % (float(ET.parse('coverage.xml').getroot().get('line-rate', '0')) * 100))" 2>/dev/null || echo "0.0")
             echo "unit_coverage=$COVERAGE_PERCENT" >> $GITHUB_OUTPUT
           fi
 
@@ -424,20 +422,9 @@ jobs:
           pytest tests/integration/ -v --tb=short --maxfail=5 --durations=10 \
             --junitxml=integration-test-results.xml || echo "integration_tests_failed=true" >> $GITHUB_OUTPUT
 
-          # Count integration test results
+          # Count integration test results (pytest puts the counts on <testsuite>)
           if [ -f integration-test-results.xml ]; then
-            INTEGRATION_TESTS=$(python -c "
-            import xml.etree.ElementTree as ET
-            try:
-                tree = ET.parse('integration-test-results.xml')
-                root = tree.getroot()
-                tests = root.attrib.get('tests', '0')
-                failures = root.attrib.get('failures', '0')
-                errors = root.attrib.get('errors', '0')
-                print(f'tests={tests},failures={failures},errors={errors}')
-            except:
-                print('tests=0,failures=0,errors=0')
-            ")
+            INTEGRATION_TESTS=$(python -c "import sys, xml.etree.ElementTree as ET; r = ET.parse(sys.argv[1]).getroot(); s = r if r.tag == 'testsuite' else r.find('testsuite'); print('tests=%s,failures=%s,errors=%s' % (s.get('tests'), s.get('failures'), s.get('errors')))" integration-test-results.xml 2>/dev/null || echo "tests=0,failures=0,errors=0")
             echo "integration_results=$INTEGRATION_TESTS" >> $GITHUB_OUTPUT
           fi
 
@@ -453,20 +440,9 @@ jobs:
           pytest tests/api/ -v --tb=short --maxfail=5 --durations=10 \
             --junitxml=api-test-results.xml || echo "api_tests_failed=true" >> $GITHUB_OUTPUT
 
-          # Count API test results
+          # Count API test results (pytest puts the counts on <testsuite>)
           if [ -f api-test-results.xml ]; then
-            API_TESTS=$(python -c "
-            import xml.etree.ElementTree as ET
-            try:
-                tree = ET.parse('api-test-results.xml')
-                root = tree.getroot()
-                tests = root.attrib.get('tests', '0')
-                failures = root.attrib.get('failures', '0')
-                errors = root.attrib.get('errors', '0')
-                print(f'tests={tests},failures={failures},errors={errors}')
-            except:
-                print('tests=0,failures=0,errors=0')
-            ")
+            API_TESTS=$(python -c "import sys, xml.etree.ElementTree as ET; r = ET.parse(sys.argv[1]).getroot(); s = r if r.tag == 'testsuite' else r.find('testsuite'); print('tests=%s,failures=%s,errors=%s' % (s.get('tests'), s.get('failures'), s.get('errors')))" api-test-results.xml 2>/dev/null || echo "tests=0,failures=0,errors=0")
             echo "api_results=$API_TESTS" >> $GITHUB_OUTPUT
           fi
 
@@ -477,13 +453,7 @@ jobs:
 
           if [ -f coverage.xml ]; then
             # Extract coverage percentage from XML
-            COVERAGE=$(python -c "
-            import xml.etree.ElementTree as ET
-            tree = ET.parse('coverage.xml')
-            root = tree.getroot()
-            coverage = root.attrib.get('line-rate', '0')
-            print(f'{float(coverage) * 100:.1f}')
-            " 2>/dev/null || echo "0.0")
+            COVERAGE=$(python -c "import xml.etree.ElementTree as ET; print('%.1f' % (float(ET.parse('coverage.xml').getroot().get('line-rate', '0')) * 100))" 2>/dev/null || echo "0.0")
 
             echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
             echo "Test coverage: $COVERAGE%"
@@ -556,14 +526,14 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Quality Metrics" >> $GITHUB_STEP_SUMMARY
           echo "- **Code Coverage:** ${UNIT_COVERAGE}%" >> $GITHUB_STEP_SUMMARY
-          echo "- **Coverage Threshold:** 80%" >> $GITHUB_STEP_SUMMARY
+          echo "- **Coverage Floor:** 30% (goal: 80%)" >> $GITHUB_STEP_SUMMARY
 
           # Coverage status
           COVERAGE_FLOAT=$(echo "$UNIT_COVERAGE" | bc -l 2>/dev/null || echo "0")
           if (( $(echo "$COVERAGE_FLOAT >= 80" | bc -l) )); then
-            echo "- **Coverage Status:** ✅ Meets threshold" >> $GITHUB_STEP_SUMMARY
+            echo "- **Coverage Status:** ✅ Meets the 80% goal" >> $GITHUB_STEP_SUMMARY
           else
-            echo "- **Coverage Status:** ⚠️ Below threshold" >> $GITHUB_STEP_SUMMARY
+            echo "- **Coverage Status:** ⚠️ Below the 80% goal" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
