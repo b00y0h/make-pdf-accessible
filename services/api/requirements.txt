@@ -1,10 +1,10 @@
-fastapi>=0.141.1
+fastapi>=0.142.2
 uvicorn[standard]>=0.54.0
 mangum>=0.22.0
 pydantic>=2.13.5
 pydantic-settings>=2.15.0
-boto3>=1.43.103
-PyJWT[crypto]>=2.15.0
+boto3>=1.43.108
+PyJWT[crypto]>=2.15.1
 python-multipart>=0.0.32
 email-validator>=2.3.0
 httpx>=0.28.1
@@ -12,7 +12,7 @@ aws-lambda-powertools[tracer,logger,metrics]>=3.35.0
 # Security validation dependencies
 python-magic>=0.4.27
 pypdf>=6.19.0
-pikepdf>=10.14.0
+pikepdf>=10.16.0
 # PDF preview generation
 pdf2image>=1.17.0
 Pillow>=12.3.0

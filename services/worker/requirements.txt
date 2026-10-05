@@ -1,14 +1,14 @@
-fastapi>=0.141.1
+fastapi>=0.142.2
 uvicorn[standard]>=0.54.0
 pydantic>=2.13.5
-sqlalchemy>=2.1.1
+sqlalchemy>=2.1.3
 # SQLAlchemy 2.1 uses psycopg 3 for postgresql:// URLs
-psycopg[binary]>=3.2
+psycopg[binary]>=3.3.6
 alembic>=1.20.0
 redis>=8.1.0
 celery>=5.6.3
 pymongo>=4.18.2
-boto3>=1.43.103
+boto3>=1.43.108
 Pillow>=12.3.0
 pypdf>=6.19.0
 pdfplumber>=0.11.10
