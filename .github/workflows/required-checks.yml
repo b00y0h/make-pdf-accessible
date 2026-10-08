@@ -260,7 +260,7 @@ jobs:
           exit-code: '1'
 
       - name: Check for secrets
-        uses: trufflesecurity/trufflehog@v3.97.9
+        uses: trufflesecurity/trufflehog@v3.98.0
         with:
           path: ./
           base: ${{ github.event.repository.default_branch }}
