@@ -5,12 +5,12 @@ variable "project_name" {
 }
 
 variable "environment" {
-  description = "Environment (dev, staging, prod); one bootstrap per AWS account"
+  description = "Environment (dev or prod); one bootstrap per AWS account"
   type        = string
 
   validation {
-    condition     = contains(["dev", "staging", "prod"], var.environment)
-    error_message = "environment must be one of: dev, staging, prod."
+    condition     = contains(["dev", "prod"], var.environment)
+    error_message = "environment must be dev or prod. There is no staging account yet (ADR-0010); add one to local.account_ids in main.tf when there is."
   }
 }
 

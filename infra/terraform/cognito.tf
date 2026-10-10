@@ -1,14 +1,15 @@
-# Google OAuth Client Secrets from Secrets Manager
-data "aws_secretsmanager_secret" "google_oauth" {
-  name = "${var.environment}/accesspdf/google-oauth"
-}
-
+# Google OAuth client credentials, kept in the Secrets Manager secret that secrets.tf creates.
+# Reading it after that secret exists lets the first apply in a new account create it; put the
+# real client_id and client_secret in it before turning on enable_google_login.
 data "aws_secretsmanager_secret_version" "google_oauth" {
-  secret_id = data.aws_secretsmanager_secret.google_oauth.id
+  count = var.enable_google_login ? 1 : 0
+
+  secret_id  = aws_secretsmanager_secret.google_oauth.id
+  depends_on = [aws_secretsmanager_secret_version.google_oauth]
 }
 
 locals {
-  google_oauth_secrets = jsondecode(data.aws_secretsmanager_secret_version.google_oauth.secret_string)
+  google_oauth_secrets = var.enable_google_login ? jsondecode(data.aws_secretsmanager_secret_version.google_oauth[0].secret_string) : null
 }
 
 # Cognito User Pool
@@ -120,6 +121,8 @@ resource "aws_cognito_user_pool" "main" {
 
 # Google Identity Provider
 resource "aws_cognito_identity_provider" "google" {
+  count = var.enable_google_login ? 1 : 0
+
   user_pool_id  = aws_cognito_user_pool.main.id
   provider_name = "Google"
   provider_type = "Google"
@@ -186,7 +189,7 @@ resource "aws_cognito_user_pool_client" "web_client" {
   allowed_oauth_flows                  = ["code"]
   allowed_oauth_scopes                 = ["openid", "email", "profile", "aws.cognito.signin.user.admin"]
 
-  supported_identity_providers = ["COGNITO", "Google"]
+  supported_identity_providers = concat(["COGNITO"], aws_cognito_identity_provider.google[*].provider_name)
 
   # Token validity
   access_token_validity  = 1  # 1 hour

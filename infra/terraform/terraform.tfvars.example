@@ -5,6 +5,7 @@
 project_name = "pdf-accessibility"
 environment  = "production"  # or "staging", "dev"
 aws_region   = "us-east-1"
+aws_account_id = "123456789012" # the throwaway account these values are for
 
 # GitHub Configuration (for CI/CD)
 github_repo = "your-github-username/make-pdf-accessible"

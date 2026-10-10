@@ -304,8 +304,9 @@ resource "aws_wafv2_web_acl" "cloudfront" {
 
 # Provider alias for us-east-1 (required for CloudFront WAF)
 provider "aws" {
-  alias  = "us_east_1"
-  region = "us-east-1"
+  alias               = "us_east_1"
+  region              = "us-east-1"
+  allowed_account_ids = [var.aws_account_id]
 
   default_tags {
     tags = local.common_tags

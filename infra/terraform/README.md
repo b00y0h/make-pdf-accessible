@@ -30,7 +30,7 @@ Every resource includes these standardized tags:
 ```hcl
 # Required for dashboard filtering
 application  = "accesspdf"
-service      = "doc-processing" 
+service      = "doc-processing"
 component    = "platform"        # Varies by resource type
 environment  = "dev|staging|prod"
 cost_center  = "CC-ENV-###"     # Environment-specific
@@ -46,6 +46,7 @@ repo             = "github.com/b00y0h/make-pdf-accessible"
 ### Component-Specific Tags
 
 Resources use specialized component tags for granular cost allocation:
+
 - **API Resources**: `component = "api"`, `service = "api-gateway"`
 - **Compute Resources**: `component = "compute"`, `service = "lambda"`
 - **Storage Resources**: `component = "storage"`, `service = "s3"`
@@ -57,6 +58,7 @@ Resources use specialized component tags for granular cost allocation:
 ### Dashboard Integration
 
 These tags enable cost dashboard features:
+
 - Filter costs by service, environment, component, cost center
 - Group by business unit, owner, data sensitivity
 - Compare costs across environments
@@ -67,37 +69,83 @@ These tags enable cost dashboard features:
 
 ## Prerequisites
 
-- [Terraform](https://terraform.io/) >= 1.8
-- [AWS CLI](https://aws.amazon.com/cli/) configured with appropriate credentials
-- An AWS account with necessary permissions
+- [Terraform](https://terraform.io/) >= 1.8. On macOS use `brew install hashicorp/tap/terraform`; Homebrew's own `terraform` formula stopped at 1.5.7.
+- [AWS CLI](https://aws.amazon.com/cli/) v2
+- Access to the dev and prod accounts through IAM Identity Center (below)
+
+## AWS accounts and credentials
+
+Each environment is its own AWS account in the `reversetype` organization (ADR-0010):
+
+| Environment | Account                | ID           |
+| ----------- | ---------------------- | ------------ |
+| dev         | pdf-accessibility-dev  | 403030570295 |
+| prod        | pdf-accessibility-prod | 774697187580 |
+
+There is no staging account yet. Sign in through IAM Identity Center rather than with access keys. In `~/.aws/config` (your access portal URL and Identity Center region go in the first block):
+
+```ini
+[sso-session pdf]
+sso_start_url = https://d-XXXXXXXXXX.awsapps.com/start
+sso_region = us-east-1
+sso_registration_scopes = sso:account:access
+
+[profile pdf-dev]
+sso_session = pdf
+sso_account_id = 403030570295
+sso_role_name = AdministratorAccess
+region = us-east-1
+
+[profile pdf-prod]
+sso_session = pdf
+sso_account_id = 774697187580
+sso_role_name = AdministratorAccess
+region = us-east-1
+```
+
+Log in with `aws sso login --sso-session pdf`, then pick the account with `AWS_PROFILE` on every command. Both Terraform roots refuse to run against the wrong account (`allowed_account_ids`), so a forgotten `AWS_PROFILE` stops at plan time instead of touching another account.
 
 ## Quick Start
 
 ### 0. One-time bootstrap per AWS account
 
-Each environment (`dev`, `staging`, `prod`) is its own AWS account (ADR-0010). Create the state bucket and lock table once per account with an administrator credential:
+Create the state bucket and lock table once per account. The bootstrap root keeps its state in local files, so give each account its own workspace; running both from the default workspace would make the prod run treat the dev resources as its own.
 
 ```bash
 cd infra/terraform/bootstrap
 terraform init
-terraform apply -var environment=dev
+terraform workspace new dev
+AWS_PROFILE=pdf-dev terraform apply -var environment=dev
+terraform workspace new prod
+AWS_PROFILE=pdf-prod terraform apply -var environment=prod
 ```
+
+Keep `terraform.tfstate.d/` (git-ignored): it is the only record of these resources. Later runs use `terraform workspace select <env>`.
 
 ### 1. Initialize against the environment's backend
 
 ```bash
 cd infra/terraform
-terraform init -backend-config=environments/dev.backend.hcl
+AWS_PROFILE=pdf-dev terraform init -reconfigure -backend-config=environments/dev.backend.hcl
 ```
+
+Use `-reconfigure` every time you switch environments. Never answer the switch with `-migrate-state`: it copies one environment's state into the other's bucket.
 
 ### 2. Plan and apply with the environment's variables
 
 ```bash
-terraform plan  -var-file=environments/dev.tfvars
-terraform apply -var-file=environments/dev.tfvars
+AWS_PROFILE=pdf-dev terraform plan  -var-file=environments/dev.tfvars
+AWS_PROFILE=pdf-dev terraform apply -var-file=environments/dev.tfvars
 ```
 
-`environments/<env>.tfvars` holds the non-secret settings for each account (sizing, WAF, logging, domains). Secrets (OAuth clients, engine licenses) are read from AWS Secrets Manager at apply time, never from tfvars. Copy `terraform.tfvars.example` only for local experiments with a throwaway account.
+`environments/<env>.tfvars` holds the non-secret settings for each account (account ID, sizing, WAF, logging, domains). Secrets (OAuth clients, engine licenses) are read from AWS Secrets Manager at apply time, never from tfvars. Copy `terraform.tfvars.example` only for local experiments with a throwaway account.
+
+The first apply in a new account has two ordering requirements:
+
+- **Certificate validation.** `aws_acm_certificate_validation.main` waits until ACM's DNS validation records exist. While the apply waits, copy the records from the certificate in the ACM console (us-east-1) into DNSimple. Each account's certificate has its own records.
+- **Lambda images.** The container-image functions (`api`, `router` and the processing functions) need an image tagged `latest` in their ECR repository before they can be created. Create the repositories first (`terraform apply -target=aws_ecr_repository.lambda_repos -target=aws_ecr_repository.router -target=aws_ecr_repository.processing_functions`), push the images, then run the full apply. `services/functions/{alt_text,tag_pdf,exports,validate,notify}` have no Dockerfile yet, so their functions cannot be created until they do.
+
+Google sign-in through Cognito is off until `enable_google_login = true`. Turn it on after putting a real Google OAuth client in the `<env>/accesspdf/google-oauth` secret, which the first apply creates.
 
 ### 3. Configure DNS
 
@@ -220,14 +268,14 @@ Never commit `terraform.tfstate`, `tfplan` or `.terraform/`; they are ignored in
 
 ## Layout
 
-| Path | Purpose |
-|---|---|
-| `*.tf` | Platform root: network, storage, queues, Lambda and Step Functions, Cognito, API Gateway, CloudFront, monitoring, SNS |
-| `marketing.tf` | Marketing site (module instance) |
-| `modules/static-site/` | Reusable private S3 + CloudFront static site with security headers |
-| `environments/` | Per-account backend and variable files |
-| `bootstrap/` | State bucket and lock table per account |
-| `cur-athena/` | Cost and Usage Report tables for the cost dashboard |
+| Path                   | Purpose                                                                                                               |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `*.tf`                 | Platform root: network, storage, queues, Lambda and Step Functions, Cognito, API Gateway, CloudFront, monitoring, SNS |
+| `marketing.tf`         | Marketing site (module instance)                                                                                      |
+| `modules/static-site/` | Reusable private S3 + CloudFront static site with security headers                                                    |
+| `environments/`        | Per-account backend and variable files                                                                                |
+| `bootstrap/`           | State bucket and lock table per account                                                                               |
+| `cur-athena/`          | Cost and Usage Report tables for the cost dashboard                                                                   |
 
 ## Security Features
 

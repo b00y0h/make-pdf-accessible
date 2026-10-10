@@ -20,6 +20,10 @@ terraform {
 provider "aws" {
   region = var.aws_region
 
+  # Stops a plan or apply that runs with another account's credentials, such as a default
+  # AWS profile for a different organization
+  allowed_account_ids = [var.aws_account_id]
+
   default_tags {
     tags = local.common_tags
   }

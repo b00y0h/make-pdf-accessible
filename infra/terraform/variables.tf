@@ -16,6 +16,16 @@ variable "environment" {
   default     = "dev"
 }
 
+variable "aws_account_id" {
+  description = "AWS account this environment lives in (ADR-0010). The AWS provider refuses to run against any other account."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9]{12}$", var.aws_account_id))
+    error_message = "aws_account_id must be a 12-digit AWS account ID."
+  }
+}
+
 variable "vpc_cidr" {
   description = "CIDR block for VPC"
   type        = string
@@ -138,6 +148,12 @@ variable "use_lambda_function_url" {
 }
 
 # OAuth Configuration
+variable "enable_google_login" {
+  description = "Offer Google sign-in through Cognito. Turn on after the <env>/accesspdf/google-oauth secret holds a real Google OAuth client."
+  type        = bool
+  default     = false
+}
+
 variable "google_oauth_client_id" {
   description = "Google OAuth2 Client ID for Cognito OIDC integration"
   type        = string

@@ -1,10 +1,11 @@
 # Production account. Domains resolve to makepdfaccessible.com, www., dashboard., api.
 # Committed to git: never put secrets here (they come from AWS Secrets Manager).
-project_name = "pdf-accessibility"
-environment  = "prod"
-aws_region   = "us-east-1"
-github_repo  = "b00y0h/make-pdf-accessible"
-root_domain  = "makepdfaccessible.com"
+project_name   = "pdf-accessibility"
+environment    = "prod"
+aws_account_id = "774697187580" # pdf-accessibility-prod
+aws_region     = "us-east-1"
+github_repo    = "b00y0h/make-pdf-accessible"
+root_domain    = "makepdfaccessible.com"
 
 cost_center      = "CC-PRD-001"
 data_sensitivity = "confidential"
