@@ -25,7 +25,7 @@ Set these on the `<environment>-web` GitHub environment (not at repository level
 
 ```bash
 ENV=dev-web
-gh secret set GITHUB_WEB_DEPLOY_ROLE_ARN --env "$ENV" --body "$(terraform output -raw github_web_deploy_role_arn)"
+gh secret set AWS_WEB_DEPLOY_ROLE_ARN --env "$ENV" --body "$(terraform output -raw github_web_deploy_role_arn)"
 gh variable set MARKETING_S3_BUCKET --env "$ENV" --body "$(terraform output -raw marketing_site_bucket)"
 gh variable set MARKETING_CLOUDFRONT_DISTRIBUTION_ID --env "$ENV" --body "$(terraform output -raw marketing_site_distribution_id)"
 ```

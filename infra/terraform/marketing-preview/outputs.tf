@@ -9,7 +9,7 @@ output "marketing_site_distribution_id" {
 }
 
 output "github_web_deploy_role_arn" {
-  description = "GITHUB_WEB_DEPLOY_ROLE_ARN secret for the <environment>-web GitHub environment"
+  description = "AWS_WEB_DEPLOY_ROLE_ARN secret for the <environment>-web GitHub environment"
   value       = aws_iam_role.github_web_deploy.arn
 }
 
