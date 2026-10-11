@@ -687,7 +687,7 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
             logger.info(
                 f"Retrying document {doc_id} (attempt {self.request.retries + 1}/{self.max_retries})"
             )
-            raise self.retry(exc=e, countdown=60)  # Retry after 1 minute
+            raise self.retry(exc=e, countdown=60) from e  # Retry after 1 minute
 
         raise
 
@@ -803,7 +803,7 @@ def prepare_document_corpus(
         # Retry the task if retries are available
         if self.request.retries < self.max_retries:
             logger.info(f"Retrying corpus preparation for document {doc_id}")
-            raise self.retry(countdown=60, exc=e)
+            raise self.retry(countdown=60, exc=e) from e
 
         return {"status": "failed", "error": str(e)}
 

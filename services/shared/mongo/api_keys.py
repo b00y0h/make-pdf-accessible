@@ -145,7 +145,7 @@ class APIKeyRepository(BaseRepository):
             self.collection.insert_one(api_key.to_dict())
             return api_key, raw_key
         except Exception as e:
-            raise RepositoryError(f"Failed to create API key: {str(e)}")
+            raise RepositoryError(f"Failed to create API key: {str(e)}") from e
 
     def validate_api_key(self, raw_key: str) -> Optional[APIKey]:
         """
@@ -185,7 +185,7 @@ class APIKeyRepository(BaseRepository):
             return api_key
 
         except Exception as e:
-            raise RepositoryError(f"Failed to validate API key: {str(e)}")
+            raise RepositoryError(f"Failed to validate API key: {str(e)}") from e
 
     def get_user_api_keys(self, user_id: str) -> list[APIKey]:
         """Get all API keys for a user"""
@@ -193,7 +193,7 @@ class APIKeyRepository(BaseRepository):
             docs = self.collection.find({"user_id": user_id}, sort=[("created_at", -1)])
             return [APIKey.from_dict(doc) for doc in docs]
         except Exception as e:
-            raise RepositoryError(f"Failed to get user API keys: {str(e)}")
+            raise RepositoryError(f"Failed to get user API keys: {str(e)}") from e
 
     def get_api_key(self, key_id: str) -> Optional[APIKey]:
         """Get API key by ID"""
@@ -201,7 +201,7 @@ class APIKeyRepository(BaseRepository):
             doc = self.collection.find_one({"_id": key_id})
             return APIKey.from_dict(doc) if doc else None
         except Exception as e:
-            raise RepositoryError(f"Failed to get API key: {str(e)}")
+            raise RepositoryError(f"Failed to get API key: {str(e)}") from e
 
     def deactivate_api_key(self, key_id: str) -> bool:
         """Deactivate an API key"""
@@ -212,7 +212,7 @@ class APIKeyRepository(BaseRepository):
             )
             return result.modified_count > 0
         except Exception as e:
-            raise RepositoryError(f"Failed to deactivate API key: {str(e)}")
+            raise RepositoryError(f"Failed to deactivate API key: {str(e)}") from e
 
     def update_api_key(self, key_id: str, updates: dict[str, Any]) -> bool:
         """Update API key properties"""
@@ -223,7 +223,7 @@ class APIKeyRepository(BaseRepository):
             result = self.collection.update_one({"_id": key_id}, {"$set": updates})
             return result.modified_count > 0
         except Exception as e:
-            raise RepositoryError(f"Failed to update API key: {str(e)}")
+            raise RepositoryError(f"Failed to update API key: {str(e)}") from e
 
     def delete_api_key(self, key_id: str) -> bool:
         """Permanently delete an API key"""
@@ -231,7 +231,7 @@ class APIKeyRepository(BaseRepository):
             result = self.collection.delete_one({"_id": key_id})
             return result.deleted_count > 0
         except Exception as e:
-            raise RepositoryError(f"Failed to delete API key: {str(e)}")
+            raise RepositoryError(f"Failed to delete API key: {str(e)}") from e
 
     def cleanup_expired_keys(self) -> int:
         """Remove expired API keys (manual cleanup for inactive TTL)"""
@@ -241,7 +241,7 @@ class APIKeyRepository(BaseRepository):
             )
             return result.deleted_count
         except Exception as e:
-            raise RepositoryError(f"Failed to cleanup expired keys: {str(e)}")
+            raise RepositoryError(f"Failed to cleanup expired keys: {str(e)}") from e
 
     def get_usage_stats(self, user_id: str) -> dict[str, Any]:
         """Get API key usage statistics for a user"""
@@ -276,7 +276,7 @@ class APIKeyRepository(BaseRepository):
             }
 
         except Exception as e:
-            raise RepositoryError(f"Failed to get usage stats: {str(e)}")
+            raise RepositoryError(f"Failed to get usage stats: {str(e)}") from e
 
 
 # Global repository instance

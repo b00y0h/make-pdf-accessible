@@ -85,7 +85,7 @@ class OCRService:
         except Exception as e:
             logger.error(f"Error analyzing PDF: {str(e)}")
             metrics.add_metric(name="PDFAnalysisError", unit=MetricUnit.Count, value=1)
-            raise OCRServiceError(f"Failed to analyze PDF: {str(e)}")
+            raise OCRServiceError(f"Failed to analyze PDF: {str(e)}") from e
 
     @tracer.capture_method
     def start_textract_job(self, s3_key: str, doc_id: str) -> str:
@@ -135,7 +135,7 @@ class OCRService:
             metrics.add_metric(
                 name="TextractJobStartError", unit=MetricUnit.Count, value=1
             )
-            raise OCRServiceError(f"Failed to start Textract job: {error_code}")
+            raise OCRServiceError(f"Failed to start Textract job: {error_code}") from e
 
     @tracer.capture_method
     def poll_textract_job(
@@ -294,7 +294,9 @@ class OCRService:
             logger.error(
                 f"Failed to get Textract results for job {job_id}: {error_code}"
             )
-            raise OCRServiceError(f"Failed to retrieve Textract results: {error_code}")
+            raise OCRServiceError(
+                f"Failed to retrieve Textract results: {error_code}"
+            ) from e
 
     @tracer.capture_method
     def save_textract_results(
@@ -341,7 +343,9 @@ class OCRService:
         except ClientError as e:
             error_code = e.response["Error"]["Code"]
             logger.error(f"Failed to save Textract results: {error_code}")
-            raise OCRServiceError(f"Failed to save Textract results: {error_code}")
+            raise OCRServiceError(
+                f"Failed to save Textract results: {error_code}"
+            ) from e
 
     def _find_query_alias(self, query_result_block: dict, all_blocks: list) -> str:
         """

@@ -198,7 +198,7 @@ class QuarantineSystem:
                 user_id,
                 f"Failed to quarantine file {original_filename}: {str(e)}",
             )
-            raise Exception(f"Failed to quarantine file: {str(e)}")
+            raise Exception(f"Failed to quarantine file: {str(e)}") from e
 
     def get_quarantine_record(self, quarantine_id: str) -> Optional[QuarantineRecord]:
         """
