@@ -21,6 +21,8 @@ repos:
     rev: 26.10.0
     hooks:
       - id: black
+        # Use the root config, as CI's `black .` does
+        args: [--config, pyproject.toml]
 
   # TypeScript/JavaScript formatting and linting
   - repo: https://github.com/pre-commit/mirrors-eslint

@@ -36,10 +36,12 @@ if [ ! -z "$python_files" ]; then
         # Check if Python files exist and run checks
         for file in $python_files; do
             if [ -f "$file" ]; then
-                # Black formatting check
-                if ! ./venv/bin/black --check "$file" 2>/dev/null; then
+                # Black formatting check. Use the root config, as CI's `black .`
+                # does; given one file, black would use the nearest pyproject.toml
+                # with a [tool.black] section, which a subproject may carry.
+                if ! ./venv/bin/black --check --config pyproject.toml "$file" 2>/dev/null; then
                     echo "${RED}❌ Black formatting issues in: $file${NC}"
-                    echo "${YELLOW}💡 Run: ./venv/bin/black $file${NC}"
+                    echo "${YELLOW}💡 Run: ./venv/bin/black --config pyproject.toml $file${NC}"
                     has_errors=true
                 fi
 
