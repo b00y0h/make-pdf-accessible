@@ -17,6 +17,7 @@ os.environ.update(
     }
 )
 
+
 @pytest.fixture
 def mock_aws_services():
     """Mock AWS services for worker tests."""
