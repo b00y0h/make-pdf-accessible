@@ -464,15 +464,33 @@ jobs:
     if: success() && needs.changes.outputs.backend == 'true'
     strategy:
       matrix:
-        service:
-          - api
-          - worker
-          - ocr
-          - structure
-          - tagger
-          - exporter
-          - validator
-          - notifier
+        # Build contexts match docker-compose.yml: the API image copies api/ and
+        # shared/ from services/, and the others copy their own directory.
+        include:
+          - service: api
+            context: services
+            dockerfile: services/api/Dockerfile
+          - service: worker
+            context: services/worker
+            dockerfile: services/worker/Dockerfile
+          - service: ocr
+            context: services/functions/ocr
+            dockerfile: services/functions/ocr/Dockerfile
+          - service: structure
+            context: services/functions/structure
+            dockerfile: services/functions/structure/Dockerfile
+          - service: tagger
+            context: services/functions/tagger
+            dockerfile: services/functions/tagger/Dockerfile
+          - service: exporter
+            context: services/functions/exporter
+            dockerfile: services/functions/exporter/Dockerfile
+          - service: validator
+            context: services/functions/validator
+            dockerfile: services/functions/validator/Dockerfile
+          - service: notifier
+            context: services/functions/notifier
+            dockerfile: services/functions/notifier/Dockerfile
     steps:
       - uses: actions/checkout@v7
 
@@ -482,8 +500,8 @@ jobs:
       - name: Build Docker image
         uses: docker/build-push-action@v7
         with:
-          context: .
-          file: services/${{ matrix.service }}/Dockerfile
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           tags: pdf-accessibility-${{ matrix.service }}:${{ github.sha }}
           push: false
           cache-from: type=gha
