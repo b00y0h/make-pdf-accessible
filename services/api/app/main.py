@@ -4,11 +4,12 @@ from contextlib import asynccontextmanager
 from aws_lambda_powertools import Logger, Metrics, Tracer
 from aws_lambda_powertools.logging import correlation_paths
 from aws_lambda_powertools.utilities.typing import LambdaContext
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, Request, status
 from fastapi.encoders import ENCODERS_BY_TYPE
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mangum import Mangum
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from .config import settings
@@ -233,9 +234,11 @@ async def aws_service_exception_handler(
     )
 
 
-@app.exception_handler(HTTPException)
+# Starlette's HTTPException is the base class, so this also covers routing errors
+# such as unknown paths (404) and wrong methods (405).
+@app.exception_handler(StarletteHTTPException)
 async def custom_http_exception_handler(
-    request: Request, exc: HTTPException
+    request: Request, exc: StarletteHTTPException
 ) -> JSONResponse:
     """Custom HTTP exception handler with structured error response"""
 
