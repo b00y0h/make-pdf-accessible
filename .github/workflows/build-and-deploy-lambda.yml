@@ -1,5 +1,7 @@
 name: Build and Deploy Lambda Functions
 
+# No create trigger: create takes no branch or tag filters, so it started a deploy run for
+# every new branch. Release tags (v*) are built and deployed by release.yml.
 on:
   push:
     branches: [main]
@@ -8,7 +10,6 @@ on:
       - 'services/api/**'
       - 'services/worker/**'
       - '.github/workflows/build-and-deploy-lambda.yml'
-  create:
   workflow_dispatch:
     inputs:
       environment:

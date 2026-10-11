@@ -112,10 +112,11 @@ runs:
         echo "  - Deployment Strategy: $DEPLOYMENT_STRATEGY"
         echo "  - Resource Prefix: $RESOURCE_PREFIX"
 
-    # Pull request and merge queue runs never deploy, and their ref is "<number>/merge",
-    # which no allowed-branch pattern matches.
+    # Only a manual dispatch or a push asks for a deploy; every caller limits push to main.
+    # Other events (pull_request, merge_group, create) never deploy, and their ref is often
+    # a PR merge ref or a new branch that no allowed-branch pattern matches.
     - name: Validate branch permissions
-      if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       shell: bash
       run: |
         CURRENT_BRANCH="${{ github.ref_name }}"
