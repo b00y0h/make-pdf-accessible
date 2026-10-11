@@ -180,6 +180,8 @@ services:
       - SQS_INGEST_QUEUE=pdf-accessibility-ingest
       - SQS_PRIORITY_QUEUE=pdf-accessibility-priority
       - SQS_CALLBACK_QUEUE=pdf-accessibility-callbacks
+      # Signed webhooks are queued here; created by scripts/localstack-init
+      - CALLBACK_QUEUE_URL=http://localstack:4566/000000000000/pdf-accessibility-callbacks
       # Feature flags
       - ENABLE_DUAL_WRITE=false
       - ENABLE_PERFORMANCE_METRICS=true
