@@ -82,7 +82,7 @@ The trusted subjects are set per role in `github_role_subjects` in `github_oidc.
 
 ### Infrastructure CI Role
 
-- **Trusts**: `main` and the `<env>-infrastructure` environment; in dev also `develop` and pull requests. Staging shares the dev account, so its roles accept neither.
+- **Trusts**: `main` and the `<env>-infrastructure` environment; in dev also `develop` and pull requests. Staging (which shares the dev account) and prod accept neither.
 - **Permissions**:
   - Read-only access for Terraform plan (all branches)
   - Full access for Terraform apply (main branch only)
@@ -225,7 +225,7 @@ Each role includes strict conditions that limit access to:
 
 - Production deployments limited to `main` branch
 - Infrastructure changes require manual approval on `main`
-- Testing roles work across development branches
+- Only dev's roles trust `develop` and pull requests
 
 ## Troubleshooting
 
