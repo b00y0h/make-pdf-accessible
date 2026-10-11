@@ -33,8 +33,8 @@ class TestBoundingBox:
         assert bbox.top == 0.2
         assert bbox.width == 0.3
         assert bbox.height == 0.4
-        assert bbox.right == 0.4
-        assert bbox.bottom == 0.6
+        assert bbox.right == pytest.approx(0.4)
+        assert bbox.bottom == pytest.approx(0.6)
 
     def test_bounding_box_validation(self):
         """Test bounding box coordinate validation."""
@@ -50,10 +50,10 @@ class TestBoundingBox:
         """Test bounding box computed properties."""
         bbox = BoundingBox(left=0.2, top=0.3, width=0.4, height=0.2)
 
-        assert bbox.center_x == 0.4
-        assert bbox.center_y == 0.4
-        assert bbox.right == 0.6
-        assert bbox.bottom == 0.5
+        assert bbox.center_x == pytest.approx(0.4)
+        assert bbox.center_y == pytest.approx(0.4)
+        assert bbox.right == pytest.approx(0.6)
+        assert bbox.bottom == pytest.approx(0.5)
 
     def test_overlaps_with(self):
         """Test bounding box overlap detection."""

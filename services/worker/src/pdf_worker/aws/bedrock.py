@@ -94,7 +94,7 @@ class BedrockClient:
                 "bedrock-runtime", region_name=region_name or config.aws_region
             )
         except Exception as e:
-            raise WorkerConfigError(f"Failed to initialize Bedrock client: {e}")
+            raise WorkerConfigError(f"Failed to initialize Bedrock client: {e}") from e
 
         logger.info(
             f"Initialized Bedrock client for region: {region_name or config.aws_region}"
@@ -193,15 +193,15 @@ class BedrockClient:
             if error_code == "ValidationException":
                 raise BedrockError(
                     "Invalid request parameters for Bedrock", model_id=model_id.value
-                )
+                ) from e
             elif error_code == "ModelNotReadyException":
                 raise BedrockError(
                     f"Model {model_id.value} is not ready", model_id=model_id.value
-                )
+                ) from e
             elif error_code == "ThrottlingException":
                 raise BedrockError(
                     "Request was throttled, try again later", model_id=model_id.value
-                )
+                ) from e
 
             raise BedrockError(
                 f"Bedrock invocation failed: {error_code}",
@@ -210,10 +210,10 @@ class BedrockClient:
             ) from e
 
         except json.JSONDecodeError as e:
-            raise BedrockError(f"Failed to parse Bedrock response: {e}")
+            raise BedrockError(f"Failed to parse Bedrock response: {e}") from e
 
         except Exception as e:
-            raise BedrockError(f"Unexpected Bedrock error: {e}")
+            raise BedrockError(f"Unexpected Bedrock error: {e}") from e
 
     @tracer.capture_method
     def analyze_document_structure(
