@@ -4,8 +4,7 @@ resource "aws_secretsmanager_secret" "google_oauth" {
   description = "Google OAuth2 credentials for Cognito OIDC integration"
 
   tags = merge(local.common_tags, {
-    Name        = "${local.name_prefix}-google-oauth"
-    Environment = var.environment
+    Name = "${local.name_prefix}-google-oauth"
   })
 }
 
@@ -27,8 +26,7 @@ resource "aws_secretsmanager_secret" "jwt_secrets" {
   description = "JWT signing secrets for API authentication"
 
   tags = merge(local.common_tags, {
-    Name        = "${local.name_prefix}-jwt-secrets"
-    Environment = var.environment
+    Name = "${local.name_prefix}-jwt-secrets"
   })
 }
 

@@ -112,7 +112,7 @@ resource "aws_cloudfront_distribution" "web" {
   # Logging
   logging_config {
     include_cookies = false
-    bucket          = aws_s3_bucket.cloudfront_logs.bucket_domain_name
+    bucket          = local.cloudfront_logs_bucket_domain_name
     prefix          = "cloudfront-logs/"
   }
 
@@ -144,6 +144,13 @@ resource "aws_s3_bucket_acl" "cloudfront_logs" {
   acl    = "private"
 
   depends_on = [aws_s3_bucket_ownership_controls.cloudfront_logs]
+}
+
+locals {
+  # CloudFront rejects a log bucket that has ACLs disabled, which is how S3 creates buckets.
+  # Taking the domain name from the ACL resource makes every distribution that logs here wait
+  # for the ownership controls and the ACL, also in a targeted apply.
+  cloudfront_logs_bucket_domain_name = "${aws_s3_bucket_acl.cloudfront_logs.bucket}.s3.amazonaws.com"
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "cloudfront_logs" {
@@ -271,8 +278,7 @@ resource "aws_wafv2_web_acl" "cloudfront" {
     }
   }
 
-  # Rule 4: Block specific countries (disabled by default)
-  # Uncomment and add country codes if geo-blocking is needed
+  # Rule 4: Block countries under comprehensive US sanctions
   rule {
     name     = "GeoBlockRule"
     priority = 4
@@ -283,7 +289,7 @@ resource "aws_wafv2_web_acl" "cloudfront" {
 
     statement {
       geo_match_statement {
-        country_codes = ["CU", "IR", "KP", "SY", "UA"] # Replace with actual country codes
+        country_codes = ["CU", "IR", "KP", "SY"]
       }
     }
 
@@ -304,8 +310,9 @@ resource "aws_wafv2_web_acl" "cloudfront" {
 
 # Provider alias for us-east-1 (required for CloudFront WAF)
 provider "aws" {
-  alias  = "us_east_1"
-  region = "us-east-1"
+  alias               = "us_east_1"
+  region              = "us-east-1"
+  allowed_account_ids = [var.aws_account_id]
 
   default_tags {
     tags = local.common_tags

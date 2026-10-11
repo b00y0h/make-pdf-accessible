@@ -19,7 +19,7 @@ resource "aws_lambda_function" "api" {
   environment {
     variables = {
       # AWS Configuration
-      AWS_REGION     = var.aws_region
+      # AWS_REGION is reserved: Lambda sets it and rejects functions that define it
       AWS_ACCOUNT_ID = data.aws_caller_identity.current.account_id
 
       # DynamoDB Tables
@@ -93,7 +93,7 @@ resource "aws_lambda_function" "api" {
     aws_iam_role_policy_attachment.lambda_basic,
     aws_iam_role_policy_attachment.lambda_vpc,
     aws_iam_role_policy.lambda_custom,
-    aws_cloudwatch_log_group.lambda_api
+    aws_cloudwatch_log_group.api_logs # monitoring.tf
   ]
 }
 
@@ -133,14 +133,6 @@ resource "aws_security_group" "lambda_sg" {
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-lambda-sg"
   })
-}
-
-# CloudWatch Log Group for Lambda
-resource "aws_cloudwatch_log_group" "lambda_api" {
-  name              = "/aws/lambda/${local.name_prefix}-api"
-  retention_in_days = var.log_retention_days
-
-  tags = local.common_tags
 }
 
 # Lambda DLQ

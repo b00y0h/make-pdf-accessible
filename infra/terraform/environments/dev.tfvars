@@ -1,10 +1,11 @@
 # Development account. Domains resolve to dev.makepdfaccessible.com, dashboard-dev., api-dev.
 # Committed to git: never put secrets here (they come from AWS Secrets Manager).
-project_name = "pdf-accessibility"
-environment  = "dev"
-aws_region   = "us-east-1"
-github_repo  = "b00y0h/make-pdf-accessible"
-root_domain  = "makepdfaccessible.com"
+project_name   = "pdf-accessibility"
+environment    = "dev"
+aws_account_id = "403030570295" # pdf-accessibility-dev
+aws_region     = "us-east-1"
+github_repo    = "b00y0h/make-pdf-accessible"
+root_domain    = "makepdfaccessible.com"
 
 cost_center      = "CC-DEV-001"
 data_sensitivity = "internal"

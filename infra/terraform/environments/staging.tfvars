@@ -2,9 +2,10 @@
 # Committed to git: never put secrets here (they come from AWS Secrets Manager).
 project_name = "pdf-accessibility"
 environment  = "staging"
-aws_region   = "us-east-1"
-github_repo  = "b00y0h/make-pdf-accessible"
-root_domain  = "makepdfaccessible.com"
+# No staging account exists yet (ADR-0010). Set aws_account_id here when it does.
+aws_region  = "us-east-1"
+github_repo = "b00y0h/make-pdf-accessible"
+root_domain = "makepdfaccessible.com"
 
 cost_center      = "CC-STG-001"
 data_sensitivity = "confidential"

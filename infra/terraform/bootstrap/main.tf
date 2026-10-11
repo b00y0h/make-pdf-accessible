@@ -4,7 +4,8 @@
 #
 #   cd infra/terraform/bootstrap
 #   terraform init
-#   terraform apply -var environment=dev
+#   terraform workspace new dev   # this root keeps local state: one workspace per account
+#   AWS_PROFILE=pdf-dev terraform apply -var environment=dev
 
 terraform {
   required_version = ">= 1.5"
@@ -19,6 +20,9 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
+
+  # Refuses to create one environment's state bucket in another environment's account
+  allowed_account_ids = [local.account_ids[var.environment]]
 
   default_tags {
     tags = {
@@ -37,6 +41,13 @@ provider "aws" {
 }
 
 locals {
+  # The AWS account each environment lives in (ADR-0010). Keep in step with aws_account_id in
+  # ../environments/<env>.tfvars.
+  account_ids = {
+    dev  = "403030570295"
+    prod = "774697187580"
+  }
+
   bucket_name = "${var.project_name}-terraform-state-${var.environment}"
   table_name  = "${var.project_name}-terraform-locks-${var.environment}"
 }

@@ -27,7 +27,6 @@ resource "aws_lambda_function" "documentdb_test" {
       DOCUMENTDB_SECRET_NAME = aws_secretsmanager_secret.documentdb_credentials.name
       DOCUMENTDB_ENDPOINT    = aws_docdb_cluster.main.endpoint
       DOCUMENTDB_PORT        = tostring(aws_docdb_cluster.main.port)
-      AWS_REGION             = var.aws_region
     }
   }
 

@@ -144,7 +144,7 @@ State was local; `infra-ci.yml` ran `terraform init` and `terraform plan` with n
 
 ### Implementation
 
-4A. Operator: create the AWS Organization and the three accounts (ADR-0010); in each, run `bootstrap` with an administrator credential; run the first `terraform apply` of the root from a workstation so the OIDC roles exist; add `GITHUB_INFRASTRUCTURE_CI_ROLE_ARN`, `GITHUB_WEB_DEPLOY_ROLE_ARN`, `AWS_REGION` and `AWS_ACCOUNT_ID` as environment-scoped GitHub secrets.
+4A. Operator: create the AWS Organization and the dev and prod accounts (ADR-0010); in each, run `bootstrap` with an administrator credential (one workspace per account, see `infra/terraform/README.md`); run the first `terraform apply` of the root from a workstation so the OIDC roles exist; add `GITHUB_INFRASTRUCTURE_CI_ROLE_ARN`, `GITHUB_WEB_DEPLOY_ROLE_ARN`, `AWS_REGION` and `AWS_ACCOUNT_ID` as environment-scoped GitHub secrets.
 4B. The workflow edits are in place; environment names follow the existing `<env>-infrastructure` convention.
 
 ---
