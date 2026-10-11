@@ -96,14 +96,16 @@ class BetterAuthJWT:
 
             return claims
 
-        except ExpiredSignatureError:
-            raise AuthenticationError("Token has expired")
+        except ExpiredSignatureError as e:
+            raise AuthenticationError("Token has expired") from e
         except _JWT_CLAIMS_ERRORS as e:
-            raise AuthenticationError(f"Token claims validation failed: {str(e)}")
+            raise AuthenticationError(
+                f"Token claims validation failed: {str(e)}"
+            ) from e
         except InvalidTokenError as e:
-            raise AuthenticationError(f"Token validation failed: {str(e)}")
+            raise AuthenticationError(f"Token validation failed: {str(e)}") from e
         except Exception as e:
-            raise AuthenticationError(f"Token verification error: {str(e)}")
+            raise AuthenticationError(f"Token verification error: {str(e)}") from e
 
     def extract_user_info(self, claims: dict[str, Any]) -> dict[str, Any]:
         """

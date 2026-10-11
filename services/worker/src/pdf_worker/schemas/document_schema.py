@@ -188,7 +188,7 @@ DOCUMENT_STRUCTURE_SCHEMA: dict[str, Any] = {
                             "is_header": {"type": "boolean"},
                             "scope": {
                                 "type": ["string", "null"],
-                                "enum": ["row", "col", "rowgroup", "colgroup", null],
+                                "enum": ["row", "col", "rowgroup", "colgroup", None],
                             },
                         },
                         "required": ["row_index", "column_index"],
