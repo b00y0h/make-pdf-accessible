@@ -155,7 +155,7 @@ class MongoConnection:
                 else:
                     raise MongoConnectionError(
                         f"Failed to connect to MongoDB after {max_retries + 1} attempts: {e}"
-                    )
+                    ) from e
 
     @property
     def client(self) -> MongoClient:

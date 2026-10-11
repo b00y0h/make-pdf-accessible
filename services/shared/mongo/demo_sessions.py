@@ -132,7 +132,7 @@ class DemoSessionRepository(BaseRepository):
 
             if os.getenv("DISABLE_RATE_LIMITING", "").lower() in ["true", "1", "yes"]:
                 return True, "Rate limiting disabled for development"
-        except:
+        except Exception:
             pass
 
         now = datetime.utcnow()
