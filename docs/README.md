@@ -7,6 +7,7 @@
 | [`business/BUSINESS-PLAN.md`](business/BUSINESS-PLAN.md)                                         | Business plan: market, positioning, pricing, go-to-market, unit economics, financial model, team, risks, milestones |
 | [`research/higher-ed-market-research-2026-09.md`](research/higher-ed-market-research-2026-09.md) | Market and regulatory research (ADA Title II, Section 504, state law), demand evidence, competitors, code audit     |
 | [`research/ithaka-pipeline-analysis.md`](research/ithaka-pipeline-analysis.md)                   | Analysis of ITHAKA's on-demand PDF remediation pipeline on AWS: what to adopt, where to go further                  |
+| [`research/pdfix-licensing-2026-10.md`](research/pdfix-licensing-2026-10.md)                     | PDFix SDK licensing for a multi-tenant SaaS: public terms and prices, questions to ask, contacts, draft email        |
 
 ## Product requirement documents (PRDs)
 
@@ -21,7 +22,7 @@
 
 ## Architecture decision records
 
-See [`adr/README.md`](adr/README.md) for the index (ADR-0001 to ADR-0011).
+See [`adr/README.md`](adr/README.md) for the index (ADR-0001 to ADR-0011; all accepted except ADR-0007, on hold).
 
 ## Execution specs (ordered, file-level implementation plans)
 

@@ -1,7 +1,8 @@
 # ADR-0007: Amazon Cognito is the identity layer, with per-tenant SAML and OIDC federation; BetterAuth is retired
 
-- **Status:** Proposed
+- **Status:** Proposed (on hold since 2026-10-10)
 - **Date:** 2026-09-28
+- **Hold:** The owner asked for research before deciding: identity has to be flexible and scalable, and workable for organizations of every size, from small companies without an identity provider to enterprises and universities that require SSO.
 - **Deciders:** Founder (product and engineering)
 - **Scope:** Authentication and authorization for dashboard, API and LTI tool
 - **Related:** `docs/ENTERPRISE-READINESS-PRD.md`, ADR-0008
