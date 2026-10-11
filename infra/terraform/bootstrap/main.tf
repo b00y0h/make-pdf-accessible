@@ -1,11 +1,14 @@
-# One-time bootstrap per AWS account: the S3 bucket and DynamoDB table that hold Terraform state
-# for the platform root. Run with an administrator credential before the first `terraform init`
-# of infra/terraform in that account; afterwards the GitHub OIDC roles created by the root take over.
+# One-time bootstrap per AWS account: for each environment hosted in the account, the S3 bucket
+# and DynamoDB table that hold Terraform state for the platform root. Run with an administrator
+# credential before the first `terraform init` of infra/terraform in that account; afterwards the
+# GitHub OIDC roles created by the root take over.
 #
 #   cd infra/terraform/bootstrap
 #   terraform init
-#   terraform workspace new dev   # this root keeps local state: one workspace per account
-#   AWS_PROFILE=pdf-dev terraform apply -var environment=dev
+#   terraform workspace new dev    # this root keeps local state: one workspace per account
+#   AWS_PROFILE=pdf-dev terraform apply -var 'environments=["dev","staging"]'
+#   terraform workspace new prod
+#   AWS_PROFILE=pdf-prod terraform apply -var 'environments=["prod"]'
 
 terraform {
   required_version = ">= 1.5"
@@ -22,17 +25,16 @@ provider "aws" {
   region = var.aws_region
 
   # Refuses to create one environment's state bucket in another environment's account
-  allowed_account_ids = [local.account_ids[var.environment]]
+  allowed_account_ids = [local.account_id]
 
   default_tags {
     tags = {
       application      = "accesspdf"
       service          = "terraform-state"
       component        = "platform"
-      environment      = var.environment
       cost_center      = var.cost_center
       owner            = "team-platform"
-      business_unit    = "R&D"
+      business_unit    = "RnD"
       data_sensitivity = "confidential"
       managed_by       = "terraform"
       repo             = "github.com/b00y0h/make-pdf-accessible"
@@ -40,31 +42,48 @@ provider "aws" {
   }
 }
 
+# Separate state per environment, even when two environments share an account, so each
+# environment's deploy role can be limited to its own bucket and table.
 locals {
-  # The AWS account each environment lives in (ADR-0010). Keep in step with aws_account_id in
-  # ../environments/<env>.tfvars.
+  # The AWS account each environment lives in (ADR-0010): dev and staging share the dev account.
+  # Keep in step with aws_account_id in ../environments/<env>.tfvars.
   account_ids = {
-    dev  = "403030570295"
-    prod = "774697187580"
+    dev     = "403030570295"
+    staging = "403030570295"
+    prod    = "774697187580"
   }
 
-  bucket_name = "${var.project_name}-terraform-state-${var.environment}"
-  table_name  = "${var.project_name}-terraform-locks-${var.environment}"
+  # var.environments is validated to name a single account
+  account_id = one(distinct([for e in var.environments : local.account_ids[e]]))
+
+  bucket_names = { for e in var.environments : e => "${var.project_name}-terraform-state-${e}" }
+  table_names  = { for e in var.environments : e => "${var.project_name}-terraform-locks-${e}" }
 }
 
 resource "aws_s3_bucket" "state" {
-  bucket = local.bucket_name
+  for_each = local.bucket_names
+
+  bucket = each.value
 
   # Object Lock (governance) protects state history from accidental deletion.
   object_lock_enabled = true
 
   tags = {
-    Name = local.bucket_name
+    Name        = each.value
+    environment = each.key
+  }
+
+  # Dropping an environment from var.environments, or applying another account's set against this
+  # state, must fail instead of deleting live state storage.
+  lifecycle {
+    prevent_destroy = true
   }
 }
 
 resource "aws_s3_bucket_versioning" "state" {
-  bucket = aws_s3_bucket.state.id
+  for_each = aws_s3_bucket.state
+
+  bucket = each.value.id
 
   versioning_configuration {
     status = "Enabled"
@@ -72,7 +91,9 @@ resource "aws_s3_bucket_versioning" "state" {
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "state" {
-  bucket = aws_s3_bucket.state.id
+  for_each = aws_s3_bucket.state
+
+  bucket = each.value.id
 
   rule {
     apply_server_side_encryption_by_default {
@@ -82,7 +103,9 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "state" {
 }
 
 resource "aws_s3_bucket_public_access_block" "state" {
-  bucket = aws_s3_bucket.state.id
+  for_each = aws_s3_bucket.state
+
+  bucket = each.value.id
 
   block_public_acls       = true
   block_public_policy     = true
@@ -91,7 +114,9 @@ resource "aws_s3_bucket_public_access_block" "state" {
 }
 
 resource "aws_s3_bucket_object_lock_configuration" "state" {
-  bucket = aws_s3_bucket.state.id
+  for_each = aws_s3_bucket.state
+
+  bucket = each.value.id
 
   rule {
     default_retention {
@@ -104,7 +129,9 @@ resource "aws_s3_bucket_object_lock_configuration" "state" {
 }
 
 resource "aws_s3_bucket_policy" "state" {
-  bucket = aws_s3_bucket.state.id
+  for_each = aws_s3_bucket.state
+
+  bucket = each.value.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -115,8 +142,8 @@ resource "aws_s3_bucket_policy" "state" {
         Principal = "*"
         Action    = "s3:*"
         Resource = [
-          aws_s3_bucket.state.arn,
-          "${aws_s3_bucket.state.arn}/*"
+          each.value.arn,
+          "${each.value.arn}/*"
         ]
         Condition = {
           Bool = {
@@ -131,7 +158,9 @@ resource "aws_s3_bucket_policy" "state" {
 }
 
 resource "aws_dynamodb_table" "locks" {
-  name         = local.table_name
+  for_each = local.table_names
+
+  name         = each.value
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "LockID"
 
@@ -149,6 +178,11 @@ resource "aws_dynamodb_table" "locks" {
   }
 
   tags = {
-    Name = local.table_name
+    Name        = each.value
+    environment = each.key
+  }
+
+  lifecycle {
+    prevent_destroy = true
   }
 }

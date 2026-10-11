@@ -1,9 +1,9 @@
-output "state_bucket" {
-  description = "Terraform state bucket name (use in environments/<env>.backend.hcl)"
-  value       = aws_s3_bucket.state.bucket
+output "state_buckets" {
+  description = "Terraform state bucket per environment (use in environments/<env>.backend.hcl)"
+  value       = { for e, b in aws_s3_bucket.state : e => b.bucket }
 }
 
-output "lock_table" {
-  description = "Terraform lock table name (use in environments/<env>.backend.hcl)"
-  value       = aws_dynamodb_table.locks.name
+output "lock_tables" {
+  description = "Terraform lock table per environment (use in environments/<env>.backend.hcl)"
+  value       = { for e, t in aws_dynamodb_table.locks : e => t.name }
 }

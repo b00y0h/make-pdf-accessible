@@ -1,7 +1,7 @@
 # ADR-0005: HTML first for text-heavy web documents; PDF/UA when the document must remain a PDF
 
-- **Status:** Proposed
-- **Date:** 2026-09-28
+- **Status:** Accepted
+- **Date:** 2026-09-28 (accepted 2026-10-10)
 - **Deciders:** Founder (product and engineering)
 - **Scope:** Output formats, triage rules, publish-back connectors
 - **Related:** `docs/INVENTORY-TRIAGE-PRD.md`, `docs/INTEGRATIONS-PRD.md`, `docs/REMEDIATION-PIPELINE-PRD.md`

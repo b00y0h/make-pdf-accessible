@@ -1,17 +1,17 @@
 # VPC Outputs
 output "vpc_id" {
   description = "ID of the VPC"
-  value       = aws_vpc.main.id
+  value       = local.vpc_id
 }
 
 output "private_subnet_ids" {
   description = "List of IDs of the private subnets"
-  value       = aws_subnet.private[*].id
+  value       = local.private_subnet_ids
 }
 
 output "public_subnet_ids" {
   description = "List of IDs of the public subnets"
-  value       = aws_subnet.public[*].id
+  value       = local.public_subnet_ids
 }
 
 # S3 Bucket Outputs
@@ -178,7 +178,7 @@ output "step_functions_role_arn" {
 # Enhanced GitHub OIDC Role Outputs
 output "github_oidc_provider_arn" {
   description = "ARN of the GitHub OIDC provider"
-  value       = var.github_repo != "" ? aws_iam_openid_connect_provider.github_enhanced[0].arn : null
+  value       = local.github_oidc_provider_arn
 }
 
 output "github_infrastructure_ci_role_arn" {
@@ -277,8 +277,8 @@ output "environment_config" {
     region               = var.aws_region
     project_name         = var.project_name
     environment          = var.environment
-    vpc_id               = aws_vpc.main.id
-    private_subnet_ids   = aws_subnet.private[*].id
+    vpc_id               = local.vpc_id
+    private_subnet_ids   = local.private_subnet_ids
     api_gateway_url      = aws_apigatewayv2_api.main.api_endpoint
     api_lambda_function  = aws_lambda_function.api.function_name
     cognito_user_pool_id = aws_cognito_user_pool.main.id

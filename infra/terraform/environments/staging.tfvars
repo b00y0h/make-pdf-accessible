@@ -1,11 +1,13 @@
-# Staging account. Domains resolve to staging.makepdfaccessible.com, dashboard-staging., api-staging.
+# Staging, in the dev account alongside dev (ADR-0010); it shares that account's network and GitHub
+# OIDC provider (infra/terraform/account). Domains resolve to staging.makepdfaccessible.com,
+# dashboard-staging., api-staging.
 # Committed to git: never put secrets here (they come from AWS Secrets Manager).
-project_name = "pdf-accessibility"
-environment  = "staging"
-# No staging account exists yet (ADR-0010). Set aws_account_id here when it does.
-aws_region  = "us-east-1"
-github_repo = "b00y0h/make-pdf-accessible"
-root_domain = "makepdfaccessible.com"
+project_name   = "pdf-accessibility"
+environment    = "staging"
+aws_account_id = "403030570295" # pdf-accessibility-dev, shared with dev
+aws_region     = "us-east-1"
+github_repo    = "b00y0h/make-pdf-accessible"
+root_domain    = "makepdfaccessible.com"
 
 cost_center      = "CC-STG-001"
 data_sensitivity = "confidential"
