@@ -17,28 +17,6 @@ os.environ.update(
     }
 )
 
-from src.pdf_worker.app import create_app
-from src.pdf_worker.core.celery import celery_app
-
-
-@pytest.fixture
-def app():
-    """Create worker app for testing."""
-    app = create_app(testing=True)
-    return app
-
-
-@pytest.fixture
-def celery_worker():
-    """Create Celery app for testing."""
-    celery_app.conf.update(
-        task_always_eager=True,
-        task_eager_propagates=True,
-        result_backend="cache+memory://",
-        broker_url="memory://",
-    )
-    return celery_app
-
 
 @pytest.fixture
 def mock_aws_services():
