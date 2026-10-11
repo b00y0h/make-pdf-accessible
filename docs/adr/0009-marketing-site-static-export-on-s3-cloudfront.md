@@ -37,5 +37,5 @@ We will build the marketing site as a separate workspace app (`apps/marketing`) 
 **Neutral / Follow-ups**
 
 - If a headless CMS is adopted, add a scheduled rebuild workflow rather than a server.
-- Deploys need the `<env>-web` GitHub environment, holding the `GITHUB_WEB_DEPLOY_ROLE_ARN` secret (the web deploy role from the marketing-site-only apply in `infra/terraform/README.md`) and the bucket and distribution variables.
+- Deploys need the `<env>-web` GitHub environment, holding the `AWS_WEB_DEPLOY_ROLE_ARN` secret (the web deploy role from the marketing-site-only apply in `infra/terraform/README.md`) and the bucket and distribution variables.
 - Remove `aws_cloudfront_distribution.marketing` from `domains.tf` in favor of the module (done in `infra/terraform/marketing.tf`).
