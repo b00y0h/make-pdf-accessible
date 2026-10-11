@@ -11,3 +11,47 @@ updates:
       github-actions:
         patterns:
           - '*'
+
+  # The pnpm workspace root: one lockfile covers apps/*, web, dashboard, integrations/* and packages/*.
+  # Minor and patch updates arrive as one pull request; each major version gets its own.
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+    commit-message:
+      prefix: 'chore'
+      include: 'scope'
+    groups:
+      npm-minor-and-patch:
+        update-types:
+          - 'minor'
+          - 'patch'
+
+  # Every directory with a requirements file or pyproject.toml
+  - package-ecosystem: 'pip'
+    directories:
+      - '/'
+      - '/services/api'
+      - '/services/worker'
+      - '/services/timeout-monitor'
+      - '/services/functions/exporter'
+      - '/services/functions/notifier'
+      - '/services/functions/ocr'
+      - '/services/functions/router'
+      - '/services/functions/structure'
+      - '/services/functions/tagger'
+      - '/services/functions/validator'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+    commit-message:
+      prefix: 'chore'
+      include: 'scope'
+    groups:
+      python-minor-and-patch:
+        update-types:
+          - 'minor'
+          - 'patch'
