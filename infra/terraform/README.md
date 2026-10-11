@@ -236,7 +236,7 @@ The VPC, subnets, NAT gateways and VPC endpoints are set per account in `account
 
 ## GitHub Actions OIDC Setup
 
-The OIDC provider is created once per account by `account/`; this root creates each environment's roles and looks the provider up. Each role trusts an explicit list of subjects (`github_oidc.tf`). Staging shares the dev account, so staging's roles accept only `main` and staging's own GitHub environments; `develop` and pull requests reach dev only.
+The OIDC provider is created once per account by `account/`; this root creates each environment's roles and looks the provider up. Each role trusts an explicit list of subjects (`github_oidc.tf`). `develop` and pull requests reach dev only: staging (which shares the dev account) and prod accept only `main`, tags and their own GitHub environments.
 
 The workflows that assume these roles already exist (`infra-ci.yml`, `build-and-deploy-lambda.yml`, `api-ci.yml`, `web-ci.yml`, `marketing-site.yml`, `rollback.yml` and `test-rollback.yml`), so the remaining setup is the GitHub secrets that hold the role ARNs.
 

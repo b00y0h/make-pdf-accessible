@@ -12,9 +12,10 @@ data "aws_iam_openid_connect_provider" "github" {
 locals {
   github_oidc_provider_arn = data.aws_iam_openid_connect_provider.github.arn
 
-  # Staging shares the dev account with dev, so staging's roles accept only main and staging's own
-  # GitHub environments; develop, feature branches and pull requests can reach dev only.
-  github_is_staging = var.environment == "staging"
+  # develop and pull requests can reach dev only. Staging (which shares the dev account) and prod
+  # accept only main, tags and their own GitHub environments. This checks for dev rather than
+  # excluding staging, so any other environment is locked down too.
+  github_is_dev = var.environment == "dev"
 
   # The subject (sub claim) GitHub presents depends on the job. A job that declares a GitHub
   # environment presents environment:<name> instead of its branch, so a role used by such a job
@@ -31,10 +32,12 @@ locals {
   }
 
   github_role_subjects = {
-    # infra-ci.yml: plans on pull requests and from main, applies in <env>-infrastructure
+    # infra-ci.yml: terraform-apply in <env>-infrastructure, security-monitoring from main;
+    # rollback.yml: rollback-infrastructure in <env>-infrastructure. The pull request plan
+    # assumes AWS_INFRASTRUCTURE_PLAN_ROLE_ARN instead of this role.
     infrastructure_ci = concat(
       [local.github_subjects.main, local.github_subjects.infra_env],
-      local.github_is_staging ? [] : [local.github_subjects.develop, local.github_subjects.pull_request],
+      local.github_is_dev ? [local.github_subjects.develop, local.github_subjects.pull_request] : [],
     )
     # build-and-deploy-lambda.yml declares no environment
     lambda_deploy = [local.github_subjects.main, local.github_subjects.tags]
@@ -45,7 +48,7 @@ locals {
     api_deploy = [local.github_subjects.main, local.github_subjects.api_env]
     testing = concat(
       [local.github_subjects.main],
-      local.github_is_staging ? [] : [local.github_subjects.develop, local.github_subjects.pull_request],
+      local.github_is_dev ? [local.github_subjects.develop, local.github_subjects.pull_request] : [],
     )
   }
 

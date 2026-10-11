@@ -202,11 +202,11 @@ resource "aws_iam_role" "github_actions" {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
           }
           StringLike = {
-            # Staging shares the dev account, so only main may assume staging's role.
+            # Only dev's role trusts the other branches; staging's and prod's trust main alone.
             "token.actions.githubusercontent.com:sub" = [
               for branch in var.github_branches :
               "repo:${var.github_repo}:ref:refs/heads/${branch}"
-              if !local.github_is_staging || branch == "main"
+              if local.github_is_dev || branch == "main"
             ]
           }
         }
