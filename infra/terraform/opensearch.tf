@@ -82,7 +82,7 @@ resource "aws_opensearchserverless_security_policy" "pdf_embeddings_network" {
         }
       ]
       AllowFromPublic = false
-      SourceVPCs      = [aws_vpc.main.id]
+      SourceVPCs      = [local.vpc_id]
     }
   ])
 }
@@ -181,10 +181,10 @@ resource "aws_iam_role_policy" "lambda_opensearch_access" {
 
 # VPC Endpoint for OpenSearch Serverless
 resource "aws_vpc_endpoint" "opensearch" {
-  vpc_id             = aws_vpc.main.id
+  vpc_id             = local.vpc_id
   service_name       = "com.amazonaws.${data.aws_region.current.name}.aoss"
   vpc_endpoint_type  = "Interface"
-  subnet_ids         = aws_subnet.private[*].id
+  subnet_ids         = local.private_subnet_ids
   security_group_ids = [aws_security_group.opensearch_sg.id]
 
   policy = jsonencode({
@@ -209,7 +209,7 @@ resource "aws_vpc_endpoint" "opensearch" {
 # Security group for OpenSearch VPC endpoint
 resource "aws_security_group" "opensearch_sg" {
   name_prefix = "${local.app_name}-${var.environment}-opensearch-"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = local.vpc_id
   description = "Security group for OpenSearch VPC endpoint"
 
   ingress {
