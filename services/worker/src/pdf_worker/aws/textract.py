@@ -15,7 +15,7 @@ logger = Logger()
 tracer = Tracer()
 
 
-class TextractJobStatus(str, Enum):  # noqa: UP042
+class TextractJobStatus(str, Enum):
     """Textract job status enumeration."""
 
     IN_PROGRESS = "IN_PROGRESS"
@@ -24,7 +24,7 @@ class TextractJobStatus(str, Enum):  # noqa: UP042
     FAILED = "FAILED"
 
 
-class TextractFeature(str, Enum):  # noqa: UP042
+class TextractFeature(str, Enum):
     """Textract analysis features."""
 
     TABLES = "TABLES"

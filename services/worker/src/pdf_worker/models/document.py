@@ -15,7 +15,7 @@ from pydantic import (
 )
 
 
-class ElementType(str, Enum):  # noqa: UP042
+class ElementType(str, Enum):
     """Types of document structure elements."""
 
     HEADING = "heading"
@@ -45,7 +45,7 @@ class HeadingLevel(int, Enum):
     H6 = 6
 
 
-class ListType(str, Enum):  # noqa: UP042
+class ListType(str, Enum):
     """Types of lists."""
 
     UNORDERED = "unordered"  # Bulleted
@@ -53,7 +53,7 @@ class ListType(str, Enum):  # noqa: UP042
     DEFINITION = "definition"  # Definition list
 
 
-class FigureType(str, Enum):  # noqa: UP042
+class FigureType(str, Enum):
     """Types of figures."""
 
     IMAGE = "image"

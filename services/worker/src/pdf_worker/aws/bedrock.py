@@ -17,7 +17,7 @@ logger = Logger()
 tracer = Tracer()
 
 
-class ClaudeModel(str, Enum):  # noqa: UP042
+class ClaudeModel(str, Enum):
     """Available Claude models in Bedrock."""
 
     CLAUDE_3_5_SONNET = "anthropic.claude-3-5-sonnet-20241022-v2:0"
