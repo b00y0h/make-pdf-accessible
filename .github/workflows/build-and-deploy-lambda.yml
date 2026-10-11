@@ -1,14 +1,16 @@
 name: Build and Deploy Lambda Functions
 
 on:
+  # Release tags go through push, not create: create takes no filters, so a bare create
+  # trigger ran this workflow for every new branch and tag. Path filters don't apply to tags.
   push:
     branches: [main]
+    tags: ['v*']
     paths:
       - 'services/functions/**'
       - 'services/api/**'
       - 'services/worker/**'
       - '.github/workflows/build-and-deploy-lambda.yml'
-  create:
   workflow_dispatch:
     inputs:
       environment:
@@ -153,10 +155,10 @@ jobs:
       - name: Check AWS credentials availability
         id: check-creds
         env:
-          AWS_ROLE_ARN: ${{ secrets.GITHUB_LAMBDA_DEPLOY_ROLE_ARN }}
+          AWS_ROLE_ARN: ${{ secrets.AWS_LAMBDA_DEPLOY_ROLE_ARN }}
         run: |
           if [ -z "$AWS_ROLE_ARN" ]; then
-            echo "::warning::GITHUB_LAMBDA_DEPLOY_ROLE_ARN secret not configured - deployment will be skipped"
+            echo "::warning::AWS_LAMBDA_DEPLOY_ROLE_ARN secret not configured - deployment will be skipped"
             echo "has_creds=false" >> $GITHUB_OUTPUT
           else
             echo "has_creds=true" >> $GITHUB_OUTPUT
@@ -180,7 +182,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.GITHUB_LAMBDA_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_LAMBDA_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: GitHubActions-LambdaDeploy-${{ matrix.service }}-${{ github.run_id }}
 
@@ -683,7 +685,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.GITHUB_LAMBDA_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_LAMBDA_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: GitHubActions-LambdaSecurity-${{ github.run_id }}
 

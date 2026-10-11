@@ -33,12 +33,36 @@ export const DEADLINES = {
   },
 } as const;
 
+export const SOLUTIONS = [
+  {
+    href: '/solutions/higher-ed/',
+    label: 'Colleges and universities',
+    short: 'Higher education',
+    text: 'Public sites, department sites, library collections and every course in the LMS.',
+  },
+  {
+    href: '/solutions/government/',
+    label: 'State and local government',
+    short: 'Government',
+    text: 'Agendas, minutes, ordinances, permits and forms, from cities to school districts.',
+  },
+  {
+    href: '/solutions/legal/',
+    label: 'Counsel and law firms',
+    short: 'Legal',
+    text: 'A decision record and a signed evidence pack for every document.',
+  },
+] as const;
+
 export const NAV = [
   { href: '/product/', label: 'Product' },
   { href: '/pricing/', label: 'Pricing' },
+  { href: '/trust/', label: 'Trust center' },
+] as const;
+
+export const FREE_TOOLS = [
   { href: '/free-report/', label: 'Free website report' },
   { href: '/check/', label: 'Free PDF check' },
-  { href: '/trust/', label: 'Trust' },
 ] as const;
 
 export const FOOTER_LINKS = {
@@ -49,6 +73,7 @@ export const FOOTER_LINKS = {
     { href: '/check/', label: 'Free PDF check' },
     { href: '/pilot/', label: 'Request a pilot' },
   ],
+  solutions: SOLUTIONS.map(({ href, label }) => ({ href, label })),
   trust: [
     { href: '/trust/', label: 'Trust center' },
     { href: '/accessibility/', label: 'Accessibility statement' },
@@ -56,6 +81,47 @@ export const FOOTER_LINKS = {
     { href: '/bot/', label: 'Our crawler' },
   ],
 } as const;
+
+// Procurement status, stated as it is today. Shown on the home page and the trust center.
+export const PROCUREMENT = [
+  {
+    item: 'Accessibility conformance report (VPAT 2.5) for this site',
+    status:
+      'Published with the first production release; audit scheduled before launch',
+    state: 'scheduled',
+  },
+  {
+    item: 'Accessibility conformance report for the dashboard',
+    status: 'In progress',
+    state: 'progress',
+  },
+  { item: 'HECVAT Full', status: 'In progress', state: 'progress' },
+  {
+    item: 'SOC 2 Type I',
+    status: 'Planned within nine months of launch',
+    state: 'planned',
+  },
+  {
+    item: 'SOC 2 Type II',
+    status: 'Planned within eighteen months of launch',
+    state: 'planned',
+  },
+  {
+    item: 'FERPA data processing addendum',
+    status: 'Available on request',
+    state: 'available',
+  },
+  {
+    item: 'Single sign-on (SAML, Entra ID, Google)',
+    status: 'Available on Campus and System plans',
+    state: 'available',
+  },
+  {
+    item: 'Penetration test',
+    status: 'Annual, first scheduled before general availability',
+    state: 'scheduled',
+  },
+] as const;
 
 export type Plan = {
   id: string;

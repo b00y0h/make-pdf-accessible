@@ -26,24 +26,6 @@ variable "aws_account_id" {
   }
 }
 
-variable "vpc_cidr" {
-  description = "CIDR block for VPC"
-  type        = string
-  default     = "10.0.0.0/16"
-}
-
-variable "private_subnet_cidrs" {
-  description = "CIDR blocks for private subnets"
-  type        = list(string)
-  default     = ["10.0.1.0/24", "10.0.2.0/24"]
-}
-
-variable "public_subnet_cidrs" {
-  description = "CIDR blocks for public subnets (for NAT Gateway)"
-  type        = list(string)
-  default     = ["10.0.101.0/24", "10.0.102.0/24"]
-}
-
 variable "github_repo" {
   description = "GitHub repository for OIDC trust (format: owner/repo)"
   type        = string
@@ -209,7 +191,12 @@ variable "cost_center" {
 variable "business_unit" {
   description = "Business unit owning the resources"
   type        = string
-  default     = "R&D"
+  default     = "RnD"
+
+  validation {
+    condition     = can(regex("^[\\p{L}\\p{Z}\\p{N}_.:/=+@-]*$", var.business_unit))
+    error_message = "business_unit must be a valid AWS tag value: letters, numbers, spaces and _ . : / = + - @ only (no &)."
+  }
 }
 
 variable "data_sensitivity" {

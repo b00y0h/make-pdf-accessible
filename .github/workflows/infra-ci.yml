@@ -119,7 +119,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.GITHUB_INFRASTRUCTURE_CI_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_INFRASTRUCTURE_CI_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
           role-session-name: GitHubActions-InfraCI-Plan-${{ github.run_id }}
 
@@ -329,7 +329,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.GITHUB_INFRASTRUCTURE_CI_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_INFRASTRUCTURE_CI_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
           role-session-name: GitHubActions-InfraCI-Apply-${{ github.run_id }}
 
@@ -737,7 +737,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.GITHUB_INFRASTRUCTURE_CI_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_INFRASTRUCTURE_CI_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
           role-session-name: GitHubActions-InfraCI-Security-${{ github.run_id }}
 

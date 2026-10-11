@@ -1,7 +1,7 @@
 # ADR-0009: Marketing site as a static Next.js export on S3 and CloudFront, deployed by GitHub Actions through OIDC
 
-- **Status:** Proposed
-- **Date:** 2026-09-28
+- **Status:** Accepted
+- **Date:** 2026-09-28 (accepted 2026-10-10)
 - **Deciders:** Founder (product and engineering)
 - **Scope:** makepdfaccessible.com marketing site hosting and delivery
 - **Related:** `docs/MARKETING-SITE-PRD.md`, `docs/AWS-DEPLOYMENT-SPECS.md`, ADR-0010
@@ -37,4 +37,5 @@ We will build the marketing site as a separate workspace app (`apps/marketing`) 
 **Neutral / Follow-ups**
 
 - If a headless CMS is adopted, add a scheduled rebuild workflow rather than a server.
+- Deploys need the `<env>-web` GitHub environment, holding the `AWS_WEB_DEPLOY_ROLE_ARN` secret (the web deploy role from the marketing-site-only apply in `infra/terraform/README.md`) and the bucket and distribution variables.
 - Remove `aws_cloudfront_distribution.marketing` from `domains.tf` in favor of the module (done in `infra/terraform/marketing.tf`).

@@ -2,31 +2,19 @@
 # This file implements secure OIDC authentication for GitHub Actions workflows
 # with least-privilege IAM roles for each workflow type
 
-# GitHub OIDC Provider (enhanced version)
-resource "aws_iam_openid_connect_provider" "github_enhanced" {
-  count = var.github_repo != "" ? 1 : 0
-
+# The GitHub OIDC provider is created once per account by infra/terraform/account: IAM allows one
+# per URL per account, and dev and staging share the dev account (ADR-0010). Apply that layer first.
+data "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
-
-  client_id_list = [
-    "sts.amazonaws.com"
-  ]
-
-  # Updated thumbprints for GitHub Actions OIDC
-  thumbprint_list = [
-    "6938fd4d98bab03faadb97b34396831e3780aea1", # GitHub's current thumbprint
-    "1c58a3a8518e8759bf075b76b750d4f2df264fcd"  # Backup thumbprint
-  ]
-
-  tags = merge(local.common_tags, {
-    Name        = "${local.name_prefix}-github-oidc-provider"
-    Description = "OIDC provider for GitHub Actions workflows"
-  })
 }
 
 # Local values for OIDC configuration
 locals {
-  github_oidc_provider_arn = var.github_repo != "" ? aws_iam_openid_connect_provider.github_enhanced[0].arn : ""
+  github_oidc_provider_arn = data.aws_iam_openid_connect_provider.github.arn
+
+  # Staging shares the dev account with dev, so staging's roles accept only main and staging's own
+  # GitHub environments; develop, feature branches and pull requests can reach dev only.
+  github_is_staging = var.environment == "staging"
 
   # The subject (sub claim) GitHub presents depends on the job. A job that declares a GitHub
   # environment presents environment:<name> instead of its branch, so a role used by such a job
@@ -44,12 +32,10 @@ locals {
 
   github_role_subjects = {
     # infra-ci.yml: plans on pull requests and from main, applies in <env>-infrastructure
-    infrastructure_ci = [
-      local.github_subjects.main,
-      local.github_subjects.develop,
-      local.github_subjects.pull_request,
-      local.github_subjects.infra_env,
-    ]
+    infrastructure_ci = concat(
+      [local.github_subjects.main, local.github_subjects.infra_env],
+      local.github_is_staging ? [] : [local.github_subjects.develop, local.github_subjects.pull_request],
+    )
     # build-and-deploy-lambda.yml declares no environment
     lambda_deploy = [local.github_subjects.main, local.github_subjects.tags]
     # marketing-site.yml and web-ci.yml deploy only in <env>-web, so every use of this role
@@ -57,11 +43,10 @@ locals {
     web_deploy = [local.github_subjects.web_env]
     # api-ci.yml packages from main and deploys in <env>-api
     api_deploy = [local.github_subjects.main, local.github_subjects.api_env]
-    testing = [
-      local.github_subjects.main,
-      local.github_subjects.develop,
-      local.github_subjects.pull_request,
-    ]
+    testing = concat(
+      [local.github_subjects.main],
+      local.github_is_staging ? [] : [local.github_subjects.develop, local.github_subjects.pull_request],
+    )
   }
 
   # One StringLike list per role. Building these with merge() kept only the last StringLike
@@ -126,9 +111,11 @@ resource "aws_iam_role_policy" "github_infrastructure_ci" {
           "s3:DeleteObject",
           "s3:ListBucket"
         ]
+        # Only this environment's platform state: not another environment's bucket (dev and staging
+        # share an account), and not the account layer or bootstrap state kept under other keys.
         Resource = [
-          "arn:aws:s3:::${var.project_name}-terraform-state-*",
-          "arn:aws:s3:::${var.project_name}-terraform-state-*/*"
+          "arn:aws:s3:::${var.project_name}-terraform-state-${var.environment}",
+          "arn:aws:s3:::${var.project_name}-terraform-state-${var.environment}/platform/*"
         ]
       },
       # DynamoDB state locking
@@ -139,7 +126,7 @@ resource "aws_iam_role_policy" "github_infrastructure_ci" {
           "dynamodb:PutItem",
           "dynamodb:DeleteItem"
         ]
-        Resource = "arn:aws:dynamodb:*:*:table/${var.project_name}-terraform-locks-*"
+        Resource = "arn:aws:dynamodb:${var.aws_region}:${var.aws_account_id}:table/${var.project_name}-terraform-locks-${var.environment}"
       },
       # Read-only access for Terraform plan
       {

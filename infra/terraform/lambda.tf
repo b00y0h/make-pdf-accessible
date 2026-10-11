@@ -11,7 +11,7 @@ resource "aws_lambda_function" "api" {
 
   # VPC Configuration for DocumentDB access
   vpc_config {
-    subnet_ids         = aws_subnet.private[*].id
+    subnet_ids         = local.private_subnet_ids
     security_group_ids = [aws_security_group.lambda_sg.id]
   }
 
@@ -100,7 +100,7 @@ resource "aws_lambda_function" "api" {
 # Lambda Security Group
 resource "aws_security_group" "lambda_sg" {
   name_prefix = "${local.name_prefix}-lambda-"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = local.vpc_id
   description = "Security group for Lambda functions"
 
   # Allow outbound HTTPS for AWS services

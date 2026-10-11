@@ -182,6 +182,10 @@ REDIS_URL=redis://redis:6379
 # API Configuration
 API_SECRET_KEY=your-secret-key
 API_DEBUG=true
+# Shared secret for internal dashboard calls (upload and delete). No default:
+# the API rejects these calls when it is unset. Set the same value on the API
+# and the dashboard server. Generate with: openssl rand -hex 32
+DASHBOARD_INTERNAL_SECRET=
 
 # External Services
 AWS_ACCESS_KEY_ID=your-aws-key
@@ -245,11 +249,17 @@ make dev
 
 ### Staging/Production
 
-Environments are separate AWS accounts with their own Terraform state (see `infra/terraform/README.md`):
+Dev and staging share the dev AWS account and prod has its own; every environment has its own Terraform state (see `infra/terraform/README.md`):
 
 ```bash
-# Once per account: state bucket and lock table
-cd infra/terraform/bootstrap && terraform init && terraform apply -var environment=dev
+# Once per account: a state bucket and lock table for each environment it hosts
+cd infra/terraform/bootstrap && terraform init && terraform workspace new dev
+AWS_PROFILE=pdf-dev terraform apply -var 'environments=["dev","staging"]'
+
+# Once per account: the shared GitHub OIDC provider and network
+cd ../account
+AWS_PROFILE=pdf-dev terraform init -backend-config=environments/nonprod.backend.hcl
+AWS_PROFILE=pdf-dev terraform apply -var-file=environments/nonprod.tfvars
 
 # Platform
 cd infra/terraform
