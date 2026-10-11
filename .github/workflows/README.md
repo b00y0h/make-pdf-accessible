@@ -5,32 +5,25 @@ This directory contains comprehensive documentation and configuration for secure
 ## 📋 Quick Start
 
 1. **Setup OIDC Integration**
-
-   ```bash
-   # Run the automated setup script
-   ./setup-oidc.sh --github-org your-org --github-repo your-repo --aws-account-id 123456789012
-   ```
+   - Terraform creates the OIDC provider and one IAM role per workflow (`infra/terraform/github_oidc.tf`); see [GITHUB_OIDC_SETUP.md](../../infra/terraform/GITHUB_OIDC_SETUP.md)
 
 2. **Configure Secrets**
-   - Follow the [Secrets Configuration Guide](SECRETS.md)
-   - Use environment-specific templates from `templates/`
+   - Set the role ARN secrets at the scopes listed in [GITHUB_OIDC_SETUP.md](../../infra/terraform/GITHUB_OIDC_SETUP.md#3-configure-github-secrets): some on the repository, some on the `<env>-infrastructure`, `<env>-api` and `<env>-web` environments
+   - Follow the [Secrets Configuration Guide](SECRETS.md) for the other secrets
 
 3. **Test Setup**
-   ```bash
-   # Run the test workflow
-   gh workflow run test-oidc.yml
-   ```
+   - Run a workflow that assumes a role, for example `gh workflow run infra-ci.yml -f environment=dev -f dry_run=true`
 
 ## 📚 Documentation
 
 ### Core Documentation
 
-| Document                                              | Purpose                                 |
-| ----------------------------------------------------- | --------------------------------------- |
-| [IAM Setup Guide](IAM_SETUP.md)                       | Complete IAM configuration for OIDC     |
-| [Secrets Configuration](SECRETS.md)                   | GitHub Secrets setup and management     |
-| [Security Best Practices](SECURITY_BEST_PRACTICES.md) | Security guidelines and recommendations |
-| [Troubleshooting Guide](TROUBLESHOOTING.md)           | Common issues and solutions             |
+| Document                                                       | Purpose                                      |
+| -------------------------------------------------------------- | -------------------------------------------- |
+| [OIDC Setup Guide](../../infra/terraform/GITHUB_OIDC_SETUP.md) | IAM roles, trusted subjects and role secrets |
+| [Secrets Configuration](SECRETS.md)                            | GitHub Secrets setup and management          |
+| [Security Best Practices](SECURITY_BEST_PRACTICES.md)          | Security guidelines and recommendations      |
+| [Troubleshooting Guide](TROUBLESHOOTING.md)                    | Common issues and solutions                  |
 
 ### Configuration Templates
 
@@ -49,25 +42,12 @@ This directory contains comprehensive documentation and configuration for secure
 | [web-deployment-policy.json](policies/web-deployment-policy.json)       | Web application deployment          |
 | [api-deployment-policy.json](policies/api-deployment-policy.json)       | API deployment with blue/green      |
 
-## 🔧 Setup Scripts
+## 🔧 Setup
 
-### Automated Setup
+Follow these guides in order:
 
-```bash
-# Full setup with custom configuration
-./setup-oidc.sh \
-  --github-org your-organization \
-  --github-repo your-repository \
-  --aws-account-id 123456789012 \
-  --aws-region us-east-1
-```
-
-### Manual Setup
-
-If you prefer manual setup, follow these guides in order:
-
-1. [IAM Setup Guide](IAM_SETUP.md) - Create OIDC provider and IAM roles
-2. [Secrets Configuration](SECRETS.md) - Configure GitHub Secrets
+1. [OIDC Setup Guide](../../infra/terraform/GITHUB_OIDC_SETUP.md) - Create the OIDC provider and IAM roles with Terraform, then set the role secrets at the right scope
+2. [Secrets Configuration](SECRETS.md) - Configure the other GitHub Secrets
 3. [Security Best Practices](SECURITY_BEST_PRACTICES.md) - Apply security configurations
 
 ## 🏗️ Workflow Architecture
@@ -218,7 +198,7 @@ terraform validate
 
 # Check IAM policies
 aws iam simulate-principal-policy \
-  --policy-source-arn arn:aws:iam::ACCOUNT:role/GitHubActions-Infrastructure \
+  --policy-source-arn arn:aws:iam::ACCOUNT:role/pdf-accessibility-dev-github-infra-ci-role \
   --action-names ec2:CreateVpc \
   --resource-arns "*"
 
@@ -229,8 +209,8 @@ gh secret list
 ### Post-deployment Testing
 
 ```bash
-# Test OIDC authentication
-gh workflow run test-oidc.yml
+# Test OIDC authentication with a plan-only infrastructure run
+gh workflow run infra-ci.yml -f environment=dev -f dry_run=true
 
 # Validate deployments
 curl -f https://api.yourdomain.com/health

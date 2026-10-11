@@ -4,18 +4,11 @@ This document outlines all required GitHub Secrets for the CI/CD workflows and t
 
 ## Repository Secrets
 
-These secrets are required at the repository level and used across all workflows.
+These secrets are set at the repository level.
 
 ### AWS Configuration
 
-| Secret Name           | Purpose                                | Example Value                                                 | Required |
-| --------------------- | -------------------------------------- | ------------------------------------------------------------- | -------- |
-| `AWS_ACCOUNT_ID`      | AWS account identifier                 | `123456789012`                                                | ✅       |
-| `AWS_REGION`          | Primary AWS region                     | `us-east-1`                                                   | ✅       |
-| `AWS_ROLE_ARN_INFRA`  | IAM role for infrastructure deployment | `arn:aws:iam::123456789012:role/GitHubActions-Infrastructure` | ✅       |
-| `AWS_ROLE_ARN_LAMBDA` | IAM role for Lambda deployment         | `arn:aws:iam::123456789012:role/GitHubActions-Lambda`         | ✅       |
-| `AWS_ROLE_ARN_WEB`    | IAM role for web deployment            | `arn:aws:iam::123456789012:role/GitHubActions-Web`            | ✅       |
-| `AWS_ROLE_ARN_API`    | IAM role for API deployment            | `arn:aws:iam::123456789012:role/GitHubActions-API`            | ✅       |
+The AWS secrets (`AWS_REGION`, `AWS_ACCOUNT_ID` and the role ARNs `AWS_INFRASTRUCTURE_CI_ROLE_ARN`, `AWS_LAMBDA_DEPLOY_ROLE_ARN`, `AWS_API_DEPLOY_ROLE_ARN`, `AWS_WEB_DEPLOY_ROLE_ARN` and `AWS_ROLE_ARN`) are listed in one place, [GITHUB_OIDC_SETUP.md](../../infra/terraform/GITHUB_OIDC_SETUP.md#3-configure-github-secrets), with the jobs that read each one and whether it belongs on the repository, on a GitHub environment, or on both. Not all of them are repository secrets: `AWS_WEB_DEPLOY_ROLE_ARN` is set only on the `<env>-web` environments.
 
 ### Infrastructure Secrets
 
@@ -57,40 +50,9 @@ These secrets are required at the repository level and used across all workflows
 
 ## Environment-Specific Secrets
 
-Configure these secrets for each environment (development, staging, production).
+The deploy jobs run in GitHub environments named `<env>-infrastructure` (`infra-ci.yml`), `<env>-api` (`api-ci.yml`) and `<env>-web` (`web-ci.yml`, `marketing-site.yml`), where `<env>` is `dev`, `staging` or `prod`. Each environment holds its own role ARN under the same secret name as everywhere else; the environment, not a name suffix, selects the value. Which role secret goes on which environment is listed in [GITHUB_OIDC_SETUP.md](../../infra/terraform/GITHUB_OIDC_SETUP.md#3-configure-github-secrets).
 
-### Development Environment
-
-```yaml
-# Environment: development
-AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN_DEV }}
-S3_BUCKET_WEB: ${{ secrets.S3_BUCKET_WEB_DEV }}
-CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID_DEV }}
-DATABASE_URL: ${{ secrets.DATABASE_URL_DEV }}
-REDIS_URL: ${{ secrets.REDIS_URL_DEV }}
-```
-
-### Staging Environment
-
-```yaml
-# Environment: staging
-AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN_STAGING }}
-S3_BUCKET_WEB: ${{ secrets.S3_BUCKET_WEB_STAGING }}
-CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID_STAGING }}
-DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
-REDIS_URL: ${{ secrets.REDIS_URL_STAGING }}
-```
-
-### Production Environment
-
-```yaml
-# Environment: production
-AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN_PROD }}
-S3_BUCKET_WEB: ${{ secrets.S3_BUCKET_WEB_PROD }}
-CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID_PROD }}
-DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
-REDIS_URL: ${{ secrets.REDIS_URL_PROD }}
-```
+A job sees an environment's secrets only if it declares that environment. Jobs without one, such as `terraform-plan` in `infra-ci.yml` and every job in `build-and-deploy-lambda.yml`, read repository secrets only.
 
 ## Setting Up Secrets
 
@@ -126,11 +88,22 @@ gh secret set SECRET_NAME < secret_file.txt
 gh secret set AWS_ACCOUNT_ID --body "123456789012"
 gh secret set AWS_REGION --body "us-east-1"
 
-# IAM Roles
-gh secret set AWS_ROLE_ARN_INFRA --body "arn:aws:iam::123456789012:role/GitHubActions-Infrastructure"
-gh secret set AWS_ROLE_ARN_LAMBDA --body "arn:aws:iam::123456789012:role/GitHubActions-Lambda"
-gh secret set AWS_ROLE_ARN_WEB --body "arn:aws:iam::123456789012:role/GitHubActions-Web"
-gh secret set AWS_ROLE_ARN_API --body "arn:aws:iam::123456789012:role/GitHubActions-API"
+# IAM roles, from each environment's `terraform output github_actions_roles_summary`.
+# Scopes: infra/terraform/GITHUB_OIDC_SETUP.md. DEV_ACCOUNT_ID holds dev and staging.
+
+# Repository secrets, for jobs that declare no environment
+gh secret set AWS_INFRASTRUCTURE_CI_ROLE_ARN --body "arn:aws:iam::DEV_ACCOUNT_ID:role/pdf-accessibility-dev-github-infra-ci-role"
+gh secret set AWS_LAMBDA_DEPLOY_ROLE_ARN --body "arn:aws:iam::DEV_ACCOUNT_ID:role/pdf-accessibility-dev-github-lambda-deploy-role"
+gh secret set AWS_API_DEPLOY_ROLE_ARN --body "arn:aws:iam::DEV_ACCOUNT_ID:role/pdf-accessibility-dev-github-api-deploy-role"
+gh secret set AWS_ROLE_ARN --body "arn:aws:iam::DEV_ACCOUNT_ID:role/pdf-accessibility-dev-github-actions-role" # rollback workflows
+
+# Environment secrets, for jobs that declare that environment
+gh secret set AWS_INFRASTRUCTURE_CI_ROLE_ARN --env dev-infrastructure --body "arn:aws:iam::DEV_ACCOUNT_ID:role/pdf-accessibility-dev-github-infra-ci-role"
+gh secret set AWS_INFRASTRUCTURE_CI_ROLE_ARN --env staging-infrastructure --body "arn:aws:iam::DEV_ACCOUNT_ID:role/pdf-accessibility-staging-github-infra-ci-role"
+gh secret set AWS_INFRASTRUCTURE_CI_ROLE_ARN --env prod-infrastructure --body "arn:aws:iam::PROD_ACCOUNT_ID:role/pdf-accessibility-prod-github-infra-ci-role"
+gh secret set AWS_WEB_DEPLOY_ROLE_ARN --env dev-web --body "arn:aws:iam::DEV_ACCOUNT_ID:role/pdf-accessibility-dev-github-web-deploy-role"
+gh secret set AWS_WEB_DEPLOY_ROLE_ARN --env staging-web --body "arn:aws:iam::DEV_ACCOUNT_ID:role/pdf-accessibility-staging-github-web-deploy-role"
+gh secret set AWS_WEB_DEPLOY_ROLE_ARN --env prod-web --body "arn:aws:iam::PROD_ACCOUNT_ID:role/pdf-accessibility-prod-github-web-deploy-role"
 
 # Infrastructure
 gh secret set TERRAFORM_BACKEND_BUCKET --body "pdf-accessibility-terraform-state"
@@ -149,7 +122,7 @@ echo "✅ All secrets configured successfully"
 
 ### Validation Workflow
 
-Create a workflow to validate all required secrets are configured:
+Create a workflow to validate that the repository-level secrets are configured:
 
 ```yaml
 name: Validate Secrets
@@ -167,10 +140,10 @@ jobs:
           secrets=(
             "AWS_ACCOUNT_ID"
             "AWS_REGION"
-            "AWS_ROLE_ARN_INFRA"
-            "AWS_ROLE_ARN_LAMBDA"
-            "AWS_ROLE_ARN_WEB"
-            "AWS_ROLE_ARN_API"
+            "AWS_INFRASTRUCTURE_CI_ROLE_ARN"
+            "AWS_LAMBDA_DEPLOY_ROLE_ARN"
+            "AWS_API_DEPLOY_ROLE_ARN"
+            "AWS_ROLE_ARN"
           )
 
           for secret in "${secrets[@]}"; do
@@ -184,11 +157,13 @@ jobs:
         env:
           AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
-          AWS_ROLE_ARN_INFRA: ${{ secrets.AWS_ROLE_ARN_INFRA }}
-          AWS_ROLE_ARN_LAMBDA: ${{ secrets.AWS_ROLE_ARN_LAMBDA }}
-          AWS_ROLE_ARN_WEB: ${{ secrets.AWS_ROLE_ARN_WEB }}
-          AWS_ROLE_ARN_API: ${{ secrets.AWS_ROLE_ARN_API }}
+          AWS_INFRASTRUCTURE_CI_ROLE_ARN: ${{ secrets.AWS_INFRASTRUCTURE_CI_ROLE_ARN }}
+          AWS_LAMBDA_DEPLOY_ROLE_ARN: ${{ secrets.AWS_LAMBDA_DEPLOY_ROLE_ARN }}
+          AWS_API_DEPLOY_ROLE_ARN: ${{ secrets.AWS_API_DEPLOY_ROLE_ARN }}
+          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
 ```
+
+This job declares no environment, so it cannot see environment secrets such as `AWS_WEB_DEPLOY_ROLE_ARN`. A job that declared `prod-web` to check them would also wait on that environment's reviewers, so check environment secrets with `gh secret list --env <name>` instead.
 
 ## Security Best Practices
 
@@ -209,7 +184,8 @@ jobs:
 ### Secret Naming Conventions
 
 - Use UPPER_SNAKE_CASE for all secret names
-- Include environment suffix for environment-specific secrets
+- Do not start a name with `GITHUB_`; GitHub rejects such secret names
+- Use the same name on every environment that needs a secret; the environment, not a name suffix, selects the value
 - Use descriptive names that indicate purpose
 - Group related secrets with common prefixes
 
@@ -228,6 +204,9 @@ jobs:
 # List all repository secrets
 gh secret list
 
+# List one environment's secrets
+gh secret list --env prod-infrastructure
+
 # Check secret in workflow
 - name: Debug secrets
   run: |
@@ -243,7 +222,7 @@ gh secret list
 If migrating from stored AWS credentials:
 
 1. Remove old `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` secrets
-2. Set up OIDC provider and IAM roles (see IAM_SETUP.md)
+2. Set up the OIDC provider and IAM roles with Terraform (see `infra/terraform/GITHUB_OIDC_SETUP.md`)
 3. Update workflows to use `aws-actions/configure-aws-credentials@v4`
 4. Test authentication with a simple workflow
 5. Update all workflows to use new authentication method
