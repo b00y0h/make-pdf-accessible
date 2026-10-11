@@ -1,10 +1,32 @@
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
-from app.auth import CognitoJWTBearer, JWKSClient, User, get_current_user
+import requests
+from app.auth import (
+    BetterAuthSessionValidator,
+    User,
+    get_admin_user,
+    get_current_user,
+    require_roles,
+)
 from app.models import UserRole
 from fastapi import HTTPException
-from jwt import InvalidTokenError
+
+
+def make_request(cookies=None):
+    """Build a stand-in for the incoming FastAPI request."""
+    request = Mock()
+    request.cookies = cookies or {}
+    return request
+
+
+def make_response(status_code=200, text="", json_data=None):
+    """Build a stand-in for the BetterAuth session response."""
+    response = Mock()
+    response.status_code = status_code
+    response.text = text
+    response.json.return_value = json_data
+    return response
 
 
 class TestUser:
@@ -14,36 +36,49 @@ class TestUser:
         """Test user creation with basic info"""
         user = User(
             sub="user-123",
-            username="testuser",
+            name="Test User",
             email="test@example.com",
-            roles=["viewer", "admin"],
+            role="admin",
+            org_id="org-1",
+            token_claims={"id": "user-123"},
         )
 
         assert user.sub == "user-123"
-        assert user.username == "testuser"
+        assert user.name == "Test User"
         assert user.email == "test@example.com"
-        assert user.roles == ["viewer", "admin"]
+        assert user.role == "admin"
+        assert user.org_id == "org-1"
+        assert user.token_claims == {"id": "user-123"}
+
+    def test_user_defaults(self):
+        """Test defaults for optional fields"""
+        user = User(sub="user-123")
+
+        assert user.name == ""
+        assert user.email is None
+        assert user.role == UserRole.VIEWER.value
+        assert user.org_id is None
+        assert user.token_claims == {}
 
     def test_user_has_role(self):
         """Test role checking"""
-        user = User(sub="user-123", username="testuser", roles=["viewer"])
+        user = User(sub="user-123", role="viewer")
 
         assert user.has_role(UserRole.VIEWER)
         assert not user.has_role(UserRole.ADMIN)
 
     def test_user_is_admin(self):
         """Test admin role checking"""
-        admin_user = User(sub="admin-123", username="admin", roles=["admin"])
-
-        viewer_user = User(sub="viewer-123", username="viewer", roles=["viewer"])
+        admin_user = User(sub="admin-123", role="admin")
+        viewer_user = User(sub="viewer-123", role="viewer")
 
         assert admin_user.is_admin()
         assert not viewer_user.is_admin()
 
     def test_user_can_access_resource(self):
         """Test resource access permissions"""
-        user = User(sub="user-123", username="testuser", roles=["viewer"])
-        admin = User(sub="admin-123", username="admin", roles=["admin"])
+        user = User(sub="user-123", role="viewer")
+        admin = User(sub="admin-123", role="admin")
 
         # User can access their own resources
         assert user.can_access_resource("user-123")
@@ -55,224 +90,165 @@ class TestUser:
         assert admin.can_access_resource("any-user")
 
 
-class TestJWKSClient:
-    """Test JWKS client"""
+class TestBetterAuthSessionValidator:
+    """Test session validation against BetterAuth"""
 
-    @pytest.mark.asyncio
-    async def test_jwks_fetch_success(self):
-        """Test successful JWKS fetch"""
-        mock_response = Mock()
-        mock_response.json.return_value = {"keys": [{"kid": "test", "kty": "RSA"}]}
-        mock_response.raise_for_status = Mock()
+    def setup_method(self):
+        self.validator = BetterAuthSessionValidator("https://auth.example.com/")
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.get.return_value = (
-                mock_response
+    def test_strips_trailing_slash(self):
+        """Test the base URL is normalized"""
+        assert self.validator.better_auth_url == "https://auth.example.com"
+
+    def test_no_cookies(self):
+        """Test requests without cookies are not sent to BetterAuth"""
+        with patch("app.auth.requests.get") as mock_get:
+            assert self.validator.validate_session(make_request()) is None
+            mock_get.assert_not_called()
+
+    def test_valid_session(self):
+        """Test a valid session is returned and cookies are forwarded"""
+        session = {"session": {"id": "s-1"}, "user": {"id": "user-123"}}
+        cookies = {"better-auth.session_token": "token"}
+
+        with patch("app.auth.requests.get") as mock_get:
+            mock_get.return_value = make_response(
+                text='{"session": {}, "user": {}}', json_data=session
             )
 
-            client = JWKSClient()
-            jwks = await client.get_jwks()
+            assert self.validator.validate_session(make_request(cookies)) == session
+            mock_get.assert_called_once_with(
+                "https://auth.example.com/api/auth/get-session",
+                cookies=cookies,
+                timeout=5.0,
+            )
 
-            assert "keys" in jwks
-            assert jwks["keys"][0]["kid"] == "test"
+    @pytest.mark.parametrize(
+        "response",
+        [
+            make_response(status_code=401, text="Unauthorized"),
+            make_response(text="null"),
+            make_response(text=""),
+            make_response(text='{"session": {}}', json_data={"session": {}}),
+            make_response(text="[]", json_data=[]),
+        ],
+        ids=["non-200", "null", "empty", "no-user", "not-a-dict"],
+    )
+    def test_invalid_session(self, response):
+        """Test responses without a usable session are rejected"""
+        with patch("app.auth.requests.get", return_value=response):
+            assert (
+                self.validator.validate_session(make_request({"session": "token"}))
+                is None
+            )
 
-    @pytest.mark.skip(reason="Complex async mocking - skip in development")
-    @pytest.mark.asyncio
-    async def test_jwks_fetch_failure(self):
-        """Test JWKS fetch failure"""
-        pass
+    def test_unparseable_response(self):
+        """Test a response that is not JSON is rejected"""
+        response = make_response(text="<html>")
+        response.json.side_effect = ValueError("not JSON")
 
-    @pytest.mark.asyncio
-    async def test_jwks_caching(self):
-        """Test JWKS caching behavior"""
-        mock_response = Mock()
-        mock_response.json.return_value = {"keys": []}
-        mock_response.raise_for_status = Mock()
+        with patch("app.auth.requests.get", return_value=response):
+            assert (
+                self.validator.validate_session(make_request({"session": "token"}))
+                is None
+            )
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_get = mock_client.return_value.__aenter__.return_value.get
-            mock_get.return_value = mock_response
-
-            client = JWKSClient()
-
-            # First call should fetch
-            await client.get_jwks()
-            assert mock_get.call_count == 1
-
-            # Second call should use cache
-            await client.get_jwks()
-            assert mock_get.call_count == 1  # Still 1, not 2
-
-
-class TestCognitoJWTBearer:
-    """Test Cognito JWT Bearer authentication"""
-
-    @pytest.mark.asyncio
-    async def test_valid_token_validation(self):
-        """Test valid token validation"""
-        mock_jwks = {
-            "keys": [{"kid": "test-kid", "kty": "RSA", "n": "test", "e": "AQAB"}]
-        }
-
-        # Mock JWT functions
-        with (
-            patch("app.auth.jwt.get_unverified_header") as mock_header,
-            patch("app.auth.jwt.decode") as mock_decode,
+    def test_request_error(self):
+        """Test network errors are treated as no session"""
+        with patch(
+            "app.auth.requests.get",
+            side_effect=requests.ConnectionError("unreachable"),
         ):
-
-            mock_header.return_value = {"kid": "test-kid"}
-            mock_decode.return_value = {
-                "sub": "user-123",
-                "token_use": "access",
-                "aud": "test-client-id",
-                "iss": "test-issuer",
-            }
-
-            bearer = CognitoJWTBearer()
-            bearer.jwks_client.get_jwks = AsyncMock(return_value=mock_jwks)
-
-            # Should not raise exception
-            await bearer._validate_token("test-token")
-
-    @pytest.mark.asyncio
-    async def test_invalid_token_type(self):
-        """Test invalid token type validation"""
-        mock_jwks = {"keys": [{"kid": "test-kid", "kty": "RSA"}]}
-
-        with (
-            patch("app.auth.jwt.get_unverified_header") as mock_header,
-            patch("app.auth.jwt.decode") as mock_decode,
-        ):
-
-            mock_header.return_value = {"kid": "test-kid"}
-            mock_decode.return_value = {
-                "sub": "user-123",
-                "token_use": "id",  # Should be "access"
-                "aud": "test-client-id",
-            }
-
-            bearer = CognitoJWTBearer()
-            bearer.jwks_client.get_jwks = AsyncMock(return_value=mock_jwks)
-
-            with pytest.raises(HTTPException) as exc_info:
-                await bearer._validate_token("test-token")
-
-            assert exc_info.value.status_code == 401
-            assert "Invalid token type" in exc_info.value.detail
-
-    @pytest.mark.skip(reason="Complex auth mocking - skip in development")
-    @pytest.mark.asyncio
-    async def test_missing_kid(self):
-        """Test missing kid in token header"""
-        pass
-
-    @pytest.mark.asyncio
-    async def test_key_not_found(self):
-        """Test key not found in JWKS"""
-        mock_jwks = {"keys": [{"kid": "other-kid", "kty": "RSA"}]}
-
-        with patch("app.auth.jwt.get_unverified_header") as mock_header:
-            mock_header.return_value = {"kid": "missing-kid"}
-
-            bearer = CognitoJWTBearer()
-            bearer.jwks_client.get_jwks = AsyncMock(return_value=mock_jwks)
-
-            with pytest.raises(HTTPException) as exc_info:
-                await bearer._validate_token("test-token")
-
-            assert exc_info.value.status_code == 401
-            assert "Unable to find appropriate key" in exc_info.value.detail
+            assert (
+                self.validator.validate_session(make_request({"session": "token"}))
+                is None
+            )
 
 
 class TestGetCurrentUser:
     """Test get_current_user dependency"""
 
     @pytest.mark.asyncio
-    async def test_extract_user_from_token(self):
-        """Test extracting user info from token"""
-        from fastapi.security import HTTPAuthorizationCredentials
-
-        mock_credentials = HTTPAuthorizationCredentials(
-            scheme="Bearer", credentials="test-token"
-        )
-
-        mock_payload = {
-            "sub": "user-123",
-            "username": "testuser",
-            "email": "test@example.com",
-            "custom:roles": "viewer,admin",
+    async def test_extract_user_from_session(self):
+        """Test building the user from BetterAuth session data"""
+        session = {
+            "user": {
+                "id": "user-123",
+                "name": "Test User",
+                "email": "test@example.com",
+                "role": "admin",
+                "orgId": "org-1",
+            }
         }
 
-        with patch("app.auth.jwt.get_unverified_claims") as mock_claims:
-            mock_claims.return_value = mock_payload
+        with patch("app.auth.session_validator.validate_session", return_value=session):
+            user = await get_current_user(make_request())
 
-            user = await get_current_user(mock_credentials)
-
-            assert user.sub == "user-123"
-            assert user.username == "testuser"
-            assert user.email == "test@example.com"
-            assert user.roles == ["viewer", "admin"]
-
-    @pytest.mark.asyncio
-    async def test_extract_user_with_cognito_groups(self):
-        """Test extracting user with cognito groups"""
-        from fastapi.security import HTTPAuthorizationCredentials
-
-        mock_credentials = HTTPAuthorizationCredentials(
-            scheme="Bearer", credentials="test-token"
-        )
-
-        mock_payload = {
-            "sub": "user-123",
-            "cognito:username": "testuser",
-            "cognito:groups": ["admin"],
-        }
-
-        with patch("app.auth.jwt.get_unverified_claims") as mock_claims:
-            mock_claims.return_value = mock_payload
-
-            user = await get_current_user(mock_credentials)
-
-            assert user.sub == "user-123"
-            assert user.username == "testuser"
-            assert user.roles == ["admin"]
+        assert user.sub == "user-123"
+        assert user.name == "Test User"
+        assert user.email == "test@example.com"
+        assert user.role == "admin"
+        assert user.org_id == "org-1"
+        assert user.token_claims == session["user"]
 
     @pytest.mark.asyncio
     async def test_extract_user_default_role(self):
         """Test default role assignment"""
-        from fastapi.security import HTTPAuthorizationCredentials
+        with patch(
+            "app.auth.session_validator.validate_session",
+            return_value={"user": {"id": "user-123"}},
+        ):
+            user = await get_current_user(make_request())
 
-        mock_credentials = HTTPAuthorizationCredentials(
-            scheme="Bearer", credentials="test-token"
-        )
-
-        mock_payload = {
-            "sub": "user-123",
-            "username": "testuser",
-            # No roles specified
-        }
-
-        with patch("app.auth.jwt.get_unverified_claims") as mock_claims:
-            mock_claims.return_value = mock_payload
-
-            user = await get_current_user(mock_credentials)
-
-            assert user.roles == ["viewer"]  # Default role
+        assert user.role == UserRole.VIEWER.value
 
     @pytest.mark.asyncio
-    async def test_extract_user_jwt_error(self):
-        """Test JWT error during user extraction"""
-        from fastapi.security import HTTPAuthorizationCredentials
-
-        mock_credentials = HTTPAuthorizationCredentials(
-            scheme="Bearer", credentials="invalid-token"
-        )
-
-        with patch("app.auth.jwt.get_unverified_claims") as mock_claims:
-            mock_claims.side_effect = InvalidTokenError("Invalid token")
-
+    async def test_no_session(self):
+        """Test requests without a session are rejected"""
+        with patch("app.auth.session_validator.validate_session", return_value=None):
             with pytest.raises(HTTPException) as exc_info:
-                await get_current_user(mock_credentials)
+                await get_current_user(make_request())
 
-            assert exc_info.value.status_code == 401
-            assert "Failed to extract user information" in exc_info.value.detail
+        assert exc_info.value.status_code == 403
+        assert exc_info.value.detail == "Not authenticated"
+
+
+class TestRoleChecks:
+    """Test admin and role-based dependencies"""
+
+    @pytest.mark.asyncio
+    async def test_admin_user_allowed(self):
+        """Test admins pass the admin check"""
+        with patch(
+            "app.auth.session_validator.validate_session",
+            return_value={"user": {"id": "admin-123", "role": "admin"}},
+        ):
+            user = await get_admin_user(make_request())
+
+        assert user.sub == "admin-123"
+
+    @pytest.mark.asyncio
+    async def test_viewer_rejected_by_admin_check(self):
+        """Test viewers fail the admin check"""
+        with patch(
+            "app.auth.session_validator.validate_session",
+            return_value={"user": {"id": "user-123", "role": "viewer"}},
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await get_admin_user(make_request())
+
+        assert exc_info.value.status_code == 403
+        assert exc_info.value.detail == "Admin role required"
+
+    def test_require_roles(self):
+        """Test the role checker allows listed roles and rejects others"""
+        checker = require_roles([UserRole.ADMIN])
+        admin = User(sub="admin-123", role="admin")
+        viewer = User(sub="user-123", role="viewer")
+
+        assert checker(current_user=admin) is admin
+
+        with pytest.raises(HTTPException) as exc_info:
+            checker(current_user=viewer)
+
+        assert exc_info.value.status_code == 403
