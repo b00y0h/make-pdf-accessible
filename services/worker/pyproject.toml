@@ -93,23 +93,13 @@ module = [
 ]
 ignore_missing_imports = true
 
-[tool.black]
-line-length = 100
-target-version = ['py311']
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  \.git
-  | \.mypy_cache
-  | \.pytest_cache
-  | \.venv
-  | build
-  | dist
-)/
-'''
+# No [tool.black] here: black uses the repository root config (line length 88) for
+# this package, whether it is run per file by the pre-commit hook or over the whole
+# repository by CI.
 
 [tool.ruff]
-line-length = 100
+# Matches black's line length, which ruff's isort uses when wrapping imports.
+line-length = 88
 target-version = "py311"
 
 [tool.ruff.lint]
