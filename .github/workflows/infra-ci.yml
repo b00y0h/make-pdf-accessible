@@ -114,7 +114,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      # The plan needs a read-only role that can read the target environment's Terraform state. Until
+      # The plan needs a role that can read the target environment's Terraform state and take its
+      # state lock (get, put and delete items in the lock table), with read-only access to everything
+      # else; don't reuse the platform's infra-ci role, which can write state. Until
       # AWS_INFRASTRUCTURE_PLAN_ROLE_ARN is set, pull requests skip the plan with a notice instead of
       # failing; Dependabot and fork pull requests never receive secrets, so they always skip. A manual
       # run still fails, because someone asked for a plan. The check runs inside the job because
