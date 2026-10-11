@@ -1,0 +1,7 @@
+# Generated per machine: keys, test users and secrets
+idp/credentials/
+# Rendered from the IdP keys and from Terraform outputs
+idp/metadata/
+terraform/outputs.json
+# Sign-in results contain tokens
+results/

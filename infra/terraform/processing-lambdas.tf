@@ -262,7 +262,7 @@ resource "aws_lambda_function" "ocr" {
 
   # VPC Configuration for DocumentDB access
   vpc_config {
-    subnet_ids         = aws_subnet.private[*].id
+    subnet_ids         = local.private_subnet_ids
     security_group_ids = [aws_security_group.lambda_sg.id]
   }
 
@@ -307,7 +307,7 @@ resource "aws_lambda_function" "structure" {
 
   # VPC Configuration for DocumentDB access
   vpc_config {
-    subnet_ids         = aws_subnet.private[*].id
+    subnet_ids         = local.private_subnet_ids
     security_group_ids = [aws_security_group.lambda_sg.id]
   }
 
@@ -352,7 +352,7 @@ resource "aws_lambda_function" "alt_text" {
 
   # VPC Configuration for DocumentDB access
   vpc_config {
-    subnet_ids         = aws_subnet.private[*].id
+    subnet_ids         = local.private_subnet_ids
     security_group_ids = [aws_security_group.lambda_sg.id]
   }
 
@@ -397,7 +397,7 @@ resource "aws_lambda_function" "tag_pdf" {
 
   # VPC Configuration for DocumentDB access
   vpc_config {
-    subnet_ids         = aws_subnet.private[*].id
+    subnet_ids         = local.private_subnet_ids
     security_group_ids = [aws_security_group.lambda_sg.id]
   }
 
@@ -442,7 +442,7 @@ resource "aws_lambda_function" "exports" {
 
   # VPC Configuration for DocumentDB access
   vpc_config {
-    subnet_ids         = aws_subnet.private[*].id
+    subnet_ids         = local.private_subnet_ids
     security_group_ids = [aws_security_group.lambda_sg.id]
   }
 
@@ -487,7 +487,7 @@ resource "aws_lambda_function" "validate" {
 
   # VPC Configuration for DocumentDB access
   vpc_config {
-    subnet_ids         = aws_subnet.private[*].id
+    subnet_ids         = local.private_subnet_ids
     security_group_ids = [aws_security_group.lambda_sg.id]
   }
 
@@ -533,7 +533,7 @@ resource "aws_lambda_function" "notify" {
 
   # VPC Configuration for DocumentDB access
   vpc_config {
-    subnet_ids         = aws_subnet.private[*].id
+    subnet_ids         = local.private_subnet_ids
     security_group_ids = [aws_security_group.lambda_sg.id]
   }
 

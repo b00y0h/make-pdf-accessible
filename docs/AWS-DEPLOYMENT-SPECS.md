@@ -2,7 +2,7 @@
 
 These specs make the Terraform root deployable, add the marketing site on AWS, and set up per-environment delivery. Starting state: `infra/terraform` did not pass `terraform validate` (duplicate resources, undefined locals and data sources, provider-schema errors), a binary `tfplan` and `.bak` files were committed, state was local, and the marketing distribution in `domains.tf` pointed at the web app's bucket. They implement `docs/MARKETING-SITE-PRD.md`, ADR-0009 and ADR-0010, and the environment items of `docs/ENTERPRISE-READINESS-PRD.md`.
 
-Specs 1 to 5 were implemented in the same change that introduced this document; their status is marked. Specs 6 and 7 are follow-ups.
+Specs 1 to 5 were implemented in the same change that introduced this document; their status is marked. Specs 6 and 7 are follow-ups. Spec 8 puts staging in the dev account (decided 10 October 2026).
 
 ---
 
@@ -140,11 +140,11 @@ State was local; `infra-ci.yml` ran `terraform init` and `terraform plan` with n
 
 1. `terraform init -backend-config=environments/dev.backend.hcl` succeeds in the dev account after bootstrap; the state object lands at `platform/terraform.tfstate`.
 2. A pull request runs `plan` against dev; a push to `main` applies to prod behind the `prod-infrastructure` environment approval.
-3. The infrastructure CI role can only reach `pdf-accessibility-terraform-state-*` buckets and `pdf-accessibility-terraform-locks-*` tables (existing policy in `github_oidc.tf`).
+3. Each environment's infrastructure CI role can only reach its own `pdf-accessibility-terraform-state-<env>` bucket (the `platform/` key) and `pdf-accessibility-terraform-locks-<env>` table (`github_oidc.tf`, tightened in Spec 8).
 
 ### Implementation
 
-4A. Operator: create the AWS Organization and the dev and prod accounts (ADR-0010); in each, run `bootstrap` with an administrator credential (one workspace per account, see `infra/terraform/README.md`); run the first `terraform apply` of the root from a workstation so the OIDC roles exist; add `GITHUB_INFRASTRUCTURE_CI_ROLE_ARN`, `GITHUB_WEB_DEPLOY_ROLE_ARN`, `AWS_REGION` and `AWS_ACCOUNT_ID` as environment-scoped GitHub secrets.
+4A. Operator: create the AWS Organization and the dev and prod accounts (ADR-0010); in each, run `bootstrap` (one workspace per account, see `infra/terraform/README.md`) and then the `account` layer with an administrator credential; run the first `terraform apply` of the root from a workstation so the OIDC roles exist; add `GITHUB_INFRASTRUCTURE_CI_ROLE_ARN`, `GITHUB_WEB_DEPLOY_ROLE_ARN`, `AWS_REGION` and `AWS_ACCOUNT_ID` as environment-scoped GitHub secrets.
 4B. The workflow edits are in place; environment names follow the existing `<env>-infrastructure` convention.
 
 ---
@@ -224,6 +224,33 @@ ADR-0010 requires SCPs and cross-account roles that do not exist yet.
 
 1. Creating an IAM user or a public bucket in any member account is denied by SCP.
 2. A CloudTrail organization trail delivers to the security account.
+
+---
+
+## Spec 8 — Staging in the dev account
+
+**Status:** Done in code. Bootstrap applied in the dev account on 10 October 2026 for dev and staging; the account layer is planned there but not yet applied.
+
+### Problem
+
+ADR-0010 deferred staging until it had its own account. The owner wants staging now, in the dev account (403030570295) beside dev, sharing what can be shared. The root could not be applied twice in one account: it created the GitHub OIDC provider (IAM allows one per URL per account), and each environment built its own VPC with a NAT gateway per AZ. Both environments' roles would also have trusted the same branches and pull requests, and every environment's infrastructure role could read and write every environment's state.
+
+### Files to touch
+
+| File | Action |
+| --- | --- |
+| `infra/terraform/bootstrap/*` | A set of environments per run (dev and staging in the dev account), `staging` mapped to the dev account, `prevent_destroy` on buckets and tables, `business_unit = "RnD"` (AWS rejects `&` in tag values) |
+| `infra/terraform/account/**` | Create: GitHub OIDC provider and the platform network (VPC, /20 private subnets, NAT count and interface endpoints per account, free S3 and DynamoDB gateway endpoints), pinned with `allowed_account_ids` |
+| `infra/terraform/vpc.tf` | Delete; `network.tf` looks the network up by tag |
+| `infra/terraform/github_oidc.tf`, `iam.tf` | Look up the provider; staging's roles drop `develop` and pull requests; state access limited to the environment's own bucket key and lock table |
+| `infra/terraform/environments/staging.tfvars` | `aws_account_id` of the dev account |
+
+### Acceptance criteria
+
+1. The root applies for dev and for staging in the same account once the account layer exists.
+2. A pull request or `develop` job can assume dev roles but not staging roles.
+3. Each environment's infrastructure role can't read another environment's state.
+4. Container image repositories stay per environment until the v2 pipeline promotes images by digest.
 
 ---
 

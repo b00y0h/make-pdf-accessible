@@ -26,6 +26,9 @@ outputs:
   allowed_branches:
     description: 'Branches allowed to deploy to this environment'
     value: ${{ steps.config.outputs.allowed_branches }}
+  allowed_tags:
+    description: 'Tags allowed to deploy to this environment'
+    value: ${{ steps.config.outputs.allowed_tags }}
   notification_config:
     description: 'Notification configuration as JSON'
     value: ${{ steps.config.outputs.notification_config }}
@@ -75,6 +78,9 @@ runs:
         # Extract allowed branches as compact JSON array (single line)
         ALLOWED_BRANCHES=$(yq eval '.settings.allowed_branches // ["main"]' "$CONFIG_FILE" -o=json -I=0)
 
+        # Extract allowed tags as compact JSON array; no tags unless the environment lists them
+        ALLOWED_TAGS=$(yq eval '.settings.allowed_tags // []' "$CONFIG_FILE" -o=json -I=0)
+
         # Extract notification configuration as compact JSON (single line)
         NOTIFICATION_CONFIG=$(yq eval '.notifications // {}' "$CONFIG_FILE" -o=json -I=0)
 
@@ -91,6 +97,12 @@ runs:
         {
           echo "allowed_branches<<EOF"
           echo "$ALLOWED_BRANCHES"
+          echo "EOF"
+        } >> $GITHUB_OUTPUT
+
+        {
+          echo "allowed_tags<<EOF"
+          echo "$ALLOWED_TAGS"
           echo "EOF"
         } >> $GITHUB_OUTPUT
 
@@ -112,56 +124,44 @@ runs:
         echo "  - Deployment Strategy: $DEPLOYMENT_STRATEGY"
         echo "  - Resource Prefix: $RESOURCE_PREFIX"
 
-    # Only a manual dispatch or a push asks for a deploy; every caller limits push to main.
-    # Other events (pull_request, merge_group, create) never deploy, and their ref is often
-    # a PR merge ref or a new branch that no allowed-branch pattern matches.
-    - name: Validate branch permissions
-      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    # Pull request and merge queue runs never deploy, and their ref is "<number>/merge",
+    # which no allowed-branch pattern matches.
+    - name: Validate branch and tag permissions
+      if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
       shell: bash
       run: |
-        CURRENT_BRANCH="${{ github.ref_name }}"
-        ALLOWED_BRANCHES='${{ steps.config.outputs.allowed_branches }}'
+        REF_NAME="${{ github.ref_name }}"
 
-        echo "🔍 Validating branch permissions..."
-        echo "Current branch: $CURRENT_BRANCH"
-        echo "Allowed branches: $ALLOWED_BRANCHES"
+        # A tag ref (a release tag push, or a dispatch run from a tag) is checked against
+        # allowed_tags; any other ref against allowed_branches
+        if [ "${{ github.ref_type }}" = "tag" ]; then
+          REF_KIND="Tag"
+          REF_KINDS="tags"
+          ALLOWED='${{ steps.config.outputs.allowed_tags }}'
+        else
+          REF_KIND="Branch"
+          REF_KINDS="branches"
+          ALLOWED='${{ steps.config.outputs.allowed_branches }}'
+        fi
 
-        # Check if current branch is allowed
-        BRANCH_ALLOWED=false
+        echo "🔍 Validating $REF_KIND permissions..."
+        echo "Current $REF_KIND: $REF_NAME"
+        echo "Allowed $REF_KINDS: $ALLOWED"
 
-        # Parse allowed branches JSON array
-        echo "$ALLOWED_BRANCHES" | jq -r '.[]' | while read -r pattern; do
-          if [[ "$CURRENT_BRANCH" == $pattern ]] || [[ "$CURRENT_BRANCH" =~ $pattern ]]; then
-            echo "✅ Branch '$CURRENT_BRANCH' matches pattern '$pattern'"
-            echo "BRANCH_ALLOWED=true" >> $GITHUB_ENV
+        # Each pattern is a glob matched against the whole name ('feature/*' also matches
+        # 'feature/a/b'). The loop reads from process substitution so it runs in this shell
+        # and exit ends the step, and [[ ]] never expands a pattern against checkout files.
+        while read -r pattern; do
+          # shellcheck disable=SC2053 # unquoted on purpose: the pattern is a glob
+          if [[ "$REF_NAME" == $pattern ]]; then
+            echo "✅ $REF_KIND '$REF_NAME' matches pattern '$pattern'"
             exit 0
           fi
-        done
+        done < <(echo "$ALLOWED" | jq -r '.[]')
 
-        # Check if branch was allowed
-        if [ "${BRANCH_ALLOWED:-false}" != "true" ]; then
-          # Additional check for exact matches and wildcards
-          if echo "$ALLOWED_BRANCHES" | jq -r '.[]' | grep -q "^$CURRENT_BRANCH$"; then
-            echo "✅ Branch '$CURRENT_BRANCH' is explicitly allowed"
-          elif echo "$ALLOWED_BRANCHES" | jq -r '.[]' | grep -q '\*'; then
-            # Check wildcard patterns
-            for pattern in $(echo "$ALLOWED_BRANCHES" | jq -r '.[]' | grep '\*'); do
-              # Convert wildcard pattern to regex
-              regex_pattern=$(echo "$pattern" | sed 's/\*/.*/')
-              if [[ "$CURRENT_BRANCH" =~ ^$regex_pattern$ ]]; then
-                echo "✅ Branch '$CURRENT_BRANCH' matches wildcard pattern '$pattern'"
-                exit 0
-              fi
-            done
-            echo "❌ Branch '$CURRENT_BRANCH' is not allowed to deploy to ${{ inputs.environment }}"
-            echo "Allowed patterns: $ALLOWED_BRANCHES"
-            exit 1
-          else
-            echo "❌ Branch '$CURRENT_BRANCH' is not allowed to deploy to ${{ inputs.environment }}"
-            echo "Allowed branches: $ALLOWED_BRANCHES"
-            exit 1
-          fi
-        fi
+        echo "❌ $REF_KIND '$REF_NAME' is not allowed to deploy to ${{ inputs.environment }}"
+        echo "Allowed $REF_KINDS: $ALLOWED"
+        exit 1
 
     - name: Set environment variables
       shell: bash

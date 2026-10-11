@@ -2,6 +2,17 @@
  * MongoDB schemas, types, and utilities for PDF accessibility processing
  */
 
+import type { Filter, FilterOperators } from 'mongodb';
+
+import documentSchema from './documents.json';
+import jobSchema from './jobs.json';
+import type {
+  DocumentFilter,
+  JobFilter,
+  MongoDocument,
+  MongoJob,
+} from './types';
+
 // Export all types
 export type {
   // Core document types
@@ -79,16 +90,58 @@ export {
 // Export constants
 export { COLLECTIONS } from './types';
 
-// JSON schema imports (for runtime validation if needed)
-export const DOCUMENT_SCHEMA = require('./documents.json');
-export const JOB_SCHEMA = require('./jobs.json');
+// JSON schemas (for runtime validation if needed)
+export const DOCUMENT_SCHEMA = documentSchema;
+export const JOB_SCHEMA = jobSchema;
+
+/** A timestamp as stored: a Date from the driver, or a string already */
+type StoredTimestamp = { toISOString(): string } | string | null | undefined;
+
+/** A stored record; fields other than these pass through toApiDocument */
+export interface StoredRecord {
+  _id?: { toString(): string } | null;
+  createdAt?: StoredTimestamp;
+  updatedAt?: StoredTimestamp;
+  completedAt?: StoredTimestamp;
+}
+
+/** A record in API form: a string id, and Dates as ISO strings */
+export interface ApiDocument {
+  id: string | undefined;
+  createdAt: StoredTimestamp;
+  updatedAt: StoredTimestamp;
+  completedAt: StoredTimestamp;
+  [field: string]: unknown;
+}
+
+/** A record from the API; fields other than these pass through */
+export interface ApiRecord {
+  id?: string;
+  // Anything `new Date()` accepts
+  createdAt?: string | number | Date | null;
+  updatedAt?: string | number | Date | null;
+  completedAt?: string | number | Date | null;
+  [field: string]: unknown;
+}
+
+/** An API record ready to store: no id, and timestamps as Dates */
+export interface StorableRecord {
+  createdAt: Date;
+  updatedAt: Date;
+  completedAt: Date | null;
+  [field: string]: unknown;
+}
+
+// Dates become ISO strings; strings and missing values pass through as-is
+const toIsoString = (value: StoredTimestamp) =>
+  (typeof value === 'object' && value?.toISOString?.()) || value;
 
 // Utility functions for working with MongoDB documents
 export const MongoUtils = {
   /**
    * Convert a MongoDB document to API response format
    */
-  toApiDocument(doc: any): any {
+  toApiDocument(doc: StoredRecord | null | undefined): ApiDocument | null {
     if (!doc) return null;
 
     const { _id, ...rest } = doc;
@@ -97,17 +150,19 @@ export const MongoUtils = {
       // Convert ObjectId to string for API responses
       id: _id?.toString(),
       // Ensure dates are ISO strings
-      createdAt: rest.createdAt?.toISOString?.() || rest.createdAt,
-      updatedAt: rest.updatedAt?.toISOString?.() || rest.updatedAt,
-      completedAt: rest.completedAt?.toISOString?.() || rest.completedAt,
+      createdAt: toIsoString(rest.createdAt),
+      updatedAt: toIsoString(rest.updatedAt),
+      completedAt: toIsoString(rest.completedAt),
     };
   },
 
   /**
    * Convert API input to MongoDB document format
    */
-  fromApiDocument(input: any): any {
-    const { id, ...rest } = input;
+  fromApiDocument(input: ApiRecord): StorableRecord {
+    // Keep every field except the API's id
+    const { ...rest } = input;
+    delete rest.id;
     return {
       ...rest,
       // Convert date strings to Date objects
@@ -182,8 +237,8 @@ export const MongoUtils = {
   /**
    * Build MongoDB filter from type-safe filter object
    */
-  buildDocumentFilter(filter: DocumentFilter): any {
-    const mongoFilter: any = {};
+  buildDocumentFilter(filter: DocumentFilter): Filter<MongoDocument> {
+    const mongoFilter: Filter<MongoDocument> = {};
 
     if (filter.docId) mongoFilter.docId = filter.docId;
     if (filter.ownerId) mongoFilter.ownerId = filter.ownerId;
@@ -195,17 +250,17 @@ export const MongoUtils = {
     }
 
     if (filter.createdAfter || filter.createdBefore) {
-      mongoFilter.createdAt = {};
-      if (filter.createdAfter) mongoFilter.createdAt.$gte = filter.createdAfter;
-      if (filter.createdBefore)
-        mongoFilter.createdAt.$lte = filter.createdBefore;
+      const createdAt: FilterOperators<Date> = {};
+      if (filter.createdAfter) createdAt.$gte = filter.createdAfter;
+      if (filter.createdBefore) createdAt.$lte = filter.createdBefore;
+      mongoFilter.createdAt = createdAt;
     }
 
     if (filter.updatedAfter || filter.updatedBefore) {
-      mongoFilter.updatedAt = {};
-      if (filter.updatedAfter) mongoFilter.updatedAt.$gte = filter.updatedAfter;
-      if (filter.updatedBefore)
-        mongoFilter.updatedAt.$lte = filter.updatedBefore;
+      const updatedAt: FilterOperators<Date> = {};
+      if (filter.updatedAfter) updatedAt.$gte = filter.updatedAfter;
+      if (filter.updatedBefore) updatedAt.$lte = filter.updatedBefore;
+      mongoFilter.updatedAt = updatedAt;
     }
 
     if (filter.hasErrors !== undefined) {
@@ -218,8 +273,8 @@ export const MongoUtils = {
   /**
    * Build MongoDB filter from job filter object
    */
-  buildJobFilter(filter: JobFilter): any {
-    const mongoFilter: any = {};
+  buildJobFilter(filter: JobFilter): Filter<MongoJob> {
+    const mongoFilter: Filter<MongoJob> = {};
 
     if (filter.jobId) mongoFilter.jobId = filter.jobId;
     if (filter.docId) mongoFilter.docId = filter.docId;
@@ -239,18 +294,19 @@ export const MongoUtils = {
     if (filter.priority) mongoFilter.priority = filter.priority;
 
     if (filter.createdAfter || filter.createdBefore) {
-      mongoFilter.createdAt = {};
-      if (filter.createdAfter) mongoFilter.createdAt.$gte = filter.createdAfter;
-      if (filter.createdBefore)
-        mongoFilter.createdAt.$lte = filter.createdBefore;
+      const createdAt: FilterOperators<Date> = {};
+      if (filter.createdAfter) createdAt.$gte = filter.createdAfter;
+      if (filter.createdBefore) createdAt.$lte = filter.createdBefore;
+      mongoFilter.createdAt = createdAt;
     }
 
     if (filter.attempts) {
-      mongoFilter.attempts = {};
+      const attempts: FilterOperators<number> = {};
       if (filter.attempts.min !== undefined)
-        mongoFilter.attempts.$gte = filter.attempts.min;
+        attempts.$gte = filter.attempts.min;
       if (filter.attempts.max !== undefined)
-        mongoFilter.attempts.$lte = filter.attempts.max;
+        attempts.$lte = filter.attempts.max;
+      mongoFilter.attempts = attempts;
     }
 
     if (filter.hasErrors !== undefined) {

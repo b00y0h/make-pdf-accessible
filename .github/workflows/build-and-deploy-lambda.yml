@@ -1,10 +1,11 @@
 name: Build and Deploy Lambda Functions
 
-# No create trigger: create takes no branch or tag filters, so it started a deploy run for
-# every new branch. Release tags (v*) are built and deployed by release.yml.
 on:
+  # Release tags go through push, not create: create takes no filters, so a bare create
+  # trigger ran this workflow for every new branch and tag. Path filters don't apply to tags.
   push:
     branches: [main]
+    tags: ['v*']
     paths:
       - 'services/functions/**'
       - 'services/api/**'

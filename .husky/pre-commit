@@ -6,8 +6,9 @@ NC='\033[0m' # No Color
 
 echo "${YELLOW}🔍 Running pre-commit checks...${NC}"
 
-# Get list of staged files
-staged_files=$(git diff --cached --name-only)
+# Get list of staged files (added, copied, modified, renamed; deleted files
+# no longer exist on disk, so the tools below can't check them)
+staged_files=$(git diff --cached --name-only --diff-filter=ACMR)
 
 # Check if there are any staged files
 if [ -z "$staged_files" ]; then
@@ -50,25 +51,59 @@ fi
 
 # Check TypeScript/JavaScript files  
 ts_files=$(echo "$staged_files" | grep -E '\.(ts|tsx|js|jsx)$' | head -20)
+# Skip symlinks: ESLint and Prettier refuse them as explicit paths
+ts_files=$(for file in $ts_files; do [ -L "$file" ] || echo "$file"; done)
 if [ ! -z "$ts_files" ]; then
     echo "${YELLOW}📝 Checking TypeScript/JavaScript files...${NC}"
-    
+
     # Check if we have pnpm and node_modules
     if command -v pnpm >/dev/null 2>&1 && [ -d "node_modules" ]; then
-        # ESLint check
-        if ! pnpm exec eslint $ts_files --quiet 2>/dev/null; then
-            echo "${RED}❌ ESLint issues found${NC}"
-            echo "${YELLOW}💡 Run: pnpm run lint --fix${NC}"
-            has_errors=true
+        # Workspaces with their own eslint.config.mjs (ESLint 9) check their files
+        # with their own ESLint, Prettier and ignore files. The root .eslintrc.js
+        # (ESLint 8) ignores them and covers everything else.
+        # `|| true` keeps an empty grep from aborting husky's `sh -e`.
+        root_ts_files="$ts_files"
+        for workspace in $(git ls-files -- '*/eslint.config.mjs' | sed 's|/eslint.config.mjs$||'); do
+            workspace_files=$(echo "$ts_files" | grep "^$workspace/" | sed "s|^$workspace/||" || true)
+            root_ts_files=$(echo "$root_ts_files" | grep -v "^$workspace/" || true)
+            if [ -z "$workspace_files" ]; then
+                continue
+            fi
+
+            if [ ! -d "$workspace/node_modules" ]; then
+                echo "${YELLOW}⚠️  $workspace/node_modules not available, skipping its JS/TS checks${NC}"
+                continue
+            fi
+
+            if ! pnpm --dir "$workspace" exec eslint $workspace_files --quiet 2>/dev/null; then
+                echo "${RED}❌ ESLint issues found in $workspace${NC}"
+                echo "${YELLOW}💡 Run: pnpm --dir $workspace run lint --fix${NC}"
+                has_errors=true
+            fi
+
+            if ! pnpm --dir "$workspace" exec prettier --check $workspace_files 2>/dev/null; then
+                echo "${RED}❌ Prettier formatting issues found in $workspace${NC}"
+                echo "${YELLOW}💡 Run: pnpm --dir $workspace run format${NC}"
+                has_errors=true
+            fi
+        done
+
+        if [ ! -z "$root_ts_files" ]; then
+            # ESLint check
+            if ! pnpm exec eslint $root_ts_files --quiet 2>/dev/null; then
+                echo "${RED}❌ ESLint issues found${NC}"
+                echo "${YELLOW}💡 Run: pnpm exec eslint --fix $(echo $root_ts_files)${NC}"
+                has_errors=true
+            fi
+
+            # Prettier check
+            if ! pnpm exec prettier --check $root_ts_files 2>/dev/null; then
+                echo "${RED}❌ Prettier formatting issues found${NC}"
+                echo "${YELLOW}💡 Run: pnpm exec prettier --write $(echo $root_ts_files)${NC}"
+                has_errors=true
+            fi
         fi
-        
-        # Prettier check
-        if ! pnpm exec prettier --check $ts_files 2>/dev/null; then
-            echo "${RED}❌ Prettier formatting issues found${NC}"
-            echo "${YELLOW}💡 Run: pnpm run format${NC}"
-            has_errors=true
-        fi
-        
+
         # TypeScript type check for changed files
         if echo "$ts_files" | grep -E '\.(ts|tsx)$' >/dev/null; then
             if ! pnpm exec tsc --noEmit 2>/dev/null; then

@@ -15,13 +15,15 @@ variable "comment" {
 }
 
 variable "primary_domain" {
-  description = "Canonical host name of the site (redirect target for redirect_hosts and extensionless paths)"
+  description = "Canonical host name of the site (redirect target for redirect_hosts and extensionless paths), or empty to serve only the CloudFront domain"
   type        = string
+  default     = ""
 }
 
 variable "aliases" {
-  description = "Alternate domain names served by the distribution (must be covered by certificate_arn)"
+  description = "Alternate domain names served by the distribution (must be covered by certificate_arn; empty without one)"
   type        = list(string)
+  default     = []
 }
 
 variable "redirect_hosts" {
@@ -31,8 +33,9 @@ variable "redirect_hosts" {
 }
 
 variable "certificate_arn" {
-  description = "ARN of an ACM certificate in us-east-1 covering every alias"
+  description = "ARN of an ACM certificate in us-east-1 covering every alias, or null to serve only the CloudFront domain with its default certificate (previews)"
   type        = string
+  default     = null
 }
 
 variable "web_acl_arn" {

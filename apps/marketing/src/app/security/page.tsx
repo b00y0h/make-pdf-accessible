@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { Container } from '@/components/Container';
+import { PageHeader } from '@/components/PageHeader';
+import { Section } from '@/components/Section';
 import { SITE } from '@/content/site';
 
 export const metadata: Metadata = {
@@ -41,33 +42,44 @@ const SECTIONS = [
 
 export default function SecurityPage() {
   return (
-    <Container className="py-14">
-      <h1 className="text-4xl font-bold tracking-tight">Security</h1>
-      <p className="mt-4 max-w-copy text-lg text-muted">
-        A summary for security reviewers. The full whitepaper, HECVAT and
-        policies are available on request.
-      </p>
-      <dl className="mt-8 grid max-w-4xl gap-8 md:grid-cols-2">
-        {SECTIONS.map((section) => (
-          <div key={section.title}>
-            <dt className="text-xl font-bold">{section.title}</dt>
-            <dd className="mt-2 text-muted">{section.body}</dd>
-          </div>
-        ))}
-      </dl>
-      <h2 className="mt-12 text-2xl font-bold">Responsible disclosure</h2>
-      <p className="mt-2 max-w-copy">
-        Report vulnerabilities to{' '}
-        <a
-          href={`mailto:${SITE.securityEmail}`}
-          className="underline underline-offset-4"
-        >
-          {SITE.securityEmail}
-        </a>
-        . We acknowledge within two business days, keep you informed, and do not
-        pursue legal action against good-faith research that respects user
-        privacy and availability.
-      </p>
-    </Container>
+    <>
+      <PageHeader
+        title="Security"
+        lede="A summary for security reviewers. The full whitepaper, HECVAT and policies are available on request."
+      />
+
+      <Section id="controls" title="Controls" layout="split">
+        <dl className="divide-y divide-line border-y border-line">
+          {SECTIONS.map((section) => (
+            <div
+              key={section.title}
+              className="grid gap-2 py-7 md:grid-cols-[13rem_1fr] md:gap-10"
+            >
+              <dt className="font-display text-[1.3125rem] font-medium leading-snug">
+                {section.title}
+              </dt>
+              <dd className="text-muted">{section.body}</dd>
+            </div>
+          ))}
+        </dl>
+      </Section>
+
+      <Section
+        id="disclosure"
+        title="Responsible disclosure"
+        tone="surface"
+        layout="split"
+      >
+        <p className="max-w-copy">
+          Report vulnerabilities to{' '}
+          <a href={`mailto:${SITE.securityEmail}`} className="text-link">
+            {SITE.securityEmail}
+          </a>
+          . We acknowledge within two business days, keep you informed, and do
+          not pursue legal action against good-faith research that respects user
+          privacy and availability.
+        </p>
+      </Section>
+    </>
   );
 }

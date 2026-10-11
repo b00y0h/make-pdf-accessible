@@ -23,6 +23,10 @@ settings:
     - 'feature/*'
     - 'hotfix/*'
 
+  # Release tags; build-and-deploy-lambda.yml deploys a v* tag push to dev
+  allowed_tags:
+    - 'v*'
+
 # AWS Configuration
 aws:
   region: us-east-1
