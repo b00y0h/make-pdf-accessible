@@ -25,6 +25,9 @@ locals {
   ])
 
   content_security_policy = coalesce(var.content_security_policy, local.generated_csp)
+
+  # Human-readable label for descriptions and tags; previews without a domain use the name.
+  site_label = var.primary_domain != "" ? var.primary_domain : var.name
 }
 
 data "aws_cloudfront_cache_policy" "caching_optimized" {
@@ -40,7 +43,7 @@ resource "aws_s3_bucket" "site" {
 
   tags = merge(var.tags, {
     Name    = var.bucket_name
-    Purpose = "Static site assets for ${var.primary_domain}"
+    Purpose = "Static site assets for ${local.site_label}"
   })
 }
 
@@ -147,7 +150,7 @@ resource "aws_s3_bucket_policy" "site" {
 
 resource "aws_cloudfront_origin_access_control" "site" {
   name                              = "${var.name}-oac"
-  description                       = "OAC for ${var.primary_domain}"
+  description                       = "OAC for ${local.site_label}"
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"
@@ -156,7 +159,7 @@ resource "aws_cloudfront_origin_access_control" "site" {
 resource "aws_cloudfront_function" "viewer_request" {
   name    = "${var.name}-viewer-request"
   runtime = "cloudfront-js-2.0"
-  comment = "Canonical host redirect and directory index rewrite for ${var.primary_domain}"
+  comment = "Canonical host redirect and directory index rewrite for ${local.site_label}"
   publish = true
 
   code = templatefile("${path.module}/functions/viewer-request.js.tftpl", {
@@ -167,7 +170,7 @@ resource "aws_cloudfront_function" "viewer_request" {
 
 resource "aws_cloudfront_response_headers_policy" "site" {
   name    = "${var.name}-security-headers"
-  comment = "Security headers for ${var.primary_domain}"
+  comment = "Security headers for ${local.site_label}"
 
   security_headers_config {
     content_type_options {
@@ -269,10 +272,12 @@ resource "aws_cloudfront_distribution" "site" {
     }
   }
 
+  # Without a certificate the distribution answers only on its *.cloudfront.net name.
   viewer_certificate {
-    acm_certificate_arn      = var.certificate_arn
-    ssl_support_method       = "sni-only"
-    minimum_protocol_version = "TLSv1.2_2021"
+    cloudfront_default_certificate = var.certificate_arn == null ? true : null
+    acm_certificate_arn            = var.certificate_arn
+    ssl_support_method             = var.certificate_arn == null ? null : "sni-only"
+    minimum_protocol_version       = var.certificate_arn == null ? null : "TLSv1.2_2021"
   }
 
   dynamic "logging_config" {
@@ -287,6 +292,13 @@ resource "aws_cloudfront_distribution" "site" {
 
   tags = merge(var.tags, {
     Name   = var.name
-    Domain = var.primary_domain
+    Domain = local.site_label
   })
+
+  lifecycle {
+    precondition {
+      condition     = var.certificate_arn != null || length(var.aliases) == 0
+      error_message = "aliases need a certificate_arn that covers them; without one, leave aliases empty."
+    }
+  }
 }

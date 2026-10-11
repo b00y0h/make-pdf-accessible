@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Container } from '@/components/Container';
+import { PageHeader } from '@/components/PageHeader';
+import { ProcurementTable } from '@/components/ProcurementTable';
+import { Section } from '@/components/Section';
 import { SITE } from '@/content/site';
 
 export const metadata: Metadata = {
@@ -9,7 +11,7 @@ export const metadata: Metadata = {
     'Accessibility statement, security overview, compliance status, subprocessors and policies.',
 };
 
-const CARDS = [
+const DOCUMENTS = [
   {
     href: '/accessibility/',
     title: 'Accessibility statement',
@@ -27,97 +29,60 @@ const CARDS = [
   },
 ];
 
-const STATUS = [
-  {
-    item: 'Accessibility conformance report (VPAT 2.5) for this site',
-    status:
-      'Published with the first production release; audit scheduled before launch',
-  },
-  {
-    item: 'Accessibility conformance report for the dashboard',
-    status: 'In progress',
-  },
-  { item: 'HECVAT Full', status: 'In progress' },
-  { item: 'SOC 2 Type I', status: 'Planned within nine months of launch' },
-  { item: 'SOC 2 Type II', status: 'Planned within eighteen months of launch' },
-  { item: 'FERPA data processing addendum', status: 'Available on request' },
-  {
-    item: 'Penetration test',
-    status: 'Annual, first scheduled before general availability',
-  },
-];
-
 export default function TrustPage() {
   return (
-    <Container className="py-14">
-      <h1 className="text-4xl font-bold tracking-tight">Trust center</h1>
-      <p className="mt-4 max-w-copy text-lg text-muted">
-        What we do with your documents, how we protect them, and where we are on
-        the reviews your procurement office asks for. We state the status
-        honestly, including what is not done yet.
-      </p>
-      <ul className="mt-8 grid gap-6 md:grid-cols-3">
-        {CARDS.map((card) => (
-          <li key={card.href} className="rounded-lg border border-line p-5">
-            <h2 className="text-xl font-bold">
-              <Link
-                href={card.href}
-                className="underline-offset-4 hover:underline"
-              >
-                {card.title}
-              </Link>
-            </h2>
-            <p className="mt-2 text-muted">{card.text}</p>
-          </li>
-        ))}
-      </ul>
+    <>
+      <PageHeader
+        title="Trust center"
+        lede="What we do with your documents, how we protect them, and where we are on the reviews your procurement office asks for. We state the status honestly, including what is not done yet."
+      />
 
-      <h2 className="mt-12 text-2xl font-bold">Compliance status</h2>
-      <table className="mt-4 w-full max-w-3xl border-collapse text-left">
-        <caption className="sr-only-focusable">
-          Status of compliance artifacts
-        </caption>
-        <thead>
-          <tr className="border-b border-line">
-            <th scope="col" className="py-2 pr-4">
-              Item
-            </th>
-            <th scope="col" className="py-2">
-              Status
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {STATUS.map((row) => (
-            <tr key={row.item} className="border-b border-line align-top">
-              <th scope="row" className="py-2 pr-4 font-normal">
-                {row.item}
-              </th>
-              <td className="py-2 text-muted">{row.status}</td>
-            </tr>
+      <Section id="documents" title="Policies and statements" layout="split">
+        <ul className="divide-y divide-line border-y border-line">
+          {DOCUMENTS.map((doc) => (
+            <li
+              key={doc.href}
+              className="grid gap-2 py-7 md:grid-cols-[15rem_1fr] md:gap-10"
+            >
+              <h3 className="font-display text-[1.3125rem] font-medium leading-snug">
+                <Link href={doc.href} className="text-link">
+                  {doc.title}
+                </Link>
+              </h3>
+              <p className="text-muted">{doc.text}</p>
+            </li>
           ))}
-        </tbody>
-      </table>
+        </ul>
+      </Section>
 
-      <h2 className="mt-12 text-2xl font-bold">Subprocessors</h2>
-      <p className="mt-2 max-w-copy text-muted">
-        Amazon Web Services (hosting, storage, Amazon Bedrock models; United
-        States regions), a payment processor for invoices, and an email delivery
-        provider. Customer content is never used to train models. The full list
-        with purposes is provided with the data processing addendum.
-      </p>
+      <Section
+        id="status"
+        title="Compliance status"
+        lede="Updated as each item changes. Ask us for current drafts of anything in progress."
+        tone="surface"
+        layout="split"
+      >
+        <ProcurementTable />
+      </Section>
 
-      <h2 className="mt-12 text-2xl font-bold">Contact</h2>
-      <p className="mt-2">
-        Security questions and vulnerability reports:{' '}
-        <a
-          href={`mailto:${SITE.securityEmail}`}
-          className="underline underline-offset-4"
-        >
-          {SITE.securityEmail}
-        </a>
-        . We acknowledge reports within two business days.
-      </p>
-    </Container>
+      <Section id="subprocessors" title="Subprocessors" layout="split">
+        <p className="max-w-copy">
+          Amazon Web Services (hosting, storage, Amazon Bedrock models; United
+          States regions), a payment processor for invoices, and an email
+          delivery provider. Customer content is never used to train models. The
+          full list with purposes is provided with the data processing addendum.
+        </p>
+      </Section>
+
+      <Section id="contact" title="Contact" tone="surface" layout="split">
+        <p className="max-w-copy">
+          Security questions and vulnerability reports:{' '}
+          <a href={`mailto:${SITE.securityEmail}`} className="text-link">
+            {SITE.securityEmail}
+          </a>
+          . We acknowledge reports within two business days.
+        </p>
+      </Section>
+    </>
   );
 }

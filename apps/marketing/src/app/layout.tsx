@@ -1,10 +1,28 @@
 import type { Metadata, Viewport } from 'next';
+import { Besley, Public_Sans } from 'next/font/google';
 import type { ReactNode } from 'react';
 import { SkipLink } from '@/components/SkipLink';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
 import { SITE } from '@/content/site';
 import './globals.css';
+
+// Self-hosted at build time by next/font, so the static export makes no third-party font
+// requests. Besley (a Clarendon revival) sets headings; Public Sans (the US Web Design
+// System face) sets everything else.
+const besley = Besley({
+  subsets: ['latin'],
+  weight: 'variable',
+  display: 'swap',
+  variable: '--font-besley',
+});
+
+const publicSans = Public_Sans({
+  subsets: ['latin'],
+  weight: 'variable',
+  display: 'swap',
+  variable: '--font-public-sans',
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
@@ -32,11 +50,19 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   colorScheme: 'light dark',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0e1922' },
+  ],
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" data-scroll-behavior="smooth">
+    <html
+      lang="en"
+      data-scroll-behavior="smooth"
+      className={`${besley.variable} ${publicSans.variable}`}
+    >
       <body className="flex min-h-screen flex-col">
         <SkipLink />
         <SiteHeader />

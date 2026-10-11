@@ -5,12 +5,13 @@ type Variant = 'primary' | 'secondary';
 
 const styles: Record<Variant, string> = {
   primary:
-    'bg-accent text-accent-ink hover:opacity-90 border border-transparent',
-  secondary: 'bg-transparent text-ink border border-line hover:bg-surface',
+    'bg-accent text-accent-ink border border-accent hover:bg-accent-strong hover:border-accent-strong',
+  secondary:
+    'bg-transparent text-ink border border-field hover:bg-surface hover:border-ink',
 };
 
 const base =
-  'inline-flex min-h-[44px] items-center justify-center rounded-md px-5 py-2.5 text-base font-semibold no-underline';
+  'inline-flex min-h-[48px] items-center justify-center rounded-sm px-5 py-2.5 text-base font-semibold no-underline transition-colors duration-150';
 
 export function ButtonLink({
   href,

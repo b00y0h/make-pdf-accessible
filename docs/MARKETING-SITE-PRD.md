@@ -129,7 +129,7 @@ The motivating gaps:
 - **Design system:** tokens in `apps/marketing/src/styles/tokens.css` (color, type scale, spacing, motion), dark mode via `prefers-color-scheme`, focus ring token, minimum 44×44 px targets, system font stack (no third-party font requests) with an optional self-hosted variable font.
 - **Infrastructure:** `infra/terraform/modules/static-site` creates the private S3 bucket (SSE-S3, versioning, OAC-only bucket policy), CloudFront distribution (HTTP/3, TLS 1.2_2021, compression, response headers policy with CSP/HSTS, CloudFront Function that rewrites `/path` → `/path/index.html` and redirects `www` → apex, WAF association, standard logging to the existing logs bucket), and outputs bucket name and distribution id. `infra/terraform/marketing.tf` instantiates it with the existing ACM certificate from `domains.tf`.
 - **DNS:** DNSimple (existing runbook): ALIAS apex → distribution, CNAME `www` → distribution.
-- **CI/CD:** `.github/workflows/marketing-site.yml`: lint, typecheck, build, axe over every exported page (Playwright + `@axe-core/playwright` against a local static server), banned-phrase check, Lighthouse CI budgets; on `main`, assume `GITHUB_WEB_DEPLOY_ROLE_ARN` via OIDC, `aws s3 sync` with cache headers, CloudFront invalidation of `/*`, deployment summary.
+- **CI/CD:** `.github/workflows/marketing-site.yml`: lint, typecheck, build, axe over every exported page (Playwright + `@axe-core/playwright` against a local static server), banned-phrase check, Lighthouse CI budgets; on `main`, assume `AWS_WEB_DEPLOY_ROLE_ARN` via OIDC, `aws s3 sync` with cache headers, CloudFront invalidation of `/*`, deployment summary.
 - **Environments:** `staging.makepdfaccessible.com` (staging account) and production; preview builds as artifacts on pull requests.
 - **Analytics:** CloudFront standard logs to the logs bucket plus a cookieless analytics script (self-hosted or a privacy-focused vendor) loaded only after consent-free evaluation; no PII in analytics.
 - **Forms security:** rate limits in the API, honeypot, CAPTCHA with accessible alternative, CSP `connect-src` limited to the API host.
@@ -145,7 +145,7 @@ The motivating gaps:
 | `NEXT_PUBLIC_ANALYTICS_ENDPOINT`                     | Cookieless analytics collector       | `https://...`                                      |
 | `MARKETING_S3_BUCKET` (CI variable)                  | Deploy target                        | Terraform output `marketing_site_bucket`           |
 | `MARKETING_CLOUDFRONT_DISTRIBUTION_ID` (CI variable) | Invalidation target                  | Terraform output `marketing_site_distribution_id`  |
-| `GITHUB_WEB_DEPLOY_ROLE_ARN` (CI secret)             | OIDC role (exists)                   | `arn:aws:iam::...:role/...-github-web-deploy-role` |
+| `AWS_WEB_DEPLOY_ROLE_ARN` (CI secret)             | OIDC role (exists)                   | `arn:aws:iam::...:role/...-github-web-deploy-role` |
 
 ## TESTING STRATEGY
 
