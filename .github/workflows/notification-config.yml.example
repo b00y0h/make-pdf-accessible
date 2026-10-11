@@ -89,15 +89,10 @@ jobs:
 # Slack: https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX
 # Teams: https://outlook.office.com/webhook/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX@XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX/IncomingWebhook/XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
 
-# AWS Configuration (for security monitoring)
-# AWS_ACCOUNT_ID - Your AWS account ID (12 digits)
-# AWS_REGION - Your primary AWS region (e.g., us-east-1)
-
-# IAM Role ARNs (for each workflow type)
-# AWS_INFRASTRUCTURE_CI_ROLE_ARN - Infrastructure deployment role
-# AWS_LAMBDA_DEPLOY_ROLE_ARN - Lambda function deployment role
-# AWS_WEB_DEPLOY_ROLE_ARN - Web application deployment role
-# AWS_API_DEPLOY_ROLE_ARN - API deployment role
+# AWS Configuration and IAM Role ARNs (for security monitoring)
+# AWS_REGION, AWS_ACCOUNT_ID and the role ARN secrets are not all repository secrets:
+# some go on GitHub environments (for example AWS_WEB_DEPLOY_ROLE_ARN on each <env>-web).
+# See infra/terraform/GITHUB_OIDC_SETUP.md, section 3, for where each one goes.
 
 ---
 
