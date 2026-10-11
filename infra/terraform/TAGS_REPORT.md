@@ -23,9 +23,8 @@ common_tags = {
   repo             = "github.com/b00y0h/make-pdf-accessible"
 
   # Legacy tags (for backwards compatibility)
-  Project     = "pdf-accessibility"
-  Environment = "dev|staging|prod"
-  ManagedBy   = "terraform"
+  Project   = "pdf-accessibility"
+  ManagedBy = "terraform"
 }
 ```
 
@@ -159,8 +158,9 @@ The following tags must be activated in AWS Billing → Cost Allocation Tags for
 
 ### Legacy Tags (backwards compatibility):
 - `Project`
-- `Environment`
 - `ManagedBy`
+
+There is no legacy `Environment` tag. IAM compares tag keys without regard to case, so `Environment` next to `environment` made every IAM role and the OIDC provider fail to create.
 
 ## Environment-Specific Values
 

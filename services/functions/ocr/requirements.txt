@@ -1,5 +1,5 @@
-boto3>=1.43.103
-botocore>=1.43.103
+boto3>=1.43.108
+botocore>=1.43.108
 aws-lambda-powertools[tracer,logger,metrics]>=3.35.0
 pydantic>=2.13.5
 pypdf>=6.19.0

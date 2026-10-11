@@ -1,19 +1,30 @@
 # OpenSearch Serverless Vector Collection for embedding search
 
+# OpenSearch Serverless names are limited to 32 characters, so these use a short prefix
+locals {
+  aoss_collection_name = "pdf-${var.environment}-embeddings"
+}
+
 # OpenSearch Serverless Collection for vector embeddings
 resource "aws_opensearchserverless_collection" "pdf_embeddings" {
-  name        = "${local.app_name}-${var.environment}-embeddings"
+  name        = local.aoss_collection_name
   type        = "VECTORSEARCH"
   description = "Vector collection for PDF document embeddings"
 
   tags = merge(local.common_tags, {
     Name = "${local.app_name}-${var.environment}-embeddings-collection"
   })
+
+  # A collection can only be created once an encryption policy covers its name
+  depends_on = [
+    aws_opensearchserverless_security_policy.pdf_embeddings_encryption,
+    aws_opensearchserverless_security_policy.pdf_embeddings_network,
+  ]
 }
 
 # Data access policy for the collection
 resource "aws_opensearchserverless_access_policy" "pdf_embeddings_data" {
-  name = "${local.app_name}-${var.environment}-embeddings-data-access"
+  name = "${local.aoss_collection_name}-data"
   type = "data"
 
   policy = jsonencode([
@@ -21,7 +32,7 @@ resource "aws_opensearchserverless_access_policy" "pdf_embeddings_data" {
       Rules = [
         {
           Resource = [
-            "collection/${aws_opensearchserverless_collection.pdf_embeddings.name}"
+            "collection/${local.aoss_collection_name}"
           ]
           Permission = [
             "aoss:CreateCollectionItems",
@@ -33,7 +44,7 @@ resource "aws_opensearchserverless_access_policy" "pdf_embeddings_data" {
         },
         {
           Resource = [
-            "index/${aws_opensearchserverless_collection.pdf_embeddings.name}/*"
+            "index/${local.aoss_collection_name}/*"
           ]
           Permission = [
             "aoss:CreateIndex",
@@ -56,7 +67,7 @@ resource "aws_opensearchserverless_access_policy" "pdf_embeddings_data" {
 
 # Network access policy for the collection
 resource "aws_opensearchserverless_security_policy" "pdf_embeddings_network" {
-  name = "${local.app_name}-${var.environment}-embeddings-network"
+  name = "${local.aoss_collection_name}-net"
   type = "network"
 
   policy = jsonencode([
@@ -66,7 +77,7 @@ resource "aws_opensearchserverless_security_policy" "pdf_embeddings_network" {
         {
           ResourceType = "collection"
           Resource = [
-            "collection/${aws_opensearchserverless_collection.pdf_embeddings.name}"
+            "collection/${local.aoss_collection_name}"
           ]
         }
       ]
@@ -78,7 +89,7 @@ resource "aws_opensearchserverless_security_policy" "pdf_embeddings_network" {
 
 # Encryption policy for the collection
 resource "aws_opensearchserverless_security_policy" "pdf_embeddings_encryption" {
-  name = "${local.app_name}-${var.environment}-embeddings-encryption"
+  name = "${local.aoss_collection_name}-enc"
   type = "encryption"
 
   policy = jsonencode({
@@ -86,7 +97,7 @@ resource "aws_opensearchserverless_security_policy" "pdf_embeddings_encryption" 
       {
         ResourceType = "collection"
         Resource = [
-          "collection/${aws_opensearchserverless_collection.pdf_embeddings.name}"
+          "collection/${local.aoss_collection_name}"
         ]
         AWSOwnedKey = true
       }

@@ -71,6 +71,8 @@ resource "aws_security_group" "documentdb" {
 resource "random_password" "documentdb_password" {
   length  = 16
   special = true
+  # DocumentDB rejects /, " and @ in the master password
+  override_special = "!#$%&*()-_=+[]{}<>:?"
 }
 
 # DocumentDB Cluster

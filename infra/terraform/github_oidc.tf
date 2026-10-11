@@ -28,39 +28,51 @@ resource "aws_iam_openid_connect_provider" "github_enhanced" {
 locals {
   github_oidc_provider_arn = var.github_repo != "" ? aws_iam_openid_connect_provider.github_enhanced[0].arn : ""
 
-  # Trust policy conditions for different workflow types
-  base_trust_conditions = {
-    StringEquals = {
-      "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-    }
+  # The subject (sub claim) GitHub presents depends on the job. A job that declares a GitHub
+  # environment presents environment:<name> instead of its branch, so a role used by such a job
+  # has to trust that environment. Who may deploy to an environment, and from which branch, is
+  # then set on the environment in GitHub (required reviewers, deployment branches).
+  github_subjects = {
+    main         = "repo:${var.github_repo}:ref:refs/heads/main"
+    develop      = "repo:${var.github_repo}:ref:refs/heads/develop"
+    pull_request = "repo:${var.github_repo}:pull_request"
+    tags         = "repo:${var.github_repo}:ref:refs/tags/*"
+    infra_env    = "repo:${var.github_repo}:environment:${var.environment}-infrastructure"
+    web_env      = "repo:${var.github_repo}:environment:${var.environment}-web"
+    api_env      = "repo:${var.github_repo}:environment:${var.environment}-api"
   }
 
-  # Branch-specific conditions
-  branch_conditions = {
-    main_only = {
-      StringLike = {
-        "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:ref:refs/heads/main"
-      }
-    }
+  github_role_subjects = {
+    # infra-ci.yml: plans on pull requests and from main, applies in <env>-infrastructure
+    infrastructure_ci = [
+      local.github_subjects.main,
+      local.github_subjects.develop,
+      local.github_subjects.pull_request,
+      local.github_subjects.infra_env,
+    ]
+    # build-and-deploy-lambda.yml declares no environment
+    lambda_deploy = [local.github_subjects.main, local.github_subjects.tags]
+    # marketing-site.yml and web-ci.yml deploy only in <env>-web, so every use of this role
+    # goes through that environment's protection rules
+    web_deploy = [local.github_subjects.web_env]
+    # api-ci.yml packages from main and deploys in <env>-api
+    api_deploy = [local.github_subjects.main, local.github_subjects.api_env]
+    testing = [
+      local.github_subjects.main,
+      local.github_subjects.develop,
+      local.github_subjects.pull_request,
+    ]
+  }
 
-    main_and_develop = {
-      StringLike = {
-        "token.actions.githubusercontent.com:sub" = [
-          "repo:${var.github_repo}:ref:refs/heads/main",
-          "repo:${var.github_repo}:ref:refs/heads/develop"
-        ]
+  # One StringLike list per role. Building these with merge() kept only the last StringLike
+  # block, so each role trusted a single subject and environment-scoped jobs matched none.
+  github_trust_conditions = {
+    for role, subjects in local.github_role_subjects : role => {
+      StringEquals = {
+        "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
       }
-    }
-
-    pull_requests = {
       StringLike = {
-        "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:pull_request"
-      }
-    }
-
-    tags = {
-      StringLike = {
-        "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:ref:refs/tags/*"
+        "token.actions.githubusercontent.com:sub" = subjects
       }
     }
   }
@@ -80,12 +92,8 @@ resource "aws_iam_role" "github_infrastructure_ci" {
         Principal = {
           Federated = local.github_oidc_provider_arn
         }
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Condition = merge(
-          local.base_trust_conditions,
-          local.branch_conditions.main_and_develop,
-          local.branch_conditions.pull_requests
-        )
+        Action    = "sts:AssumeRoleWithWebIdentity"
+        Condition = local.github_trust_conditions.infrastructure_ci
       }
     ]
   })
@@ -194,12 +202,8 @@ resource "aws_iam_role" "github_lambda_deploy" {
         Principal = {
           Federated = local.github_oidc_provider_arn
         }
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Condition = merge(
-          local.base_trust_conditions,
-          local.branch_conditions.main_only,
-          local.branch_conditions.tags
-        )
+        Action    = "sts:AssumeRoleWithWebIdentity"
+        Condition = local.github_trust_conditions.lambda_deploy
       }
     ]
   })
@@ -303,11 +307,8 @@ resource "aws_iam_role" "github_web_deploy" {
         Principal = {
           Federated = local.github_oidc_provider_arn
         }
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Condition = merge(
-          local.base_trust_conditions,
-          local.branch_conditions.main_only
-        )
+        Action    = "sts:AssumeRoleWithWebIdentity"
+        Condition = local.github_trust_conditions.web_deploy
       }
     ]
   })
@@ -405,11 +406,8 @@ resource "aws_iam_role" "github_api_deploy" {
         Principal = {
           Federated = local.github_oidc_provider_arn
         }
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Condition = merge(
-          local.base_trust_conditions,
-          local.branch_conditions.main_only
-        )
+        Action    = "sts:AssumeRoleWithWebIdentity"
+        Condition = local.github_trust_conditions.api_deploy
       }
     ]
   })
@@ -525,12 +523,8 @@ resource "aws_iam_role" "github_testing" {
         Principal = {
           Federated = local.github_oidc_provider_arn
         }
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Condition = merge(
-          local.base_trust_conditions,
-          local.branch_conditions.main_and_develop,
-          local.branch_conditions.pull_requests
-        )
+        Action    = "sts:AssumeRoleWithWebIdentity"
+        Condition = local.github_trust_conditions.testing
       }
     ]
   })
