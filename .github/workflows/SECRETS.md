@@ -8,7 +8,7 @@ These secrets are set at the repository level.
 
 ### AWS Configuration
 
-The AWS secrets (`AWS_REGION`, `AWS_ACCOUNT_ID` and the role ARNs `AWS_INFRASTRUCTURE_CI_ROLE_ARN`, `AWS_LAMBDA_DEPLOY_ROLE_ARN`, `AWS_API_DEPLOY_ROLE_ARN`, `AWS_WEB_DEPLOY_ROLE_ARN` and `AWS_ROLE_ARN`) are listed in one place, [GITHUB_OIDC_SETUP.md](../../infra/terraform/GITHUB_OIDC_SETUP.md#3-configure-github-secrets), with the jobs that read each one and whether it belongs on the repository, on a GitHub environment, or on both. Not all of them are repository secrets: `AWS_WEB_DEPLOY_ROLE_ARN` is set only on the `<env>-web` environments.
+The AWS secrets (`AWS_REGION`, `AWS_ACCOUNT_ID` and the role ARNs `AWS_INFRASTRUCTURE_CI_ROLE_ARN`, `AWS_LAMBDA_DEPLOY_ROLE_ARN`, `AWS_API_DEPLOY_ROLE_ARN` and `AWS_WEB_DEPLOY_ROLE_ARN`) are listed in one place, [GITHUB_OIDC_SETUP.md](../../infra/terraform/GITHUB_OIDC_SETUP.md#3-configure-github-secrets), with the jobs that read each one and whether it belongs on the repository, on a GitHub environment, or on both. Not all of them are repository secrets: `AWS_WEB_DEPLOY_ROLE_ARN` is set only on the `<env>-web` environments.
 
 ### Infrastructure Secrets
 
@@ -95,12 +95,14 @@ gh secret set AWS_REGION --body "us-east-1"
 gh secret set AWS_INFRASTRUCTURE_CI_ROLE_ARN --body "arn:aws:iam::DEV_ACCOUNT_ID:role/pdf-accessibility-dev-github-infra-ci-role"
 gh secret set AWS_LAMBDA_DEPLOY_ROLE_ARN --body "arn:aws:iam::DEV_ACCOUNT_ID:role/pdf-accessibility-dev-github-lambda-deploy-role"
 gh secret set AWS_API_DEPLOY_ROLE_ARN --body "arn:aws:iam::DEV_ACCOUNT_ID:role/pdf-accessibility-dev-github-api-deploy-role"
-gh secret set AWS_ROLE_ARN --body "arn:aws:iam::DEV_ACCOUNT_ID:role/pdf-accessibility-dev-github-actions-role" # rollback workflows
 
 # Environment secrets, for jobs that declare that environment
 gh secret set AWS_INFRASTRUCTURE_CI_ROLE_ARN --env dev-infrastructure --body "arn:aws:iam::DEV_ACCOUNT_ID:role/pdf-accessibility-dev-github-infra-ci-role"
 gh secret set AWS_INFRASTRUCTURE_CI_ROLE_ARN --env staging-infrastructure --body "arn:aws:iam::DEV_ACCOUNT_ID:role/pdf-accessibility-staging-github-infra-ci-role"
 gh secret set AWS_INFRASTRUCTURE_CI_ROLE_ARN --env prod-infrastructure --body "arn:aws:iam::PROD_ACCOUNT_ID:role/pdf-accessibility-prod-github-infra-ci-role"
+gh secret set AWS_API_DEPLOY_ROLE_ARN --env dev-api --body "arn:aws:iam::DEV_ACCOUNT_ID:role/pdf-accessibility-dev-github-api-deploy-role"
+gh secret set AWS_API_DEPLOY_ROLE_ARN --env staging-api --body "arn:aws:iam::DEV_ACCOUNT_ID:role/pdf-accessibility-staging-github-api-deploy-role"
+gh secret set AWS_API_DEPLOY_ROLE_ARN --env prod-api --body "arn:aws:iam::PROD_ACCOUNT_ID:role/pdf-accessibility-prod-github-api-deploy-role"
 gh secret set AWS_WEB_DEPLOY_ROLE_ARN --env dev-web --body "arn:aws:iam::DEV_ACCOUNT_ID:role/pdf-accessibility-dev-github-web-deploy-role"
 gh secret set AWS_WEB_DEPLOY_ROLE_ARN --env staging-web --body "arn:aws:iam::DEV_ACCOUNT_ID:role/pdf-accessibility-staging-github-web-deploy-role"
 gh secret set AWS_WEB_DEPLOY_ROLE_ARN --env prod-web --body "arn:aws:iam::PROD_ACCOUNT_ID:role/pdf-accessibility-prod-github-web-deploy-role"
@@ -143,7 +145,6 @@ jobs:
             "AWS_INFRASTRUCTURE_CI_ROLE_ARN"
             "AWS_LAMBDA_DEPLOY_ROLE_ARN"
             "AWS_API_DEPLOY_ROLE_ARN"
-            "AWS_ROLE_ARN"
           )
 
           for secret in "${secrets[@]}"; do
@@ -160,10 +161,9 @@ jobs:
           AWS_INFRASTRUCTURE_CI_ROLE_ARN: ${{ secrets.AWS_INFRASTRUCTURE_CI_ROLE_ARN }}
           AWS_LAMBDA_DEPLOY_ROLE_ARN: ${{ secrets.AWS_LAMBDA_DEPLOY_ROLE_ARN }}
           AWS_API_DEPLOY_ROLE_ARN: ${{ secrets.AWS_API_DEPLOY_ROLE_ARN }}
-          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
 ```
 
-This job declares no environment, so it cannot see environment secrets such as `AWS_WEB_DEPLOY_ROLE_ARN`. A job that declared `prod-web` to check them would also wait on that environment's reviewers, so check environment secrets with `gh secret list --env <name>` instead.
+This job declares no environment, so it cannot see environment secrets such as `AWS_WEB_DEPLOY_ROLE_ARN` or the `<env>-api` copies of `AWS_API_DEPLOY_ROLE_ARN`. A job that declared `prod-web` to check them would also wait on that environment's reviewers, so check environment secrets with `gh secret list --env <name>` instead.
 
 ## Security Best Practices
 

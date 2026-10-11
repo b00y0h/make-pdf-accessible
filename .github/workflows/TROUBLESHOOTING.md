@@ -25,21 +25,17 @@ Error: Could not assume role with OIDC: No OpenIDConnect provider found in your 
 aws iam list-open-id-connect-providers
 ```
 
-2. **Create OIDC Provider:**
+2. **Create OIDC Provider with the account layer:**
+
+The provider exists once per AWS account and is managed by `infra/terraform/account`; the environment roles only look it up. Create it there rather than with the AWS CLI, or the account layer's next apply fails because the provider already exists:
 
 ```bash
-aws iam create-openid-connect-provider \
-  --url https://token.actions.githubusercontent.com \
-  --client-id-list sts.amazonaws.com \
-  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
+cd infra/terraform/account
+terraform init -reconfigure -backend-config=environments/nonprod.backend.hcl
+terraform apply -var-file=environments/nonprod.tfvars -target=aws_iam_openid_connect_provider.github
 ```
 
-3. **Using Terraform:**
-
-```bash
-cd infra/terraform
-terraform apply -target=aws_iam_openid_connect_provider.github_enhanced
-```
+Use `prod.backend.hcl` and `prod.tfvars` in the prod account.
 
 ### Error: "Not authorized to perform sts:AssumeRoleWithWebIdentity"
 

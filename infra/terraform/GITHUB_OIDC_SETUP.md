@@ -4,7 +4,7 @@ This guide explains how to configure and use the GitHub OIDC provider and IAM ro
 
 ## Overview
 
-The Terraform configuration creates a GitHub OIDC provider and five specialized IAM roles with least-privilege access for different workflow types:
+The account layer (`account/`) creates the GitHub OIDC provider once per AWS account. This root creates five specialized IAM roles per environment, with least-privilege access for different workflow types:
 
 1. **Infrastructure CI Role** - For Terraform operations
 2. **Lambda Deploy Role** - For Lambda function deployments
@@ -64,17 +64,16 @@ Where a secret is stored decides which jobs can read it:
 
 Repository secrets live under `Settings > Secrets and variables > Actions`; environment secrets under `Settings > Environments > <name>`. GitHub rejects secret names that start with `GITHUB_`, so the role secrets use the `AWS_` prefix.
 
-| Secret                           | Read by                                                                                                                                  | Where to set it                             | Value                                                                                                                  |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `AWS_INFRASTRUCTURE_CI_ROLE_ARN` | `infra-ci.yml`: `terraform-plan` and `security-monitoring` (no environment), `terraform-apply` (`<env>-infrastructure`)                  | Repository, and each `<env>-infrastructure` | Repository: dev's `github_infrastructure_ci_role_arn`, since pull request plans run against dev. Environment: its own. |
-| `AWS_LAMBDA_DEPLOY_ROLE_ARN`     | `build-and-deploy-lambda.yml`, which declares no environment                                                                             | Repository only                             | `github_lambda_deploy_role_arn`                                                                                        |
-| `AWS_API_DEPLOY_ROLE_ARN`        | `api-ci.yml`: `detect-changes`, `build-package`, `cleanup` and `security-monitoring` (no environment), `blue-green-deploy` (`<env>-api`) | Repository; optionally each `<env>-api`     | `github_api_deploy_role_arn`. An `<env>-api` copy overrides the repository value for `blue-green-deploy`.              |
-| `AWS_WEB_DEPLOY_ROLE_ARN`        | `web-ci.yml` and `marketing-site.yml`: `deploy` (`<env>-web`)                                                                            | Each `<env>-web`                            | That environment's `github_web_deploy_role_arn`. The role trusts only `environment:<env>-web`.                         |
-| `AWS_REGION`                     | `infra-ci.yml` (no fallback), `web-ci.yml` and `marketing-site.yml` (fall back to `us-east-1`)                                           | Repository                                  | `us-east-1`                                                                                                            |
-| `AWS_ACCOUNT_ID`                 | `build-and-deploy-lambda.yml`, for the ECR registry                                                                                      | Repository                                  | The account that holds the Lambda ECR repositories                                                                     |
-| `AWS_ROLE_ARN`                   | `rollback.yml` and `test-rollback.yml`, which declare no environment                                                                     | Repository                                  | `github_actions_role_arn`, the legacy `pdf-accessibility-<env>-github-actions-role` in `iam.tf`                        |
+| Secret                           | Read by                                                                                                                                                                                                                                                                          | Where to set it                             | Value                                                                                                                                                                                                         |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AWS_INFRASTRUCTURE_CI_ROLE_ARN` | `infra-ci.yml`: `terraform-plan` and `security-monitoring` (no environment), `terraform-apply` (`<env>-infrastructure`). `rollback.yml`: `rollback-infrastructure` (`<env>-infrastructure`)                                                                                      | Repository, and each `<env>-infrastructure` | Repository: dev's `github_infrastructure_ci_role_arn`, since pull request plans run against dev. Environment: its own.                                                                                        |
+| `AWS_LAMBDA_DEPLOY_ROLE_ARN`     | `build-and-deploy-lambda.yml`; `rollback.yml`: `rollback-lambda-functions`; `test-rollback.yml`: `capture-baseline-lambda` and `test-deployment-state`. None of these jobs declares an environment                                                                               | Repository only                             | Dev's `github_lambda_deploy_role_arn`                                                                                                                                                                         |
+| `AWS_API_DEPLOY_ROLE_ARN`        | `api-ci.yml`: `detect-changes`, `build-package`, `cleanup` and `security-monitoring` (no environment), `blue-green-deploy` (`<env>-api`). `rollback.yml`: `rollback-api`; `test-rollback.yml`: `capture-baseline-api` and `test-cache-invalidation-apigateway` (all `<env>-api`) | Repository, and each `<env>-api`            | Repository: dev's `github_api_deploy_role_arn`. Environment: its own. Dev's role trusts only `environment:dev-api`, so a `staging-api` or `prod-api` job that falls back to the repository value is rejected. |
+| `AWS_WEB_DEPLOY_ROLE_ARN`        | `web-ci.yml` and `marketing-site.yml`: `deploy`; `rollback.yml`: `rollback-web`; `test-rollback.yml`: `capture-baseline-web` and `test-cache-invalidation-cloudfront` (all `<env>-web`)                                                                                          | Each `<env>-web`                            | That environment's `github_web_deploy_role_arn`. The role trusts only `environment:<env>-web`.                                                                                                                |
+| `AWS_REGION`                     | `infra-ci.yml` (no fallback), `web-ci.yml` and `marketing-site.yml` (fall back to `us-east-1`)                                                                                                                                                                                   | Repository                                  | `us-east-1`                                                                                                                                                                                                   |
+| `AWS_ACCOUNT_ID`                 | `build-and-deploy-lambda.yml`, for the ECR registry                                                                                                                                                                                                                              | Repository                                  | The account that holds the Lambda ECR repositories                                                                                                                                                            |
 
-`terraform-plan` on a manual run and `security-monitoring` after an apply run without an environment, so they assume the repository value (dev's role) even when the run is for `staging` or `prod`.
+Some jobs run without an environment and so assume the repository value (dev's role) even when the run is for `staging` or `prod`: `terraform-plan` on a manual run, `security-monitoring` after an apply, and every job that uses the Lambda deploy role. The Lambda role trusts no environment, so `rollback.yml` stops with an error when asked to roll back Lambda functions outside dev.
 
 ## Role Permissions and Trusted Subjects
 
@@ -82,7 +81,7 @@ The trusted subjects are set per role in `github_role_subjects` in `github_oidc.
 
 ### Infrastructure CI Role
 
-- **Trusts**: `main`, `develop`, pull requests, and the `<env>-infrastructure` environment
+- **Trusts**: `main` and the `<env>-infrastructure` environment; in dev also `develop` and pull requests. Staging shares the dev account, so its roles accept neither.
 - **Permissions**:
   - Read-only access for Terraform plan (all branches)
   - Full access for Terraform apply (main branch only)
@@ -115,7 +114,7 @@ The trusted subjects are set per role in `github_role_subjects` in `github_oidc.
 
 ### Testing Role
 
-- **Trusts**: `main`, `develop`, pull requests
+- **Trusts**: `main`; in dev also `develop` and pull requests
 - **Secret**: none; no workflow assumes this role yet
 - **Permissions**:
   - Read-only access to test resources
@@ -318,7 +317,7 @@ To add a new workflow-specific role:
 GitHub may update their OIDC thumbprints. To update:
 
 1. Get new thumbprints from GitHub documentation
-2. Update `thumbprint_list` in `github_oidc.tf`
+2. Update `thumbprint_list` in `account/github_oidc.tf`
 3. Apply changes with Terraform
 
 ## References
