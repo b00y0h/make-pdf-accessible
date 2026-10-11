@@ -49,6 +49,7 @@ Loads and validates environment-specific configurations:
 - `deployment_strategy` - Deployment strategy (rolling/blue_green)
 - `resource_prefix` - AWS resource naming prefix
 - `allowed_branches` - Branches allowed to deploy to this environment
+- `allowed_tags` - Tags allowed to deploy to this environment (none unless listed); a run from a tag ref is checked against this list instead of `allowed_branches`
 
 #### Environment Gate Action (`.github/actions/environment-gate/`)
 

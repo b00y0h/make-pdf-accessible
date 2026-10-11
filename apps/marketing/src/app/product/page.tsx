@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { ButtonLink } from '@/components/Button';
 import { Container } from '@/components/Container';
+import { PageHeader } from '@/components/PageHeader';
 import { Section } from '@/components/Section';
 import { STAGES } from '@/content/site';
 
@@ -19,36 +20,77 @@ const DETAILS = [
   'Upload hooks handle new documents automatically, scheduled re-crawls detect drift, and the dashboard shows coverage over time, so the deadline becomes a milestone rather than a cliff.',
 ];
 
+const INTEGRATIONS = [
+  {
+    title: 'WordPress and Drupal',
+    text: 'Inventory sync from the media library, one-click remediation, publish-back as a page or replacement file, redirects handled.',
+  },
+  {
+    title: 'Canvas, Blackboard, D2L, Moodle',
+    text: 'An LTI 1.3 tool that lists a course’s files, remediates on request and links the accessible version back into the course.',
+  },
+  {
+    title: 'Scanners',
+    text: 'Import Siteimprove, DubBot and Pope Tech exports as inventory so the tools you already own feed the fix.',
+  },
+  {
+    title: 'API and webhooks',
+    text: 'Versioned REST API with scoped keys, signed webhooks and an OpenAPI description for anything custom.',
+  },
+];
+
 export default function ProductPage() {
   return (
     <>
-      <Container className="py-14">
-        <h1 className="text-4xl font-bold tracking-tight">How it works</h1>
-        <p className="mt-4 max-w-copy text-lg text-muted">
-          Six stages, one system of record. Each stage is useful on its own;
-          together they take an institution from an unknown backlog to a
-          defensible position and keep it there.
-        </p>
-      </Container>
+      <PageHeader
+        title="How it works"
+        lede="Six stages, one system of record. Each stage is useful on its own; together they take an institution from an unknown backlog to a defensible position and keep it there."
+      />
 
-      {STAGES.map((stage, index) => (
-        <Section
-          key={stage.name}
-          id={`stage-${index + 1}`}
-          title={`${index + 1}. ${stage.name}`}
-          tone={index % 2 ? 'surface' : 'default'}
-        >
-          <p className="max-w-copy text-lg">{stage.text}</p>
-          <p className="mt-6 max-w-copy text-muted">{DETAILS[index]}</p>
-        </Section>
-      ))}
+      <section aria-labelledby="stages-title">
+        <Container className="py-16 lg:py-24">
+          <h2 id="stages-title" className="sr-only-focusable">
+            The six stages
+          </h2>
+          <ol className="border-t border-ink">
+            {STAGES.map((stage, index) => (
+              <li
+                key={stage.name}
+                id={`stage-${index + 1}`}
+                className="grid gap-6 border-b border-line py-10 lg:grid-cols-12 lg:gap-12 lg:py-14"
+              >
+                <div className="flex items-baseline gap-5 lg:col-span-4">
+                  <span
+                    aria-hidden="true"
+                    className="font-display text-[3rem] font-medium leading-none text-accent tabular-nums"
+                  >
+                    {index + 1}
+                  </span>
+                  <h3 className="font-display text-[1.75rem] font-medium leading-tight">
+                    <span className="sr-only-focusable">
+                      Stage {index + 1}:{' '}
+                    </span>
+                    {stage.name}
+                  </h3>
+                </div>
+                <div className="lg:col-span-8">
+                  <p className="max-w-copy text-lg">{stage.text}</p>
+                  <p className="mt-4 max-w-copy text-muted">{DETAILS[index]}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </Container>
+      </section>
 
       <Section
         id="link"
         title="The Accessible Link"
         lede="Remediate on first request, cache for everyone after."
+        tone="surface"
+        layout="split"
       >
-        <p className="max-w-copy">
+        <p className="max-w-copy text-lg">
           Any inventoried PDF gets a stable link. The first visitor who opens it
           triggers remediation and sees an accessible waiting page; every later
           visitor gets the cached, validated version immediately. Large
@@ -58,41 +100,22 @@ export default function ProductPage() {
         </p>
       </Section>
 
-      <Section id="integrations" title="Where it plugs in" tone="surface">
-        <ul className="grid gap-4 md:grid-cols-2">
-          <li className="rounded-lg border border-line bg-bg p-5">
-            <h3 className="text-xl font-bold">WordPress and Drupal</h3>
-            <p className="mt-2 text-muted">
-              Inventory sync from the media library, one-click remediation,
-              publish-back as a page or replacement file, redirects handled.
-            </p>
-          </li>
-          <li className="rounded-lg border border-line bg-bg p-5">
-            <h3 className="text-xl font-bold">
-              Canvas, Blackboard, D2L, Moodle
-            </h3>
-            <p className="mt-2 text-muted">
-              An LTI 1.3 tool that lists a course&apos;s files, remediates on
-              request and links the accessible version back into the course.
-            </p>
-          </li>
-          <li className="rounded-lg border border-line bg-bg p-5">
-            <h3 className="text-xl font-bold">Scanners</h3>
-            <p className="mt-2 text-muted">
-              Import Siteimprove, DubBot and Pope Tech exports as inventory so
-              the tools you already own feed the fix.
-            </p>
-          </li>
-          <li className="rounded-lg border border-line bg-bg p-5">
-            <h3 className="text-xl font-bold">API and webhooks</h3>
-            <p className="mt-2 text-muted">
-              Versioned REST API with scoped keys, signed webhooks and an
-              OpenAPI description for anything custom.
-            </p>
-          </li>
+      <Section id="integrations" title="Where it plugs in" layout="split">
+        <ul className="grid gap-x-12 gap-y-10 sm:grid-cols-2">
+          {INTEGRATIONS.map((item) => (
+            <li key={item.title} className="border-t-2 border-accent pt-5">
+              <h3 className="text-[1.3125rem] font-semibold leading-snug">
+                {item.title}
+              </h3>
+              <p className="mt-2 text-muted">{item.text}</p>
+            </li>
+          ))}
         </ul>
-        <div className="mt-8">
+        <div className="mt-12 flex flex-wrap gap-3">
           <ButtonLink href="/pilot/">Request a pilot</ButtonLink>
+          <ButtonLink href="/free-report/" variant="secondary">
+            Get a free inventory of your site
+          </ButtonLink>
         </div>
       </Section>
     </>

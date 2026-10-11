@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import boto3
 import pytest
 from botocore.exceptions import ClientError
-from moto import mock_s3
+from moto import mock_aws
 
 from pdf_worker.aws.s3 import S3Client
 from pdf_worker.core.exceptions import S3Error
@@ -17,13 +17,13 @@ class TestS3Client:
     @pytest.fixture
     def s3_client(self):
         """Create S3Client instance for testing."""
-        with mock_s3():
+        with mock_aws():
             return S3Client()
 
     @pytest.fixture
     def mock_s3_setup(self):
         """Set up mock S3 environment."""
-        with mock_s3():
+        with mock_aws():
             s3 = boto3.client("s3", region_name="us-east-1")
             s3.create_bucket(Bucket="test-bucket")
             yield s3

@@ -1,7 +1,8 @@
 # ADR-0007: Amazon Cognito is the identity layer, with per-tenant SAML and OIDC federation; BetterAuth is retired
 
-- **Status:** Proposed
+- **Status:** Proposed (on hold since 2026-10-10)
 - **Date:** 2026-09-28
+- **Hold:** The owner asked for research before deciding: identity has to be flexible and scalable, and workable for organizations of every size, from small companies without an identity provider to enterprises and universities that require SSO. The research (`docs/research/identity-options-2026-10.md`) recommends keeping Cognito, on the Essentials plan, as token issuer and federation broker, owning organizations, verified domains and SSO enforcement in our database, and buying SCIM per deal. It lists the changes this ADR would need and two prototypes (Shibboleth, Microsoft per-tenant OIDC) to pass before acceptance. Prototype 1 (`prototypes/shibboleth-cognito/RESULTS.md`): core campus sign-in through Cognito works if the campus issues us persistent NameIDs and releases `mail` and `eduPersonPrincipalName`, and our SP metadata requests persistent IDs and AES-CBC encryption; IdP-initiated sign-in, signed requests and certificate rollover are untested. Prototype 2 (Microsoft) is in progress.
 - **Deciders:** Founder (product and engineering)
 - **Scope:** Authentication and authorization for dashboard, API and LTI tool
 - **Related:** `docs/ENTERPRISE-READINESS-PRD.md`, ADR-0008

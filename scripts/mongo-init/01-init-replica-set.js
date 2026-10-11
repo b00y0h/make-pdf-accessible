@@ -5,7 +5,8 @@ print('🚀 Initializing MongoDB for PDF Accessibility Service...');
 
 // Initialize replica set
 try {
-  var status = rs.status();
+  // Throws until the replica set has been initiated
+  rs.status();
   print('Replica set already initialized');
 } catch (e) {
   print('Initializing replica set...');

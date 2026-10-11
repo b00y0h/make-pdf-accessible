@@ -184,7 +184,7 @@ resource "aws_iam_role_policy" "lambda_custom" {
   })
 }
 
-# GitHub Actions Role (legacy). The OIDC provider it trusts is defined once, in github_oidc.tf.
+# GitHub Actions Role (legacy). The OIDC provider it trusts is looked up in github_oidc.tf.
 resource "aws_iam_role" "github_actions" {
   name = "${local.name_prefix}-github-actions-role"
 
@@ -202,9 +202,11 @@ resource "aws_iam_role" "github_actions" {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
           }
           StringLike = {
+            # Staging shares the dev account, so only main may assume staging's role.
             "token.actions.githubusercontent.com:sub" = [
               for branch in var.github_branches :
               "repo:${var.github_repo}:ref:refs/heads/${branch}"
+              if !local.github_is_staging || branch == "main"
             ]
           }
         }

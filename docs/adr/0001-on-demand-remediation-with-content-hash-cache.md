@@ -1,7 +1,7 @@
 # ADR-0001: Remediate on demand and cache artifacts by content hash
 
-- **Status:** Proposed
-- **Date:** 2026-09-28
+- **Status:** Accepted
+- **Date:** 2026-09-28 (accepted 2026-10-10 with the cache key widened to a recipe fingerprint)
 - **Deciders:** Founder (product and engineering)
 - **Scope:** Remediation pipeline, storage layout, API job model
 - **Related:** `docs/REMEDIATION-PIPELINE-PRD.md`, `docs/INTEGRATIONS-PRD.md` (Accessible Link), ADR-0002, ADR-0004
@@ -14,13 +14,13 @@ Constraints: per-page cost of goods must stay under $0.055; customers need predi
 
 ## Decision
 
-We will identify every document by the SHA-256 of its bytes within a tenant, key all artifacts and evidence by `(tenant, sha256, profile, engine_version)`, and serve cached artifacts whenever that key already exists. Remediation is started by demand (upload, API, connector, or the first request to an Accessible Link) and by explicit scheduling for backlogs, never by a blanket "process everything" default. An `artifact_index` table in DynamoDB provides the lookup; S3 holds the artifacts under a content-addressed prefix.
+We will identify every document by the SHA-256 of its bytes within a tenant, key all artifacts and evidence by `(tenant, sha256, recipe)`, and serve cached artifacts whenever that key already exists. `recipe` is a fingerprint of everything that changes the output: the output profile, the engine name and version (ADR-0003), and the model IDs and prompt versions used (ADR-0011). Upgrading any of them produces fresh output instead of a stale cached file. Remediation is started by demand (upload, API, connector, or the first request to an Accessible Link) and by explicit scheduling for backlogs, never by a blanket "process everything" default. An `artifact_index` table in DynamoDB provides the lookup; S3 holds the artifacts under a content-addressed prefix.
 
 ## Alternatives Considered
 
 - **Process everything upfront (bulk mode by default)** — Simple, but it bills customers for documents nobody opens and forces capacity planning for peaks; it is also exactly what the incumbents charge for.
 - **Key by document id or URL only** — Fails to deduplicate the same file at several URLs and across re-uploads; URL keys break when the source moves.
-- **Cache per tenant only, without a profile in the key** — A profile or engine upgrade would silently return stale output; including profile and engine version makes cache invalidation explicit.
+- **Cache per tenant only, without a profile in the key** — A profile or engine upgrade would silently return stale output; including the recipe (profile, engine, models, prompts) makes cache invalidation explicit.
 - **Do nothing** — Keeps the demo behavior; costs and latency stay unacceptable.
 
 ## Consequences
@@ -38,4 +38,5 @@ We will identify every document by the SHA-256 of its bytes within a tenant, key
 **Neutral / Follow-ups**
 
 - Scheduled backlog runs are a policy on top (Maintain stage); the cache key must be documented in the API.
+- Define the recipe fingerprint's fields and hashing in the pipeline execution spec.
 - Revisit if per-tenant deduplication across tenants (shared public documents) becomes valuable.

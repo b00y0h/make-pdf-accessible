@@ -1,14 +1,14 @@
 # ADR-0003: Pluggable remediation engine; PDFix with veraPDF first, Adobe Auto-Tag second, no in-house tagger
 
-- **Status:** Proposed
-- **Date:** 2026-09-28
+- **Status:** Accepted
+- **Date:** 2026-09-28 (accepted 2026-10-10)
 - **Deciders:** Founder (product and engineering)
 - **Scope:** PDF tagging and validation
 - **Related:** `docs/REMEDIATION-PIPELINE-PRD.md`, `docs/research/ithaka-pipeline-analysis.md`, ADR-0002, ADR-0004
 
 ## Context
 
-Nothing in the repository writes a PDF structure tree; `services/functions/tag_pdf/main.py` returns a fixed `tags_applied = 25`. Writing a correct PDF/UA tagger (structure tree, role map, artifacts, reading order, table semantics, OCR text placement) is years of work that Adobe, PDFix, and others have already done. ITHAKA started with Adobe's Auto-Tag API and swapped to PDFix plus veraPDF without rebuilding the pipeline; they report a 98% check pass rate at $0.026 per page. Adobe's API is about $0.50 per page, which alone consumes most of our automated price. Engine quality differs by document class, and licensing terms differ for SaaS use.
+Nothing in the repository writes a PDF structure tree; `services/functions/tag_pdf/main.py` returns a fixed `tags_applied = 25`. Writing a correct PDF/UA tagger (structure tree, role map, artifacts, reading order, table semantics, OCR text placement) is years of work that Adobe, PDFix, and others have already done. ITHAKA started with Adobe's Auto-Tag API and swapped to PDFix plus veraPDF without rebuilding the pipeline; they report a 98% check pass rate at $0.026 per page (it is not public whether that includes the PDFix license). Adobe's Auto-Tag consumes 10 document transactions per page and paid pricing is by quote; estimates of about $0.50 per page would alone consume most of our automated price. Engine quality differs by document class, and licensing terms differ for SaaS use.
 
 Constraints: cost of goods under $0.055 per page; the deadline is seven months out; validation must be independent of the engine.
 
@@ -38,5 +38,5 @@ We will define an `EngineAdapter` contract (tag a page, merge pages, declare cap
 
 **Neutral / Follow-ups**
 
-- Negotiate PDFix SaaS terms before slice P1; keep Adobe credentials in Secrets Manager.
+- Negotiate PDFix SaaS terms before slice P1; keep Adobe credentials in Secrets Manager. Auto-tagging needs SDK Enterprise, public volume pricing (withdrawn in 2026) ranged from $0.014 to $0.079 per page by monthly volume, and the standard terms need a written multi-tenant SaaS addendum. Questions, contacts and a draft email are in `docs/research/pdfix-licensing-2026-10.md`.
 - Publish measured accuracy per engine and document class from the eval set.

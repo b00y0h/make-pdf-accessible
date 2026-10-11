@@ -91,7 +91,7 @@ class StructureService:
 
         except Exception as e:
             logger.error(f"Failed to extract PDF text: {str(e)}")
-            raise StructureServiceError(f"PDF text extraction failed: {str(e)}")
+            raise StructureServiceError(f"PDF text extraction failed: {str(e)}") from e
 
     @tracer.capture_method
     def load_textract_results(self, textract_s3_key: str) -> Optional[dict[str, Any]]:
@@ -117,7 +117,7 @@ class StructureService:
                 logger.info("No Textract results available")
                 return None
             logger.error(f"Failed to load Textract results: {e}")
-            raise StructureServiceError(f"Failed to load Textract results: {e}")
+            raise StructureServiceError(f"Failed to load Textract results: {e}") from e
 
     @tracer.capture_method
     def call_bedrock_claude(self, request: BedrockRequest) -> BedrockResponse:
@@ -162,7 +162,7 @@ class StructureService:
         except ClientError as e:
             logger.error(f"Bedrock API call failed: {e}")
             metrics.add_metric(name="BedrockAPIErrors", unit=MetricUnit.Count, value=1)
-            raise StructureServiceError(f"Bedrock API call failed: {e}")
+            raise StructureServiceError(f"Bedrock API call failed: {e}") from e
 
     @tracer.capture_method
     def analyze_document_structure(
@@ -227,7 +227,7 @@ class StructureService:
             # Parse Bedrock response
             try:
                 structure_data = json.loads(bedrock_response.content)
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
                 # Try to extract JSON from response if wrapped in explanation
                 content = bedrock_response.content
                 start = content.find("{")
@@ -237,7 +237,7 @@ class StructureService:
                 else:
                     raise StructureServiceError(
                         "Could not parse Bedrock response as JSON"
-                    )
+                    ) from e
 
             # Convert to DocumentStructure
             doc_structure = self._convert_to_document_structure(
@@ -263,7 +263,7 @@ class StructureService:
             metrics.add_metric(
                 name="StructureAnalysisErrors", unit=MetricUnit.Count, value=1
             )
-            raise StructureServiceError(f"Structure analysis failed: {str(e)}")
+            raise StructureServiceError(f"Structure analysis failed: {str(e)}") from e
 
     def _convert_to_document_structure(
         self,
@@ -370,4 +370,4 @@ class StructureService:
             logger.error(f"Failed to save document structure: {error_code}")
             raise StructureServiceError(
                 f"Failed to save document structure: {error_code}"
-            )
+            ) from e

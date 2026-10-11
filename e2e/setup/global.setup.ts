@@ -1,4 +1,4 @@
-import { test as setup, expect } from '@playwright/test';
+import { test as setup, type APIRequestContext } from '@playwright/test';
 
 /**
  * Global setup for Playwright tests.
@@ -16,7 +16,7 @@ setup('global setup', async ({ request }) => {
   console.log('✅ Global test setup completed');
 });
 
-async function waitForServices(request: any) {
+async function waitForServices(request: APIRequestContext) {
   console.log('⏳ Waiting for services to be ready...');
 
   const services = [
@@ -53,7 +53,7 @@ async function waitForServices(request: any) {
   }
 }
 
-async function setupTestData(request: any) {
+async function setupTestData(request: APIRequestContext) {
   console.log('📝 Setting up test data...');
 
   try {
@@ -101,7 +101,7 @@ async function setupTestData(request: any) {
   }
 }
 
-async function setupTestAPIKeys(request: any) {
+async function setupTestAPIKeys(request: APIRequestContext) {
   try {
     // First authenticate as admin
     const authResponse = await request.post(

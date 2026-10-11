@@ -1,4 +1,4 @@
-# Backend configuration for the staging AWS account.
+# Backend configuration for staging, which lives in the dev AWS account beside dev.
 # Bucket and table are created by infra/terraform/bootstrap (see its README).
 bucket         = "pdf-accessibility-terraform-state-staging"
 key            = "platform/terraform.tfstate"

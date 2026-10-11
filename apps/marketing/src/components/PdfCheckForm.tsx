@@ -202,12 +202,12 @@ export function PdfCheckForm() {
         <div
           onDragOver={(event) => event.preventDefault()}
           onDrop={onDrop}
-          className="rounded-lg border-2 border-dashed border-line p-6 text-center"
+          className="rounded-sm border-2 border-dashed border-field bg-bg p-8 text-center"
         >
           <label htmlFor={`${id}-file`} className="block font-semibold">
             Choose a PDF (up to 25 MB)
           </label>
-          <p className="mt-1 text-sm text-muted">
+          <p className="mt-1 text-[0.9375rem] text-muted">
             Drag a file here or use the button. Five checks per day.
           </p>
           <input
@@ -222,14 +222,14 @@ export function PdfCheckForm() {
             aria-invalid={fileError ? true : undefined}
           />
           {file ? (
-            <p className="mt-2 text-sm" aria-live="polite">
+            <p className="mt-3 text-[0.9375rem]" aria-live="polite">
               Selected: {file.name} ({(file.size / 1024 / 1024).toFixed(1)} MB)
             </p>
           ) : null}
           {fileError ? (
             <p
               id={`${id}-file-error`}
-              className="mt-2 text-sm font-semibold text-warn"
+              className="mt-3 text-[0.9375rem] font-semibold text-warn"
               role="alert"
             >
               {fileError}
@@ -243,20 +243,26 @@ export function PdfCheckForm() {
               ? 'Checking…'
               : 'Check this PDF'}
         </Button>
-        <p className="mt-4 text-sm text-muted" aria-live="polite">
+        <p className="mt-4 text-[0.9375rem] text-muted" aria-live="polite">
           {busy ? 'This usually takes under a minute.' : ''}
         </p>
       </form>
 
       {state.kind === 'error' ? (
-        <p className="rounded-md border border-warn p-3 text-warn" role="alert">
+        <p
+          className="rounded-sm border-l-4 border-warn bg-surface p-4 text-warn"
+          role="alert"
+        >
           {state.message}
         </p>
       ) : null}
 
       {state.kind === 'done' && state.result.summary ? (
         <div role="region" aria-labelledby={`${id}-results`}>
-          <h3 id={`${id}-results`} className="text-xl font-bold">
+          <h3
+            id={`${id}-results`}
+            className="font-display text-[1.5rem] font-medium leading-tight"
+          >
             What we found
           </h3>
           <p className="mt-1 text-muted">
@@ -269,14 +275,14 @@ export function PdfCheckForm() {
               Summary of the uploaded PDF
             </caption>
             <thead>
-              <tr className="border-b border-line">
-                <th scope="col" className="py-2 pr-4">
+              <tr className="border-b border-ink text-[0.9375rem]">
+                <th scope="col" className="py-3 pr-4 font-semibold">
                   Check
                 </th>
-                <th scope="col" className="py-2 pr-4">
+                <th scope="col" className="py-3 pr-4 font-semibold">
                   Result
                 </th>
-                <th scope="col" className="py-2">
+                <th scope="col" className="py-3 font-semibold">
                   What it means
                 </th>
               </tr>
@@ -284,13 +290,13 @@ export function PdfCheckForm() {
             <tbody>
               {ROWS.map((row) => (
                 <tr key={row.key} className="border-b border-line align-top">
-                  <th scope="row" className="py-2 pr-4 font-semibold">
+                  <th scope="row" className="py-3 pr-4 font-semibold">
                     {row.label}
                   </th>
-                  <td className="py-2 pr-4">
+                  <td className="py-3 pr-4">
                     {formatValue(state.result.summary?.[row.key])}
                   </td>
-                  <td className="py-2 text-muted">{row.explain}</td>
+                  <td className="py-3 text-muted">{row.explain}</td>
                 </tr>
               ))}
             </tbody>

@@ -105,8 +105,8 @@ class IdempotencyStore:
                 raise IdempotencyError(
                     f"Operation already in progress for key: {idempotency_key}",
                     key=idempotency_key,
-                )
-            raise IdempotencyError(f"Failed to save idempotency record: {e}")
+                ) from e
+            raise IdempotencyError(f"Failed to save idempotency record: {e}") from e
 
     @tracer.capture_method
     def save_success(self, idempotency_key: str, response_data: dict[str, Any]) -> None:
@@ -234,7 +234,7 @@ def generate_idempotency_key(
         return f"{context.function_name}#{key_hash}"
 
     except Exception as e:
-        raise IdempotencyError(f"Failed to generate idempotency key: {e}")
+        raise IdempotencyError(f"Failed to generate idempotency key: {e}") from e
 
 
 def idempotent(

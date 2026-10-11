@@ -198,7 +198,7 @@ class QuarantineSystem:
                 user_id,
                 f"Failed to quarantine file {original_filename}: {str(e)}",
             )
-            raise Exception(f"Failed to quarantine file: {str(e)}")
+            raise Exception(f"Failed to quarantine file: {str(e)}") from e
 
     def get_quarantine_record(self, quarantine_id: str) -> Optional[QuarantineRecord]:
         """
@@ -561,7 +561,7 @@ class QuarantineSystem:
         try:
             with open(self.access_log_path, "a") as f:
                 f.write(json.dumps(log_entry) + "\n")
-        except:
+        except Exception:
             pass  # Don't fail if logging fails
 
     def _handle_approved_file(self, record: QuarantineRecord):
@@ -581,7 +581,7 @@ class QuarantineSystem:
         try:
             if os.path.exists(record.storage_path):
                 os.remove(record.storage_path)
-        except:
+        except Exception:
             pass
 
 

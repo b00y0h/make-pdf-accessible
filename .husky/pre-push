@@ -71,13 +71,33 @@ else
         fi
     fi
     
-    # Quick Python check
+    # Quick Python check: lint only the Python files this branch changes, the
+    # same way pre-commit lints only staged files, so findings in untouched
+    # files can't block a push
     if [ -f "venv/bin/activate" ]; then
         . venv/bin/activate
-        if ! ./venv/bin/ruff check .; then
-            echo "${RED}❌ Python linting issues found!${NC}"
-            echo "${YELLOW}💡 Run: ./venv/bin/ruff check --fix .${NC}"
-            exit 1
+
+        # Compare against the upstream branch, or main on a first push. The
+        # `|| base=""` keeps `sh -e` from exiting when there is no merge base.
+        if upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null); then
+            base=$(git merge-base HEAD "$upstream" 2>/dev/null) || base=""
+        else
+            base=$(git merge-base HEAD origin/main 2>/dev/null) || base=""
+        fi
+
+        if [ -n "$base" ]; then
+            python_files=$(git diff --name-only --diff-filter=d "$base" HEAD -- '*.py')
+        else
+            # No base to compare against, so lint everything
+            python_files="."
+        fi
+
+        if [ -n "$python_files" ]; then
+            if ! ./venv/bin/ruff check $python_files; then
+                echo "${RED}❌ Python linting issues found!${NC}"
+                echo "${YELLOW}💡 Run: ./venv/bin/ruff check --fix $(echo $python_files)${NC}"
+                exit 1
+            fi
         fi
     fi
 fi

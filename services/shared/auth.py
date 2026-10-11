@@ -135,14 +135,16 @@ class BetterAuthJWT:
 
             return claims
 
-        except ExpiredSignatureError:
-            raise AuthenticationError("Token has expired")
+        except ExpiredSignatureError as e:
+            raise AuthenticationError("Token has expired") from e
         except _JWT_CLAIMS_ERRORS as e:
-            raise AuthenticationError(f"Token claims validation failed: {str(e)}")
+            raise AuthenticationError(
+                f"Token claims validation failed: {str(e)}"
+            ) from e
         except InvalidTokenError as e:
-            raise AuthenticationError(f"Token validation failed: {str(e)}")
+            raise AuthenticationError(f"Token validation failed: {str(e)}") from e
         except Exception as e:
-            raise AuthenticationError(f"Token verification error: {str(e)}")
+            raise AuthenticationError(f"Token verification error: {str(e)}") from e
 
     def extract_user_info(self, claims: dict[str, Any]) -> UserInfo:
         """
@@ -220,13 +222,13 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e),
             headers={"WWW-Authenticate": "Bearer"},
-        )
-    except Exception:
+        ) from e
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from e
 
 
 def get_admin_user(current_user: UserInfo = Depends(get_current_user)) -> UserInfo:
@@ -297,7 +299,7 @@ def optional_auth(
     try:
         claims = auth_jwt.verify_jwt_token(credentials.credentials)
         return auth_jwt.extract_user_info(claims)
-    except:
+    except Exception:
         return None
 
 

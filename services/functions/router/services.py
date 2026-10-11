@@ -60,7 +60,7 @@ class RouterService:
 
         except ClientError as e:
             logger.error(f"Failed to check document existence for {doc_id}: {e}")
-            raise AWSServiceError(f"Database error: {e}")
+            raise AWSServiceError(f"Database error: {e}") from e
 
     @tracer.capture_method
     async def download_and_store_from_url(
@@ -106,10 +106,10 @@ class RouterService:
 
         except httpx.HTTPError as e:
             logger.error(f"Failed to download from URL {source_url}: {e}")
-            raise AWSServiceError(f"Failed to download file: {e}")
+            raise AWSServiceError(f"Failed to download file: {e}") from e
         except ClientError as e:
             logger.error(f"Failed to upload to S3 for {doc_id}: {e}")
-            raise AWSServiceError(f"S3 upload failed: {e}")
+            raise AWSServiceError(f"S3 upload failed: {e}") from e
 
     @tracer.capture_method
     def copy_uploaded_file(
@@ -146,7 +146,7 @@ class RouterService:
 
         except ClientError as e:
             logger.error(f"Failed to copy file for {doc_id}: {e}")
-            raise AWSServiceError(f"S3 copy failed: {e}")
+            raise AWSServiceError(f"S3 copy failed: {e}") from e
 
     @tracer.capture_method
     def save_document_record(self, document: DocumentRecord) -> None:
@@ -180,7 +180,7 @@ class RouterService:
 
         except ClientError as e:
             logger.error(f"Failed to save document record {document.doc_id}: {e}")
-            raise AWSServiceError(f"Database save failed: {e}")
+            raise AWSServiceError(f"Database save failed: {e}") from e
 
     @tracer.capture_method
     def create_job_record(self, job: JobRecord) -> None:
@@ -217,7 +217,7 @@ class RouterService:
 
         except ClientError as e:
             logger.error(f"Failed to create job record {job.job_id}: {e}")
-            raise AWSServiceError(f"Database save failed: {e}")
+            raise AWSServiceError(f"Database save failed: {e}") from e
 
     @tracer.capture_method
     def enqueue_process_message(self, message: ProcessMessage) -> None:
@@ -273,4 +273,4 @@ class RouterService:
             logger.error(
                 f"Failed to enqueue process message for job {message.job_id}: {e}"
             )
-            raise AWSServiceError(f"Queue send failed: {e}")
+            raise AWSServiceError(f"Queue send failed: {e}") from e
