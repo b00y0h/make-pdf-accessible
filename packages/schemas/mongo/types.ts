@@ -15,20 +15,10 @@ export type DocumentStatus =
   | 'notification_failed';
 
 export type JobStatus =
-  | 'pending'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'retry'
-  | 'timeout';
+  'pending' | 'running' | 'completed' | 'failed' | 'retry' | 'timeout';
 
 export type ProcessingStep =
-  | 'structure'
-  | 'ocr'
-  | 'tagger'
-  | 'validator'
-  | 'exporter'
-  | 'notifier';
+  'structure' | 'ocr' | 'tagger' | 'validator' | 'exporter' | 'notifier';
 
 export type ValidationLevel = 'error' | 'warning' | 'info';
 
@@ -157,7 +147,7 @@ export interface JobInput {
     html?: string | null;
     [key: string]: string | null | undefined;
   };
-  configuration?: Record<string, any>;
+  configuration?: Record<string, unknown>;
 }
 
 export interface JobMetrics {
@@ -169,13 +159,13 @@ export interface JobMetrics {
 export interface JobOutput {
   s3Keys?: Record<string, string>;
   metrics?: JobMetrics;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
 }
 
 export interface JobError {
   code: string;
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   stack?: string | null;
   timestamp: Date;
 }
@@ -203,7 +193,7 @@ export interface JobLogEntry {
   timestamp: Date;
   level: LogLevel;
   message: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 export interface MongoJob {
@@ -304,7 +294,7 @@ export interface IndexDefinition {
     sparse?: boolean;
     background?: boolean;
     expireAfterSeconds?: number;
-    partialFilterExpression?: Record<string, any>;
+    partialFilterExpression?: Record<string, unknown>;
   };
 }
 
@@ -385,7 +375,8 @@ export const COLLECTIONS = {
 export type CollectionName = keyof typeof COLLECTIONS;
 
 // LLM Corpus Preparation Types
-export type ChunkType = 'text' | 'table' | 'figure' | 'heading' | 'list' | 'caption';
+export type ChunkType =
+  'text' | 'table' | 'figure' | 'heading' | 'list' | 'caption';
 
 export interface BoundingBox {
   left: number;
@@ -401,44 +392,44 @@ export interface TextChunk {
   type: ChunkType;
   content: string;
   cleanedContent: string; // Processed for LLM consumption
-  
+
   // Positional context
   page: number;
   boundingBox?: BoundingBox;
   sectionPath: string[]; // e.g., ["Introduction", "Methods", "Results"]
   hierarchyLevel?: number; // Heading level, table depth, etc.
-  
+
   // Content metadata
   characterCount: number;
   wordCount: number;
   hasCode?: boolean;
   hasMath?: boolean;
   hasLinks?: boolean;
-  
+
   // Associated media/figures
   altText?: string;
   caption?: string;
   figureType?: string; // chart, diagram, image, etc.
-  
+
   // Table-specific metadata
   tableStructure?: {
     rows: number;
     columns: number;
     hasHeaders: boolean;
     markdownRepresentation?: string;
-    jsonRepresentation?: Record<string, any>;
+    jsonRepresentation?: Record<string, unknown>;
   };
-  
+
   // Relationships
   parentChunkId?: string;
   childChunkIds: string[];
   siblingChunkIds: string[];
-  
+
   // Quality scores
   readabilityScore?: number;
   structuralIntegrity?: number;
   accessibilityScore?: number;
-  
+
   // Processing metadata
   extractionMethod: 'textract' | 'pypdf2' | 'pdfplumber';
   extractionConfidence?: number;
@@ -450,15 +441,15 @@ export interface EmbeddingVector {
   id: string;
   chunkId: string;
   docId: string;
-  
+
   // Vector data
   vector: number[];
   model: string; // e.g., "amazon.titan-embed-text-v1"
   dimensions: number;
-  
+
   // Content preview for debugging
   contentPreview: string; // First 100 chars
-  
+
   // Embedding metadata
   createdAt: Date;
   modelVersion?: string;
@@ -469,7 +460,7 @@ export interface DocumentCorpus {
   totalChunks: number;
   chunks: TextChunk[];
   embeddings?: EmbeddingVector[];
-  
+
   // Corpus-level metadata
   totalCharacters: number;
   totalWords: number;
@@ -480,16 +471,16 @@ export interface DocumentCorpus {
     median: number;
     p95: number;
   };
-  
+
   // Content analysis
   topicSummary?: string;
   keyEntities?: string[];
   contentTypes: Record<ChunkType, number>;
-  
+
   // Quality metrics
   overallReadability?: number;
   structuralCompleteness?: number;
-  
+
   // Processing info
   processedAt: Date;
   processingVersion: string;
@@ -551,21 +542,21 @@ export interface RAGQuery {
   id: string;
   question: string;
   userId: string;
-  
+
   // Search context
   retrievalResults: SearchResult[];
   selectedChunks: string[]; // Chunk IDs used for answer
-  
+
   // Answer generation
   answer: string;
   citations: CitationContext[];
   confidence: number;
-  
+
   // Processing metadata
   processingTimeMs: number;
   modelUsed: string;
   tokensUsed?: number;
-  
+
   createdAt: Date;
 }
 

@@ -197,20 +197,22 @@ export const ANALYTICS_INDEXES: IndexDefinition[] = [
   },
 ];
 
+// Object.hasOwn would be simpler, but the dashboard's TypeScript lib predates it
+const hasKey = (index: IndexDefinition, key: string) =>
+  Object.prototype.hasOwnProperty.call(index.keys, key);
+
 // All indexes combined
 export const ALL_INDEXES = {
   documents: [
     ...DOCUMENT_INDEXES,
     ...ANALYTICS_INDEXES.filter(
-      (idx) =>
-        idx.keys.hasOwnProperty('ownerId') || idx.keys.hasOwnProperty('docId')
+      (idx) => hasKey(idx, 'ownerId') || hasKey(idx, 'docId')
     ),
   ],
   jobs: [
     ...JOB_INDEXES,
     ...ANALYTICS_INDEXES.filter(
-      (idx) =>
-        idx.keys.hasOwnProperty('step') || idx.keys.hasOwnProperty('docId')
+      (idx) => hasKey(idx, 'step') || hasKey(idx, 'docId')
     ),
   ],
 };
