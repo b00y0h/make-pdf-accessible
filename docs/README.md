@@ -8,6 +8,7 @@
 | [`research/higher-ed-market-research-2026-09.md`](research/higher-ed-market-research-2026-09.md) | Market and regulatory research (ADA Title II, Section 504, state law), demand evidence, competitors, code audit     |
 | [`research/ithaka-pipeline-analysis.md`](research/ithaka-pipeline-analysis.md)                   | Analysis of ITHAKA's on-demand PDF remediation pipeline on AWS: what to adopt, where to go further                  |
 | [`research/pdfix-licensing-2026-10.md`](research/pdfix-licensing-2026-10.md)                     | PDFix SDK licensing for a multi-tenant SaaS: public terms and prices, questions to ask, contacts, draft email        |
+| [`research/identity-options-2026-10.md`](research/identity-options-2026-10.md)                   | B2B identity for customers of every size: Cognito vs WorkOS, Auth0, Clerk and others; recommendation for ADR-0007   |
 
 ## Product requirement documents (PRDs)
 

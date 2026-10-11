@@ -2,7 +2,7 @@
 
 - **Status:** Proposed (on hold since 2026-10-10)
 - **Date:** 2026-09-28
-- **Hold:** The owner asked for research before deciding: identity has to be flexible and scalable, and workable for organizations of every size, from small companies without an identity provider to enterprises and universities that require SSO.
+- **Hold:** The owner asked for research before deciding: identity has to be flexible and scalable, and workable for organizations of every size, from small companies without an identity provider to enterprises and universities that require SSO. The research (`docs/research/identity-options-2026-10.md`) recommends keeping Cognito, on the Essentials plan, as token issuer and federation broker, owning organizations, verified domains and SSO enforcement in our database, and buying SCIM per deal. It lists the changes this ADR would need and two prototypes (Shibboleth, Microsoft per-tenant OIDC) to pass before acceptance.
 - **Deciders:** Founder (product and engineering)
 - **Scope:** Authentication and authorization for dashboard, API and LTI tool
 - **Related:** `docs/ENTERPRISE-READINESS-PRD.md`, ADR-0008
