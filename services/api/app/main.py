@@ -17,6 +17,7 @@ from .middleware import APIKeyAuthMiddleware
 from .models import ErrorResponse, HealthResponse
 from .routes import (
     admin,
+    alt_text,
     api_keys,
     auth,
     client,
@@ -367,6 +368,7 @@ async def root() -> dict[str, str]:
 # Include routers with versioning
 app.include_router(auth.router, prefix="/v1")
 app.include_router(documents.router, prefix="/v1")
+app.include_router(alt_text.router, prefix="/v1")
 app.include_router(demo.router, prefix="/v1")
 app.include_router(webhooks.router, prefix="/v1")
 app.include_router(reports.router, prefix="/v1")
@@ -384,6 +386,7 @@ app.include_router(registration.router)
 # Legacy routes (maintain backward compatibility)
 app.include_router(auth.router, tags=["legacy"])
 app.include_router(documents.router, tags=["legacy"])
+app.include_router(alt_text.router, tags=["legacy"])
 app.include_router(demo.router, tags=["legacy"])
 
 
