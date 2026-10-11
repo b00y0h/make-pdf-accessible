@@ -10,8 +10,9 @@ echo "${YELLOW}🔍 Running pre-commit checks...${NC}"
 # no longer exist on disk, so the tools below can't check them)
 staged_files=$(git diff --cached --name-only --diff-filter=ACMR)
 
-# Check if there are any staged files
-if [ -z "$staged_files" ]; then
+# Check if anything is staged (a commit that only deletes files still gets
+# the type check below)
+if git diff --cached --quiet; then
     echo "${YELLOW}No staged files to check${NC}"
     exit 0
 fi
@@ -103,18 +104,32 @@ if [ ! -z "$ts_files" ]; then
                 has_errors=true
             fi
         fi
-
-        # TypeScript type check for changed files
-        if echo "$ts_files" | grep -E '\.(ts|tsx)$' >/dev/null; then
-            if ! pnpm exec tsc --noEmit 2>/dev/null; then
-                echo "${RED}❌ TypeScript type errors found${NC}"
-                echo "${YELLOW}💡 Run: pnpm run type-check${NC}"
-                has_errors=true
-            fi
-        fi
     else
         echo "${YELLOW}⚠️  pnpm or node_modules not available, skipping JS/TS checks${NC}"
     fi
+fi
+
+# Type-check each project the root tsconfig.json references that has staged
+# TypeScript changes. Deleted files count, since removing a file can break the
+# files that import it. The root tsconfig itself has no files to check.
+ts_changed_files=$(git diff --cached --name-only --diff-filter=ACMRD | grep -E '\.(ts|tsx)$' || true)
+if [ ! -z "$ts_changed_files" ] && command -v pnpm >/dev/null 2>&1 && [ -d "node_modules" ]; then
+    ts_projects=$(node -p "require('./tsconfig.json').references.map((r) => r.path.replace(/^\.\//, '')).join('\n')")
+    for project in $ts_projects; do
+        if echo "$ts_changed_files" | grep -q "^$project/"; then
+            if [ ! -d "$project/node_modules" ]; then
+                echo "${YELLOW}⚠️  $project/node_modules not available, skipping its type check${NC}"
+                continue
+            fi
+
+            echo "${YELLOW}📝 Type-checking $project...${NC}"
+            if ! pnpm --dir "$project" exec tsc --noEmit 2>/dev/null; then
+                echo "${RED}❌ TypeScript type errors found in $project${NC}"
+                echo "${YELLOW}💡 Run: pnpm --dir $project exec tsc --noEmit${NC}"
+                has_errors=true
+            fi
+        fi
+    done
 fi
 
 # Check GitHub Actions workflow files
@@ -145,8 +160,9 @@ fi
 # Check for common issues
 echo "${YELLOW}🔍 Checking for common issues...${NC}"
 
-# Check for merge conflict markers
-if echo "$staged_files" | xargs grep -l "^<<<<<<< \|^======= \|^>>>>>>> " 2>/dev/null; then
+# Check for merge conflict markers (skipped when only deletions are staged:
+# xargs runs nothing on empty input and exits 0, which would read as a match)
+if [ ! -z "$staged_files" ] && echo "$staged_files" | xargs grep -l "^<<<<<<< \|^======= \|^>>>>>>> " 2>/dev/null; then
     echo "${RED}❌ Merge conflict markers found in staged files${NC}"
     has_errors=true
 fi
