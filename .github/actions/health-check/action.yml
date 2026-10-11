@@ -109,12 +109,15 @@ runs:
               # Measure response time
               START_TIME=$(date +%s%3N)
 
-              # Invoke Lambda function
+              # Invoke Lambda function. AWS CLI v2 reads --payload as base64 unless told the
+              # payload is raw JSON. stderr goes to its own file, so a CLI warning can't
+              # break the jq parse of the invoke result on stdout.
               if INVOKE_RESULT=$(timeout $TIMEOUT aws lambda invoke \
                 --function-name "${{ inputs.lambda_function_name }}" \
                 --payload "$HEALTH_PAYLOAD" \
+                --cli-binary-format raw-in-base64-out \
                 --output json \
-                response.json 2>&1); then
+                response.json 2>invoke_stderr.txt); then
 
                 END_TIME=$(date +%s%3N)
                 RESPONSE_TIME=$((END_TIME - START_TIME))
@@ -156,7 +159,9 @@ runs:
                   echo "❌ Lambda invocation failed: $LAST_ERROR"
                 fi
               else
-                LAST_ERROR="Lambda invocation timeout or error: $INVOKE_RESULT"
+                # One line, since LAST_ERROR is written to GITHUB_OUTPUT as error=...
+                INVOKE_ERROR=$(tr -s '\n' ' ' < invoke_stderr.txt)
+                LAST_ERROR="Lambda invocation timeout or error: $INVOKE_ERROR"
                 echo "❌ Lambda invocation error: $LAST_ERROR"
               fi
               ;;
