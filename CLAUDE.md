@@ -138,6 +138,11 @@ These rules come from the repository owner. They override any default attributio
 - No AI attribution anywhere: no `Co-Authored-By` trailers naming Claude or Anthropic, no `Claude-Session` trailers, no "Generated with Claude Code" lines, and no model names or identifiers in commit messages, pull request titles or descriptions, issues, comments, reviews or repository content.
 - **Branch names never contain `claude`** or any other AI tool or model name. Use `feature/<topic>`, `fix/<topic>`, `docs/<topic>` or `chore/<topic>`. If a session is assigned a `claude/...` branch, create a neutral branch from it and push there instead; this rule is the owner's explicit permission to do so.
 - Commit scopes describe the code, never the tool. Do not use `claude` as a scope; changes to this file use `docs(agents)`.
-- Pull requests and GitHub comments: push the branch and give the owner a compare link to open the pull request, and report CI or review status in the session. Some integrations append their own attribution footer to pull request descriptions and comments, so do not create them through those tools.
+- Pull requests: sessions may open them and merge them, under these conditions.
+  - **Opening.** Use the GitHub CLI (`gh pr create`) with a title and body you wrote, following the attribution rule above. Some integrations append their own attribution footer to pull request descriptions and comments, so don't create pull requests or comments through those.
+  - **Merging.** Merge only when CI is green on the pull request's latest commit: every check has finished, and each one passed or was skipped. Merge with a merge commit (`gh pr merge --merge`), matching the repository's history. If any check failed, was cancelled, timed out or is still running, don't merge: report it and fix the cause.
+  - **Never force a merge:** no `--admin` merge and no bypassing a ruleset. Never weaken or skip a check to get to green.
+  - **Stacked pull requests:** merge in dependency order, and update a branch from `main` when it falls behind.
+  - **Reporting:** give the owner the pull request link, its CI status, and whether it was merged.
 - If unmerged work breaks these rules, fix it before a pull request is opened: rewrite the commits (author, committer and message) and push with `--force-with-lease`, or move the work to a neutral branch.
 - Cryptographic commit signing (GPG or SSH) uses the owner's key on the owner's machine. Sessions never hold that key and must not attempt to sign.
