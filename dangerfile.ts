@@ -28,6 +28,24 @@ const getFilesByExtension = (extensions: string[]) =>
     extensions.some((ext) => file.endsWith(ext))
   );
 
+const TEST_FILE_SUFFIXES = [
+  '.test.ts',
+  '.test.tsx',
+  '.test.py',
+  '.spec.ts',
+  '.spec.tsx',
+  '.spec.py',
+];
+// pytest's default discovery names: test_*.py and *_test.py
+const PYTEST_FILE_PATTERN = /(^|\/)(test_[^/]*|[^/]*_test)\.py$/;
+// Any file under a tests/, test/ or __tests__/ directory, at any depth
+const TEST_DIR_PATTERN = /(^|\/)(tests|test|__tests__)\//;
+
+const isTestFile = (file: string) =>
+  TEST_FILE_SUFFIXES.some((suffix) => file.endsWith(suffix)) ||
+  PYTEST_FILE_PATTERN.test(file) ||
+  TEST_DIR_PATTERN.test(file);
+
 // =============
 // PR Size Check
 // =============
@@ -149,29 +167,14 @@ const checkDocumentation = () => {
 
 const checkTests = () => {
   const hasCodeChanges = getFilesByExtension(['.py', '.ts', '.tsx']).length > 0;
-  const hasTestChanges =
-    getFilesByExtension([
-      '.test.ts',
-      '.test.tsx',
-      '.test.py',
-      '.spec.ts',
-      '.spec.tsx',
-      '.spec.py',
-    ]).length > 0;
+  // The warning and the count below use the same list so they always agree
+  const testFiles = getChangedFiles().filter(isTestFile);
 
-  if (hasCodeChanges && !hasTestChanges) {
+  if (hasCodeChanges && testFiles.length === 0) {
     warn(
       '🧪 No test changes detected. Consider adding tests for your changes.'
     );
   }
-
-  // Check for test files in proper locations
-  const testFiles = getChangedFiles().filter(
-    (file) =>
-      file.includes('/tests/') ||
-      file.includes('/__tests__/') ||
-      file.includes('/test/')
-  );
 
   if (testFiles.length > 0) {
     message(`✅ Test files modified: ${testFiles.length}`);
@@ -307,8 +310,7 @@ const checkTitleAndLabels = () => {
   if (hasChangesInPath('web/') || hasChangesInPath('dashboard/'))
     suggestedLabels.push('frontend');
   if (hasChangesInPath('infra/')) suggestedLabels.push('infrastructure');
-  if (getFilesByExtension(['.test.', '.spec.']).length > 0)
-    suggestedLabels.push('tests');
+  if (getChangedFiles().some(isTestFile)) suggestedLabels.push('tests');
   if (getFilesByExtension(['.md']).length > 0)
     suggestedLabels.push('documentation');
 
