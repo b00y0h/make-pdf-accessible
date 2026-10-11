@@ -40,7 +40,7 @@ class DynamoDBRepository(Generic[T]):
             self._table = self._dynamodb.Table(table_name)
 
         except Exception as e:
-            raise WorkerConfigError(f"Failed to initialize DynamoDB client: {e}")
+            raise WorkerConfigError(f"Failed to initialize DynamoDB client: {e}") from e
 
         logger.info(f"Initialized DynamoDB repository for table: {table_name}")
 

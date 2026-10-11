@@ -20,8 +20,6 @@ try:
     from timeout_enforcement import (
         JobTimeoutEnforcer,
         TimeoutConfig,
-        TimeoutEvent,
-        TimeoutReason,
         get_timeout_enforcer,
     )
 except ImportError:

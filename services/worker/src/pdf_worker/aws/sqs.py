@@ -65,7 +65,7 @@ class SQSClient:
                 "sqs", region_name=region_name or config.aws_region
             )
         except Exception as e:
-            raise WorkerConfigError(f"Failed to initialize SQS client: {e}")
+            raise WorkerConfigError(f"Failed to initialize SQS client: {e}") from e
 
         logger.info(
             f"Initialized SQS client for region: {region_name or config.aws_region}"
