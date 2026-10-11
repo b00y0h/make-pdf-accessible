@@ -22,10 +22,10 @@ locals {
     managed_by       = "terraform"
     repo             = var.repo
 
-    # Legacy tags (for backwards compatibility)
-    Project     = var.project_name
-    Environment = var.environment
-    ManagedBy   = "terraform"
+    # Legacy tags (for backwards compatibility). No legacy Environment tag: IAM compares tag keys
+    # without case, so it would reject Environment next to environment on every role.
+    Project   = var.project_name
+    ManagedBy = "terraform"
   }
 
   # Component-specific tag variations

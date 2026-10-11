@@ -147,6 +147,40 @@ The first apply in a new account has two ordering requirements:
 
 Google sign-in through Cognito is off until `enable_google_login = true`. Turn it on after putting a real Google OAuth client in the `<env>/accesspdf/google-oauth` secret, which the first apply creates.
 
+### Marketing site only
+
+The first production milestone is the marketing site alone. These targets create it, the GitHub OIDC provider and the web deploy role, and nothing from the always-on platform stack (NAT gateways, VPC endpoints, DocumentDB, OpenSearch). Run them after step 1, once per account (`pdf-dev` with `dev.tfvars`, `pdf-prod` with `prod.tfvars`):
+
+```bash
+export AWS_PROFILE=pdf-prod
+VARS=-var-file=environments/prod.tfvars
+
+# The certificate first, then the DNS validation record to add in DNSimple
+terraform apply $VARS -target=aws_acm_certificate.main
+echo 'aws_acm_certificate.main.domain_validation_options' | terraform console $VARS
+
+# The rest; it finishes once ACM sees the validation record
+terraform apply $VARS \
+  -target=module.marketing_site \
+  -target=aws_iam_role_policy.github_web_deploy \
+  -target=aws_s3_bucket_server_side_encryption_configuration.cloudfront_logs \
+  -target=aws_s3_bucket_public_access_block.cloudfront_logs \
+  -target=aws_s3_bucket_lifecycle_configuration.cloudfront_logs
+
+terraform output github_web_deploy_role_arn
+terraform output marketing_site_bucket
+terraform output marketing_site_distribution_id
+terraform output marketing_site_distribution_domain
+```
+
+Then create the `<env>-web` environment in the repository's GitHub settings (Settings, Environments):
+
+- Secret `GITHUB_WEB_DEPLOY_ROLE_ARN`: the role ARN above. The role trusts only this environment.
+- Variables `MARKETING_S3_BUCKET` and `MARKETING_CLOUDFRONT_DISTRIBUTION_ID`: the bucket and distribution ID above.
+- For `prod-web`: required reviewers, and deployment branches limited to `main`.
+
+Run `.github/workflows/marketing-site.yml` and check the site on the CloudFront domain. Then point the site's DNS names at the distribution (step 3). The workflow's smoke test checks the site's real domain, so it passes once DNS has moved.
+
 ### 3. Configure DNS
 
 `terraform output dns_configuration` prints the records for DNSimple (see `DNSIMPLE_SETUP.md`). Production uses `makepdfaccessible.com`, `www`, `dashboard` and `api`; other environments use `<env>.makepdfaccessible.com`, `dashboard-<env>` and `api-<env>`.

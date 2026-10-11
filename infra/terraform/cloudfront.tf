@@ -112,7 +112,7 @@ resource "aws_cloudfront_distribution" "web" {
   # Logging
   logging_config {
     include_cookies = false
-    bucket          = aws_s3_bucket.cloudfront_logs.bucket_domain_name
+    bucket          = local.cloudfront_logs_bucket_domain_name
     prefix          = "cloudfront-logs/"
   }
 
@@ -144,6 +144,13 @@ resource "aws_s3_bucket_acl" "cloudfront_logs" {
   acl    = "private"
 
   depends_on = [aws_s3_bucket_ownership_controls.cloudfront_logs]
+}
+
+locals {
+  # CloudFront rejects a log bucket that has ACLs disabled, which is how S3 creates buckets.
+  # Taking the domain name from the ACL resource makes every distribution that logs here wait
+  # for the ownership controls and the ACL, also in a targeted apply.
+  cloudfront_logs_bucket_domain_name = "${aws_s3_bucket_acl.cloudfront_logs.bucket}.s3.amazonaws.com"
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "cloudfront_logs" {

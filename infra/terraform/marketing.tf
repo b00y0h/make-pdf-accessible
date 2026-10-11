@@ -14,7 +14,7 @@ module "marketing_site" {
   certificate_arn = aws_acm_certificate_validation.main.certificate_arn
   web_acl_arn     = var.enable_waf ? aws_wafv2_web_acl.cloudfront[0].arn : null
 
-  log_bucket_domain_name = aws_s3_bucket.cloudfront_logs.bucket_domain_name
+  log_bucket_domain_name = local.cloudfront_logs_bucket_domain_name
   log_prefix             = "marketing/"
 
   api_origin        = "https://${local.domains.api}"
