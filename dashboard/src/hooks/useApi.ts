@@ -35,14 +35,11 @@ export function useApiService() {
         url: config.url,
         method: config.method,
         data: config.data,
-        headers: config.headers,
       });
 
-      // Add dashboard internal authentication header
-      config.headers['X-Dashboard-Internal'] = 'true';
-      config.headers['X-Dashboard-Secret'] = 'dashboard_internal_secret_123';
-
-      // BetterAuth cookies handle dashboard user sessions internally
+      // BetterAuth cookies handle dashboard user sessions internally.
+      // Endpoints gated by the internal dashboard secret go through the
+      // dashboard's server routes under /api/documents instead.
       return config;
     });
 

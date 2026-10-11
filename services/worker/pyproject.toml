@@ -93,20 +93,9 @@ module = [
 ]
 ignore_missing_imports = true
 
-[tool.black]
-line-length = 100
-target-version = ['py311']
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  \.git
-  | \.mypy_cache
-  | \.pytest_cache
-  | \.venv
-  | build
-  | dist
-)/
-'''
+# Black is configured once, in the repo-root pyproject.toml. Don't add a
+# [tool.black] section here: black would then use it for files checked one at
+# a time (as the pre-commit hook does), while CI runs `black .` from the root.
 
 [tool.ruff]
 line-length = 100

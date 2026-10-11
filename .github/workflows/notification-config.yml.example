@@ -94,10 +94,10 @@ jobs:
 # AWS_REGION - Your primary AWS region (e.g., us-east-1)
 
 # IAM Role ARNs (for each workflow type)
-# GITHUB_INFRASTRUCTURE_CI_ROLE_ARN - Infrastructure deployment role
-# GITHUB_LAMBDA_DEPLOY_ROLE_ARN - Lambda function deployment role
-# GITHUB_WEB_DEPLOY_ROLE_ARN - Web application deployment role
-# GITHUB_API_DEPLOY_ROLE_ARN - API deployment role
+# AWS_INFRASTRUCTURE_CI_ROLE_ARN - Infrastructure deployment role
+# AWS_LAMBDA_DEPLOY_ROLE_ARN - Lambda function deployment role
+# AWS_WEB_DEPLOY_ROLE_ARN - Web application deployment role
+# AWS_API_DEPLOY_ROLE_ARN - API deployment role
 
 ---
 
