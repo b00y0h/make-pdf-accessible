@@ -40,7 +40,7 @@ async def get_summary_report(
             extra={
                 "admin_user": current_user.sub,
                 "total_documents": report.total_documents,
-                "success_rate": report.success_rate,
+                "completion_rate": report.completion_rate,
             },
         )
 
@@ -144,7 +144,7 @@ async def export_documents_csv(
                     "owner_filter": owner_filter,
                     "status_filter": status_filter,
                 },
-                "filename": filename,
+                "export_filename": filename,
             },
         )
 
