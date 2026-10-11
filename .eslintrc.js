@@ -12,9 +12,9 @@ module.exports = {
     'venv/',
     '.venv/',
     // These apps lint themselves with their own eslint.config.mjs (ESLint 9).
-    'apps/',
-    'web/',
-    'dashboard/',
+    '/apps/',
+    '/web/',
+    '/dashboard/',
   ],
   overrides: [
     {
