@@ -140,7 +140,8 @@ These rules come from the repository owner. They override any default attributio
 - Commit scopes describe the code, never the tool. Do not use `claude` as a scope; changes to this file use `docs(agents)`.
 - Pull requests: sessions may open them and merge them, under these conditions.
   - **Opening.** Use the GitHub CLI (`gh pr create`) with a title and body you wrote, following the attribution rule above. Some integrations append their own attribution footer to pull request descriptions and comments, so don't create pull requests or comments through those.
-  - **Merging.** Merge only when CI is green on the pull request's latest commit: every check has finished, and each one passed or was skipped. Merge with a merge commit (`gh pr merge --merge`), matching the repository's history. If any check failed, was cancelled, timed out or is still running, don't merge: report it and fix the cause.
+  - **Merging.** Merge only when CI is green on the pull request's latest commit: every check has finished, and each one passed or was skipped. Use a merge commit, matching the repository's history. If any check failed, was cancelled, timed out or is still running, don't merge: report it and fix the cause.
+  - **Auto-merge.** Enabling auto-merge (`gh pr merge --auto --merge`) right after opening a pull request is the usual way to merge. The `main required checks` ruleset makes GitHub wait for `All Required Checks`, which covers the core test, build and security jobs. Checks outside it (Danger, for example) aren't enforced by GitHub. If one of them fails, turn auto-merge off (`gh pr merge --disable-auto`) until it's fixed.
   - **Never force a merge:** no `--admin` merge and no bypassing a ruleset. Never weaken or skip a check to get to green.
   - **Stacked pull requests:** merge in dependency order, and update a branch from `main` when it falls behind.
   - **Reporting:** give the owner the pull request link, its CI status, and whether it was merged.
