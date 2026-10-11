@@ -61,6 +61,11 @@ class Settings(BaseSettings):
 
     # Security
     webhook_secret_key: str = Field("", env="WEBHOOK_SECRET_KEY")
+    # Shared secret the dashboard server sends in X-Dashboard-Secret. No default:
+    # when unset, every internal dashboard request is rejected.
+    dashboard_internal_secret: Optional[str] = Field(
+        None, env="DASHBOARD_INTERNAL_SECRET"
+    )
     cors_origins: Optional[list[str]] = Field(None, env="CORS_ORIGINS")
 
     @field_validator("cors_origins", mode="before")

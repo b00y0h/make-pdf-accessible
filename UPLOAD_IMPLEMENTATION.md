@@ -186,6 +186,11 @@ PRESIGNED_URL_EXPIRATION=3600  # 1 hour
 
 # API Configuration
 CORS_ORIGINS=["http://localhost:3000", "https://yourdomain.com"]
+
+# Internal dashboard auth for POST /documents/upload/presigned and
+# DELETE /documents/{id}. No default: requests are rejected when unset.
+# The dashboard server sends the same value; generate with: openssl rand -hex 32
+DASHBOARD_INTERNAL_SECRET=
 ```
 
 ### Frontend Environment Variables

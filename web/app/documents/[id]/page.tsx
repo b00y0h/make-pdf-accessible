@@ -104,15 +104,11 @@ export default function DocumentDetailPage() {
 
   const handleDeleteDocument = async () => {
     try {
+      // Deletion goes through the dashboard's server route, which checks the
+      // dashboard session and adds the internal API credentials
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/documents/${docId}?confirm_deletion=true`,
-        {
-          method: 'DELETE',
-          headers: {
-            'X-Dashboard-Internal': 'true',
-            'X-Dashboard-Secret': 'dashboard_internal_secret_123',
-          },
-        }
+        `${process.env.NEXT_PUBLIC_DASHBOARD_URL || 'http://localhost:3001'}/api/documents/${docId}?confirm_deletion=true`,
+        { method: 'DELETE', credentials: 'include' }
       );
 
       if (!response.ok) {

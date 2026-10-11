@@ -182,6 +182,10 @@ REDIS_URL=redis://redis:6379
 # API Configuration
 API_SECRET_KEY=your-secret-key
 API_DEBUG=true
+# Shared secret for internal dashboard calls (upload and delete). No default:
+# the API rejects these calls when it is unset. Set the same value on the API
+# and the dashboard server. Generate with: openssl rand -hex 32
+DASHBOARD_INTERNAL_SECRET=
 
 # External Services
 AWS_ACCESS_KEY_ID=your-aws-key

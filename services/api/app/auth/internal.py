@@ -6,7 +6,7 @@ from typing import Optional
 
 from fastapi import Header, HTTPException, status
 
-from ..auth import User, get_current_user
+from ..auth import User, _dashboard_secret_matches, get_current_user
 
 
 async def get_dashboard_user(
@@ -21,10 +21,7 @@ async def get_dashboard_user(
     """
 
     # Check for dashboard internal headers
-    if (
-        x_dashboard_internal == "true"
-        and x_dashboard_secret == "dashboard_internal_secret_123"
-    ):
+    if x_dashboard_internal == "true" and _dashboard_secret_matches(x_dashboard_secret):
 
         # Return a dashboard system user
         return User(
@@ -55,10 +52,7 @@ async def get_user_flexible(
     """
 
     # Try dashboard internal auth first
-    if (
-        x_dashboard_internal == "true"
-        and x_dashboard_secret == "dashboard_internal_secret_123"
-    ):
+    if x_dashboard_internal == "true" and _dashboard_secret_matches(x_dashboard_secret):
         return User(
             sub="dashboard_system_user",
             email="dashboard@system.local",
