@@ -1,3 +1,5 @@
+import hmac
+import logging
 from typing import Optional
 
 import requests
@@ -5,6 +7,8 @@ from fastapi import Depends, Header, HTTPException, Request, status
 
 from .config import settings
 from .models import UserRole
+
+logger = logging.getLogger(__name__)
 
 
 class BetterAuthSessionValidator:
@@ -15,61 +19,55 @@ class BetterAuthSessionValidator:
 
     def validate_session(self, request: Request) -> Optional[dict]:
         """Validate session with BetterAuth service by forwarding all cookies"""
+        # Never log cookie names or values, the response body or the session data:
+        # they carry session tokens and user details.
         try:
             # Forward all cookies from the original request to BetterAuth
             cookies = dict(request.cookies)
 
             if not cookies:
-                print("DEBUG: No cookies received from request")
+                logger.debug("No cookies received from request")
                 return None
 
-            print(
-                f"DEBUG: Forwarding {len(cookies)} cookies to BetterAuth: {list(cookies.keys())}"
-            )
-            print(f"DEBUG: BetterAuth URL: {self.better_auth_url}")
-
             auth_url = f"{self.better_auth_url}/api/auth/get-session"
-            print(f"DEBUG: Making request to: {auth_url}")
+            logger.debug("Forwarding %d cookies to %s", len(cookies), auth_url)
 
             # Call BetterAuth session endpoint with all cookies
             response = requests.get(auth_url, cookies=cookies, timeout=5.0)
 
-            print(f"DEBUG: BetterAuth response status: {response.status_code}")
+            logger.debug("BetterAuth response status: %s", response.status_code)
             if response.status_code != 200:
-                print(f"DEBUG: BetterAuth response body: {response.text}")
                 return None
 
             # Better Auth returns null for no session, or {session: {...}, user: {...}} for valid session
             response_text = response.text.strip()
-            print(f"DEBUG: BetterAuth raw response: {response_text}")
 
             if response_text == "null" or response_text == "":
-                print("DEBUG: No session (null response)")
+                logger.debug("No session (null response)")
                 return None
 
             try:
                 session_data = response.json()
             except Exception as e:
-                print(
-                    f"DEBUG: Failed to parse response as JSON: {response_text} - Error: {e}"
+                logger.debug(
+                    "Failed to parse BetterAuth response as JSON: %s",
+                    type(e).__name__,
                 )
                 return None
 
-            print(f"DEBUG: BetterAuth session data: {session_data}")
-
             # Check if we have both session and user data
             if not session_data or not isinstance(session_data, dict):
-                print("DEBUG: Invalid session data format")
+                logger.debug("Invalid session data format")
                 return None
 
             if not session_data.get("user"):
-                print("DEBUG: No user in session data")
+                logger.debug("No user in session data")
                 return None
 
             return session_data
 
         except Exception as e:
-            print(f"DEBUG: Session validation exception: {type(e).__name__}: {e}")
+            logger.debug("Session validation exception: %s", type(e).__name__)
             return None
 
 
@@ -154,6 +152,15 @@ def require_roles(required_roles: list[UserRole]):
     return role_checker
 
 
+def _dashboard_secret_matches(provided: Optional[str]) -> bool:
+    """Check the X-Dashboard-Secret header against the configured secret."""
+    expected = settings.dashboard_internal_secret
+    # An unset or empty secret disables internal dashboard access entirely
+    if not expected or not provided:
+        return False
+    return hmac.compare_digest(provided.encode(), expected.encode())
+
+
 async def get_dashboard_user(
     x_dashboard_internal: Optional[str] = Header(None),
     x_dashboard_secret: Optional[str] = Header(None),
@@ -161,10 +168,7 @@ async def get_dashboard_user(
     """Internal dashboard authentication for same-system communication."""
 
     # Check for dashboard internal headers
-    if (
-        x_dashboard_internal == "true"
-        and x_dashboard_secret == "dashboard_internal_secret_123"
-    ):
+    if x_dashboard_internal == "true" and _dashboard_secret_matches(x_dashboard_secret):
 
         # Return a dashboard system user
         return User(

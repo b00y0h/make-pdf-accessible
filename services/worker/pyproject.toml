@@ -93,9 +93,9 @@ module = [
 ]
 ignore_missing_imports = true
 
-# No [tool.black] here: black uses the repository root config (line length 88) for
-# this package, whether it is run per file by the pre-commit hook or over the whole
-# repository by CI.
+# Black is configured once, in the repo-root pyproject.toml. Don't add a
+# [tool.black] section here: black would then use it for files checked one at
+# a time (as the pre-commit hook does), while CI runs `black .` from the root.
 
 [tool.ruff]
 # Matches black's line length, which ruff's isort uses when wrapping imports.

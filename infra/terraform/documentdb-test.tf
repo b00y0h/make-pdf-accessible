@@ -18,7 +18,7 @@ resource "aws_lambda_function" "documentdb_test" {
 
   # VPC Configuration for DocumentDB access
   vpc_config {
-    subnet_ids         = aws_subnet.private[*].id
+    subnet_ids         = local.private_subnet_ids
     security_group_ids = [aws_security_group.lambda_sg.id]
   }
 

@@ -1,7 +1,7 @@
 # ADR-0002: Page-parallel orchestration on Step Functions Distributed Map with Lambda and Fargate
 
-- **Status:** Proposed
-- **Date:** 2026-09-28
+- **Status:** Accepted
+- **Date:** 2026-09-28 (accepted 2026-10-10)
 - **Deciders:** Founder (product and engineering)
 - **Scope:** Remediation pipeline compute and orchestration
 - **Related:** `docs/REMEDIATION-PIPELINE-PRD.md`, ADR-0001, ADR-0003
@@ -40,3 +40,4 @@ We will orchestrate every job with one Step Functions state machine: an ingest s
 
 - Measure PDFix merge fidelity on the eval set before committing to single-page units.
 - Define per-tier Map concurrency in Terraform variables.
+- New accounts start at 10 concurrent Lambda executions and 6 Fargate vCPU. Increases to 1,000 and 100 were requested for the dev account on 2026-10-10; request the prod account's before any load test. Dev and staging share the dev account's limits.

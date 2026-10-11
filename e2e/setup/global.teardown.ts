@@ -1,4 +1,4 @@
-import { test as teardown } from '@playwright/test';
+import { test as teardown, type APIRequestContext } from '@playwright/test';
 
 /**
  * Global teardown for Playwright tests.
@@ -13,7 +13,7 @@ teardown('global teardown', async ({ request }) => {
   console.log('✅ Global test teardown completed');
 });
 
-async function cleanupTestData(request: any) {
+async function cleanupTestData(request: APIRequestContext) {
   console.log('🗑️  Cleaning up test data...');
 
   try {
@@ -87,7 +87,7 @@ async function cleanupTestData(request: any) {
   }
 }
 
-async function cleanupTestAPIKeys(request: any) {
+async function cleanupTestAPIKeys(request: APIRequestContext) {
   try {
     // Get admin token
     const authResponse = await request.post(
@@ -141,7 +141,7 @@ async function cleanupTestAPIKeys(request: any) {
   }
 }
 
-async function cleanupTestFiles(request: any) {
+async function cleanupTestFiles(request: APIRequestContext) {
   try {
     // Get admin token
     const authResponse = await request.post(

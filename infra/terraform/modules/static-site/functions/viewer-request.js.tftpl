@@ -52,7 +52,11 @@ function handler(event) {
 
   var lastSegment = uri.substring(uri.lastIndexOf("/") + 1);
   if (lastSegment.indexOf(".") === -1) {
+%{ if primary_domain != "" ~}
     return redirect("https://" + PRIMARY_HOST + uri + "/" + qs);
+%{ else ~}
+    return redirect("https://" + host + uri + "/" + qs);
+%{ endif ~}
   }
 
   return request;

@@ -46,10 +46,10 @@ AWS_ACCOUNT_ID=123456789012
 AWS_REGION=us-east-1
 
 # IAM role ARNs for each workflow
-GITHUB_INFRASTRUCTURE_CI_ROLE_ARN=arn:aws:iam::123456789012:role/GitHubInfrastructureCI
-GITHUB_LAMBDA_DEPLOY_ROLE_ARN=arn:aws:iam::123456789012:role/GitHubLambdaDeploy
-GITHUB_WEB_DEPLOY_ROLE_ARN=arn:aws:iam::123456789012:role/GitHubWebDeploy
-GITHUB_API_DEPLOY_ROLE_ARN=arn:aws:iam::123456789012:role/GitHubAPIDeploy
+AWS_INFRASTRUCTURE_CI_ROLE_ARN=arn:aws:iam::123456789012:role/GitHubInfrastructureCI
+AWS_LAMBDA_DEPLOY_ROLE_ARN=arn:aws:iam::123456789012:role/GitHubLambdaDeploy
+AWS_WEB_DEPLOY_ROLE_ARN=arn:aws:iam::123456789012:role/GitHubWebDeploy
+AWS_API_DEPLOY_ROLE_ARN=arn:aws:iam::123456789012:role/GitHubAPIDeploy
 ```
 
 ### Slack Webhook Setup
