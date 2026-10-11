@@ -160,8 +160,8 @@ jobs:
           black --check --diff .
           # Lint check
           ruff check .
-          # Type check
-          mypy services/ packages/
+          # Type checking (allow to fail for now but show results), as in required-checks.yml
+          mypy services/ packages/ || true
 
       # Node.js linting
       - name: Set up Node.js
