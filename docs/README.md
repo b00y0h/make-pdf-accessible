@@ -2,13 +2,14 @@
 
 ## Plan and strategy
 
-| Document                                                                                         | Purpose                                                                                                             |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| [`business/BUSINESS-PLAN.md`](business/BUSINESS-PLAN.md)                                         | Business plan: market, positioning, pricing, go-to-market, unit economics, financial model, team, risks, milestones |
-| [`research/higher-ed-market-research-2026-09.md`](research/higher-ed-market-research-2026-09.md) | Market and regulatory research (ADA Title II, Section 504, state law), demand evidence, competitors, code audit     |
-| [`research/ithaka-pipeline-analysis.md`](research/ithaka-pipeline-analysis.md)                   | Analysis of ITHAKA's on-demand PDF remediation pipeline on AWS: what to adopt, where to go further                  |
-| [`research/pdfix-licensing-2026-10.md`](research/pdfix-licensing-2026-10.md)                     | PDFix SDK licensing for a multi-tenant SaaS: public terms and prices, questions to ask, contacts, draft email        |
-| [`research/identity-options-2026-10.md`](research/identity-options-2026-10.md)                   | B2B identity for customers of every size: Cognito vs WorkOS, Auth0, Clerk and others; recommendation for ADR-0007   |
+| Document                                                                                         | Purpose                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`business/BUSINESS-PLAN.md`](business/BUSINESS-PLAN.md)                                         | Business plan: market, positioning, pricing, go-to-market, unit economics, financial model, team, risks, milestones                                      |
+| [`research/higher-ed-market-research-2026-09.md`](research/higher-ed-market-research-2026-09.md) | Market and regulatory research (ADA Title II, Section 504, state law), demand evidence, competitors, code audit                                          |
+| [`research/ithaka-pipeline-analysis.md`](research/ithaka-pipeline-analysis.md)                   | Analysis of ITHAKA's on-demand PDF remediation pipeline on AWS: what to adopt, where to go further                                                       |
+| [`research/pdfix-licensing-2026-10.md`](research/pdfix-licensing-2026-10.md)                     | PDFix SDK licensing for a multi-tenant SaaS: public terms and prices, questions to ask, contacts, draft email                                            |
+| [`research/identity-options-2026-10.md`](research/identity-options-2026-10.md)                   | B2B identity for customers of every size: Cognito vs WorkOS, Auth0, Clerk and others; recommendation for ADR-0007                                        |
+| [`ADR-COMPLETION-PLAN.md`](ADR-COMPLETION-PLAN.md)                                               | What remains to implement ADR-0001 to ADR-0011 (audit of 2026-10-11): status per decision, decisions to take, owner actions, build order, in-flight work |
 
 ## Product requirement documents (PRDs)
 
