@@ -112,9 +112,6 @@ importers:
       vitest:
         specifier: ^5.0.2
         version: 5.0.2(@types/node@24.19.0)(@vitest/coverage-v8@5.0.2)(jsdom@30.1.1)(msw@2.15.0)(vite@8.3.1)
-      whatwg-node:
-        specifier: 0.0.1-security
-        version: 0.0.1-security
 
   apps/marketing:
     dependencies:
@@ -13052,10 +13049,6 @@ packages:
   /whatwg-mimetype@5.0.0:
     resolution: {integrity: sha512-sXcNcHOC51uPGF0P/D4NVtrkjSU2fNsm9iog4ZvZJsL3rjoDAzXZhkm2MWt1y+PUdggKAYVoMAIYcs78wJ51Cw==}
     engines: {node: '>=20'}
-
-  /whatwg-node@0.0.1-security:
-    resolution: {integrity: sha512-FTa/vSizqsrBc4KuXFGewFY0QEagklzcc9xSnR0F1/ybnQE9NHb3ujJKevQrRYP7xZgOAoVXgPa9HP2WOx9rfw==}
-    dev: true
 
   /whatwg-url@14.2.0:
     resolution: {integrity: sha512-De72GdQZzNTUBBChsXueQUnPKDkg/5A5zp7pFDuQAj5UFoENpiACU0wlCvzpAGnTkj++ihpKwKyYewn/XNUbKw==}
