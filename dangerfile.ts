@@ -305,8 +305,7 @@ const checkTitleAndLabels = () => {
   if (hasChangesInPath('web/') || hasChangesInPath('dashboard/'))
     suggestedLabels.push('frontend');
   if (hasChangesInPath('infra/')) suggestedLabels.push('infrastructure');
-  if (getFilesByExtension(['.test.', '.spec.']).length > 0)
-    suggestedLabels.push('tests');
+  if (getChangedFiles().some(isTestFile)) suggestedLabels.push('tests');
   if (getFilesByExtension(['.md']).length > 0)
     suggestedLabels.push('documentation');
 
