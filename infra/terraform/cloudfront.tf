@@ -278,8 +278,7 @@ resource "aws_wafv2_web_acl" "cloudfront" {
     }
   }
 
-  # Rule 4: Block specific countries (disabled by default)
-  # Uncomment and add country codes if geo-blocking is needed
+  # Rule 4: Block countries under comprehensive US sanctions
   rule {
     name     = "GeoBlockRule"
     priority = 4
@@ -290,7 +289,7 @@ resource "aws_wafv2_web_acl" "cloudfront" {
 
     statement {
       geo_match_statement {
-        country_codes = ["CU", "IR", "KP", "SY", "UA"] # Replace with actual country codes
+        country_codes = ["CU", "IR", "KP", "SY"]
       }
     }
 
