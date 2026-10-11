@@ -59,11 +59,14 @@ Add the following secrets to your GitHub repository (`Settings > Secrets and var
 
 - `AWS_REGION`: Your AWS region (e.g., `us-east-1`)
 - `AWS_ACCOUNT_ID`: Your AWS account ID
-- `GITHUB_INFRASTRUCTURE_CI_ROLE_ARN`: ARN from terraform output
-- `GITHUB_LAMBDA_DEPLOY_ROLE_ARN`: ARN from terraform output
-- `GITHUB_WEB_DEPLOY_ROLE_ARN`: ARN from terraform output
-- `GITHUB_API_DEPLOY_ROLE_ARN`: ARN from terraform output
-- `GITHUB_TESTING_ROLE_ARN`: ARN from terraform output
+- `AWS_INFRASTRUCTURE_CI_ROLE_ARN`: ARN from terraform output
+- `AWS_INFRASTRUCTURE_PLAN_ROLE_ARN`: a role for the pull request plan in `infra-ci.yml` that can read dev's Terraform state and take its lock, and has read-only access to everything else. No Terraform defines it yet; until it is set, pull requests skip the plan with a notice. Don't use the infrastructure CI role here: it can write state.
+- `AWS_LAMBDA_DEPLOY_ROLE_ARN`: ARN from terraform output
+- `AWS_WEB_DEPLOY_ROLE_ARN`: ARN from terraform output
+- `AWS_API_DEPLOY_ROLE_ARN`: ARN from terraform output
+- `AWS_TESTING_ROLE_ARN`: ARN from terraform output
+
+GitHub rejects secret names that start with `GITHUB_`, so the role secrets use the `AWS_` prefix.
 
 ## Role Permissions and Branch Restrictions
 
@@ -134,7 +137,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.GITHUB_LAMBDA_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_LAMBDA_DEPLOY_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
           role-session-name: GitHubActions-LambdaDeploy
 
@@ -171,7 +174,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.GITHUB_INFRASTRUCTURE_CI_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_INFRASTRUCTURE_CI_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
           role-session-name: GitHubActions-InfraCI
 

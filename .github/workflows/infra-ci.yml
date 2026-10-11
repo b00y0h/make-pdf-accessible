@@ -64,7 +64,9 @@ jobs:
         id: env-config
         uses: ./.github/actions/setup-environment
         with:
-          environment: ${{ inputs.environment || 'prod' }}
+          # Pull requests only plan, and terraform-plan plans them against dev, so load the
+          # dev config for them. Pushes to main resolve to prod, which only main may deploy.
+          environment: ${{ inputs.environment || (github.event_name == 'pull_request' && 'dev' || 'prod') }}
 
   terraform-validate:
     name: Terraform Validate
@@ -114,26 +116,61 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      # The plan needs a role that can read the target environment's Terraform state and take its
+      # state lock (get, put and delete items in the lock table), with read-only access to everything
+      # else; don't reuse the platform's infra-ci role, which can write state. Until
+      # AWS_INFRASTRUCTURE_PLAN_ROLE_ARN is set, pull requests skip the plan with a notice instead of
+      # failing; Dependabot and fork pull requests never receive secrets, so they always skip. A manual
+      # run still fails, because someone asked for a plan. The check runs inside the job because
+      # secrets can't be read in a job-level if.
+      - name: Check plan configuration
+        id: preflight
+        env:
+          PLAN_ROLE_ARN: ${{ secrets.AWS_INFRASTRUCTURE_PLAN_ROLE_ARN }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment || 'dev' }}
+        run: |
+          if [ -n "$PLAN_ROLE_ARN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "enabled=false" >> "$GITHUB_OUTPUT"
+          MESSAGE="Terraform plan skipped for $TARGET_ENVIRONMENT: AWS_INFRASTRUCTURE_PLAN_ROLE_ARN is not available to this run, so it has no AWS credentials."
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "::error::$MESSAGE"
+            exit 1
+          fi
+          MESSAGE="$MESSAGE Format, validate, TFLint, Checkov and Trivy still run."
+          echo "::notice::$MESSAGE"
+          {
+            echo "## Terraform plan skipped"
+            echo ""
+            echo "$MESSAGE"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Configure AWS credentials
+        if: steps.preflight.outputs.enabled == 'true'
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.GITHUB_INFRASTRUCTURE_CI_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_INFRASTRUCTURE_PLAN_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
           role-session-name: GitHubActions-InfraCI-Plan-${{ github.run_id }}
 
       - name: Setup Terraform
+        if: steps.preflight.outputs.enabled == 'true'
         uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
       - name: Terraform Init
         id: init
+        if: steps.preflight.outputs.enabled == 'true'
         run: |
           cd ${{ env.TF_WORKING_DIR }}
           terraform init -input=false -backend-config="environments/${{ inputs.environment || 'dev' }}.backend.hcl"
 
       - name: Terraform Plan
         id: plan
+        if: steps.preflight.outputs.enabled == 'true'
         run: |
           cd ${{ env.TF_WORKING_DIR }}
           terraform plan -input=false -detailed-exitcode -out=tfplan -var-file="environments/${{ inputs.environment || 'dev' }}.tfvars" 2>&1 | tee plan_output.txt
@@ -142,6 +179,7 @@ jobs:
 
       - name: Generate Plan Summary
         id: plan-summary
+        if: steps.preflight.outputs.enabled == 'true'
         run: |
           cd ${{ env.TF_WORKING_DIR }}
 
@@ -210,11 +248,23 @@ jobs:
             ${{ env.TF_WORKING_DIR }}/plan_output.txt
           retention-days: 30
 
+      # The plan step keeps going on error so the summary (and the PR comment built from it) can
+      # report the failure; fail the job here, last, so a broken plan doesn't pass the check.
+      - name: Fail on plan error
+        if: steps.preflight.outputs.enabled == 'true' && steps.plan.outputs.plan_exitcode != '0' && steps.plan.outputs.plan_exitcode != '2'
+        env:
+          PLAN_EXITCODE: ${{ steps.plan.outputs.plan_exitcode }}
+        run: |
+          echo "::error::terraform plan failed (exit code ${PLAN_EXITCODE:-unknown}); see the Terraform Plan step."
+          exit 1
+
   comment-pr:
     name: Comment on PR
     runs-on: ubuntu-latest
     needs: [terraform-validate, terraform-plan]
-    if: github.event_name == 'pull_request'
+    # Comment only when a plan ran, including a failed one. A skipped plan leaves no summary, and
+    # Dependabot and fork pull requests (which always skip) can't comment anyway.
+    if: github.event_name == 'pull_request' && !cancelled() && needs.terraform-plan.outputs.plan_summary != ''
 
     steps:
       - name: Comment PR
@@ -327,7 +377,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.GITHUB_INFRASTRUCTURE_CI_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_INFRASTRUCTURE_CI_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
           role-session-name: GitHubActions-InfraCI-Apply-${{ github.run_id }}
 
@@ -735,7 +785,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.GITHUB_INFRASTRUCTURE_CI_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_INFRASTRUCTURE_CI_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
           role-session-name: GitHubActions-InfraCI-Security-${{ github.run_id }}
 

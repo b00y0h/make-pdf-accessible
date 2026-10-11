@@ -98,7 +98,11 @@ Each microservice follows identical patterns:
 ## Code Quality Setup
 
 - **Virtual Environment**: All Python tooling runs in `venv/` (created by `make init`)
-- **Pre-commit Hooks**: Enforced via `.pre-commit-config.yaml`
+- **Git Hooks**: husky runs `.husky/pre-commit`, `.husky/commit-msg` and `.husky/pre-push` through `core.hooksPath` (`.husky/_`, created by `pnpm install`)
+  - Pre-commit lints and formats staged files with each app's own ESLint and Prettier, type-checks each project the root `tsconfig.json` references, runs Black and Ruff from `venv/`, scans for secrets and runs unit tests (`SKIP_TESTS=true` skips the tests)
+  - Checks whose tools are missing (`node_modules`, `venv/`) are skipped with a warning
+  - Commit messages, merge commits included, must follow Conventional Commits
+  - In a worktree, `core.hooksPath` must resolve to that worktree's own `.husky/_`. If `git config core.hooksPath` shows another checkout's path, run `git config --worktree --unset core.hooksPath`
 - **Python Standards**: Black formatting (88-char lines), Ruff linting, MyPy type checking
 - **TypeScript Standards**: ESLint + Prettier with Next.js config
 - **Testing**: Pytest with asyncio support, Jest for frontend
@@ -108,7 +112,8 @@ Each microservice follows identical patterns:
 - **`pyproject.toml`**: Python project config with Black/Ruff/MyPy settings
 - **`docker-compose.yml`**: Service definitions, ports, and dependencies
 - **`Makefile`**: Development workflow automation with virtual environment handling
-- **`.pre-commit-config.yaml`**: Automated code quality checks
+- **`.husky/`**: Git hooks that run on commit and push
+- **`.pre-commit-config.yaml`**: Checks for running `pre-commit run` by hand; commits use `.husky/`
 
 ## Integration Points
 
