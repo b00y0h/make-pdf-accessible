@@ -1,6 +1,6 @@
 # Identity for a B2B SaaS serving organizations of every size
 
-Research for ADR-0007 (on hold), compiled 10 October 2026 from official documentation and pricing pages. **UNV** marks claims that could not be confirmed on an official page. Prices are list prices on that date.
+Research for ADR-0007 (on hold), compiled 10 October 2026 from official documentation and pricing pages. **UNV** marks claims that could not be confirmed on an official page. Prices are list prices on that date. Prototype 1 (`prototypes/shibboleth-cognito/RESULTS.md`) tested the SAML claims against a stock Shibboleth IdP the same day; corrections from it are marked **Tested**.
 
 The owner's brief: identity must be flexible and scalable, and workable for every kind of customer, from a 3-person office with Google or Microsoft accounts and no identity administrator, to universities and enterprises that require SAML, SCIM and enforced SSO.
 
@@ -70,10 +70,11 @@ Costs are monthly. Scenario (a): 50 institutions with 50,000 monthly active user
    - The API rejects tokens whose `idp` doesn't match.
    - Keep one break-glass owner protected by a passkey or TOTP.
 6. **SAML profile:**
-   - Cognito keys users on NameID. A community report says it requests a persistent NameID with `AllowCreate="false"`, so a campus identity provider must issue persistent IDs to first-time users. The fallback is IdP-initiated sign-in through a SAML-only app client.
+   - Cognito keys users on NameID, naming each user `<ProviderName>_<NameID>` with a 128-character cap. **Tested:** contrary to a community report, Cognito's AuthnRequest has no NameID policy at all, so a campus on Shibboleth's defaults sends a 160-character transient ID and the sign-in fails. Our SP metadata must request `persistent`, and the campus must issue persistent IDs to us. Keep tenant provider names short (a tenant code) so long persistent IDs still fit.
    - Ship attribute-mapping presets for InCommon attribute OIDs.
    - Use metadata URLs, which Cognito caches for 6 hours.
-   - Sign AuthnRequests; assertion encryption is optional, with a key per identity provider.
+   - Sign AuthnRequests; assertion encryption is optional, with a key per identity provider. **Tested:** Cognito didn't decrypt AES-128-GCM (Shibboleth 5's default) and did decrypt AES-256-CBC, so our SP metadata advertises CBC `EncryptionMethod`s. Campuses can also turn encryption off for us.
+   - **Tested:** Cognito publishes no SP metadata, so we generate and host our own per pool.
 7. **Deprovisioning without SCIM:** refresh tokens last at most one day for SSO tenants (`cognito.tf` sets 30 days today), and sessions are revoked when a membership is removed.
 8. **Small offices and K-12:**
    - Email and password with TOTP or passkeys, email one-time codes, and Google all work natively.
@@ -97,7 +98,7 @@ Costs are monthly. Scenario (a): 50 institutions with 50,000 monthly active user
    - transient NameID, Shibboleth's default
    - `AllowCreate`
    - OID attribute names
-   - AES-GCM assertion encryption (Cognito support UNV)
+   - AES-GCM assertion encryption (**tested:** not supported; CBC works)
    - IdP-initiated sign-in
    - certificate rollover
 2. **Microsoft per-tenant OIDC** with a 3-person Microsoft 365 tenant, once with user consent allowed and once with it blocked.
@@ -111,7 +112,7 @@ Costs are monthly. Scenario (a): 50 institutions with 50,000 monthly active user
 - **SAML support load** falls on us without an admin portal.
 - **Sign-in path:** Lambda triggers sit on it.
 - **Subprocessor:** WorkOS joins the FERPA and HECVAT subprocessor lists.
-- **Also UNV:** whether WorkOS's volume tiers are graduated, and whether Cognito now publishes service-provider metadata (a 2019 Shibboleth knowledge-base page says it doesn't).
+- **Also UNV:** whether WorkOS's volume tiers are graduated. (Cognito publishing SP metadata was tested: it doesn't.)
 
 ## Sources
 
