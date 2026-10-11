@@ -72,8 +72,8 @@ jobs:
             TARGET_VERSION=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "latest-stable")
           fi
 
-          echo "target_version=$TARGET_VERSION" >> $GITHUB_OUTPUT
-          echo "approved=true" >> $GITHUB_OUTPUT
+          echo "target_version=$TARGET_VERSION" >> "$GITHUB_OUTPUT"
+          echo "approved=true" >> "$GITHUB_OUTPUT"
 
           # Log rollback initiation
           echo "::notice::Rollback initiated for ${{ github.event.inputs.service }} in ${{ github.event.inputs.environment }} to version $TARGET_VERSION"
@@ -102,12 +102,13 @@ jobs:
             --name live \
             --query 'FunctionVersion' \
             --output text)
-          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "current_version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Get rollback target version
         id: rollback-target
         run: |
-          # Get the version before current
+          # Get the version before current. The backticks are a JMESPath literal, not a shell expansion.
+          # shellcheck disable=SC2016
           VERSIONS=$(aws lambda list-versions-by-function \
             --function-name pdf-accessibility-api-${{ github.event.inputs.environment }} \
             --query 'Versions[?Version!=`$LATEST`].Version' \
@@ -121,7 +122,7 @@ jobs:
             exit 1
           fi
 
-          echo "target_version=$TARGET_VERSION" >> $GITHUB_OUTPUT
+          echo "target_version=$TARGET_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Rollback database migrations
         run: |
@@ -140,13 +141,15 @@ jobs:
             --function-version $TARGET_VERSION \
             --description "Rollback to version $TARGET_VERSION - Reason: ${{ github.event.inputs.reason }}"
 
+      # Invoke through the live alias, so the check runs the version just restored, not $LATEST
       - name: Health check after rollback
         if: github.event.inputs.skip_health_checks != 'true'
         uses: ./.github/actions/health-check
         with:
-          service: api
-          environment: ${{ github.event.inputs.environment }}
-          timeout: 300
+          service_type: lambda
+          service_name: api
+          lambda_function_name: pdf-accessibility-api-${{ github.event.inputs.environment }}:live
+          timeout_seconds: 300
 
       - name: Invalidate API Gateway cache
         run: |
@@ -157,7 +160,7 @@ jobs:
 
           if [ -n "$API_ID" ]; then
             aws apigateway flush-stage-cache \
-              --rest-api-id $API_ID \
+              --rest-api-id "$API_ID" \
               --stage-name ${{ github.event.inputs.environment }}
             echo "API Gateway cache invalidated"
           fi
@@ -191,7 +194,7 @@ jobs:
             exit 1
           fi
 
-          echo "previous_deployment=$PREVIOUS_DEPLOYMENT" >> $GITHUB_OUTPUT
+          echo "previous_deployment=$PREVIOUS_DEPLOYMENT" >> "$GITHUB_OUTPUT"
 
       - name: Restore previous web deployment
         run: |
@@ -204,14 +207,22 @@ jobs:
             --exclude "deployments/*"
 
       - name: Invalidate CloudFront cache
+        id: cloudfront
         run: |
           DISTRIBUTION_ID=$(aws cloudfront list-distributions \
             --query "DistributionList.Items[?Comment=='pdf-accessibility-${{ github.event.inputs.environment }}'].Id" \
             --output text)
 
           if [ -n "$DISTRIBUTION_ID" ]; then
+            # The health check below requests this URL
+            DOMAIN_NAME=$(aws cloudfront get-distribution \
+              --id "$DISTRIBUTION_ID" \
+              --query 'Distribution.DomainName' \
+              --output text)
+            echo "web_url=https://$DOMAIN_NAME" >> "$GITHUB_OUTPUT"
+
             INVALIDATION_ID=$(aws cloudfront create-invalidation \
-              --distribution-id $DISTRIBUTION_ID \
+              --distribution-id "$DISTRIBUTION_ID" \
               --paths "/*" \
               --query 'Invalidation.Id' \
               --output text)
@@ -220,17 +231,18 @@ jobs:
 
             # Wait for invalidation to complete
             aws cloudfront wait invalidation-completed \
-              --distribution-id $DISTRIBUTION_ID \
-              --id $INVALIDATION_ID
+              --distribution-id "$DISTRIBUTION_ID" \
+              --id "$INVALIDATION_ID"
           fi
 
       - name: Health check after rollback
         if: github.event.inputs.skip_health_checks != 'true'
         uses: ./.github/actions/health-check
         with:
-          service: web
-          environment: ${{ github.event.inputs.environment }}
-          timeout: 300
+          service_type: web
+          service_name: web
+          health_endpoint: ${{ steps.cloudfront.outputs.web_url }}
+          timeout_seconds: 300
 
   rollback-lambda-functions:
     needs: validate-rollback
@@ -269,7 +281,8 @@ jobs:
             --query 'Configuration.Version' \
             --output text)
 
-          # Get previous version
+          # Get previous version. The backticks are a JMESPath literal, not a shell expansion.
+          # shellcheck disable=SC2016
           VERSIONS=$(aws lambda list-versions-by-function \
             --function-name $FUNCTION_NAME \
             --query 'Versions[?Version!=`$LATEST`].Version' \
@@ -294,13 +307,11 @@ jobs:
           FUNCTION_NAME="pdf-accessibility-${{ matrix.function }}-${{ github.event.inputs.environment }}"
 
           # Invoke function to test
-          aws lambda invoke \
+          if aws lambda invoke \
             --function-name $FUNCTION_NAME \
             --payload '{"test": true}' \
             --cli-binary-format raw-in-base64-out \
-            response.json
-
-          if [ $? -eq 0 ]; then
+            response.json; then
             echo "Health check passed for $FUNCTION_NAME"
           else
             echo "::error::Health check failed for $FUNCTION_NAME"
@@ -354,20 +365,27 @@ jobs:
           if [[ "${{ needs.rollback-api.result }}" == "failure" ||
                 "${{ needs.rollback-web.result }}" == "failure" ||
                 "${{ needs.rollback-lambda-functions.result }}" == "failure" ]]; then
-            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "status=failed" >> "$GITHUB_OUTPUT"
           else
-            echo "status=success" >> $GITHUB_OUTPUT
+            echo "status=success" >> "$GITHUB_OUTPUT"
           fi
 
+      # The notify action is local, so it needs the repository checked out
+      - name: Checkout code
+        uses: actions/checkout@v7
+
       - name: Notify rollback completion
+        env:
+          WEBHOOK_URL: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+        if: env.WEBHOOK_URL != ''
         uses: ./.github/actions/notify-deployment
         with:
-          status: ${{ steps.status.outputs.status }}
-          service: ${{ github.event.inputs.service }}
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          notification_type: ${{ steps.status.outputs.status == 'failed' && 'failure' || 'rollback' }}
+          service_name: ${{ github.event.inputs.service }}
           environment: ${{ github.event.inputs.environment }}
           version: ${{ needs.validate-rollback.outputs.target-version }}
-          deployment_type: 'rollback'
-          reason: ${{ github.event.inputs.reason }}
+          workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
       - name: Update deployment tracking
         run: |
