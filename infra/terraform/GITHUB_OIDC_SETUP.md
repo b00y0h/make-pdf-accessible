@@ -60,6 +60,7 @@ Add the following secrets to your GitHub repository (`Settings > Secrets and var
 - `AWS_REGION`: Your AWS region (e.g., `us-east-1`)
 - `AWS_ACCOUNT_ID`: Your AWS account ID
 - `AWS_INFRASTRUCTURE_CI_ROLE_ARN`: ARN from terraform output
+- `AWS_INFRASTRUCTURE_PLAN_ROLE_ARN`: a role for the pull request plan in `infra-ci.yml` that can read dev's Terraform state and take its lock, and has read-only access to everything else. No Terraform defines it yet; until it is set, pull requests skip the plan with a notice. Don't use the infrastructure CI role here: it can write state.
 - `AWS_LAMBDA_DEPLOY_ROLE_ARN`: ARN from terraform output
 - `AWS_WEB_DEPLOY_ROLE_ARN`: ARN from terraform output
 - `AWS_API_DEPLOY_ROLE_ARN`: ARN from terraform output
