@@ -223,28 +223,30 @@ body {
 }
 
 /* The evidence record on the home page settles in once, then the seal lands. This is the
-   page's only unprompted motion; it is skipped entirely under reduced motion. */
+   page's only unprompted motion; it is skipped entirely under reduced motion.
+   Rows are revealed top-down with a clip rather than faded, so text is never drawn at partial
+   opacity (which would briefly fail contrast while the animation runs). */
 @keyframes record-row {
   from {
-    opacity: 0;
+    clip-path: inset(0 0 100% 0);
     transform: translateY(6px);
   }
   to {
-    opacity: 1;
+    clip-path: inset(0 0 0 0);
     transform: none;
   }
 }
 @keyframes record-seal {
   0% {
-    opacity: 0;
+    clip-path: circle(0% at 50% 50%);
     transform: scale(1.35) rotate(-14deg);
   }
   70% {
-    opacity: 1;
+    clip-path: circle(75% at 50% 50%);
     transform: scale(0.96) rotate(-7deg);
   }
   100% {
-    opacity: 1;
+    clip-path: circle(75% at 50% 50%);
     transform: scale(1) rotate(-8deg);
   }
 }
