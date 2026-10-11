@@ -124,7 +124,7 @@ class PersistenceManager:
 
         except ImportError as e:
             logger.error(f"Failed to import MongoDB repositories: {e}")
-            raise RuntimeError("MongoDB dependencies not available")
+            raise RuntimeError("MongoDB dependencies not available") from e
         except Exception as e:
             logger.error(f"Failed to initialize MongoDB repositories: {e}")
             raise
@@ -146,7 +146,7 @@ class PersistenceManager:
 
         except ImportError as e:
             logger.error(f"Failed to import DynamoDB repositories: {e}")
-            raise RuntimeError("DynamoDB dependencies not available")
+            raise RuntimeError("DynamoDB dependencies not available") from e
         except Exception as e:
             logger.error(f"Failed to initialize DynamoDB repositories: {e}")
             raise

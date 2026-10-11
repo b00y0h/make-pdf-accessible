@@ -1,5 +1,10 @@
+import hashlib
+import hmac
+import json
 from unittest.mock import patch
 
+import pytest
+from app.auth import User, get_current_user
 from app.main import app
 from fastapi.testclient import TestClient
 
@@ -40,7 +45,7 @@ class TestIntegrationEndpoints:
 
     def test_webhook_health_endpoint(self):
         """Test webhook health endpoint"""
-        response = self.client.get("/webhooks/health")
+        response = self.client.get("/v1/webhooks/health")
 
         assert response.status_code == 200
         data = response.json()
@@ -49,7 +54,7 @@ class TestIntegrationEndpoints:
 
     def test_reports_health_endpoint(self):
         """Test reports health endpoint"""
-        response = self.client.get("/reports/health")
+        response = self.client.get("/v1/reports/health")
 
         assert response.status_code == 200
         data = response.json()
@@ -66,7 +71,7 @@ class TestIntegrationEndpoints:
                 "data": {"test": True},
             }
 
-            response = self.client.post("/webhooks/test", json=test_payload)
+            response = self.client.post("/v1/webhooks/test", json=test_payload)
 
             assert response.status_code == 200
             data = response.json()
@@ -76,18 +81,32 @@ class TestIntegrationEndpoints:
     def test_webhook_test_endpoint_production(self):
         """Test webhook test endpoint blocked in production"""
         with patch("app.config.settings.environment", "production"):
-            response = self.client.post("/webhooks/test", json={"test": True})
+            response = self.client.post("/v1/webhooks/test", json={"test": True})
 
             assert response.status_code == 404
             assert "not available in production" in response.json()["message"]
 
     def test_cors_headers(self):
-        """Test CORS headers are present"""
-        response = self.client.options("/health")
+        """Test CORS headers on preflight requests from allowed origins only"""
+        preflight = {"Access-Control-Request-Method": "GET"}
 
-        # Check CORS headers
-        assert "access-control-allow-origin" in response.headers
+        # The default allowed origins are the local dashboard and web app
+        response = self.client.options(
+            "/health", headers={**preflight, "Origin": "http://localhost:3000"}
+        )
+
+        assert response.status_code == 200
+        assert response.headers["access-control-allow-origin"] == (
+            "http://localhost:3000"
+        )
         assert "access-control-allow-methods" in response.headers
+
+        response = self.client.options(
+            "/health", headers={**preflight, "Origin": "https://example.com"}
+        )
+
+        assert response.status_code == 400
+        assert "access-control-allow-origin" not in response.headers
 
     def test_openapi_docs_available(self):
         """Test OpenAPI documentation is available"""
@@ -139,41 +158,55 @@ class TestAuthenticationIntegration:
         """Setup for each test"""
         self.client = TestClient(app)
 
+    def teardown_method(self):
+        """Remove dependency overrides"""
+        app.dependency_overrides.pop(get_current_user, None)
+
     def test_protected_endpoint_without_auth(self):
-        """Test protected endpoint returns 401 without auth"""
+        """Test protected endpoint rejects requests without a session"""
         response = self.client.get("/documents")
 
-        assert response.status_code == 401
+        assert response.status_code == 403
         data = response.json()
-        assert "error" in data
-        assert "message" in data
+        assert data["error"] == "http_403"
+        assert data["message"] == "Not authenticated"
 
-    def test_protected_endpoint_invalid_auth_scheme(self):
-        """Test protected endpoint with invalid auth scheme"""
+    def test_protected_endpoint_ignores_authorization_header(self):
+        """Test an Authorization header alone does not authenticate"""
         response = self.client.get(
             "/documents", headers={"Authorization": "Basic invalid-token"}
         )
 
         assert response.status_code == 403
         data = response.json()
-        assert "Invalid authentication scheme" in data["message"]
+        assert data["message"] == "Not authenticated"
 
     def test_admin_endpoint_requires_admin_role(self):
         """Test admin endpoint requires admin role"""
-        with patch("app.auth.get_current_user") as mock_get_user:
-            from app.auth import User
+        viewer_user = User(sub="viewer-123", name="viewer", role="viewer")
+        app.dependency_overrides[get_current_user] = lambda: viewer_user
 
-            # Setup viewer user (not admin)
-            viewer_user = User(sub="viewer-123", username="viewer", roles=["viewer"])
-            mock_get_user.return_value = viewer_user
+        response = self.client.get("/v1/reports/summary")
 
-            response = self.client.get(
-                "/reports/summary", headers={"Authorization": "Bearer fake-token"}
-            )
+        assert response.status_code == 403
+        data = response.json()
+        assert "Required roles" in data["message"]
 
-            assert response.status_code == 403
-            data = response.json()
-            assert "Admin role required" in data["message"]
+    @pytest.mark.xfail(
+        strict=True,
+        reason=(
+            "app/services/ shadows app/services.py, and its ReportsService is an "
+            "empty placeholder without get_summary_report"
+        ),
+    )
+    def test_admin_can_get_summary_report(self):
+        """Test admins can read the summary report"""
+        admin_user = User(sub="admin-123", name="admin", role="admin")
+        app.dependency_overrides[get_current_user] = lambda: admin_user
+
+        response = self.client.get("/v1/reports/summary")
+
+        assert response.status_code == 200
 
 
 class TestWebhookIntegration:
@@ -192,7 +225,7 @@ class TestWebhookIntegration:
             "timestamp": "2023-01-01T00:00:00Z",
         }
 
-        response = self.client.post("/webhooks", json=payload)
+        response = self.client.post("/v1/webhooks", json=payload)
 
         assert response.status_code == 400
         data = response.json()
@@ -201,7 +234,7 @@ class TestWebhookIntegration:
     def test_webhook_with_invalid_json(self):
         """Test webhook with invalid JSON payload"""
         response = self.client.post(
-            "/webhooks",
+            "/v1/webhooks",
             content="invalid-json",
             headers={
                 "Content-Type": "application/json",
@@ -220,13 +253,10 @@ class TestWebhookIntegration:
             # Missing required fields: doc_id, status, timestamp
         }
 
-        with patch(
-            "app.services.webhook_service.verify_webhook_signature"
-        ) as mock_verify:
-            mock_verify.return_value = True
-
+        # Without a secret the route skips signature verification
+        with patch("app.routes.webhooks.settings.webhook_secret_key", ""):
             response = self.client.post(
-                "/webhooks",
+                "/v1/webhooks",
                 json=incomplete_payload,
                 headers={"X-Hub-Signature-256": "sha256=valid-signature"},
             )
@@ -234,3 +264,36 @@ class TestWebhookIntegration:
             assert response.status_code == 400
             data = response.json()
             assert "Missing required fields" in data["message"]
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason=(
+            "app/services/ shadows app/services.py, and its WebhookService is an "
+            "empty placeholder without verify_webhook_signature or process_webhook"
+        ),
+    )
+    def test_signed_webhook_is_processed(self):
+        """Test a correctly signed webhook is verified and processed"""
+        secret = "test-secret-key"
+        body = json.dumps(
+            {
+                "event_type": "document.completed",
+                "doc_id": "12345678-1234-1234-1234-123456789012",
+                "status": "completed",
+                "timestamp": "2023-01-01T00:00:00Z",
+            }
+        )
+        signature = hmac.new(secret.encode(), body.encode(), hashlib.sha256)
+
+        with patch("app.routes.webhooks.settings.webhook_secret_key", secret):
+            response = self.client.post(
+                "/v1/webhooks",
+                content=body,
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Hub-Signature-256": f"sha256={signature.hexdigest()}",
+                },
+            )
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "received"

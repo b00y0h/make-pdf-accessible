@@ -95,10 +95,10 @@ def mock_user():
 
     return User(
         sub="test-user-123",
-        username="testuser",
+        name="testuser",
         email="test@example.com",
-        roles=[UserRole.VIEWER.value],
-        token_claims={"sub": "test-user-123", "username": "testuser"},
+        role=UserRole.VIEWER.value,
+        token_claims={"id": "test-user-123", "name": "testuser"},
     )
 
 
@@ -110,10 +110,10 @@ def mock_admin_user():
 
     return User(
         sub="admin-user-123",
-        username="admin",
+        name="admin",
         email="admin@example.com",
-        roles=[UserRole.ADMIN.value],
-        token_claims={"sub": "admin-user-123", "username": "admin"},
+        role=UserRole.ADMIN.value,
+        token_claims={"id": "admin-user-123", "name": "admin"},
     )
 
 
