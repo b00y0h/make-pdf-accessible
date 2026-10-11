@@ -17,6 +17,8 @@ const INSTITUTION_TYPES = [
   'Private university or college',
   'K-12 district',
   'City, county or special district',
+  'State agency or court',
+  'Law firm or legal department',
   'Healthcare',
   'Other',
 ];
@@ -104,10 +106,12 @@ export function SiteReportForm() {
   if (state.kind === 'done') {
     return (
       <div
-        className="rounded-lg border border-line bg-surface p-6"
+        className="rounded-sm border-l-4 border-accent bg-tint p-6"
         role="status"
       >
-        <h3 className="text-xl font-bold">We are crawling your site</h3>
+        <h3 className="font-display text-[1.5rem] font-medium leading-tight">
+          We are crawling your site
+        </h3>
         <p className="mt-2">
           Your report will arrive at <strong>{state.email}</strong> within two
           hours. It lists every PDF we found, how many pages, which ones look
@@ -193,7 +197,7 @@ export function SiteReportForm() {
           id={`${id}-consent`}
           name="consent"
           type="checkbox"
-          className="mt-1 h-5 w-5"
+          className="mt-1 h-5 w-5 shrink-0 accent-accent"
           aria-invalid={errors.consent ? true : undefined}
           aria-describedby={errors.consent ? `${id}-consent-error` : undefined}
         />
@@ -205,7 +209,7 @@ export function SiteReportForm() {
       {errors.consent ? (
         <p
           id={`${id}-consent-error`}
-          className="text-sm font-semibold text-warn"
+          className="text-[0.9375rem] font-semibold text-warn"
           role="alert"
         >
           {errors.consent}
@@ -213,7 +217,10 @@ export function SiteReportForm() {
       ) : null}
 
       {state.kind === 'error' ? (
-        <p className="rounded-md border border-warn p-3 text-warn" role="alert">
+        <p
+          className="rounded-sm border-l-4 border-warn bg-surface p-4 text-warn"
+          role="alert"
+        >
           {state.message}
         </p>
       ) : null}

@@ -27,7 +27,7 @@ export function PricingCalculator() {
   const manualHigh = pages * CALCULATOR_RATES.manualHigh;
 
   return (
-    <div className="rounded-lg border border-line bg-surface p-6">
+    <div className="rounded-sm border border-line bg-bg p-6 sm:p-8">
       <div className="grid gap-6 md:grid-cols-2">
         <div>
           <label htmlFor={`${id}-pages`} className="block font-semibold">
@@ -42,7 +42,7 @@ export function PricingCalculator() {
             onChange={(event) =>
               setPages(Math.max(0, Number(event.target.value) || 0))
             }
-            className="mt-1 block w-full min-h-[44px] rounded-md border border-line bg-bg px-3 py-2"
+            className="mt-1.5 block min-h-[48px] w-full rounded-sm border border-field bg-bg px-3.5 py-2 tabular-nums hover:border-ink"
           />
         </div>
         <div>
@@ -57,23 +57,21 @@ export function PricingCalculator() {
             step={5}
             value={verifiedShare}
             onChange={(event) => setVerifiedShare(Number(event.target.value))}
-            className="mt-3 block w-full"
+            className="mt-4 block w-full accent-accent"
             aria-valuetext={`${verifiedShare} percent`}
           />
-          <p className="mt-1 text-sm text-muted">
+          <p className="mt-2 text-[0.9375rem] text-muted">
             Scanned, STEM and complex-table documents typically need review.
           </p>
         </div>
       </div>
-      <dl className="mt-6 grid gap-4 sm:grid-cols-2" aria-live="polite">
-        <div className="rounded-md border border-line bg-bg p-4">
-          <dt className="text-sm font-semibold uppercase tracking-wide text-muted">
-            With Make PDF Accessible
-          </dt>
-          <dd className="mt-1 text-2xl font-bold">
+      <dl className="mt-8 grid gap-4 sm:grid-cols-2" aria-live="polite">
+        <div className="rounded-sm border-t-4 border-accent bg-tint p-5">
+          <dt className="font-semibold">With Make PDF Accessible</dt>
+          <dd className="mt-2 font-display text-[1.75rem] font-medium leading-tight tabular-nums">
             {money(low)} to {money(high)}
           </dd>
-          <dd className="text-sm text-muted">
+          <dd className="mt-2 text-[0.9375rem] text-muted">
             {automatedPages.toLocaleString('en-US')} automated pages at $
             {CALCULATOR_RATES.automatedLow.toFixed(2)} to $
             {CALCULATOR_RATES.automatedHigh.toFixed(2)};{' '}
@@ -81,21 +79,19 @@ export function PricingCalculator() {
             {CALCULATOR_RATES.verifiedFlagged.toFixed(2)}.
           </dd>
         </div>
-        <div className="rounded-md border border-line bg-bg p-4">
-          <dt className="text-sm font-semibold uppercase tracking-wide text-muted">
-            Typical manual remediation
-          </dt>
-          <dd className="mt-1 text-2xl font-bold">
+        <div className="rounded-sm border-t-4 border-field bg-surface p-5">
+          <dt className="font-semibold">Typical manual remediation</dt>
+          <dd className="mt-2 font-display text-[1.75rem] font-medium leading-tight tabular-nums">
             {money(manualLow)} to {money(manualHigh)}
           </dd>
-          <dd className="text-sm text-muted">
+          <dd className="mt-2 text-[0.9375rem] text-muted">
             ${CALCULATOR_RATES.manualLow.toFixed(2)} to $
             {CALCULATOR_RATES.manualHigh.toFixed(2)} per page, the range
             universities report paying vendors.
           </dd>
         </div>
       </dl>
-      <p className="mt-4 text-sm text-muted">
+      <p className="mt-5 text-[0.9375rem] text-muted">
         Estimates only. Plan fees include page allowances; overage rates apply
         above them. Delete and archive decisions cost nothing.
       </p>

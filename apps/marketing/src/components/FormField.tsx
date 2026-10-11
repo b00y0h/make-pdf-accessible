@@ -14,12 +14,12 @@ export function FormField({
   children: ReactNode;
 }) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <label htmlFor={id} className="block font-semibold">
         {label}
       </label>
       {hint ? (
-        <p id={`${id}-hint`} className="text-sm text-muted">
+        <p id={`${id}-hint`} className="text-[0.9375rem] text-muted">
           {hint}
         </p>
       ) : null}
@@ -27,7 +27,7 @@ export function FormField({
       {error ? (
         <p
           id={`${id}-error`}
-          className="text-sm font-semibold text-warn"
+          className="text-[0.9375rem] font-semibold text-warn"
           role="alert"
         >
           {error}
@@ -38,4 +38,4 @@ export function FormField({
 }
 
 export const inputClass =
-  'block w-full min-h-[44px] rounded-md border border-line bg-bg px-3 py-2 text-ink placeholder:text-muted';
+  'block w-full min-h-[48px] rounded-sm border border-field bg-bg px-3.5 py-2 text-ink placeholder:text-muted hover:border-ink';

@@ -1,29 +1,52 @@
 @import 'tailwindcss';
 
-/* Design tokens. Tailwind generates the utilities (bg-bg, text-muted, border-line, font-mono,
+/* Design tokens. Tailwind generates the utilities (bg-bg, text-muted, border-line, font-display,
    max-w-content) from these variables and the dark theme below overrides the same variables,
    so light and dark share one token set and contrast is controlled in one place.
-   Light theme contrast: ink on bg 15.6:1, muted on bg 7.0:1, accent-ink on accent 8.6:1. */
-@theme {
-  --color-bg: rgb(255 255 255);
-  --color-surface: rgb(245 247 250);
-  --color-ink: rgb(17 24 39);
-  --color-muted: rgb(71 85 105);
-  --color-line: rgb(203 213 225);
-  --color-accent: rgb(12 74 110);
-  --color-accent-ink: rgb(255 255 255);
-  --color-warn: rgb(146 64 14);
-  --color-ok: rgb(22 101 52);
 
+   Palette "patina": paper, ink and verdigris, the color civic bronze turns over decades.
+   Light theme contrast: ink on bg 16.5:1, muted on bg 7.5:1, accent on bg 7.0:1,
+   accent-ink on accent 7.0:1, field borders 4.2:1 (non-text minimum is 3:1).
+   Dark theme contrast: ink on bg 15.3:1, muted on bg 9.1:1, accent on bg 9.5:1. */
+@theme {
+  --color-bg: #ffffff;
+  --color-surface: #f2f5f4;
+  --color-ink: #14202c;
+  --color-muted: #4a5661;
+  --color-line: #c6d0cd;
+  --color-field: #727f7c;
+  --color-accent: #1f6457;
+  --color-accent-strong: #17503f;
+  --color-accent-ink: #ffffff;
+  --color-tint: #e3eeea;
+  --color-warn: #8a3b0e;
+  --color-ok: #1d6b3a;
+
+  /* Type scale after Bringhurst: 14, 16, 18, 21, 24, 36, 48, 60, 72. */
+  --text-lede: 1.3125rem;
+  --text-lede--line-height: 1.55;
+  --text-title: 2.25rem;
+  --text-title--line-height: 1.12;
+  --text-headline: 3rem;
+  --text-headline--line-height: 1.08;
+  --text-hero: 4.5rem;
+  --text-hero--line-height: 1.02;
+
+  --container-content: 76rem;
+  /* Reading column. Tailwind v4 fixes max-w-prose at 65ch, so this width has its own name. */
+  --container-copy: 38rem;
+}
+
+/* next/font sets --font-besley and --font-public-sans on <html>; `inline` makes the utilities
+   reference them at the point of use. */
+@theme inline {
+  --font-display:
+    var(--font-besley), 'Clarendon', 'Century Schoolbook', Georgia, serif;
   --font-sans:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
-    'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+    var(--font-public-sans), ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-mono:
     ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
-
-  --container-content: 72rem;
-  /* Reading column. Tailwind v4 fixes max-w-prose at 65ch, so this width has its own name. */
-  --container-copy: 42rem;
 }
 
 /*
@@ -40,7 +63,7 @@
   ::before,
   ::backdrop,
   ::file-selector-button {
-    border-color: var(--color-gray-200, currentcolor);
+    border-color: var(--color-line, currentcolor);
   }
 
   /* Tailwind v4 no longer gives buttons a pointer cursor; keep the v3 behavior. */
@@ -66,25 +89,40 @@
     color: revert;
     letter-spacing: revert;
   }
+
+  h1,
+  h2 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.012em;
+    text-wrap: balance;
+  }
+
+  p,
+  li,
+  dd {
+    text-wrap: pretty;
+  }
 }
 
 :root {
-  --focus-ring: 0 0 0 3px rgb(255 255 255), 0 0 0 6px rgb(12 74 110);
   color-scheme: light dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-bg: rgb(15 23 42);
-    --color-surface: rgb(30 41 59);
-    --color-ink: rgb(241 245 249);
-    --color-muted: rgb(203 213 225);
-    --color-line: rgb(71 85 105);
-    --color-accent: rgb(125 211 252);
-    --color-accent-ink: rgb(15 23 42);
-    --color-warn: rgb(253 186 116);
-    --color-ok: rgb(134 239 172);
-    --focus-ring: 0 0 0 3px rgb(15 23 42), 0 0 0 6px rgb(125 211 252);
+    --color-bg: #0e1922;
+    --color-surface: #152430;
+    --color-ink: #e9efed;
+    --color-muted: #afbcb9;
+    --color-line: #33475a;
+    --color-field: #6f8798;
+    --color-accent: #82cbb9;
+    --color-accent-strong: #a6ddcf;
+    --color-accent-ink: #0e1922;
+    --color-tint: #173a35;
+    --color-warn: #f2b37e;
+    --color-ok: #8fd6a6;
   }
 }
 
@@ -96,15 +134,18 @@ body {
   background-color: var(--color-bg);
   color: var(--color-ink);
   font-family: var(--font-sans);
+  font-size: 1.0625rem;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  font-variant-numeric: lining-nums;
 }
 
-/* One visible focus style for every interactive element. */
+/* One visible focus style for every interactive element. An outline (not a shadow) so it
+   survives Windows forced-colors mode. */
 :focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-  border-radius: 0.375rem;
+  outline: 3px solid var(--color-accent);
+  outline-offset: 3px;
+  border-radius: 2px;
 }
 
 /* Respect reduced motion: no animation or smooth scrolling. */
@@ -142,4 +183,82 @@ body {
   width: 1px;
   height: 1px;
   overflow: hidden;
+}
+
+/* Inline links in running text: underlined, so they never rely on color alone. */
+.text-link {
+  color: var(--color-accent);
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+.text-link:hover {
+  color: var(--color-accent-strong);
+  text-decoration-thickness: 2px;
+}
+
+/* Long-form pages (statement, crawler, security). */
+.record-copy > * + * {
+  margin-top: 1rem;
+}
+.record-copy h2 {
+  margin-top: 3rem;
+  font-size: var(--text-title);
+  line-height: var(--text-title--line-height);
+}
+.record-copy h2 + * {
+  margin-top: 0.75rem;
+}
+.record-copy ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+.record-copy li + li {
+  margin-top: 0.5rem;
+}
+.record-copy a:not([class]) {
+  color: var(--color-accent);
+  text-decoration-line: underline;
+  text-underline-offset: 0.2em;
+}
+
+/* The evidence record on the home page settles in once, then the seal lands. This is the
+   page's only unprompted motion; it is skipped entirely under reduced motion. */
+@keyframes record-row {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes record-seal {
+  0% {
+    opacity: 0;
+    transform: scale(1.35) rotate(-14deg);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(0.96) rotate(-7deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(-8deg);
+  }
+}
+.record-row {
+  animation: record-row 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--row, 0) * 90ms + 150ms);
+}
+.record-seal {
+  transform: rotate(-8deg);
+  animation: record-seal 520ms cubic-bezier(0.3, 0.8, 0.3, 1) 1.15s both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .record-row,
+  .record-seal {
+    animation: none;
+  }
 }
