@@ -17,3 +17,5 @@ One decision per file, MADR-style, numbered sequentially. New decisions start as
 | [0011](0011-bedrock-model-strategy.md)                        | Claude models on Bedrock, configured by role, eval-gated                              | Accepted |
 
 Template: the `spec-author` skill's ADR reference. Related PRDs live in `docs/*-PRD.md`; execution specs in `docs/*-SPECS.md`.
+
+What remains to implement these decisions, in dependency order: [`../ADR-COMPLETION-PLAN.md`](../ADR-COMPLETION-PLAN.md).
