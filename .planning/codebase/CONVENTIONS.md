@@ -99,8 +99,8 @@ Configured in `.pre-commit-config.yaml`:
 
 | Hook | Version | Purpose |
 |------|---------|---------|
-| Black | 23.7.0 | Python formatting |
-| Ruff | 0.0.287 | Python linting |
+| Black | 26.10.0 | Python formatting |
+| Ruff | 0.16.10 | Python linting |
 | ESLint | 8.47.0 | TypeScript linting |
 | Prettier | 3.0.3 | Code formatting |
 

@@ -238,73 +238,9 @@ The VPC, subnets, NAT gateways and VPC endpoints are set per account in `account
 
 The OIDC provider is created once per account by `account/`; this root creates each environment's roles and looks the provider up. Each role trusts an explicit list of subjects (`github_oidc.tf`). Staging shares the dev account, so staging's roles accept only `main` and staging's own GitHub environments; `develop` and pull requests reach dev only.
 
-### 1. Configure Repository
+The workflows that assume these roles already exist (`infra-ci.yml`, `build-and-deploy-lambda.yml`, `api-ci.yml`, `web-ci.yml`, `marketing-site.yml`, `rollback.yml` and `test-rollback.yml`), so the remaining setup is the GitHub secrets that hold the role ARNs.
 
-Update your `terraform.tfvars`:
-
-```hcl
-github_repo     = "your-org/your-repo"
-github_branches = ["main", "develop"]
-```
-
-### 2. GitHub Actions Workflow
-
-Create `.github/workflows/deploy.yml`:
-
-```yaml
-name: Deploy Infrastructure
-
-on:
-  push:
-    branches: [main]
-    paths: ['infra/terraform/**']
-
-env:
-  AWS_REGION: us-east-1
-
-permissions:
-  id-token: write
-  contents: read
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ~1.8
-
-      - name: Terraform Init
-        run: terraform init
-        working-directory: infra/terraform
-
-      - name: Terraform Plan
-        run: terraform plan
-        working-directory: infra/terraform
-
-      - name: Terraform Apply
-        run: terraform apply -auto-approve
-        working-directory: infra/terraform
-```
-
-### 3. Repository Secrets
-
-Add the following secrets to your GitHub repository:
-
-```
-AWS_ROLE_ARN=arn:aws:iam::ACCOUNT_ID:role/PROJECT-ENVIRONMENT-github-actions-role
-```
-
-You can find the exact ARN in the Terraform outputs after deployment.
+Some of those secrets must be repository secrets, because the jobs that read them declare no environment, and some must be environment secrets, because their role trusts only a GitHub environment. [GITHUB_OIDC_SETUP.md](GITHUB_OIDC_SETUP.md#3-configure-github-secrets) lists each secret, the jobs that read it, where to set it, and the Terraform output that holds its value.
 
 ## State Management
 

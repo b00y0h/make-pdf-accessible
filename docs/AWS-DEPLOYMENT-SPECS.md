@@ -144,7 +144,7 @@ State was local; `infra-ci.yml` ran `terraform init` and `terraform plan` with n
 
 ### Implementation
 
-4A. Operator: create the AWS Organization and the dev and prod accounts (ADR-0010); in each, run `bootstrap` (one workspace per account, see `infra/terraform/README.md`) and then the `account` layer with an administrator credential; run the first `terraform apply` of the root from a workstation so the OIDC roles exist; add `AWS_INFRASTRUCTURE_CI_ROLE_ARN`, `AWS_WEB_DEPLOY_ROLE_ARN`, `AWS_REGION` and `AWS_ACCOUNT_ID` as environment-scoped GitHub secrets.
+4A. Operator: create the AWS Organization and the dev and prod accounts (ADR-0010); in each, run `bootstrap` (one workspace per account, see `infra/terraform/README.md`) and then the `account` layer with an administrator credential; run the first `terraform apply` of the root from a workstation so the OIDC roles exist; add the GitHub secrets at the scopes listed in `infra/terraform/GITHUB_OIDC_SETUP.md`. `AWS_INFRASTRUCTURE_CI_ROLE_ARN` (dev's role) and `AWS_REGION` go at repository level, because `security-monitoring` declares no environment, and `AWS_INFRASTRUCTURE_CI_ROLE_ARN` again on each `<env>-infrastructure` environment with that environment's role for `terraform-apply`. `terraform-plan` reads the repository secret `AWS_INFRASTRUCTURE_PLAN_ROLE_ARN`, a read-only role that no Terraform defines yet; until it is set, pull requests skip the plan. `AWS_WEB_DEPLOY_ROLE_ARN` goes on each `<env>-web` environment, because the web role trusts only that environment. `AWS_ACCOUNT_ID` goes at repository level for `build-and-deploy-lambda.yml`.
 4B. The workflow edits are in place; environment names follow the existing `<env>-infrastructure` convention.
 
 ---

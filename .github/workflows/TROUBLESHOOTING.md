@@ -25,21 +25,17 @@ Error: Could not assume role with OIDC: No OpenIDConnect provider found in your 
 aws iam list-open-id-connect-providers
 ```
 
-2. **Create OIDC Provider:**
+2. **Create OIDC Provider with the account layer:**
+
+The provider exists once per AWS account and is managed by `infra/terraform/account`; the environment roles only look it up. Create it there rather than with the AWS CLI, or the account layer's next apply fails because the provider already exists:
 
 ```bash
-aws iam create-openid-connect-provider \
-  --url https://token.actions.githubusercontent.com \
-  --client-id-list sts.amazonaws.com \
-  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
+cd infra/terraform/account
+terraform init -reconfigure -backend-config=environments/nonprod.backend.hcl
+terraform apply -var-file=environments/nonprod.tfvars -target=aws_iam_openid_connect_provider.github
 ```
 
-3. **Using Terraform:**
-
-```bash
-cd infra/terraform
-terraform apply -target=aws_iam_openid_connect_provider.github_actions
-```
+Use `prod.backend.hcl` and `prod.tfvars` in the prod account.
 
 ### Error: "Not authorized to perform sts:AssumeRoleWithWebIdentity"
 
@@ -52,54 +48,38 @@ Error: Could not assume role with OIDC: Not authorized to perform sts:AssumeRole
 **Causes:**
 
 - IAM role doesn't exist
-- Trust policy doesn't allow the repository/branch
-- Role ARN is incorrect in GitHub secrets
+- Trust policy doesn't allow the job's subject. A job that declares an environment presents `repo:<owner>/<repo>:environment:<name>` instead of its branch, so a role that trusts only `main` rejects it, and the web role (which trusts only `environment:<env>-web`) rejects any job outside that environment.
+- Role ARN is incorrect in GitHub secrets, or is the role for a different environment or account
 
 **Solutions:**
 
 1. **Verify Role Exists:**
 
 ```bash
-aws iam get-role --role-name GitHubActions-Infrastructure
+aws iam get-role --role-name pdf-accessibility-dev-github-infra-ci-role
 ```
+
+The roles are `pdf-accessibility-<env>-github-<role>-role`, where `<role>` is `infra-ci`, `lambda-deploy`, `web-deploy`, `api-deploy` or `testing`.
 
 2. **Check Trust Policy:**
 
 ```bash
-aws iam get-role --role-name GitHubActions-Infrastructure \
-  --query 'Role.AssumeRolePolicyDocument' --output text | jq .
+aws iam get-role --role-name pdf-accessibility-dev-github-infra-ci-role \
+  --query 'Role.AssumeRolePolicyDocument' --output json | jq .
 ```
 
 3. **Verify GitHub Secrets:**
 
 ```bash
-gh secret list | grep AWS_ROLE_ARN
+gh secret list | grep ROLE_ARN
+gh secret list --env dev-web
 ```
+
+Each secret's scope (repository or environment) is listed in [GITHUB_OIDC_SETUP.md](../../infra/terraform/GITHUB_OIDC_SETUP.md#3-configure-github-secrets).
 
 4. **Update Trust Policy:**
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
-      },
-      "Action": "sts:AssumeRoleWithWebIdentity",
-      "Condition": {
-        "StringEquals": {
-          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-        },
-        "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/YOUR_REPO:*"
-        }
-      }
-    }
-  ]
-}
-```
+The trusted subjects are managed in `github_role_subjects` in `infra/terraform/github_oidc.tf`. Change them there and apply; a console edit is overwritten by the next apply.
 
 ### Error: "Token audience validation failed"
 
@@ -193,7 +173,7 @@ Error: Error creating/updating/deleting resource: AccessDenied
 
 ```bash
 aws iam simulate-principal-policy \
-  --policy-source-arn arn:aws:iam::ACCOUNT_ID:role/GitHubActions-Infrastructure \
+  --policy-source-arn arn:aws:iam::ACCOUNT_ID:role/pdf-accessibility-dev-github-infra-ci-role \
   --action-names ec2:CreateVpc \
   --resource-arns "*"
 ```
@@ -254,7 +234,7 @@ aws lambda create-function \
 - name: Configure AWS credentials
   uses: aws-actions/configure-aws-credentials@v6
   with:
-    role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+    role-to-assume: ${{ secrets.AWS_LAMBDA_DEPLOY_ROLE_ARN }}
     aws-region: ${{ secrets.AWS_REGION }} # Ensure this matches function region
 ```
 
@@ -555,38 +535,51 @@ pip install -r requirements-dev.txt
 
 ## Secrets and Configuration Issues
 
-### Error: "Secret not found"
+### Error: Role secret not configured
 
 **Symptoms:**
 
+An unset secret reads as an empty string, so the run reports the missing role rather than a missing secret:
+
 ```
-Error: Secret AWS_ROLE_ARN not found
+AWS_API_DEPLOY_ROLE_ARN secret not configured - deployment steps will be skipped
+AWS_LAMBDA_DEPLOY_ROLE_ARN secret not configured - deployment will be skipped
+The web app was not deployed: AWS_WEB_DEPLOY_ROLE_ARN is not set for the dev-web environment.
+Terraform plan skipped for dev: AWS_INFRASTRUCTURE_PLAN_ROLE_ARN is not available to this run, so it has no AWS credentials.
+Credentials could not be loaded, please check your action inputs
 ```
+
+The last one comes from `aws-actions/configure-aws-credentials` in a job with no check of its own, such as `security-monitoring` in `infra-ci.yml`.
 
 **Causes:**
 
 - Secret not configured in GitHub
-- Typo in secret name
-- Environment-specific secret missing
+- Secret set at the wrong scope. A job that declares no environment cannot read an environment secret; `terraform-plan` reads the repository secret `AWS_INFRASTRUCTURE_PLAN_ROLE_ARN` and `security-monitoring` a repository copy of `AWS_INFRASTRUCTURE_CI_ROLE_ARN`, and `AWS_WEB_DEPLOY_ROLE_ARN` belongs on each `<env>-web` environment.
+- Secret set under an old name. Names starting with `GITHUB_` are rejected by GitHub, and the workflows do not read `AWS_ROLE_ARN_INFRA`, `AWS_ROLE_ARN_LAMBDA`, `AWS_ROLE_ARN_WEB` or `AWS_ROLE_ARN_API`.
 
 **Solutions:**
 
-1. **List All Secrets:**
+1. **List Repository Secrets:**
 
 ```bash
 gh secret list
 ```
 
-2. **Set Missing Secret:**
+2. **Check Environment Secrets:**
 
 ```bash
-gh secret set AWS_ROLE_ARN --body "arn:aws:iam::123456789012:role/GitHubActions-Infrastructure"
+gh secret list --env prod-infrastructure
+gh secret list --env prod-web
 ```
 
-3. **Check Environment Secrets:**
+3. **Set Missing Secret** at the scope listed in [GITHUB_OIDC_SETUP.md](../../infra/terraform/GITHUB_OIDC_SETUP.md#3-configure-github-secrets):
 
 ```bash
-gh secret list --env production
+# Repository secret, for jobs that declare no environment
+gh secret set AWS_INFRASTRUCTURE_CI_ROLE_ARN --body "arn:aws:iam::DEV_ACCOUNT_ID:role/pdf-accessibility-dev-github-infra-ci-role"
+
+# Environment secret
+gh secret set AWS_WEB_DEPLOY_ROLE_ARN --env prod-web --body "arn:aws:iam::PROD_ACCOUNT_ID:role/pdf-accessibility-prod-github-web-deploy-role"
 ```
 
 ### Error: "Environment protection rule"

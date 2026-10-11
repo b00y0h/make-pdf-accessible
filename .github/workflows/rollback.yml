@@ -82,6 +82,8 @@ jobs:
     needs: validate-rollback
     if: needs.validate-rollback.outputs.rollback-approved == 'true' && (github.event.inputs.service == 'api' || github.event.inputs.service == 'all')
     runs-on: ubuntu-latest
+    # <env>-api holds that environment's API deploy role ARN, and the role trusts <env>-api
+    environment: ${{ github.event.inputs.environment }}-api
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -89,7 +91,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_API_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Get current API version
@@ -164,6 +166,8 @@ jobs:
     needs: validate-rollback
     if: needs.validate-rollback.outputs.rollback-approved == 'true' && (github.event.inputs.service == 'web' || github.event.inputs.service == 'all')
     runs-on: ubuntu-latest
+    # The web deploy role trusts only the <env>-web environment
+    environment: ${{ github.event.inputs.environment }}-web
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -171,7 +175,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_WEB_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Get previous web deployment
@@ -237,13 +241,22 @@ jobs:
         function:
           [router, ocr, structure, tagger, exporter, validator, notifier]
     steps:
+      # The Lambda deploy role trusts main and tags, not a GitHub environment, so its secret is a
+      # repository secret that holds dev's role. Fail rather than skip, so the rollback is not
+      # reported as successful.
+      - name: Check target environment
+        if: github.event.inputs.environment != 'dev'
+        run: |
+          echo "::error::Lambda function rollback can only reach dev: AWS_LAMBDA_DEPLOY_ROLE_ARN is a repository secret holding dev's role. Roll back ${{ github.event.inputs.environment }} functions with that account's credentials."
+          exit 1
+
       - name: Checkout code
         uses: actions/checkout@v7
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_LAMBDA_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Rollback Lambda function
@@ -298,6 +311,8 @@ jobs:
     needs: validate-rollback
     if: needs.validate-rollback.outputs.rollback-approved == 'true' && github.event.inputs.service == 'infrastructure'
     runs-on: ubuntu-latest
+    # <env>-infrastructure holds that environment's infrastructure CI role ARN, and the role trusts it
+    environment: ${{ github.event.inputs.environment }}-infrastructure
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -305,7 +320,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_INFRASTRUCTURE_CI_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
