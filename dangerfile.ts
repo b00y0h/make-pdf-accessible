@@ -187,9 +187,14 @@ const checkSecurity = () => {
 
   // Note: In a real implementation, you'd read file contents and check them
   // for hardcoded secrets. This is a placeholder warning
+  // Example and template files such as `.env.example` and `staging.env.template`
+  // hold placeholders, not real values
   if (
     changedFiles.some(
-      (file) => file.includes('.env') && !file.includes('.env.example')
+      (file) =>
+        file.includes('.env') &&
+        !file.includes('.env.example') &&
+        !file.endsWith('.env.template')
     )
   ) {
     fail(

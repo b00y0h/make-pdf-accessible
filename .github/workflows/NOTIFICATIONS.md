@@ -40,17 +40,9 @@ Add the following secrets to your GitHub repository:
 DEPLOYMENT_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK
 # or
 DEPLOYMENT_WEBHOOK_URL=https://outlook.office.com/webhook/YOUR/TEAMS/WEBHOOK
-
-# AWS credentials for security monitoring
-AWS_ACCOUNT_ID=123456789012
-AWS_REGION=us-east-1
-
-# IAM role ARNs for each workflow
-AWS_INFRASTRUCTURE_CI_ROLE_ARN=arn:aws:iam::123456789012:role/GitHubInfrastructureCI
-AWS_LAMBDA_DEPLOY_ROLE_ARN=arn:aws:iam::123456789012:role/GitHubLambdaDeploy
-AWS_WEB_DEPLOY_ROLE_ARN=arn:aws:iam::123456789012:role/GitHubWebDeploy
-AWS_API_DEPLOY_ROLE_ARN=arn:aws:iam::123456789012:role/GitHubAPIDeploy
 ```
+
+Security monitoring runs with the AWS role of the workflow it belongs to. The AWS secrets it needs (`AWS_REGION`, `AWS_ACCOUNT_ID` and the role ARNs) are listed, with whether each goes on the repository or on a GitHub environment, in [GITHUB_OIDC_SETUP.md](../../infra/terraform/GITHUB_OIDC_SETUP.md#3-configure-github-secrets).
 
 ### Slack Webhook Setup
 
