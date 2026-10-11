@@ -30,24 +30,31 @@ if [ ! -z "$python_files" ]; then
         . venv/bin/activate
     fi
     
-    # Check if Python files exist and run checks
-    for file in $python_files; do
-        if [ -f "$file" ]; then
-            # Black formatting check
-            if ! ./venv/bin/black --check "$file" 2>/dev/null; then
-                echo "${RED}❌ Black formatting issues in: $file${NC}"
-                echo "${YELLOW}💡 Run: ./venv/bin/black $file${NC}"
-                has_errors=true
+    # Check if we have Black and Ruff (installed by `make init`); without them
+    # every file would be reported as failing
+    if [ -x "./venv/bin/black" ] && [ -x "./venv/bin/ruff" ]; then
+        # Check if Python files exist and run checks
+        for file in $python_files; do
+            if [ -f "$file" ]; then
+                # Black formatting check
+                if ! ./venv/bin/black --check "$file" 2>/dev/null; then
+                    echo "${RED}❌ Black formatting issues in: $file${NC}"
+                    echo "${YELLOW}💡 Run: ./venv/bin/black $file${NC}"
+                    has_errors=true
+                fi
+
+                # Ruff linting
+                if ! ./venv/bin/ruff check "$file" 2>/dev/null; then
+                    echo "${RED}❌ Ruff linting issues in: $file${NC}"
+                    echo "${YELLOW}💡 Run: ./venv/bin/ruff check --fix $file${NC}"
+                    has_errors=true
+                fi
             fi
-            
-            # Ruff linting
-            if ! ./venv/bin/ruff check "$file" 2>/dev/null; then
-                echo "${RED}❌ Ruff linting issues in: $file${NC}"
-                echo "${YELLOW}💡 Run: ./venv/bin/ruff check --fix $file${NC}"
-                has_errors=true
-            fi
-        fi
-    done
+        done
+    else
+        echo "${YELLOW}⚠️  venv/bin/black or venv/bin/ruff not available, skipping Python checks${NC}"
+        echo "${YELLOW}💡 Run: make init${NC}"
+    fi
 fi
 
 # Check TypeScript/JavaScript files  
