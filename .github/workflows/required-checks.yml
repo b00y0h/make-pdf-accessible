@@ -88,6 +88,9 @@ jobs:
           source venv/bin/activate
           pip install --upgrade pip
           pip install -r requirements.txt
+          # Install service-specific dependencies
+          pip install -r services/api/requirements.txt
+          pip install -r services/worker/requirements.txt
 
       - name: Run Python linting
         run: |

@@ -94,11 +94,11 @@ def lambda_handler(event: dict[str, Any], context: LambdaContext) -> dict[str, A
 
             review_service = get_review_service()
             review_assessment = review_service.evaluate_confidence_scores(
-                doc_id, confidence_scores
+                request.doc_id, confidence_scores
             )
 
             if review_assessment.get("needsReview"):
-                logger.info(f"Document {doc_id} structure needs human review")
+                logger.info(f"Document {request.doc_id} structure needs human review")
 
         except Exception as e:
             logger.warning(f"Review service evaluation failed: {e}")

@@ -130,7 +130,7 @@ class BaseRepository(Generic[T], ABC):
 
         except DuplicateKeyError as e:
             logger.error(f"Duplicate key error creating document: {e}")
-            raise ValueError("Document with this identifier already exists")
+            raise ValueError("Document with this identifier already exists") from e
         except Exception as e:
             logger.error(f"Error creating document in {self.collection_name}: {e}")
             raise
