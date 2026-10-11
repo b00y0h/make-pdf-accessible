@@ -180,6 +180,8 @@ services:
       - SQS_INGEST_QUEUE=pdf-accessibility-ingest
       - SQS_PRIORITY_QUEUE=pdf-accessibility-priority
       - SQS_CALLBACK_QUEUE=pdf-accessibility-callbacks
+      # Signed webhooks are queued here; created by scripts/localstack-init
+      - CALLBACK_QUEUE_URL=http://localstack:4566/000000000000/pdf-accessibility-callbacks
       # Feature flags
       - ENABLE_DUAL_WRITE=false
       - ENABLE_PERFORMANCE_METRICS=true
@@ -193,6 +195,9 @@ services:
       - JWT_ISSUER=accesspdf-dashboard
       - JWT_AUDIENCE=accesspdf-api
       - BETTER_AUTH_DASHBOARD_URL=http://host.docker.internal:3001
+      # Shared secret for internal dashboard calls; set the same value in the
+      # dashboard's .env.local. Unset rejects every internal dashboard call.
+      - DASHBOARD_INTERNAL_SECRET=${DASHBOARD_INTERNAL_SECRET:-}
       # Development configuration
       - DISABLE_RATE_LIMITING=true
       # CORS configuration

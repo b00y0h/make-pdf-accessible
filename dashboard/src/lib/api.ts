@@ -1,4 +1,4 @@
-import { AxiosInstance } from 'axios';
+import axios, { AxiosInstance } from 'axios';
 
 // Types matching the API responses
 export interface Document {
@@ -229,13 +229,14 @@ export class ApiService {
     return response.data;
   }
 
-  // Pre-signed upload endpoints
+  // Pre-signed upload endpoints. The API gates this one with the internal
+  // dashboard secret, so it goes through the dashboard's server route.
   async getPreSignedUploadUrl(
     filename: string,
     contentType: string,
     fileSize: number
   ): Promise<any> {
-    const response = await this.apiClient.post('/documents/upload/presigned', {
+    const response = await axios.post('/api/documents/upload/presigned', {
       filename,
       content_type: contentType,
       file_size: fileSize,

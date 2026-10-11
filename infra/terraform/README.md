@@ -191,7 +191,7 @@ terraform output marketing_site_distribution_domain
 
 Then create the `<env>-web` environment in the repository's GitHub settings (Settings, Environments):
 
-- Secret `GITHUB_WEB_DEPLOY_ROLE_ARN`: the role ARN above. The role trusts only this environment.
+- Secret `AWS_WEB_DEPLOY_ROLE_ARN`: the role ARN above. The role trusts only this environment.
 - Variables `MARKETING_S3_BUCKET` and `MARKETING_CLOUDFRONT_DISTRIBUTION_ID`: the bucket and distribution ID above.
 - For `prod-web`: required reviewers, and deployment branches limited to `main`.
 

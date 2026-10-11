@@ -81,7 +81,7 @@ INGEST_DLQ_URL=$(awslocal sqs get-queue-url --queue-name pdf-accessibility-inges
 
 awslocal sqs set-queue-attributes --queue-url "$INGEST_QUEUE_URL" --attributes '{
   "RedrivePolicy": "{\"deadLetterTargetArn\":\"arn:aws:sqs:us-east-1:000000000000:pdf-accessibility-ingest-dlq\",\"maxReceiveCount\":3}",
-  "VisibilityTimeoutSeconds": "300",
+  "VisibilityTimeout": "300",
   "MessageRetentionPeriod": "1209600"
 }'
 
