@@ -167,8 +167,9 @@ jobs:
   build-and-deploy:
     name: Build and Deploy
     runs-on: ubuntu-latest
-    # setup-environment checks the ref against the environment's allowed_branches. The if: has
-    # no status function, so this job is skipped unless that check succeeded.
+    # setup-environment checks the ref against the environment's allowed_branches, or its
+    # allowed_tags for a tag. The if: has no status function, so this job is skipped unless
+    # that check succeeded.
     needs: [setup-environment, detect-changes]
     if: needs.detect-changes.outputs.services != '[]' && needs.detect-changes.outputs.has_aws_creds == 'true'
     strategy:
