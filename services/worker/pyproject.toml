@@ -94,8 +94,8 @@ module = [
 ignore_missing_imports = true
 
 # Black is configured once, in the repo-root pyproject.toml. Don't add a
-# [tool.black] section here: black would then use it for files checked one at
-# a time (as the pre-commit hook does), while CI runs `black .` from the root.
+# [tool.black] section here: CI and the pre-commit hook both use the root
+# config and would ignore it, but an editor running black on one file would not.
 
 [tool.ruff]
 # Matches black's line length, which ruff's isort uses when wrapping imports.
