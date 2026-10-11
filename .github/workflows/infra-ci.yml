@@ -64,7 +64,9 @@ jobs:
         id: env-config
         uses: ./.github/actions/setup-environment
         with:
-          environment: ${{ inputs.environment || 'prod' }}
+          # Pull requests only plan, and terraform-plan plans them against dev, so load the
+          # dev config for them. Pushes to main resolve to prod, which only main may deploy.
+          environment: ${{ inputs.environment || (github.event_name == 'pull_request' && 'dev' || 'prod') }}
 
   terraform-validate:
     name: Terraform Validate
