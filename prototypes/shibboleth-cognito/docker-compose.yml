@@ -1,0 +1,26 @@
+# A stock Shibboleth IdP 5 on this Mac, acting as a test university for Cognito.
+# Run scripts/setup-idp.sh first. The IdP answers at https://localhost:8443/idp/ with a
+# self-signed certificate.
+services:
+  idp:
+    image: i2incommon/shib-idp:5.2.3_20260824_rocky9_multiarch
+    ports:
+      - "8443:443"
+    environment:
+      JAVA_OPTS: "-Xmx1024m"
+    volumes:
+      - ./idp/conf/idp.properties:/opt/shibboleth-idp/conf/idp.properties:ro
+      - ./idp/conf/attribute-resolver.xml:/opt/shibboleth-idp/conf/attribute-resolver.xml:ro
+      - ./idp/conf/attribute-filter.xml:/opt/shibboleth-idp/conf/attribute-filter.xml:ro
+      - ./idp/conf/metadata-providers.xml:/opt/shibboleth-idp/conf/metadata-providers.xml:ro
+      - ./idp/conf/saml-nameid.xml:/opt/shibboleth-idp/conf/saml-nameid.xml:ro
+      - ./idp/conf/saml-nameid.properties:/opt/shibboleth-idp/conf/saml-nameid.properties:ro
+      - ./idp/conf/authn/password-authn-config.xml:/opt/shibboleth-idp/conf/authn/password-authn-config.xml:ro
+      - ./idp/credentials/idp-signing.key:/opt/shibboleth-idp/credentials/idp-signing.key:ro
+      - ./idp/credentials/idp-signing.crt:/opt/shibboleth-idp/credentials/idp-signing.crt:ro
+      - ./idp/credentials/idp-encryption.key:/opt/shibboleth-idp/credentials/idp-encryption.key:ro
+      - ./idp/credentials/idp-encryption.crt:/opt/shibboleth-idp/credentials/idp-encryption.crt:ro
+      - ./idp/credentials/demo.htpasswd:/opt/shibboleth-idp/credentials/demo.htpasswd:ro
+      - ./idp/credentials/secrets.properties:/opt/shibboleth-idp/credentials/secrets.properties:ro
+      - ./idp/metadata/idp-metadata.xml:/opt/shibboleth-idp/metadata/idp-metadata.xml:ro
+      - ./idp/metadata/cognito-sp.xml:/opt/shibboleth-idp/metadata/cognito-sp.xml:ro

@@ -1,7 +1,7 @@
 # ADR-0008: Pooled multi-tenancy with row-level security, tenant-prefixed storage and tenant-scoped KMS keys; dedicated accounts only as a System-tier option
 
-- **Status:** Proposed
-- **Date:** 2026-09-28
+- **Status:** Accepted
+- **Date:** 2026-09-28 (accepted 2026-10-10 with tenant context set per transaction)
 - **Deciders:** Founder (product and engineering)
 - **Scope:** Tenant isolation across database, storage, compute and keys
 - **Related:** `docs/ENTERPRISE-READINESS-PRD.md`, ADR-0006, ADR-0007, ADR-0010
@@ -12,7 +12,7 @@ Today tenancy is a `tenant_id` field with no enforcement in storage or keys; the
 
 ## Decision
 
-We will run one pooled platform per environment with isolation enforced at four layers: (1) Postgres row-level security keyed on `tenant_id` set per request, with an application role that cannot bypass it; (2) S3 object keys prefixed by `tenant_id` and IAM ABAC conditions using session tags so pipeline tasks can only touch their tenant's prefix; (3) KMS encryption context including `tenant_id` on every object, with a shared key per tier for Team and Campus and a dedicated key per tenant for System; (4) per-tenant quotas and concurrency limits. A System-tier customer may buy a dedicated AWS account deployed from the same Terraform, operated by us.
+We will run one pooled platform per environment with isolation enforced at four layers: (1) Postgres row-level security keyed on `tenant_id`, set per transaction (`SET LOCAL` or `set_config(..., true)`) and never per connection, so a pooled connection cannot carry one tenant's context into another's request, with an application role that cannot bypass it; (2) S3 object keys prefixed by `tenant_id` and IAM ABAC conditions using session tags so pipeline tasks can only touch their tenant's prefix; (3) KMS encryption context including `tenant_id` on every object, with a shared key per tier for Team and Campus and a dedicated key per tenant for System; (4) per-tenant quotas and concurrency limits. A System-tier customer may buy a dedicated AWS account deployed from the same Terraform, operated by us.
 
 ## Alternatives Considered
 

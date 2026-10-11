@@ -3,6 +3,9 @@
 export const ROUTES = [
   '/',
   '/product/',
+  '/solutions/higher-ed/',
+  '/solutions/government/',
+  '/solutions/legal/',
   '/pricing/',
   '/free-report/',
   '/check/',

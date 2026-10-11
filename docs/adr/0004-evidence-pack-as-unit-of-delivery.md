@@ -1,7 +1,7 @@
 # ADR-0004: The signed, immutable evidence pack is the unit of delivery
 
-- **Status:** Proposed
-- **Date:** 2026-09-28
+- **Status:** Accepted
+- **Date:** 2026-09-28 (accepted 2026-10-10 with Object Lock mode per environment and a 3-year default retention)
 - **Deciders:** Founder (product and engineering)
 - **Scope:** Outputs, storage, compliance posture
 - **Related:** `docs/REMEDIATION-PIPELINE-PRD.md`, `docs/ENTERPRISE-READINESS-PRD.md`, ADR-0001, ADR-0003
@@ -14,7 +14,7 @@ Constraints: storage cost; retention obligations vary (1 to 7 years); packs must
 
 ## Decision
 
-We will produce, for every completed job, an evidence pack: `evidence.json` (versioned schema), the raw validator reports (veraPDF, axe, HTML validator), per-element semantic QA scores, the stage timeline, tool and model versions, and reviewer sign-off where applicable, plus a manifest signed with an asymmetric KMS key. Packs are written to an S3 bucket with Object Lock in compliance mode for the tenant's retention period and are exportable as JSON and as a tagged PDF. A document's status (`remediated`, `verified`) is derived from its pack, never set by hand.
+We will produce, for every completed job, an evidence pack: `evidence.json` (versioned schema), the raw validator reports (veraPDF, axe, HTML validator), per-element semantic QA scores, the stage timeline, tool and model versions, and reviewer sign-off where applicable, plus a manifest signed with an asymmetric KMS key. Packs are written to an S3 bucket with Object Lock for the tenant's retention period and are exportable as JSON and as a tagged PDF. Prod uses compliance mode; dev and staging use governance mode so test packs can be removed. Retention defaults to 3 years and is extended per tenant by contract: compliance-mode retention can be extended but never shortened, so a short default is the reversible choice. A document's status (`remediated`, `verified`) is derived from its pack, never set by hand.
 
 ## Alternatives Considered
 
@@ -38,4 +38,4 @@ We will produce, for every completed job, an evidence pack: `evidence.json` (ver
 **Neutral / Follow-ups**
 
 - Publish the schema and a verification script so customers can validate packs offline.
-- Decide default retention (3 vs 7 years) before the first customer pack is written.
+- Default retention is 3 years, extendable per tenant (decided 2026-10-10). Confirm with legal counsel before the first customer pack is written.

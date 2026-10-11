@@ -28,10 +28,10 @@ The motivating gaps:
 3. **Remediate on demand and cache by content hash; batch is a scheduling policy on top.** Rationale: ITHAKA's model; most documents are never opened. See ADR-0001.
 4. **Evidence pack per document is the unit of delivery.** Nothing is "done" without one. See ADR-0004.
 5. **HTML first for text-heavy web documents; PDF/UA when the document must stay a PDF.** See ADR-0005.
-6. **AWS-native, Terraform-managed, multi-account.** Dev, staging and prod are separate AWS accounts. See ADR-0010.
+6. **AWS-native, Terraform-managed, multi-account.** Prod has its own AWS account; dev and staging share the dev account, each with its own state, data and deploy roles. See ADR-0010.
 7. **No "automatic compliance" language anywhere**, in code, UI, docs or marketing. We say "remediated and validated" and "verified by a reviewer." Rationale: FTC v. accessiBe.
 8. **Higher education first**, then K-12 and local government using the same product with different packaging. Healthcare, federal and publishers are later.
-9. **Cognito is the identity layer** (SAML and OIDC federation for institutions); BetterAuth is retired. See ADR-0007.
+9. **Identity is open.** Campus SSO (SAML and OIDC federation) is required and BetterAuth is retired, but the identity layer itself (Cognito or an alternative) is on hold pending research. See ADR-0007.
 10. **Aurora PostgreSQL is the system of record; DynamoDB holds high-write pipeline state; MongoDB/DocumentDB and OpenSearch Serverless are retired.** See ADR-0006.
 
 ### What This Is NOT

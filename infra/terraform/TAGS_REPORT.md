@@ -17,7 +17,7 @@ common_tags = {
 
   # Additional organizational tags
   owner            = "team-platform"
-  business_unit    = "R&D"
+  business_unit    = "RnD"
   data_sensitivity = "internal|confidential"
   managed_by       = "terraform"
   repo             = "github.com/b00y0h/make-pdf-accessible"

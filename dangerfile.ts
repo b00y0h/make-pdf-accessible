@@ -6,14 +6,6 @@ import { danger, fail, warn, message, markdown } from 'danger';
 
 const MAX_PR_SIZE = 500; // lines
 const MIN_PR_DESCRIPTION_LENGTH = 10;
-const PROTECTED_FILES = [
-  'package.json',
-  'pnpm-lock.yaml',
-  'requirements.txt',
-  'pyproject.toml',
-  'docker-compose.yml',
-  'infra/terraform/**',
-];
 
 // =================
 // Helper Functions
@@ -191,17 +183,10 @@ const checkTests = () => {
 // ===================
 
 const checkSecurity = () => {
-  const sensitivePatterns = [
-    /password\s*=\s*["'][^"']{8,}["']/i,
-    /secret\s*=\s*["'][^"']{8,}["']/i,
-    /api[_-]?key\s*=\s*["'][^"']{8,}["']/i,
-    /token\s*=\s*["'][^"']{8,}["']/i,
-  ];
-
   const changedFiles = getChangedFiles();
 
-  // Note: In a real implementation, you'd read file contents and check patterns
-  // This is a placeholder warning
+  // Note: In a real implementation, you'd read file contents and check them
+  // for hardcoded secrets. This is a placeholder warning
   if (
     changedFiles.some(
       (file) => file.includes('.env') && !file.includes('.env.example')
