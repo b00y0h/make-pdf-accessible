@@ -8,7 +8,7 @@ from typing import Any
 from pydantic import BaseModel, Field, root_validator, validator
 
 
-class ElementType(str, Enum):
+class ElementType(str, Enum):  # noqa: UP042
     """Types of document structure elements."""
 
     HEADING = "heading"
@@ -38,7 +38,7 @@ class HeadingLevel(int, Enum):
     H6 = 6
 
 
-class ListType(str, Enum):
+class ListType(str, Enum):  # noqa: UP042
     """Types of lists."""
 
     UNORDERED = "unordered"  # Bulleted
@@ -46,7 +46,7 @@ class ListType(str, Enum):
     DEFINITION = "definition"  # Definition list
 
 
-class FigureType(str, Enum):
+class FigureType(str, Enum):  # noqa: UP042
     """Types of figures."""
 
     IMAGE = "image"

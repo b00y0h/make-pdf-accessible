@@ -186,7 +186,7 @@ class PDFUtils:
 
                     page_objects = []
 
-                    def extract_objects(obj):
+                    def extract_objects(obj, page_objects=page_objects):
                         """Recursively extract objects from layout."""
                         if isinstance(obj, LTTextBox):
                             page_objects.append(

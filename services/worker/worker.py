@@ -679,7 +679,7 @@ def process_pdf(self, doc_id: str, s3_key: str, user_id: str):
                 error_message=str(e),
                 completed_at=datetime.utcnow(),
             )
-        except:
+        except Exception:
             pass
 
         # Retry if possible

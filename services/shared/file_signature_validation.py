@@ -251,7 +251,7 @@ class FileSignatureValidator:
 
             self.magic_mime = magic.Magic(mime=True)
             self.magic_type = magic.Magic()
-        except:
+        except Exception:
             pass
 
     def validate_file_signature(
@@ -316,7 +316,7 @@ class FileSignatureValidator:
             if self.magic_mime:
                 try:
                     detected_mime = self.magic_mime.from_file(file_path)
-                except:
+                except Exception:
                     pass
 
             # Validate signature match
@@ -518,7 +518,7 @@ class FileSignatureValidator:
                     issues.append(
                         "PDF 2.0 format detected (newer standard, verify compatibility)"
                     )
-            except:
+            except Exception:
                 issues.append("Invalid PDF version header")
 
         return issues

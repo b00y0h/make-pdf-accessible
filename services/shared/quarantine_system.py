@@ -561,7 +561,7 @@ class QuarantineSystem:
         try:
             with open(self.access_log_path, "a") as f:
                 f.write(json.dumps(log_entry) + "\n")
-        except:
+        except Exception:
             pass  # Don't fail if logging fails
 
     def _handle_approved_file(self, record: QuarantineRecord):
@@ -581,7 +581,7 @@ class QuarantineSystem:
         try:
             if os.path.exists(record.storage_path):
                 os.remove(record.storage_path)
-        except:
+        except Exception:
             pass
 
 

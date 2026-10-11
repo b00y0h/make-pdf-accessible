@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 from typing import Any
@@ -15,6 +16,8 @@ from quota_enforcement import (
     validator_quota_enforcer,
 )
 from timeout_enforcement import check_timeouts, get_timeout_stats
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="PDF Validator Service",

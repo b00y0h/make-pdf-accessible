@@ -299,7 +299,7 @@ def optional_auth(
     try:
         claims = auth_jwt.verify_jwt_token(credentials.credentials)
         return auth_jwt.extract_user_info(claims)
-    except:
+    except Exception:
         return None
 
 
