@@ -166,7 +166,9 @@ jobs:
   build-and-deploy:
     name: Build and Deploy
     runs-on: ubuntu-latest
-    needs: detect-changes
+    # setup-environment checks the ref against the environment's allowed_branches. The if: has
+    # no status function, so this job is skipped unless that check succeeded.
+    needs: [setup-environment, detect-changes]
     if: needs.detect-changes.outputs.services != '[]' && needs.detect-changes.outputs.has_aws_creds == 'true'
     strategy:
       matrix:
@@ -642,7 +644,7 @@ jobs:
   deployment-summary:
     name: Deployment Summary
     runs-on: ubuntu-latest
-    needs: [detect-changes, build-and-deploy]
+    needs: [setup-environment, detect-changes, build-and-deploy]
     if: always() && needs.detect-changes.outputs.services != '[]'
 
     steps:
@@ -657,7 +659,9 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Check overall status
-          if [ "${{ needs.build-and-deploy.result }}" == "success" ]; then
+          if [ "${{ needs.setup-environment.result }}" != "success" ]; then
+            echo "**Overall Status:** 🚫 Blocked - environment setup failed (is $GITHUB_REF_NAME allowed to deploy to ${{ inputs.environment || 'dev' }}?)" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ needs.build-and-deploy.result }}" == "success" ]; then
             echo "**Overall Status:** ✅ All deployments successful" >> $GITHUB_STEP_SUMMARY
           elif [ "${{ needs.build-and-deploy.result }}" == "failure" ]; then
             echo "**Overall Status:** ❌ Some deployments failed" >> $GITHUB_STEP_SUMMARY
@@ -671,8 +675,10 @@ jobs:
   security-monitoring:
     name: Security Monitoring
     runs-on: ubuntu-latest
-    needs: [detect-changes, build-and-deploy]
-    if: always() && needs.build-and-deploy.result == 'success' && needs.detect-changes.outputs.services != '[]'
+    # This job assumes the deploy role, so it checks setup-environment itself rather than
+    # relying on build-and-deploy having been skipped
+    needs: [setup-environment, detect-changes, build-and-deploy]
+    if: always() && needs.setup-environment.result == 'success' && needs.build-and-deploy.result == 'success' && needs.detect-changes.outputs.services != '[]'
     outputs:
       security_status: ${{ steps.security-monitor.outputs.security_status }}
       security_events_detected: ${{ steps.security-monitor.outputs.security_events_detected }}
@@ -703,7 +709,7 @@ jobs:
   notify-deployment:
     name: Notify Deployment
     runs-on: ubuntu-latest
-    needs: [detect-changes, build-and-deploy, security-monitoring]
+    needs: [setup-environment, detect-changes, build-and-deploy, security-monitoring]
     if: always() && needs.detect-changes.outputs.services != '[]'
 
     steps:
@@ -713,7 +719,7 @@ jobs:
       - name: Notify deployment start
         env:
           WEBHOOK_URL: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
-        if: env.WEBHOOK_URL != '' && github.event_name != 'pull_request'
+        if: env.WEBHOOK_URL != '' && github.event_name != 'pull_request' && needs.setup-environment.result == 'success'
         uses: ./.github/actions/notify-deployment
         with:
           webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
@@ -822,6 +828,8 @@ jobs:
 
           if [ "${{ needs.build-and-deploy.result }}" = "success" ]; then
             echo "✅ **All Lambda functions deployed successfully**" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.setup-environment.result }}" != "success" ]; then
+            echo "🚫 **Lambda deployment blocked:** environment setup failed, so nothing was deployed" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "❌ **Lambda deployment failed**" >> $GITHUB_STEP_SUMMARY
             echo "📋 **Action Required:** Review individual service logs and redeploy failed functions" >> $GITHUB_STEP_SUMMARY
