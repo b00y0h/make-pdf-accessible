@@ -1,7 +1,7 @@
 # DocumentDB Subnet Group
 resource "aws_docdb_subnet_group" "main" {
   name       = "${local.name_prefix}-docdb-subnet-group"
-  subnet_ids = aws_subnet.private[*].id
+  subnet_ids = local.private_subnet_ids
 
   tags = merge(local.database_tags, {
     Name = "${local.name_prefix}-docdb-subnet-group"
@@ -30,7 +30,7 @@ resource "aws_docdb_cluster_parameter_group" "main" {
 # DocumentDB Security Group
 resource "aws_security_group" "documentdb" {
   name_prefix = "${local.name_prefix}-documentdb-"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = local.vpc_id
   description = "Security group for DocumentDB cluster"
 
   # Allow inbound from Lambda security group on MongoDB port

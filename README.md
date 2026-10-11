@@ -245,11 +245,17 @@ make dev
 
 ### Staging/Production
 
-Environments are separate AWS accounts with their own Terraform state (see `infra/terraform/README.md`):
+Dev and staging share the dev AWS account and prod has its own; every environment has its own Terraform state (see `infra/terraform/README.md`):
 
 ```bash
-# Once per account: state bucket and lock table
-cd infra/terraform/bootstrap && terraform init && terraform apply -var environment=dev
+# Once per account: a state bucket and lock table for each environment it hosts
+cd infra/terraform/bootstrap && terraform init && terraform workspace new dev
+AWS_PROFILE=pdf-dev terraform apply -var 'environments=["dev","staging"]'
+
+# Once per account: the shared GitHub OIDC provider and network
+cd ../account
+AWS_PROFILE=pdf-dev terraform init -backend-config=environments/nonprod.backend.hcl
+AWS_PROFILE=pdf-dev terraform apply -var-file=environments/nonprod.tfvars
 
 # Platform
 cd infra/terraform

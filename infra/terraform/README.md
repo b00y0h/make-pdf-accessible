@@ -6,7 +6,7 @@ This directory contains the Terraform configuration for provisioning the AWS inf
 
 The infrastructure includes:
 
-- **VPC**: Isolated network with private subnets, NAT gateways, and VPC endpoints
+- **Network**: one VPC per AWS account, shared by the environments in it and owned by the account layer (`account/`); this root looks it up
 - **S3 Buckets**: Secure storage for PDFs, derivatives, reports, and web assets
 - **DocumentDB**: Primary database for document metadata and processing state
 - **DynamoDB**: Tables for documents, jobs, and user sessions
@@ -37,7 +37,7 @@ cost_center  = "CC-ENV-###"     # Environment-specific
 
 # Organizational tags
 owner            = "team-platform"
-business_unit    = "R&D"
+business_unit    = "RnD"                # AWS rejects "&" in tag values
 data_sensitivity = "internal|confidential"
 managed_by       = "terraform"
 repo             = "github.com/b00y0h/make-pdf-accessible"
@@ -75,14 +75,15 @@ These tags enable cost dashboard features:
 
 ## AWS accounts and credentials
 
-Each environment is its own AWS account in the `reversetype` organization (ADR-0010):
+Two AWS accounts in the `reversetype` organization (ADR-0010). Staging lives in the dev account beside dev and shares that account's network and GitHub OIDC provider; each environment still has its own state, data and deploy roles.
 
 | Environment | Account                | ID           |
 | ----------- | ---------------------- | ------------ |
 | dev         | pdf-accessibility-dev  | 403030570295 |
+| staging     | pdf-accessibility-dev  | 403030570295 |
 | prod        | pdf-accessibility-prod | 774697187580 |
 
-There is no staging account yet. Sign in through IAM Identity Center rather than with access keys. In `~/.aws/config` (your access portal URL and Identity Center region go in the first block):
+Sign in through IAM Identity Center rather than with access keys. In `~/.aws/config` (your access portal URL and Identity Center region go in the first block):
 
 ```ini
 [sso-session pdf]
@@ -109,18 +110,28 @@ Log in with `aws sso login --sso-session pdf`, then pick the account with `AWS_P
 
 ### 0. One-time bootstrap per AWS account
 
-Create the state bucket and lock table once per account. The bootstrap root keeps its state in local files, so give each account its own workspace; running both from the default workspace would make the prod run treat the dev resources as its own.
+Create a state bucket and lock table for each environment, once per account. The bootstrap root keeps its state in local files, so give each account its own workspace; running both from the default workspace would make the prod run treat the dev resources as its own.
 
 ```bash
 cd infra/terraform/bootstrap
 terraform init
 terraform workspace new dev
-AWS_PROFILE=pdf-dev terraform apply -var environment=dev
+AWS_PROFILE=pdf-dev terraform apply -var 'environments=["dev","staging"]'
 terraform workspace new prod
-AWS_PROFILE=pdf-prod terraform apply -var environment=prod
+AWS_PROFILE=pdf-prod terraform apply -var 'environments=["prod"]'
 ```
 
-Keep `terraform.tfstate.d/` (git-ignored): it is the only record of these resources. Later runs use `terraform workspace select <env>`.
+Keep `terraform.tfstate.d/` (git-ignored) and back it up to S3 as `bootstrap/README.md` describes. Later runs use `terraform workspace select <workspace>`.
+
+### 0b. Account layer, once per AWS account
+
+The GitHub OIDC provider and the network exist once per account and are shared by the environments in it, so they live in `account/` (see its README). Apply it with an administrator credential before the platform root:
+
+```bash
+cd infra/terraform/account
+AWS_PROFILE=pdf-dev terraform init -reconfigure -backend-config=environments/nonprod.backend.hcl
+AWS_PROFILE=pdf-dev terraform apply -var-file=environments/nonprod.tfvars
+```
 
 ### 1. Initialize against the environment's backend
 
@@ -149,10 +160,15 @@ Google sign-in through Cognito is off until `enable_google_login = true`. Turn i
 
 ### Marketing site only
 
-The first production milestone is the marketing site alone. These targets create it, the GitHub OIDC provider and the web deploy role, and nothing from the always-on platform stack (NAT gateways, VPC endpoints, DocumentDB, OpenSearch). Run them after step 1, once per account (`pdf-dev` with `dev.tfvars`, `pdf-prod` with `prod.tfvars`):
+The first production milestone is the marketing site alone. These targets create it and the web deploy role, and nothing from the always-on platform stack (NAT gateways, VPC endpoints, DocumentDB, OpenSearch). The role trusts the account's GitHub OIDC provider, so create only that from the account layer first, then run the targets after step 1, once per environment (`pdf-dev` with `dev.tfvars`, `pdf-prod` with `prod.tfvars`):
 
 ```bash
 export AWS_PROFILE=pdf-prod
+
+# The account's GitHub OIDC provider, without the network
+(cd account && terraform init -reconfigure -backend-config=environments/prod.backend.hcl \
+  && terraform apply -var-file=environments/prod.tfvars -target=aws_iam_openid_connect_provider.github)
+
 VARS=-var-file=environments/prod.tfvars
 
 # The certificate first, then the DNS validation record to add in DNSimple
@@ -214,17 +230,13 @@ terraform output marketing_site_distribution_id
 | `enable_waf`         | Enable WAF protection    | `true`  |
 | `log_retention_days` | CloudWatch log retention | `30`    |
 
-### VPC Configuration
+### Network
 
-| Variable               | Description          | Default                              |
-| ---------------------- | -------------------- | ------------------------------------ |
-| `vpc_cidr`             | VPC CIDR block       | `10.0.0.0/16`                        |
-| `private_subnet_cidrs` | Private subnet CIDRs | `["10.0.1.0/24", "10.0.2.0/24"]`     |
-| `public_subnet_cidrs`  | Public subnet CIDRs  | `["10.0.101.0/24", "10.0.102.0/24"]` |
+The VPC, subnets, NAT gateways and VPC endpoints are set per account in `account/environments/<account>.tfvars`. This root finds the VPC by the `pdf-accessibility/network = platform` tag and the subnets by `pdf-accessibility/tier`; each environment keeps its own security groups.
 
 ## GitHub Actions OIDC Setup
 
-This infrastructure includes GitHub OIDC provider configuration for secure CI/CD deployments.
+The OIDC provider is created once per account by `account/`; this root creates each environment's roles and looks the provider up. Each role trusts an explicit list of subjects (`github_oidc.tf`). Staging shares the dev account, so staging's roles accept only `main` and staging's own GitHub environments; `develop` and pull requests reach dev only.
 
 ### 1. Configure Repository
 
@@ -296,7 +308,7 @@ You can find the exact ARN in the Terraform outputs after deployment.
 
 ## State Management
 
-State is remote and per environment. `backend.tf` declares a partial S3 backend; `environments/<env>.backend.hcl` supplies the bucket (`pdf-accessibility-terraform-state-<env>`), key and lock table (`pdf-accessibility-terraform-locks-<env>`), both created by `bootstrap/`. The GitHub infrastructure CI role (`github_oidc.tf`) is scoped to exactly those names.
+State is remote and per environment. `backend.tf` declares a partial S3 backend; `environments/<env>.backend.hcl` supplies the bucket (`pdf-accessibility-terraform-state-<env>`), key and lock table (`pdf-accessibility-terraform-locks-<env>`), both created by `bootstrap/`. Each environment's GitHub infrastructure CI role (`github_oidc.tf`) can reach only its own bucket's `platform/` key and its own lock table: not another environment's state (dev and staging share an account), and not the account layer's state kept under `account/`.
 
 Never commit `terraform.tfstate`, `tfplan` or `.terraform/`; they are ignored in `.gitignore`.
 
@@ -308,7 +320,8 @@ Never commit `terraform.tfstate`, `tfplan` or `.terraform/`; they are ignored in
 | `marketing.tf`         | Marketing site (module instance)                                                                                      |
 | `modules/static-site/` | Reusable private S3 + CloudFront static site with security headers                                                    |
 | `environments/`        | Per-account backend and variable files                                                                                |
-| `bootstrap/`           | State bucket and lock table per account                                                                               |
+| `bootstrap/`           | State bucket and lock table per environment, applied once per account                                                 |
+| `account/`             | GitHub OIDC provider and network, applied once per account and shared by its environments                             |
 | `cur-athena/`          | Cost and Usage Report tables for the cost dashboard                                                                   |
 
 ## Security Features
@@ -322,8 +335,8 @@ Never commit `terraform.tfstate`, `tfplan` or `.terraform/`; they are ignored in
 
 ### Network Security
 
-- **VPC**: Private subnets with NAT gateways
-- **VPC Endpoints**: Secure access to AWS services
+- **VPC**: Private subnets with NAT gateways, one network per account (`account/`)
+- **VPC Endpoints**: Free S3 and DynamoDB gateway endpoints everywhere; interface endpoints in prod
 - **Security Groups**: Least privilege network access
 - **WAF**: Web application firewall for CloudFront
 
