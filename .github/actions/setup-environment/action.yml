@@ -112,7 +112,10 @@ runs:
         echo "  - Deployment Strategy: $DEPLOYMENT_STRATEGY"
         echo "  - Resource Prefix: $RESOURCE_PREFIX"
 
+    # Pull request and merge queue runs never deploy, and their ref is "<number>/merge",
+    # which no allowed-branch pattern matches.
     - name: Validate branch permissions
+      if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
       shell: bash
       run: |
         CURRENT_BRANCH="${{ github.ref_name }}"
