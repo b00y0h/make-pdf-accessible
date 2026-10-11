@@ -545,15 +545,16 @@ An unset secret reads as an empty string, so the run reports the missing role ra
 AWS_API_DEPLOY_ROLE_ARN secret not configured - deployment steps will be skipped
 AWS_LAMBDA_DEPLOY_ROLE_ARN secret not configured - deployment will be skipped
 The web app was not deployed: AWS_WEB_DEPLOY_ROLE_ARN is not set for the dev-web environment.
+Terraform plan skipped for dev: AWS_INFRASTRUCTURE_PLAN_ROLE_ARN is not available to this run, so it has no AWS credentials.
 Credentials could not be loaded, please check your action inputs
 ```
 
-The last one comes from `aws-actions/configure-aws-credentials` in a job with no check of its own, such as `terraform-plan` in `infra-ci.yml`.
+The last one comes from `aws-actions/configure-aws-credentials` in a job with no check of its own, such as `security-monitoring` in `infra-ci.yml`.
 
 **Causes:**
 
 - Secret not configured in GitHub
-- Secret set at the wrong scope. A job that declares no environment cannot read an environment secret; `terraform-plan` needs a repository copy of `AWS_INFRASTRUCTURE_CI_ROLE_ARN`, and `AWS_WEB_DEPLOY_ROLE_ARN` belongs on each `<env>-web` environment.
+- Secret set at the wrong scope. A job that declares no environment cannot read an environment secret; `terraform-plan` reads the repository secret `AWS_INFRASTRUCTURE_PLAN_ROLE_ARN` and `security-monitoring` a repository copy of `AWS_INFRASTRUCTURE_CI_ROLE_ARN`, and `AWS_WEB_DEPLOY_ROLE_ARN` belongs on each `<env>-web` environment.
 - Secret set under an old name. Names starting with `GITHUB_` are rejected by GitHub, and the workflows do not read `AWS_ROLE_ARN_INFRA`, `AWS_ROLE_ARN_LAMBDA`, `AWS_ROLE_ARN_WEB` or `AWS_ROLE_ARN_API`.
 
 **Solutions:**

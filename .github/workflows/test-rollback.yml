@@ -40,7 +40,6 @@ jobs:
     outputs:
       test_services: ${{ steps.parse.outputs.services }}
       test_environment: ${{ steps.setup.outputs.environment }}
-      baseline_versions: ${{ steps.baseline.outputs.versions }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -57,54 +56,101 @@ jobs:
         run: |
           SERVICES="${{ github.event.inputs.test_services || 'api,web,lambda-functions' }}"
           # Convert comma-separated to JSON array
-          SERVICES_JSON=$(echo "$SERVICES" | jq -R 'split(",")')
+          SERVICES_JSON=$(echo "$SERVICES" | jq -cR 'split(",")')
           echo "services=$SERVICES_JSON" >> $GITHUB_OUTPUT
           echo "Testing services: $SERVICES"
 
+  # Each AWS job assumes one role. A role used by a job that declares a GitHub environment must
+  # trust that environment, and a job can declare only one, so the baseline is captured per service.
+  capture-baseline-api:
+    name: Capture API Baseline
+    runs-on: ubuntu-latest
+    needs: prepare-test
+    if: contains(needs.prepare-test.outputs.test_services, 'api')
+    environment: ${{ needs.prepare-test.outputs.test_environment }}-api
+    outputs:
+      versions: ${{ steps.baseline.outputs.versions }}
+    steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_API_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Capture baseline version
+        id: baseline
+        run: |
+          ENVIRONMENT="${{ needs.prepare-test.outputs.test_environment }}"
+
+          API_VERSION=$(aws lambda get-alias \
+            --function-name "pdf-accessibility-api-$ENVIRONMENT" \
+            --name live \
+            --query 'FunctionVersion' \
+            --output text 2>/dev/null || echo "1")
+          VERSIONS=$(jq -cn --arg v "$API_VERSION" '{api: $v}')
+
+          echo "versions=$VERSIONS" >> $GITHUB_OUTPUT
+          echo "Baseline versions captured: $VERSIONS"
+
+  capture-baseline-web:
+    name: Capture Web Baseline
+    runs-on: ubuntu-latest
+    needs: prepare-test
+    if: contains(needs.prepare-test.outputs.test_services, 'web')
+    environment: ${{ needs.prepare-test.outputs.test_environment }}-web
+    outputs:
+      versions: ${{ steps.baseline.outputs.versions }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_WEB_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Capture baseline version
+        id: baseline
+        run: |
+          ENVIRONMENT="${{ needs.prepare-test.outputs.test_environment }}"
+
+          # Web version (from S3 metadata)
+          WEB_VERSION=$(aws s3api head-object \
+            --bucket "pdf-accessibility-$ENVIRONMENT-web" \
+            --key "index.html" \
+            --query 'Metadata.version' \
+            --output text 2>/dev/null || echo "unknown")
+          VERSIONS=$(jq -cn --arg v "$WEB_VERSION" '{web: $v}')
+
+          echo "versions=$VERSIONS" >> $GITHUB_OUTPUT
+          echo "Baseline versions captured: $VERSIONS"
+
+  capture-baseline-lambda:
+    name: Capture Lambda Baseline
+    runs-on: ubuntu-latest
+    needs: prepare-test
+    if: contains(needs.prepare-test.outputs.test_services, 'lambda-functions')
+    outputs:
+      versions: ${{ steps.baseline.outputs.versions }}
+    steps:
+      # The Lambda deploy role trusts main and tags, not a GitHub environment
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_LAMBDA_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Capture baseline versions
         id: baseline
         run: |
-          ENVIRONMENT="${{ steps.setup.outputs.environment }}"
+          ENVIRONMENT="${{ needs.prepare-test.outputs.test_environment }}"
 
-          # Capture current versions for rollback testing
           VERSIONS="{}"
-
-          # API version
-          if echo "${{ github.event.inputs.test_services || 'api,web,lambda-functions' }}" | grep -q "api"; then
-            API_VERSION=$(aws lambda get-alias \
-              --function-name "pdf-accessibility-api-$ENVIRONMENT" \
-              --name live \
-              --query 'FunctionVersion' \
+          for func in router ocr structure tagger exporter validator notifier; do
+            FUNC_VERSION=$(aws lambda get-function \
+              --function-name "pdf-accessibility-$func-$ENVIRONMENT" \
+              --query 'Configuration.Version' \
               --output text 2>/dev/null || echo "1")
-            VERSIONS=$(echo "$VERSIONS" | jq --arg v "$API_VERSION" '.api = $v')
-          fi
-
-          # Web version (from S3 metadata)
-          if echo "${{ github.event.inputs.test_services || 'api,web,lambda-functions' }}" | grep -q "web"; then
-            WEB_VERSION=$(aws s3api head-object \
-              --bucket "pdf-accessibility-$ENVIRONMENT-web" \
-              --key "index.html" \
-              --query 'Metadata.version' \
-              --output text 2>/dev/null || echo "unknown")
-            VERSIONS=$(echo "$VERSIONS" | jq --arg v "$WEB_VERSION" '.web = $v')
-          fi
-
-          # Lambda functions versions
-          if echo "${{ github.event.inputs.test_services || 'api,web,lambda-functions' }}" | grep -q "lambda-functions"; then
-            for func in router ocr structure tagger exporter validator notifier; do
-              FUNC_VERSION=$(aws lambda get-function \
-                --function-name "pdf-accessibility-$func-$ENVIRONMENT" \
-                --query 'Configuration.Version' \
-                --output text 2>/dev/null || echo "1")
-              VERSIONS=$(echo "$VERSIONS" | jq --arg f "$func" --arg v "$FUNC_VERSION" '.[$f] = $v')
-            done
-          fi
+            VERSIONS=$(echo "$VERSIONS" | jq -c --arg f "$func" --arg v "$FUNC_VERSION" '.[$f] = $v')
+          done
 
           echo "versions=$VERSIONS" >> $GITHUB_OUTPUT
           echo "Baseline versions captured: $VERSIONS"
@@ -117,10 +163,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
+      # The Lambda deploy role needs no GitHub environment, so the weekly run waits on no reviewers
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_LAMBDA_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Test deployment state tracking
@@ -148,10 +195,13 @@ jobs:
           environment: ${{ needs.prepare-test.outputs.test_environment }}
           version: 'test-v1.0.0'
 
-  test-cache-invalidation:
-    name: Test Cache Invalidation
+  # CloudFront needs the web deploy role and API Gateway the API deploy role, and each role
+  # trusts a different GitHub environment, so the two caches are tested in separate jobs.
+  test-cache-invalidation-cloudfront:
+    name: Test CloudFront Cache Invalidation
     runs-on: ubuntu-latest
     needs: prepare-test
+    environment: ${{ needs.prepare-test.outputs.test_environment }}-web
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -159,14 +209,36 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_WEB_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Test cache invalidation (dry run)
         uses: ./.github/actions/cache-invalidation
         with:
           environment: ${{ needs.prepare-test.outputs.test_environment }}
-          cache_types: 'cloudfront,apigateway'
+          cache_types: 'cloudfront'
+          wait_for_completion: false
+
+  test-cache-invalidation-apigateway:
+    name: Test API Gateway Cache Invalidation
+    runs-on: ubuntu-latest
+    needs: prepare-test
+    environment: ${{ needs.prepare-test.outputs.test_environment }}-api
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_API_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Test cache invalidation (dry run)
+        uses: ./.github/actions/cache-invalidation
+        with:
+          environment: ${{ needs.prepare-test.outputs.test_environment }}
+          cache_types: 'apigateway'
           wait_for_completion: false
 
   test-db-migration-rollback:
@@ -209,7 +281,13 @@ jobs:
   simulate-rollback:
     name: Simulate Rollback Procedures
     runs-on: ubuntu-latest
-    needs: [prepare-test, test-deployment-state, test-cache-invalidation]
+    needs:
+      [
+        prepare-test,
+        test-deployment-state,
+        test-cache-invalidation-cloudfront,
+        test-cache-invalidation-apigateway,
+      ]
     if: github.event.inputs.dry_run != 'true'
     strategy:
       matrix:
@@ -217,12 +295,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
 
       - name: Simulate service rollback
         run: |
@@ -302,8 +374,12 @@ jobs:
     needs:
       [
         prepare-test,
+        capture-baseline-api,
+        capture-baseline-web,
+        capture-baseline-lambda,
         test-deployment-state,
-        test-cache-invalidation,
+        test-cache-invalidation-cloudfront,
+        test-cache-invalidation-apigateway,
         test-db-migration-rollback,
         test-auto-rollback-logic,
         simulate-rollback,
@@ -332,7 +408,8 @@ jobs:
             echo "| Deployment State Tracking | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
           fi
 
-          if [ "${{ needs.test-cache-invalidation.result }}" == "success" ]; then
+          if [ "${{ needs.test-cache-invalidation-cloudfront.result }}" == "success" ] && \
+             [ "${{ needs.test-cache-invalidation-apigateway.result }}" == "success" ]; then
             echo "| Cache Invalidation | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
           else
             echo "| Cache Invalidation | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
@@ -360,7 +437,8 @@ jobs:
 
           # Overall status
           if [ "${{ needs.test-deployment-state.result }}" == "success" ] && \
-             [ "${{ needs.test-cache-invalidation.result }}" == "success" ] && \
+             [ "${{ needs.test-cache-invalidation-cloudfront.result }}" == "success" ] && \
+             [ "${{ needs.test-cache-invalidation-apigateway.result }}" == "success" ] && \
              [ "${{ needs.test-db-migration-rollback.result }}" == "success" ] && \
              [ "${{ needs.test-auto-rollback-logic.result }}" == "success" ] && \
              [ "${{ needs.validate-rollback-workflow.result }}" == "success" ]; then
@@ -379,7 +457,11 @@ jobs:
           echo "The following versions were captured as baseline for rollback testing:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo '```json' >> $GITHUB_STEP_SUMMARY
-          echo '${{ needs.prepare-test.outputs.baseline_versions }}' >> $GITHUB_STEP_SUMMARY
+          jq -n \
+            --argjson api '${{ needs.capture-baseline-api.outputs.versions || '{}' }}' \
+            --argjson web '${{ needs.capture-baseline-web.outputs.versions || '{}' }}' \
+            --argjson lambda '${{ needs.capture-baseline-lambda.outputs.versions || '{}' }}' \
+            '$api + $web + $lambda' >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Notify test completion

@@ -180,6 +180,10 @@ MEMORY_CACHE_SIZE=1000  # Max items in memory cache
 # Authentication
 BETTER_AUTH_SECRET="your-secret-key-here"
 BETTER_AUTH_URL="http://localhost:3001"
+
+# Internal API auth (server-only, must match DASHBOARD_INTERNAL_SECRET on the API)
+# Generate with: openssl rand -hex 32
+DASHBOARD_INTERNAL_SECRET=""
 ```
 
 ### Rate Limiting

@@ -168,7 +168,7 @@ jobs:
           esac
 
   test-branch-permissions:
-    name: Test Branch Permissions
+    name: Test Branch and Tag Permissions
     runs-on: ubuntu-latest
     needs: test-environment-setup
     if: needs.test-environment-setup.outputs.config_valid == 'true'
@@ -177,21 +177,105 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Test branch permissions
+      # validate-ref.sh is the script behind setup-environment's "Validate branch and tag
+      # permissions" step
+      - name: Test branch and tag permissions
         run: |
-          echo "🌿 Testing branch permissions for: ${{ inputs.test_environment }}"
-          echo "Testing branch: ${{ inputs.test_branch || github.ref_name }}"
+          echo "🌿 Testing branch and tag permissions"
           echo ""
 
-          # Override GITHUB_REF_NAME for testing
-          export GITHUB_REF_NAME="${{ inputs.test_branch || github.ref_name }}"
+          FAILED=0
 
-          # Test environment setup with custom branch
-          if ./.github/actions/setup-environment/action.yml 2>&1 | grep -q "Branch.*is not allowed"; then
-            echo "❌ Branch $GITHUB_REF_NAME is not allowed for ${{ inputs.test_environment }}"
+          # Usage: check <environment> <ref-type> <ref-name> <allowed-branches-json> <allowed-tags-json> <allowed|denied>
+          check() {
+            local result=denied
+            if bash .github/actions/setup-environment/validate-ref.sh "$1" "$2" "$3" "$4" "$5" > /dev/null; then
+              result=allowed
+            fi
+
+            if [ "$result" = "$6" ]; then
+              echo "✅ ${2:-(no type)} '$3' on $1: $result"
+            else
+              echo "❌ ${2:-(no type)} '$3' on $1: $result, expected $6"
+              FAILED=1
+            fi
+          }
+
+          # Usage: check_env <environment> <ref-type> <ref-name> <allowed|denied>
+          # Reads the allowed lists from .github/environments the way action.yml does
+          check_env() {
+            local config=".github/environments/$1.yml"
+            check "$1" "$2" "$3" \
+              "$(yq eval '.settings.allowed_branches // ["main"]' "$config" -o=json -I=0)" \
+              "$(yq eval '.settings.allowed_tags // []' "$config" -o=json -I=0)" \
+              "$4"
+          }
+
+          # Branch patterns are globs matched against the whole name
+          check example branch main '["main"]' '[]' allowed
+          check example branch main2 '["main"]' '[]' denied
+          check example branch xmain '["main"]' '[]' denied
+          check example branch feature/a '["feature/*"]' '[]' allowed
+          check example branch feature/a/b '["feature/*"]' '[]' allowed
+          check example branch featurex '["feature/*"]' '[]' denied
+          check example branch release/1x0 '["release/1.0"]' '[]' denied
+
+          # Any ref type other than tag is checked as a branch
+          check example "" main '["main"]' '[]' allowed
+
+          # An empty or malformed branch list allows nothing
+          check example branch main '[]' '[]' denied
+          check example branch main '' '[]' denied
+          check example branch main '"main"' '[]' denied
+
+          # Tag patterns match the whole tag as a glob, and no list means no tags
+          check example tag v1.2.0 '[]' '["v*"]' allowed
+          check example tag v2.0.0-rc.1 '[]' '["v*"]' allowed
+          check example tag wordpress-plugin-v1.0 '[]' '["v*"]' denied
+          check example tag release/1.0 '[]' '["release/*"]' allowed
+          check example tag v1.2.0 '[]' '[]' denied
+          check example tag v1.2.0 '[]' '' denied
+          check example tag v1.2.0 '[]' '"v*"' denied
+
+          # A branch is never checked against the tag list, or a tag against the branch list
+          check example branch v1.2.0 '["main"]' '["v*"]' denied
+          check example tag main '["main"]' '["v*"]' denied
+
+          # Rules in .github/environments
+          check_env dev branch main allowed
+          check_env dev branch develop allowed
+          check_env dev branch feature/x allowed
+          check_env dev branch hotfix/x allowed
+          check_env dev branch release/1.0 denied
+          check_env dev tag v1.2.0 allowed
+          check_env dev tag wordpress-plugin-v1.0 denied
+          check_env staging branch main allowed
+          check_env staging branch release/1.0 allowed
+          check_env staging branch develop denied
+          check_env staging branch feature/x denied
+          check_env staging tag v1.2.0 denied
+          check_env prod branch main allowed
+          check_env prod branch develop denied
+          check_env prod branch feature/x denied
+          check_env prod branch release/1.0 denied
+          check_env prod tag v1.2.0 allowed
+          check_env prod tag wordpress-plugin-v1.0 denied
+          check_env prod tag main denied
+
+          exit "$FAILED"
+
+      # Reports on the dispatch inputs without failing: a restricted branch is a valid input
+      - name: Check the requested branch
+        env:
+          TEST_ENVIRONMENT: ${{ inputs.test_environment }}
+          TEST_BRANCH: ${{ inputs.test_branch || github.ref_name }}
+        run: |
+          CONFIG=".github/environments/$TEST_ENVIRONMENT.yml"
+          ALLOWED_BRANCHES=$(yq eval '.settings.allowed_branches // ["main"]' "$CONFIG" -o=json -I=0)
+          ALLOWED_TAGS=$(yq eval '.settings.allowed_tags // []' "$CONFIG" -o=json -I=0)
+
+          if ! bash .github/actions/setup-environment/validate-ref.sh "$TEST_ENVIRONMENT" branch "$TEST_BRANCH" "$ALLOWED_BRANCHES" "$ALLOWED_TAGS"; then
             echo "This is expected behavior if testing with a restricted branch"
-          else
-            echo "✅ Branch $GITHUB_REF_NAME is allowed for ${{ inputs.test_environment }}"
           fi
 
   test-security-thresholds:
@@ -334,11 +418,11 @@ jobs:
             echo "| Environment Gate | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
           fi
 
-          # Branch permissions test
+          # Branch and tag permissions test
           if [ "${{ needs.test-branch-permissions.result }}" = "success" ]; then
-            echo "| Branch Permissions | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+            echo "| Branch and Tag Permissions | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| Branch Permissions | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+            echo "| Branch and Tag Permissions | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
           fi
 
           # Security thresholds test

@@ -4,19 +4,17 @@ Services module for business logic
 
 import logging
 
+from .alt_text import alt_text_service
+from .errors import AWSServiceError
 from .preview import preview_service
+from .reports import reports_service
+from .webhooks import webhook_service
 
 logger = logging.getLogger(__name__)
 
 
-class AWSServiceError(Exception):
-    """AWS service error exception"""
-
-    pass
-
-
 class DocumentService:
-    """Placeholder document service"""
+    """Service for document operations with MongoDB and S3"""
 
     async def generate_presigned_upload_url(
         self, user_id: str, filename: str, content_type: str, file_size: int
@@ -439,25 +437,12 @@ class DocumentService:
             raise AWSServiceError(f"Failed to generate download URL: {e}") from e
 
 
-class ReportsService:
-    """Placeholder reports service"""
-
-    pass
-
-
-class WebhookService:
-    """Placeholder webhook service"""
-
-    pass
-
-
 document_service = DocumentService()
-reports_service = ReportsService()
-webhook_service = WebhookService()
 
 __all__ = [
     "preview_service",
     "AWSServiceError",
+    "alt_text_service",
     "document_service",
     "reports_service",
     "webhook_service",

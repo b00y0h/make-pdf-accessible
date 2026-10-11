@@ -61,11 +61,12 @@ export function useS3Upload() {
           lastModified: file.lastModified,
         });
 
-        const preSignedResponse = await apiService
-          .getClient()
-          .post('/documents/upload/presigned', uploadData);
-
-        const preSignedData: PreSignedUploadResponse = preSignedResponse.data;
+        const preSignedData: PreSignedUploadResponse =
+          await apiService.getPreSignedUploadUrl(
+            uploadData.filename,
+            uploadData.content_type,
+            uploadData.file_size
+          );
 
         // Step 2: Upload directly to S3
         const formData = new FormData();

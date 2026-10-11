@@ -1,12 +1,27 @@
 import hashlib
 import hmac
 import json
-from unittest.mock import patch
+from datetime import datetime
+from unittest.mock import Mock, patch
 
+import boto3
 import pytest
 from app.auth import User, get_current_user
+from app.config import settings
 from app.main import app
 from fastapi.testclient import TestClient
+from moto import mock_aws
+
+
+@pytest.fixture
+def callback_queue():
+    """Mocked SQS callback queue that the webhook route sends to"""
+    with mock_aws():
+        sqs = boto3.client("sqs", region_name=settings.aws_region)
+        queue_url = sqs.create_queue(QueueName="test-callbacks")["QueueUrl"]
+
+        with patch("app.routes.webhooks.settings.callback_queue_url", queue_url):
+            yield sqs, queue_url
 
 
 class TestIntegrationEndpoints:
@@ -192,21 +207,126 @@ class TestAuthenticationIntegration:
         data = response.json()
         assert "Required roles" in data["message"]
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "app/services/ shadows app/services.py, and its ReportsService is an "
-            "empty placeholder without get_summary_report"
-        ),
-    )
     def test_admin_can_get_summary_report(self):
         """Test admins can read the summary report"""
         admin_user = User(sub="admin-123", name="admin", role="admin")
         app.dependency_overrides[get_current_user] = lambda: admin_user
 
-        response = self.client.get("/v1/reports/summary")
+        doc_repo = Mock()
+        doc_repo.get_processing_summary.return_value = {
+            "total_documents": 4,
+            "completed_documents": 3,
+            "failed_documents": 1,
+            "processing_documents": 0,
+            "pending_documents": 0,
+            "completion_rate": 0.75,
+            "avg_processing_time_hours": 0.5,
+        }
+        doc_repo.get_weekly_stats.return_value = [
+            {
+                "week": "2026-W40",
+                "documents": 4,
+                "completed": 3,
+                "failed": 1,
+                "success_rate": 0.75,
+            }
+        ]
+
+        with patch(
+            "app.services.reports.get_document_repository", return_value=doc_repo
+        ):
+            response = self.client.get("/v1/reports/summary")
 
         assert response.status_code == 200
+        data = response.json()
+        assert data["total_documents"] == 4
+        assert data["completion_rate"] == 75.0
+        assert data["weekly_stats"] == [
+            {
+                "week": "2026-W40",
+                "total_documents": 4,
+                "completed_documents": 3,
+                "failed_documents": 1,
+                "success_rate": 75.0,
+            }
+        ]
+
+
+class TestReportsExportIntegration:
+    """Integration tests for the CSV report export"""
+
+    def setup_method(self):
+        """Setup for each test"""
+        self.client = TestClient(app)
+        admin_user = User(sub="admin-123", name="admin", role="admin")
+        app.dependency_overrides[get_current_user] = lambda: admin_user
+
+    def teardown_method(self):
+        """Remove dependency overrides"""
+        app.dependency_overrides.pop(get_current_user, None)
+
+    def test_admin_can_export_documents_csv(self):
+        """Test the export streams filtered documents as CSV"""
+        doc_repo = Mock()
+        doc_repo.aggregate.return_value = [
+            {
+                "docId": "12345678-1234-1234-1234-123456789012",
+                "filename": "report.pdf",
+                "ownerId": "user-123",
+                "status": "completed",
+                "createdAt": datetime(2026, 10, 1, 12, 0, 0),
+                "updatedAt": datetime(2026, 10, 1, 12, 5, 0),
+                "completedAt": datetime(2026, 10, 1, 12, 5, 0),
+                "fileSize": 2048,
+                "contentType": "application/pdf",
+                "totalIssues": 2,
+                "priority": False,
+            }
+        ]
+
+        with patch(
+            "app.services.reports.get_document_repository", return_value=doc_repo
+        ):
+            response = self.client.get(
+                "/v1/reports/export.csv",
+                params={"status_filter": "completed", "owner_filter": "user-123"},
+            )
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/csv")
+        assert "status_completed" in response.headers["content-disposition"]
+
+        # UTF-8 with BOM, so Excel detects the encoding
+        assert response.content.startswith(b"\xef\xbb\xbf")
+        lines = response.content.decode("utf-8-sig").splitlines()
+        assert lines[0].startswith("Document ID,Filename,Owner ID,Status,Created At")
+        assert lines[1].startswith(
+            "12345678-1234-1234-1234-123456789012,report.pdf,user-123,completed,"
+            "2026-10-01T12:00:00,"
+        )
+        assert len(lines) == 2
+
+        pipeline = doc_repo.aggregate.call_args.args[0]
+        assert pipeline[0] == {"$match": {"ownerId": "user-123", "status": "completed"}}
+
+    def test_export_without_documents_writes_headers(self):
+        """Test an empty export still has the CSV header row"""
+        doc_repo = Mock()
+        doc_repo.aggregate.return_value = []
+
+        with patch(
+            "app.services.reports.get_document_repository", return_value=doc_repo
+        ):
+            response = self.client.get("/v1/reports/export.csv")
+
+        assert response.status_code == 200
+        lines = response.content.decode("utf-8-sig").splitlines()
+        assert len(lines) == 1
+        assert lines[0].startswith("Document ID,Filename,Owner ID,Status")
+
+        # Without filters the pipeline has no $match stage
+        pipeline = doc_repo.aggregate.call_args.args[0]
+        assert "$match" not in pipeline[0]
 
 
 class TestWebhookIntegration:
@@ -265,15 +385,9 @@ class TestWebhookIntegration:
             data = response.json()
             assert "Missing required fields" in data["message"]
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "app/services/ shadows app/services.py, and its WebhookService is an "
-            "empty placeholder without verify_webhook_signature or process_webhook"
-        ),
-    )
-    def test_signed_webhook_is_processed(self):
-        """Test a correctly signed webhook is verified and processed"""
+    def test_signed_webhook_is_processed(self, callback_queue):
+        """Test a correctly signed webhook is verified and queued"""
+        sqs, queue_url = callback_queue
         secret = "test-secret-key"
         body = json.dumps(
             {
@@ -297,3 +411,40 @@ class TestWebhookIntegration:
 
         assert response.status_code == 200
         assert response.json()["status"] == "received"
+
+        messages = sqs.receive_message(
+            QueueUrl=queue_url, MessageAttributeNames=["All"]
+        )["Messages"]
+        assert len(messages) == 1
+        assert json.loads(messages[0]["Body"]) == json.loads(body)
+        event_type = messages[0]["MessageAttributes"]["eventType"]["StringValue"]
+        assert event_type == "document.completed"
+
+    def test_webhook_with_wrong_signature_is_rejected(self, callback_queue):
+        """Test a webhook signed with the wrong secret is rejected and not queued"""
+        sqs, queue_url = callback_queue
+        body = json.dumps(
+            {
+                "event_type": "document.completed",
+                "doc_id": "12345678-1234-1234-1234-123456789012",
+                "status": "completed",
+                "timestamp": "2023-01-01T00:00:00Z",
+            }
+        )
+        signature = hmac.new(b"wrong-secret", body.encode(), hashlib.sha256)
+
+        with patch(
+            "app.routes.webhooks.settings.webhook_secret_key", "test-secret-key"
+        ):
+            response = self.client.post(
+                "/v1/webhooks",
+                content=body,
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Hub-Signature-256": f"sha256={signature.hexdigest()}",
+                },
+            )
+
+        assert response.status_code == 401
+        assert "Invalid webhook signature" in response.json()["message"]
+        assert "Messages" not in sqs.receive_message(QueueUrl=queue_url)
