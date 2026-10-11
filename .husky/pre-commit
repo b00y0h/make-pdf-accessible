@@ -206,8 +206,9 @@ if [ "$SKIP_TESTS" != "true" ]; then
     
     # Run TypeScript tests
     if [ ! -z "$ts_files" ] && command -v pnpm >/dev/null 2>&1; then
-        # Run only unit tests related to changed files
-        if ! timeout 30 pnpm run test:unit --run --passWithNoTests 2>/dev/null; then
+        # Run every workspace's test:unit script. The flags reach each runner
+        # (Jest today), so pass only ones it accepts; Jest rejects Vitest's --run.
+        if ! timeout 30 pnpm run test:unit --passWithNoTests 2>/dev/null; then
             echo "${YELLOW}⚠️  Some frontend tests failed, but allowing commit (run full test suite before push)${NC}"
         fi
     fi
