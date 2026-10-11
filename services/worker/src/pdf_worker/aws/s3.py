@@ -33,7 +33,7 @@ class S3Client:
                 "s3", region_name=region_name or config.aws_region
             )
         except NoCredentialsError as e:
-            raise WorkerConfigError(f"AWS credentials not configured: {e}")
+            raise WorkerConfigError(f"AWS credentials not configured: {e}") from e
 
         logger.info(
             f"Initialized S3 client for region: {region_name or config.aws_region}"
@@ -228,7 +228,7 @@ class S3Client:
             if error_code == "NoSuchKey":
                 raise S3Error(
                     f"Object not found: s3://{bucket}/{key}", bucket=bucket, key=key
-                )
+                ) from e
 
             raise S3Error(
                 f"Failed to download from S3: {error_code}", bucket=bucket, key=key
@@ -262,7 +262,7 @@ class S3Client:
             if error_code == "NoSuchKey":
                 raise S3Error(
                     f"Object not found: s3://{bucket}/{key}", bucket=bucket, key=key
-                )
+                ) from e
 
             raise S3Error(
                 f"Failed to download from S3: {error_code}", bucket=bucket, key=key
@@ -343,7 +343,7 @@ class S3Client:
             if error_code == "404":
                 raise S3Error(
                     f"Object not found: s3://{bucket}/{key}", bucket=bucket, key=key
-                )
+                ) from e
 
             raise S3Error(
                 f"Failed to get object metadata: {error_code}", bucket=bucket, key=key

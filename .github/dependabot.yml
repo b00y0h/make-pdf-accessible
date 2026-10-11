@@ -23,7 +23,19 @@ updates:
     commit-message:
       prefix: 'chore'
       include: 'scope'
+    ignore:
+      # TypeScript 7 removes baseUrl and the compiler API that Danger uses.
+      - dependency-name: 'typescript'
+        versions: ['>=7']
+      # Keep the Node type definitions on the runtime's major version (Node 24).
+      - dependency-name: '@types/node'
+        versions: ['>=25']
     groups:
+      # The typescript-eslint plugin and parser must move together.
+      typescript-eslint:
+        patterns:
+          - '@typescript-eslint/*'
+          - 'typescript-eslint'
       npm-minor-and-patch:
         update-types:
           - 'minor'

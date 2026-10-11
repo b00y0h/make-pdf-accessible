@@ -48,7 +48,7 @@ class TextractClient:
                 "textract", region_name=region_name or config.aws_region
             )
         except Exception as e:
-            raise WorkerConfigError(f"Failed to initialize Textract client: {e}")
+            raise WorkerConfigError(f"Failed to initialize Textract client: {e}") from e
 
         logger.info(
             f"Initialized Textract client for region: {region_name or config.aws_region}"
@@ -110,13 +110,15 @@ class TextractClient:
             if error_code == "InvalidS3ObjectException":
                 raise TextractError(
                     f"Invalid S3 object: s3://{s3_bucket}/{s3_key}", job_id=None
-                )
+                ) from e
             elif error_code == "UnsupportedDocumentException":
                 raise TextractError(
                     "Document format not supported by Textract", job_id=None
-                )
+                ) from e
             elif error_code == "DocumentTooLargeException":
-                raise TextractError("Document exceeds maximum size limit", job_id=None)
+                raise TextractError(
+                    "Document exceeds maximum size limit", job_id=None
+                ) from e
 
             raise TextractError(
                 f"Failed to start Textract job: {error_code}", job_id=None
@@ -204,7 +206,7 @@ class TextractClient:
             error_code = e.response.get("Error", {}).get("Code", "Unknown")
 
             if error_code == "InvalidJobIdException":
-                raise TextractError(f"Invalid job ID: {job_id}", job_id=job_id)
+                raise TextractError(f"Invalid job ID: {job_id}", job_id=job_id) from e
 
             raise TextractError(
                 f"Failed to get job status: {error_code}", job_id=job_id
@@ -445,7 +447,7 @@ class TextractClient:
             if error_code == "DocumentTooLargeException":
                 raise TextractError(
                     "Document too large for synchronous analysis, use async instead"
-                )
+                ) from e
 
             raise TextractError(f"Sync analysis failed: {error_code}") from e
 
