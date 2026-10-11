@@ -125,43 +125,18 @@ runs:
         echo "  - Resource Prefix: $RESOURCE_PREFIX"
 
     # Pull request and merge queue runs never deploy, and their ref is "<number>/merge",
-    # which no allowed-branch pattern matches.
+    # which no allowed-branch pattern matches. test-environment-config.yml runs the same
+    # script against a table of expected results.
     - name: Validate branch and tag permissions
       if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
       shell: bash
-      run: |
-        REF_NAME="${{ github.ref_name }}"
-
-        # A tag ref (a release tag push, or a dispatch run from a tag) is checked against
-        # allowed_tags; any other ref against allowed_branches
-        if [ "${{ github.ref_type }}" = "tag" ]; then
-          REF_KIND="Tag"
-          REF_KINDS="tags"
-          ALLOWED='${{ steps.config.outputs.allowed_tags }}'
-        else
-          REF_KIND="Branch"
-          REF_KINDS="branches"
-          ALLOWED='${{ steps.config.outputs.allowed_branches }}'
-        fi
-
-        echo "🔍 Validating $REF_KIND permissions..."
-        echo "Current $REF_KIND: $REF_NAME"
-        echo "Allowed $REF_KINDS: $ALLOWED"
-
-        # Each pattern is a glob matched against the whole name ('feature/*' also matches
-        # 'feature/a/b'). The loop reads from process substitution so it runs in this shell
-        # and exit ends the step, and [[ ]] never expands a pattern against checkout files.
-        while read -r pattern; do
-          # shellcheck disable=SC2053 # unquoted on purpose: the pattern is a glob
-          if [[ "$REF_NAME" == $pattern ]]; then
-            echo "✅ $REF_KIND '$REF_NAME' matches pattern '$pattern'"
-            exit 0
-          fi
-        done < <(echo "$ALLOWED" | jq -r '.[]')
-
-        echo "❌ $REF_KIND '$REF_NAME' is not allowed to deploy to ${{ inputs.environment }}"
-        echo "Allowed $REF_KINDS: $ALLOWED"
-        exit 1
+      env:
+        TARGET_ENVIRONMENT: ${{ inputs.environment }}
+        REF_TYPE: ${{ github.ref_type }}
+        REF_NAME: ${{ github.ref_name }}
+        ALLOWED_BRANCHES: ${{ steps.config.outputs.allowed_branches }}
+        ALLOWED_TAGS: ${{ steps.config.outputs.allowed_tags }}
+      run: bash "$GITHUB_ACTION_PATH/validate-ref.sh" "$TARGET_ENVIRONMENT" "$REF_TYPE" "$REF_NAME" "$ALLOWED_BRANCHES" "$ALLOWED_TAGS"
 
     - name: Set environment variables
       shell: bash
