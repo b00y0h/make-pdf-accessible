@@ -6,6 +6,8 @@ name: Marketing Site
 # MARKETING_CLOUDFRONT_DISTRIBUTION_ID (from `terraform output`), with tag-based discovery as a fallback.
 # Until GITHUB_WEB_DEPLOY_ROLE_ARN is set for the target environment, pushes to main skip the deploy
 # with a notice; a manual run fails instead.
+# Production deploys only from main. A manual run may deploy any branch to dev or staging, for
+# example the preview hosted by infra/terraform/marketing-preview.
 
 on:
   push:
@@ -139,7 +141,7 @@ jobs:
     name: Deploy to S3 and CloudFront
     runs-on: ubuntu-latest
     needs: [build, lighthouse]
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || needs.build.outputs.environment != 'prod')
     timeout-minutes: 15
     environment:
       name: ${{ needs.build.outputs.environment }}-web
