@@ -3,9 +3,16 @@
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, root_validator, validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 
 class ElementType(str, Enum):  # noqa: UP042
@@ -68,9 +75,11 @@ class BoundingBox(BaseModel):
     width: float = Field(..., ge=0.0, le=1.0, description="Width")
     height: float = Field(..., ge=0.0, le=1.0, description="Height")
 
-    @validator("width", "height")
-    def validate_dimensions(cls, v, values):
+    @field_validator("width", "height")
+    @classmethod
+    def validate_dimensions(cls, v, info: ValidationInfo):
         """Validate that dimensions don't exceed bounds."""
+        values = info.data
         if "left" in values and v + values.get("left", 0) > 1.0:
             raise ValueError("Bounding box exceeds right boundary")
         if "top" in values and v + values.get("top", 0) > 1.0:
@@ -128,11 +137,7 @@ class DocumentElement(BaseModel):
         default_factory=dict, description="Additional metadata"
     )
 
-    class Config:
-        """Pydantic model configuration."""
-
-        use_enum_values = True
-        validate_assignment = True
+    model_config = ConfigDict(use_enum_values=True, validate_assignment=True)
 
     def add_child(self, child: "DocumentElement") -> None:
         """Add a child element."""
@@ -164,10 +169,11 @@ class DocumentElement(BaseModel):
 class Heading(DocumentElement):
     """Heading element with level information."""
 
-    type: ElementType = Field(default=ElementType.HEADING, const=True)
+    type: Literal[ElementType.HEADING] = ElementType.HEADING
     level: HeadingLevel = Field(..., description="Heading level (1-6)")
 
-    @validator("text")
+    @field_validator("text")
+    @classmethod
     def validate_heading_text(cls, v):
         """Validate heading has meaningful text."""
         if not v or not v.strip():
@@ -178,22 +184,26 @@ class Heading(DocumentElement):
 class Paragraph(DocumentElement):
     """Paragraph text element."""
 
-    type: ElementType = Field(default=ElementType.PARAGRAPH, const=True)
+    type: Literal[ElementType.PARAGRAPH] = ElementType.PARAGRAPH
 
 
 class ListElement(DocumentElement):
     """List container element."""
 
-    type: ElementType = Field(default=ElementType.LIST, const=True)
+    type: Literal[ElementType.LIST] = ElementType.LIST
     list_type: ListType = Field(ListType.UNORDERED, description="Type of list")
     start_number: int | None = Field(
-        None, description="Starting number for ordered lists"
+        None,
+        description="Starting number for ordered lists",
+        # Run the validator on the default so ordered lists start at 1
+        validate_default=True,
     )
 
-    @validator("start_number")
-    def validate_start_number(cls, v, values):
+    @field_validator("start_number")
+    @classmethod
+    def validate_start_number(cls, v, info: ValidationInfo):
         """Validate start number for ordered lists."""
-        list_type = values.get("list_type")
+        list_type = info.data.get("list_type")
         if list_type == ListType.ORDERED and v is None:
             return 1  # Default start number
         elif list_type != ListType.ORDERED and v is not None:
@@ -204,7 +214,7 @@ class ListElement(DocumentElement):
 class ListItem(DocumentElement):
     """List item element."""
 
-    type: ElementType = Field(default=ElementType.LIST_ITEM, const=True)
+    type: Literal[ElementType.LIST_ITEM] = ElementType.LIST_ITEM
     marker: str | None = Field(None, description="List marker (bullet, number, etc.)")
     item_number: int | None = Field(None, description="Item number in ordered lists")
 
@@ -212,7 +222,7 @@ class ListItem(DocumentElement):
 class TableCell(DocumentElement):
     """Table cell element."""
 
-    type: ElementType = Field(default=ElementType.TABLE_CELL, const=True)
+    type: Literal[ElementType.TABLE_CELL] = ElementType.TABLE_CELL
     row_index: int = Field(..., ge=0, description="Row index (0-based)")
     column_index: int = Field(..., ge=0, description="Column index (0-based)")
     row_span: int = Field(1, ge=1, description="Number of rows this cell spans")
@@ -222,10 +232,11 @@ class TableCell(DocumentElement):
         None, description="Header scope (row, col, rowgroup, colgroup)"
     )
 
-    @validator("scope")
-    def validate_scope(cls, v, values):
+    @field_validator("scope")
+    @classmethod
+    def validate_scope(cls, v, info: ValidationInfo):
         """Validate scope is only set for header cells."""
-        is_header = values.get("is_header", False)
+        is_header = info.data.get("is_header", False)
         if v and not is_header:
             raise ValueError("scope can only be set for header cells")
         if v and v not in ["row", "col", "rowgroup", "colgroup"]:
@@ -236,7 +247,7 @@ class TableCell(DocumentElement):
 class TableElement(DocumentElement):
     """Table element with structure information."""
 
-    type: ElementType = Field(default=ElementType.TABLE, const=True)
+    type: Literal[ElementType.TABLE] = ElementType.TABLE
     rows: int = Field(..., ge=1, description="Number of rows")
     columns: int = Field(..., ge=1, description="Number of columns")
     has_header: bool = Field(False, description="Whether table has header row/column")
@@ -259,7 +270,7 @@ class TableElement(DocumentElement):
 class Figure(DocumentElement):
     """Figure/image element."""
 
-    type: ElementType = Field(default=ElementType.FIGURE, const=True)
+    type: Literal[ElementType.FIGURE] = ElementType.FIGURE
     figure_type: FigureType = Field(FigureType.OTHER, description="Type of figure")
     alt_text: str | None = Field(None, description="Alternative text description")
     caption: str | None = Field(None, description="Figure caption")
@@ -269,7 +280,8 @@ class Figure(DocumentElement):
     )
     image_url: str | None = Field(None, description="Image URL or S3 key")
 
-    @validator("alt_text")
+    @field_validator("alt_text")
+    @classmethod
     def validate_alt_text(cls, v):
         """Validate alt text length and content."""
         if v and len(v) > 250:
@@ -280,7 +292,7 @@ class Figure(DocumentElement):
 class Caption(DocumentElement):
     """Caption element for figures, tables, etc."""
 
-    type: ElementType = Field(default=ElementType.CAPTION, const=True)
+    type: Literal[ElementType.CAPTION] = ElementType.CAPTION
     caption_for: str | None = Field(
         None, description="ID of element this caption describes"
     )
@@ -312,16 +324,16 @@ class DocumentStructure(BaseModel):
         default_factory=datetime.utcnow, description="Last update timestamp"
     )
 
-    class Config:
-        """Pydantic model configuration."""
+    model_config = ConfigDict(
+        validate_assignment=True,
+        json_encoders={datetime: lambda v: v.isoformat()},
+    )
 
-        validate_assignment = True
-        json_encoders = {datetime: lambda v: v.isoformat()}
-
-    @validator("reading_order")
-    def validate_reading_order(cls, v, values):
+    @field_validator("reading_order")
+    @classmethod
+    def validate_reading_order(cls, v, info: ValidationInfo):
         """Validate reading order references existing elements."""
-        elements = values.get("elements", [])
+        elements = info.data.get("elements", [])
         element_ids = {elem.id for elem in elements}
 
         invalid_ids = set(v) - element_ids
@@ -332,11 +344,11 @@ class DocumentStructure(BaseModel):
 
         return v
 
-    @root_validator
-    def validate_structure(cls, values):
+    @model_validator(mode="after")
+    def validate_structure(self) -> "DocumentStructure":
         """Validate overall document structure."""
-        elements = values.get("elements", [])
-        total_pages = values.get("total_pages", 1)
+        elements = self.elements
+        total_pages = self.total_pages
 
         # Validate page numbers don't exceed total
         invalid_pages = [
@@ -347,10 +359,11 @@ class DocumentStructure(BaseModel):
                 f"Elements reference pages beyond total_pages: {invalid_pages}"
             )
 
-        # Update timestamp
-        values["updated_at"] = datetime.utcnow()
+        # Update timestamp. Bypass validate_assignment, which would rerun this
+        # validator and recurse.
+        object.__setattr__(self, "updated_at", datetime.utcnow())
 
-        return values
+        return self
 
     def add_element(self, element: DocumentElement) -> None:
         """Add an element to the document."""
@@ -378,7 +391,7 @@ class DocumentStructure(BaseModel):
     def get_headings_hierarchy(self) -> list[Heading]:
         """Get headings in hierarchical order."""
         headings = [elem for elem in self.elements if isinstance(elem, Heading)]
-        return sorted(headings, key=lambda h: (h.page_number, h.level.value))
+        return sorted(headings, key=lambda h: (h.page_number, int(h.level)))
 
     def generate_toc(self) -> list[dict[str, Any]]:
         """Generate table of contents from headings."""
@@ -389,7 +402,7 @@ class DocumentStructure(BaseModel):
             toc_entry = {
                 "id": heading.id,
                 "title": heading.text,
-                "level": heading.level.value,
+                "level": int(heading.level),
                 "page": heading.page_number,
                 "children": [],
             }
@@ -406,11 +419,11 @@ class DocumentStructure(BaseModel):
         if headings:
             prev_level = 0
             for heading in headings:
-                if heading.level.value > prev_level + 1:
-                    issues.append(
-                        f"Heading level jump from H{prev_level} to H{heading.level.value}"
-                    )
-                prev_level = heading.level.value
+                # use_enum_values stores the level as a plain int
+                level = int(heading.level)
+                if level > prev_level + 1:
+                    issues.append(f"Heading level jump from H{prev_level} to H{level}")
+                prev_level = level
 
         # Check for figures without alt text
         figures = [elem for elem in self.elements if isinstance(elem, Figure)]

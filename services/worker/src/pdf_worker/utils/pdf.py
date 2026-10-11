@@ -186,7 +186,7 @@ class PDFUtils:
 
                     page_objects = []
 
-                    def extract_objects(obj, page_objects=page_objects):
+                    def extract_objects(obj, page_objects):
                         """Recursively extract objects from layout."""
                         if isinstance(obj, LTTextBox):
                             page_objects.append(
@@ -224,9 +224,9 @@ class PDFUtils:
                         # Recursively process children
                         if hasattr(obj, "__iter__"):
                             for child in obj:
-                                extract_objects(child)
+                                extract_objects(child, page_objects)
 
-                    extract_objects(layout)
+                    extract_objects(layout, page_objects)
                     layout_by_page[page_num] = page_objects
 
                 except Exception as e:

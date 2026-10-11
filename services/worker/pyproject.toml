@@ -122,10 +122,10 @@ select = [
     "B",   # flake8-bugbear
     "UP",  # pyupgrade
 ]
-# Same policy as the repository root pyproject.toml
 ignore = [
-    "E501",  # line too long, handled by black
-    "C901",  # too complex
+    "E501",   # line too long, handled by black
+    "C901",   # too complex
+    "UP042",  # StrEnum changes str() and format() output of existing enums
 ]
 
 [tool.ruff.lint.isort]

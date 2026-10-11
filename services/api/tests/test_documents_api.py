@@ -1,7 +1,8 @@
 import json
-from unittest.mock import patch
+from unittest.mock import AsyncMock, Mock, patch
 from uuid import UUID
 
+from app.auth import get_current_user
 from app.main import app
 from app.models import DocumentStatus
 from fastapi import status
@@ -14,26 +15,31 @@ class TestDocumentsAPI:
     def setup_method(self):
         """Setup for each test method"""
         self.client = TestClient(app)
-        self.mock_user_patcher = patch("app.routes.documents.get_current_user")
-        self.mock_service_patcher = patch("app.routes.documents.document_service")
-
-        self.mock_get_current_user = self.mock_user_patcher.start()
+        self.mock_service_patcher = patch(
+            "app.routes.documents.document_service", new_callable=AsyncMock
+        )
         self.mock_document_service = self.mock_service_patcher.start()
+
+        # FastAPI resolves dependencies itself, so override rather than patch
+        self.mock_get_current_user = Mock()
+        app.dependency_overrides[get_current_user] = lambda: (
+            self.mock_get_current_user()
+        )
 
         # Setup default mock user
         from app.auth import User
 
         self.test_user = User(
             sub="test-user-123",
-            username="testuser",
+            name="testuser",
             email="test@example.com",
-            roles=["viewer"],
+            role="viewer",
         )
         self.mock_get_current_user.return_value = self.test_user
 
     def teardown_method(self):
         """Cleanup after each test method"""
-        self.mock_user_patcher.stop()
+        app.dependency_overrides.pop(get_current_user, None)
         self.mock_service_patcher.stop()
 
     def test_upload_document_with_url_success(self):
@@ -290,7 +296,7 @@ class TestDocumentsAPI:
         assert "expires_at" in data
 
     def test_get_download_url_document_not_ready(self):
-        """Test download URL for document not yet completed"""
+        """Test processed formats are unavailable before processing completes"""
         from datetime import datetime
 
         from app.models import DocumentResponse
@@ -311,7 +317,8 @@ class TestDocumentsAPI:
 
         self.mock_document_service.get_document.return_value = mock_document
 
-        response = self.client.get(f"/documents/{doc_id}/downloads?document_type=pdf")
+        # The original PDF is always downloadable, so ask for a processed format
+        response = self.client.get(f"/documents/{doc_id}/downloads?document_type=html")
 
         assert response.status_code == status.HTTP_409_CONFLICT
         assert "Document is not ready for download" in response.json()["message"]
@@ -335,7 +342,7 @@ class TestDocumentsAPI:
         from app.models import DocumentResponse
 
         # Setup admin user
-        admin_user = User(sub="admin-user-123", username="admin", roles=["admin"])
+        admin_user = User(sub="admin-user-123", name="admin", role="admin")
         self.mock_get_current_user.return_value = admin_user
 
         doc_id = "12345678-1234-1234-1234-123456789012"
