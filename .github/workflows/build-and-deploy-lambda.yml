@@ -1,14 +1,16 @@
 name: Build and Deploy Lambda Functions
 
 on:
+  # Release tags (v*) always run: GitHub does not apply path filters to tag pushes.
+  # The create event cannot be filtered, so it would start a run for every new branch.
   push:
     branches: [main]
+    tags: ['v*']
     paths:
       - 'services/functions/**'
       - 'services/api/**'
       - 'services/worker/**'
       - '.github/workflows/build-and-deploy-lambda.yml'
-  create:
   workflow_dispatch:
     inputs:
       environment:
