@@ -119,10 +119,10 @@ jobs:
         run: |
           if [ "${{ steps.changes.outputs.web_changed }}" == "true" ] && [ "${{ github.ref }}" == "refs/heads/main" ] && [ "${{ github.event_name }}" != "pull_request" ]; then
             echo "should_deploy=true" >> $GITHUB_OUTPUT
-            echo "Will deploy to production"
+            echo "Will deploy to ${{ inputs.environment || 'dev' }}"
           elif [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ steps.changes.outputs.web_changed }}" == "true" ]; then
             echo "should_deploy=true" >> $GITHUB_OUTPUT
-            echo "Will deploy via manual dispatch"
+            echo "Will deploy to ${{ inputs.environment || 'dev' }} via manual dispatch"
           else
             echo "should_deploy=false" >> $GITHUB_OUTPUT
             echo "Will not deploy"
@@ -135,6 +135,10 @@ jobs:
     if: needs.detect-changes.outputs.web_changed == 'true'
     outputs:
       security_passed: ${{ steps.security-check.outputs.security_passed }}
+      # The deployment gate reads these counts
+      npm_critical: ${{ steps.npm-audit.outputs.npm_critical }}
+      npm_high: ${{ steps.npm-audit.outputs.npm_high }}
+      npm_moderate: ${{ steps.npm-audit.outputs.npm_moderate }}
 
     steps:
       - name: Checkout repository
@@ -163,7 +167,9 @@ jobs:
 
           cd ..
 
-          if [ -f npm-audit-results.json ]; then
+          # Report counts only when the audit returned them. The deployment gate refuses to
+          # pass without them, so a broken audit cannot read as zero vulnerabilities.
+          if jq -e '.metadata.vulnerabilities' npm-audit-results.json > /dev/null 2>&1; then
             # Parse npm audit results
             CRITICAL=$(jq '.metadata.vulnerabilities.critical // 0' npm-audit-results.json 2>/dev/null || echo "0")
             HIGH=$(jq '.metadata.vulnerabilities.high // 0' npm-audit-results.json 2>/dev/null || echo "0")
@@ -180,6 +186,8 @@ jobs:
             echo "- High: $HIGH"
             echo "- Moderate: $MODERATE"
             echo "- Low: $LOW"
+          else
+            echo "::warning::pnpm audit returned no vulnerability counts, so the deployment gate will not pass"
           fi
 
       - name: Run ESLint security rules
@@ -287,6 +295,14 @@ jobs:
           else
             echo "✅ **No critical or high severity vulnerabilities found.**" >> $GITHUB_STEP_SUMMARY
           fi
+
+      # Without this, a blocked build skips the tests, the gate and the deploy, and the run
+      # still shows as passing
+      - name: Fail when vulnerabilities block the build
+        if: steps.security-check.outputs.security_passed != 'true'
+        run: |
+          echo "::error::The dependency audit found critical vulnerabilities, or more than 5 high ones, so tests, build and deploy are blocked. The job summary has the counts."
+          exit 1
 
   test-and-build:
     name: Test and Build
@@ -476,8 +492,11 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: web-build-${{ steps.version.outputs.version }}
+          # out/ only exists when the app builds as a static export (output: 'export'),
+          # which is what the S3 and CloudFront deploy below can serve
           path: |
             ${{ env.WEB_WORKING_DIR }}/.next/
+            ${{ env.WEB_WORKING_DIR }}/out/
             build-output/
           retention-days: 30
           compression-level: 6
@@ -590,14 +609,20 @@ jobs:
 
       - name: Prepare security results
         id: security-results
+        env:
+          CRITICAL: ${{ needs.dependency-security-scan.outputs.npm_critical }}
+          HIGH: ${{ needs.dependency-security-scan.outputs.npm_high }}
+          MEDIUM: ${{ needs.dependency-security-scan.outputs.npm_moderate }}
         run: |
-          # Combine security scan results
-          SECURITY_RESULTS='{
-            "critical": ${{ needs.dependency-security-scan.outputs.npm_critical || 0 }},
-            "high": ${{ needs.dependency-security-scan.outputs.npm_high || 0 }},
-            "medium": ${{ needs.dependency-security-scan.outputs.npm_moderate || 0 }}
-          }'
-          echo "results=$SECURITY_RESULTS" >> $GITHUB_OUTPUT
+          # No counts means the audit did not return results, which is not the same as no vulnerabilities
+          if [ -z "$CRITICAL" ] || [ -z "$HIGH" ] || [ -z "$MEDIUM" ]; then
+            echo "::error::The dependency audit returned no vulnerability counts, so the deployment gate cannot pass. Check the pnpm audit step in the Web Dependency Security Scan job."
+            exit 1
+          fi
+          # $GITHUB_OUTPUT takes one key=value per line, so the JSON has to be compact
+          RESULTS=$(jq -nc --argjson critical "$CRITICAL" --argjson high "$HIGH" --argjson medium "$MEDIUM" \
+            '{critical: $critical, high: $high, medium: $medium}')
+          echo "results=$RESULTS" >> "$GITHUB_OUTPUT"
 
       - name: Run environment gate
         id: gate
@@ -619,168 +644,197 @@ jobs:
     environment:
       name: ${{ inputs.environment || 'dev' }}-web
       url: ${{ steps.deploy.outputs.web_app_url }}
+    outputs:
+      # true once the S3 sync ran, even if it then failed; false when the deploy skipped
+      deploy_started: ${{ steps.s3-deploy.outcome == 'success' || steps.s3-deploy.outcome == 'failure' }}
+      s3_bucket: ${{ steps.config.outputs.s3_bucket }}
+      distribution_id: ${{ steps.config.outputs.distribution_id }}
+      backup_path: ${{ steps.backup.outputs.backup_path }}
+      web_app_url: ${{ steps.deploy.outputs.web_app_url }}
+      cloudfront_domain: ${{ steps.deploy.outputs.cloudfront_domain }}
+      verification_status: ${{ steps.verify.outputs.verification_status }}
+      security_status: ${{ steps.security-monitor.outputs.security_status }}
+      security_events_detected: ${{ steps.security-monitor.outputs.security_events_detected }}
+    env:
+      TARGET_ENVIRONMENT: ${{ inputs.environment || 'dev' }}
+      HAS_WEBHOOK: ${{ secrets.DEPLOYMENT_WEBHOOK_URL != '' }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ secrets.GITHUB_WEB_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          role-session-name: GitHubActions-WebDeploy-${{ github.run_id }}
+      # Until the AWS setup is done there is no deploy role to assume. A push to main then
+      # skips the deploy with a notice instead of failing. A manual run still fails, because
+      # someone asked for a deploy. The check runs inside the job so it also sees
+      # environment-scoped secrets.
+      - name: Check deploy configuration
+        id: preflight
+        env:
+          DEPLOY_ROLE_ARN: ${{ secrets.GITHUB_WEB_DEPLOY_ROLE_ARN }}
+        run: |
+          if [ -n "$DEPLOY_ROLE_ARN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "enabled=false" >> "$GITHUB_OUTPUT"
+          MESSAGE="The web app was not deployed: GITHUB_WEB_DEPLOY_ROLE_ARN is not set for the $TARGET_ENVIRONMENT-web environment."
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "::error::$MESSAGE"
+            exit 1
+          fi
+          echo "::notice::$MESSAGE"
+          {
+            echo "## Web app not deployed"
+            echo ""
+            echo "$MESSAGE"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Download build artifacts
+        if: steps.preflight.outputs.enabled == 'true'
         uses: actions/download-artifact@v8
         with:
           name: web-build-${{ needs.test-and-build.outputs.build_version }}
           path: ./artifacts
 
+      # S3 and CloudFront can only serve a static export. A server-rendered build has no
+      # index.html, so stop here, before anything in AWS changes, instead of publishing a
+      # site without the app in it.
+      - name: Check for a static export
+        if: steps.preflight.outputs.enabled == 'true'
+        run: |
+          if [ ! -f artifacts/web/out/index.html ]; then
+            echo "::error::The web build has no static export (web/out/index.html), so S3 and CloudFront cannot serve it. web/ builds as a server-rendered Next.js app (it uses rewrites(), headers() and the dynamic documents/[id] route). Make it a static export (output: 'export') or deploy it to a host that runs Next.js."
+            exit 1
+          fi
+          echo "Static export found: $(find artifacts/web/out -type f | wc -l) files"
+
+      - name: Configure AWS credentials
+        if: steps.preflight.outputs.enabled == 'true'
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.GITHUB_WEB_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          role-session-name: GitHubActions-WebDeploy-${{ github.run_id }}
+
+      # Set WEB_S3_BUCKET and WEB_CLOUDFRONT_DISTRIBUTION_ID on the <environment>-web GitHub
+      # environment from `terraform output s3_bucket_web_assets` and
+      # `terraform output cloudfront_distribution_id`. Without them, the step looks for this
+      # environment's bucket by its name prefix, and for the distribution that serves it.
       - name: Get deployment configuration
         id: config
+        if: steps.preflight.outputs.enabled == 'true'
+        env:
+          BUCKET: ${{ vars.WEB_S3_BUCKET }}
+          DISTRIBUTION: ${{ vars.WEB_CLOUDFRONT_DISTRIBUTION_ID }}
+          BUCKET_PREFIX: ${{ needs.setup-environment.outputs.resource_prefix }}-web-assets-
         run: |
-          # Get S3 bucket and CloudFront distribution from Terraform outputs
-          S3_BUCKET=$(aws s3api list-buckets --query "Buckets[?contains(Name, 'web-assets')].Name" --output text | head -1)
-
-          if [ -z "$S3_BUCKET" ]; then
-            echo "Error: Could not find web assets S3 bucket"
+          set -euo pipefail
+          if [ -z "$BUCKET" ]; then
+            BUCKET=$(aws s3api list-buckets \
+              --query "Buckets[?starts_with(Name, '${BUCKET_PREFIX}')].Name | [0]" --output text)
+          fi
+          if [ -z "$BUCKET" ] || [ "$BUCKET" = "None" ]; then
+            echo "::error::No web assets bucket found for $TARGET_ENVIRONMENT (looked for ${BUCKET_PREFIX}*). Set the WEB_S3_BUCKET variable from terraform output."
+            exit 1
+          fi
+          if [ -z "$DISTRIBUTION" ]; then
+            DISTRIBUTION=$(aws cloudfront list-distributions \
+              --query "DistributionList.Items[?contains(join(',', Origins.Items[].DomainName), '${BUCKET}.s3.')].Id | [0]" \
+              --output text)
+          fi
+          if [ -z "$DISTRIBUTION" ] || [ "$DISTRIBUTION" = "None" ]; then
+            echo "::error::No CloudFront distribution serves $BUCKET. Set the WEB_CLOUDFRONT_DISTRIBUTION_ID variable from terraform output."
             exit 1
           fi
 
-          # Get CloudFront distribution ID
-          DISTRIBUTION_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?contains(Comment, 'PDF Accessibility Platform')].Id" --output text | head -1)
-
-          if [ -z "$DISTRIBUTION_ID" ]; then
-            echo "Error: Could not find CloudFront distribution"
-            exit 1
-          fi
-
-          echo "s3_bucket=$S3_BUCKET" >> $GITHUB_OUTPUT
-          echo "distribution_id=$DISTRIBUTION_ID" >> $GITHUB_OUTPUT
-          echo "Using S3 bucket: $S3_BUCKET"
-          echo "Using CloudFront distribution: $DISTRIBUTION_ID"
+          echo "s3_bucket=$BUCKET" >> "$GITHUB_OUTPUT"
+          echo "distribution_id=$DISTRIBUTION" >> "$GITHUB_OUTPUT"
+          echo "Using S3 bucket: $BUCKET"
+          echo "Using CloudFront distribution: $DISTRIBUTION"
 
       - name: Backup current deployment
         id: backup
+        if: steps.preflight.outputs.enabled == 'true'
+        env:
+          BUCKET: ${{ steps.config.outputs.s3_bucket }}
         run: |
           BACKUP_PREFIX="backups/$(date +%Y%m%d-%H%M%S)-${{ github.sha }}"
 
           # Check if there are existing files to backup
-          if aws s3 ls s3://${{ steps.config.outputs.s3_bucket }}/ --recursive | grep -q .; then
+          if aws s3 ls "s3://$BUCKET/" --recursive | grep -v " backups/" | grep -q .; then
             echo "Creating backup of current deployment..."
-            aws s3 sync s3://${{ steps.config.outputs.s3_bucket }}/ s3://${{ steps.config.outputs.s3_bucket }}/$BACKUP_PREFIX/ \
+            aws s3 sync "s3://$BUCKET/" "s3://$BUCKET/$BACKUP_PREFIX/" \
               --exclude "backups/*" \
               --quiet
-            echo "backup_path=$BACKUP_PREFIX" >> $GITHUB_OUTPUT
+            echo "backup_path=$BACKUP_PREFIX" >> "$GITHUB_OUTPUT"
             echo "Backup created at: $BACKUP_PREFIX"
           else
             echo "No existing deployment to backup"
-            echo "backup_path=" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Prepare deployment files
-        run: |
-          # Prepare the deployment directory
-          mkdir -p deployment
-
-          # Copy Next.js static files
-          if [ -d "artifacts/.next/static" ]; then
-            cp -r artifacts/.next/static deployment/_next/
-          fi
-
-          # Copy public files
-          if [ -d "artifacts/build-output/public" ]; then
-            cp -r artifacts/build-output/public/* deployment/
-          fi
-
-          # Copy standalone build if available
-          if [ -d "artifacts/build-output/standalone" ]; then
-            cp -r artifacts/build-output/standalone/* deployment/
-          fi
-
-          # Ensure we have an index.html
-          if [ ! -f "deployment/index.html" ]; then
-            # Create a basic index.html if none exists
-            cat > deployment/index.html << 'EOF'
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="utf-8">
-            <title>PDF Accessibility Platform</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-          </head>
-          <body>
-            <div id="__next"></div>
-            <script src="/_next/static/chunks/main.js"></script>
-          </body>
-          </html>
-          EOF
-          fi
-
-          # Copy deployment metadata
-          if [ -f "artifacts/build-output/deployment-info.json" ]; then
-            cp artifacts/build-output/deployment-info.json deployment/
+            echo "backup_path=" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Deploy to S3
         id: s3-deploy
+        if: steps.preflight.outputs.enabled == 'true'
+        env:
+          BUCKET: ${{ steps.config.outputs.s3_bucket }}
         run: |
-          echo "Deploying to S3 bucket: ${{ steps.config.outputs.s3_bucket }}"
+          set -euo pipefail
+          SITE=artifacts/web/out
+          if [ -f artifacts/build-output/deployment-info.json ]; then
+            cp artifacts/build-output/deployment-info.json "$SITE/"
+          fi
 
-          # Sync files with appropriate cache headers
-          aws s3 sync deployment/ s3://${{ steps.config.outputs.s3_bucket }}/ \
-            --delete \
-            --cache-control "public, max-age=31536000, immutable" \
-            --exclude "*.html" \
-            --exclude "deployment-info.json"
-
-          # Upload HTML files with shorter cache
-          aws s3 sync deployment/ s3://${{ steps.config.outputs.s3_bucket }}/ \
-            --cache-control "public, max-age=0, must-revalidate" \
-            --include "*.html" \
-            --include "deployment-info.json"
-
-          # Set specific metadata for key files
-          aws s3 cp deployment/index.html s3://${{ steps.config.outputs.s3_bucket }}/index.html \
-            --cache-control "public, max-age=0, must-revalidate" \
-            --content-type "text/html; charset=utf-8" \
-            --metadata "version=${{ needs.test-and-build.outputs.build_version }},build-id=${{ github.run_id }}"
+          echo "Deploying to S3 bucket: $BUCKET"
+          # Hashed assets: cache for a year. Everything else: revalidate every request.
+          # Excluding backups/ keeps --delete from removing the backup taken above.
+          aws s3 sync "$SITE/" "s3://$BUCKET/" --delete \
+            --exclude "*" --include "_next/static/*" \
+            --cache-control "public, max-age=31536000, immutable"
+          aws s3 sync "$SITE/" "s3://$BUCKET/" --delete \
+            --exclude "_next/static/*" --exclude "backups/*" \
+            --cache-control "public, max-age=0, must-revalidate"
 
           echo "S3 deployment completed"
 
       - name: Invalidate CloudFront cache
         id: cloudfront-invalidate
+        if: steps.preflight.outputs.enabled == 'true'
+        env:
+          DISTRIBUTION: ${{ steps.config.outputs.distribution_id }}
         run: |
           echo "Creating CloudFront invalidation..."
 
           INVALIDATION_ID=$(aws cloudfront create-invalidation \
-            --distribution-id ${{ steps.config.outputs.distribution_id }} \
+            --distribution-id "$DISTRIBUTION" \
             --paths "/*" \
             --query 'Invalidation.Id' \
             --output text)
 
-          echo "invalidation_id=$INVALIDATION_ID" >> $GITHUB_OUTPUT
+          echo "invalidation_id=$INVALIDATION_ID" >> "$GITHUB_OUTPUT"
           echo "CloudFront invalidation created: $INVALIDATION_ID"
 
           # Wait for invalidation to complete (with timeout)
           echo "Waiting for invalidation to complete..."
           timeout 300 aws cloudfront wait invalidation-completed \
-            --distribution-id ${{ steps.config.outputs.distribution_id }} \
-            --id $INVALIDATION_ID || echo "Invalidation timeout - continuing"
+            --distribution-id "$DISTRIBUTION" \
+            --id "$INVALIDATION_ID" || echo "Invalidation timeout - continuing"
 
       - name: Get deployment URLs
         id: deploy
+        if: steps.preflight.outputs.enabled == 'true'
+        env:
+          DISTRIBUTION: ${{ steps.config.outputs.distribution_id }}
         run: |
           # Get CloudFront domain
           CLOUDFRONT_DOMAIN=$(aws cloudfront get-distribution \
-            --id ${{ steps.config.outputs.distribution_id }} \
+            --id "$DISTRIBUTION" \
             --query 'Distribution.DomainName' \
             --output text)
 
           # Check if custom domain is configured
           CUSTOM_DOMAIN=$(aws cloudfront get-distribution \
-            --id ${{ steps.config.outputs.distribution_id }} \
+            --id "$DISTRIBUTION" \
             --query 'Distribution.DistributionConfig.Aliases.Items[0]' \
             --output text 2>/dev/null || echo "None")
 
@@ -790,12 +844,15 @@ jobs:
             WEB_APP_URL="https://$CLOUDFRONT_DOMAIN"
           fi
 
-          echo "web_app_url=$WEB_APP_URL" >> $GITHUB_OUTPUT
-          echo "cloudfront_domain=$CLOUDFRONT_DOMAIN" >> $GITHUB_OUTPUT
+          echo "web_app_url=$WEB_APP_URL" >> "$GITHUB_OUTPUT"
+          echo "cloudfront_domain=$CLOUDFRONT_DOMAIN" >> "$GITHUB_OUTPUT"
           echo "Web application URL: $WEB_APP_URL"
 
       - name: Verify deployment
         id: verify
+        if: steps.preflight.outputs.enabled == 'true'
+        env:
+          WEB_APP_URL: ${{ steps.deploy.outputs.web_app_url }}
         run: |
           echo "Verifying deployment..."
 
@@ -803,30 +860,44 @@ jobs:
           sleep 30
 
           # Test the main page
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.deploy.outputs.web_app_url }}" || echo "000")
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$WEB_APP_URL" || echo "000")
 
           if [ "$HTTP_STATUS" = "200" ]; then
             echo "✅ Deployment verification successful (HTTP $HTTP_STATUS)"
-            echo "verification_status=success" >> $GITHUB_OUTPUT
+            echo "verification_status=success" >> "$GITHUB_OUTPUT"
           else
             echo "❌ Deployment verification failed (HTTP $HTTP_STATUS)"
-            echo "verification_status=failed" >> $GITHUB_OUTPUT
+            echo "verification_status=failed" >> "$GITHUB_OUTPUT"
 
             # Try to get more details
             echo "Attempting to get response details..."
-            curl -v "${{ steps.deploy.outputs.web_app_url }}" || true
+            curl -v "$WEB_APP_URL" || true
           fi
 
           # Test a static asset
-          STATIC_URL="${{ steps.deploy.outputs.web_app_url }}/_next/static"
+          STATIC_URL="$WEB_APP_URL/_next/static"
           STATIC_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$STATIC_URL" || echo "000")
           echo "Static assets status: $STATIC_STATUS"
 
+      # Runs here rather than in its own job so it can use this environment's deploy role.
+      # Monitoring problems are reported but never fail a deploy that already went out.
+      - name: Monitor web security events
+        id: security-monitor
+        if: steps.preflight.outputs.enabled == 'true' && env.HAS_WEBHOOK == 'true'
+        continue-on-error: true
+        uses: ./.github/actions/security-monitor
+        with:
+          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+          aws_region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          monitoring_duration: '5'
+          service_name: 'web-application'
+
       - name: Generate deployment summary
+        if: steps.preflight.outputs.enabled == 'true'
         run: |
           echo "## 🚀 Web Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Environment:** ${{ inputs.environment || 'production' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** $TARGET_ENVIRONMENT" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** ${{ needs.test-and-build.outputs.build_version }}" >> $GITHUB_STEP_SUMMARY
           echo "**Deployed at:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
@@ -847,83 +918,70 @@ jobs:
             echo "**Status:** ⚠️ Deployment completed but verification failed" >> $GITHUB_STEP_SUMMARY
           fi
 
+      # Track and roll back only once files went to S3; the environment is the one deployed to.
+      # Tracking is bookkeeping: the web deploy role has no DynamoDB access yet, and a
+      # tracking failure must not mark a working deploy as failed.
       - name: Track deployment state
-        if: always()
+        if: always() && steps.s3-deploy.outcome != 'skipped'
+        continue-on-error: true
         uses: ./.github/actions/deployment-state
         with:
           action: track
           service: web
-          environment: ${{ inputs.environment || 'prod' }}
+          environment: ${{ inputs.environment || 'dev' }}
           version: ${{ needs.test-and-build.outputs.build_version }}
           status: ${{ steps.verify.outputs.verification_status == 'success' && 'success' || 'failed' }}
           health_status: ${{ steps.verify.outputs.verification_status || 'unknown' }}
+          aws_region: ${{ secrets.AWS_REGION || 'us-east-1' }}
 
       - name: Trigger automatic rollback on failure
-        if: failure() || (steps.verify.outputs.verification_status == 'failed')
+        if: (failure() || steps.verify.outputs.verification_status == 'failed') && steps.s3-deploy.outcome != 'skipped'
         uses: ./.github/actions/auto-rollback
         with:
           service: web
-          environment: ${{ inputs.environment || 'prod' }}
+          environment: ${{ inputs.environment || 'dev' }}
           health_check_failed: ${{ steps.verify.outputs.verification_status == 'failed' || 'true' }}
           rollback_threshold: 2
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
+  # Rollback is not automated. When a deploy fails after it changed S3, this job explains
+  # how to restore the backup the deploy job took. It does not touch AWS itself.
   rollback:
-    name: Rollback Deployment
+    name: Rollback Instructions
     runs-on: ubuntu-latest
     needs: [detect-changes, test-and-build, deploy]
-    if: failure() && needs.deploy.result == 'failure'
-
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ secrets.GITHUB_WEB_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          role-session-name: GitHubActions-WebRollback-${{ github.run_id }}
-
-      - name: Perform rollback
-        run: |
-          echo "⚠️ Deployment failed - attempting rollback"
-
-          # This is a placeholder for rollback logic
-          # In a real scenario, you would restore from the backup created in the deploy job
-          echo "Rollback functionality would be implemented here"
-          echo "This could involve restoring from the backup or deploying a known good version"
-
-  security-monitoring:
-    name: Security Monitoring
-    runs-on: ubuntu-latest
-    needs: [detect-changes, test-and-build, deploy]
-    if: always() && needs.deploy.result == 'success'
+    if: failure() && needs.deploy.result == 'failure' && needs.deploy.outputs.deploy_started == 'true'
     env:
-      HAS_WEBHOOK: ${{ secrets.DEPLOYMENT_WEBHOOK_URL != '' }}
+      BUCKET: ${{ needs.deploy.outputs.s3_bucket }}
+      BACKUP_PATH: ${{ needs.deploy.outputs.backup_path }}
+      DISTRIBUTION: ${{ needs.deploy.outputs.distribution_id }}
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ secrets.GITHUB_WEB_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          role-session-name: GitHubActions-WebSecurity-${{ github.run_id }}
-
-      - name: Monitor web security events
-        if: env.HAS_WEBHOOK == 'true'
-        uses: ./.github/actions/security-monitor
-        with:
-          webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
-          aws_region: ${{ secrets.AWS_REGION }}
-          monitoring_duration: '5'
-          service_name: 'web-application'
+      - name: Explain how to restore the previous version
+        run: |
+          {
+            echo "## Web deploy failed after changing S3"
+            echo ""
+            if [ -n "$BACKUP_PATH" ]; then
+              echo "Automatic rollback is not implemented. To restore the previous version, run these with the deploy role:"
+              echo ""
+              echo '```bash'
+              echo "aws s3 cp \"s3://$BUCKET/$BACKUP_PATH/\" \"s3://$BUCKET/\" --recursive"
+              echo "aws cloudfront create-invalidation --distribution-id \"$DISTRIBUTION\" --paths \"/*\""
+              echo '```'
+              echo ""
+              echo "Files that only the failed deploy added stay in the bucket until the next deploy removes them."
+              echo "Do not restore with \`aws s3 sync --delete --exclude \"backups/*\"\`: the exclude also matches the backup, so it deletes the live site."
+            else
+              echo "The bucket had no site in it before this deploy, so there is no backup to restore."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::warning::The web deploy failed after changing S3. The run summary explains how to restore the previous version."
 
   notify-deployment:
     name: Notify Deployment
     runs-on: ubuntu-latest
-    needs:
-      [detect-changes, test-and-build, deploy, rollback, security-monitoring]
+    needs: [detect-changes, test-and-build, deploy, rollback]
     if: always() && needs.detect-changes.outputs.should_deploy == 'true'
     env:
       HAS_WEBHOOK: ${{ secrets.DEPLOYMENT_WEBHOOK_URL != '' }}
@@ -939,7 +997,7 @@ jobs:
           webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
           notification_type: 'start'
           service_name: 'web-application'
-          environment: ${{ inputs.environment || 'production' }}
+          environment: ${{ inputs.environment || 'dev' }}
           version: ${{ needs.test-and-build.outputs.build_version }}
           commit_sha: ${{ github.sha }}
           workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -951,13 +1009,13 @@ jobs:
             }
 
       - name: Notify deployment success
-        if: env.HAS_WEBHOOK == 'true' && needs.deploy.result == 'success'
+        if: env.HAS_WEBHOOK == 'true' && needs.deploy.result == 'success' && needs.deploy.outputs.deploy_started == 'true'
         uses: ./.github/actions/notify-deployment
         with:
           webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
           notification_type: 'success'
           service_name: 'web-application'
-          environment: ${{ inputs.environment || 'production' }}
+          environment: ${{ inputs.environment || 'dev' }}
           version: ${{ needs.test-and-build.outputs.build_version }}
           commit_sha: ${{ github.sha }}
           deployment_url: ${{ needs.deploy.outputs.web_app_url }}
@@ -967,7 +1025,7 @@ jobs:
               "deployment_type": "web",
               "cloudfront_domain": "${{ needs.deploy.outputs.cloudfront_domain }}",
               "verification_status": "${{ needs.deploy.outputs.verification_status }}",
-              "security_status": "${{ needs.security-monitoring.outputs.security_status || 'not_monitored' }}"
+              "security_status": "${{ needs.deploy.outputs.security_status || 'not_monitored' }}"
             }
 
       - name: Notify deployment failure
@@ -977,7 +1035,7 @@ jobs:
           webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
           notification_type: 'failure'
           service_name: 'web-application'
-          environment: ${{ inputs.environment || 'production' }}
+          environment: ${{ inputs.environment || 'dev' }}
           version: ${{ needs.test-and-build.outputs.build_version }}
           commit_sha: ${{ github.sha }}
           workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -1001,25 +1059,24 @@ jobs:
               "manual_intervention_required": true
             }
 
-      - name: Notify rollback initiated
+      - name: Notify rollback needed
         if: env.HAS_WEBHOOK == 'true' && needs.rollback.result != 'skipped' && needs.rollback.result != ''
         uses: ./.github/actions/notify-deployment
         with:
           webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
           notification_type: 'rollback'
           service_name: 'web-application'
-          environment: ${{ inputs.environment || 'production' }}
+          environment: ${{ inputs.environment || 'dev' }}
           version: ${{ needs.test-and-build.outputs.build_version }}
           commit_sha: ${{ github.sha }}
           workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           error_details: |
-            Automatic rollback initiated due to deployment failure.
+            The deployment failed after it changed S3, so the site may be serving a partial deploy.
+            Automatic rollback is not implemented.
 
-            Rollback status: ${{ needs.rollback.result }}
-            Original deployment version: ${{ needs.test-and-build.outputs.build_version }}
+            Failed deployment version: ${{ needs.test-and-build.outputs.build_version }}
 
-            The previous stable version has been restored.
-            Manual verification of the application is recommended.
+            The workflow run summary explains how to restore the previous version.
           additional_context: |
             {
               "deployment_type": "web",
@@ -1029,13 +1086,13 @@ jobs:
             }
 
       - name: Notify security alerts
-        if: env.HAS_WEBHOOK == 'true' && needs.security-monitoring.outputs.security_status == 'alert'
+        if: env.HAS_WEBHOOK == 'true' && needs.deploy.outputs.security_status == 'alert'
         uses: ./.github/actions/notify-deployment
         with:
           webhook_url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
           notification_type: 'security_alert'
           service_name: 'web-application'
-          environment: ${{ inputs.environment || 'production' }}
+          environment: ${{ inputs.environment || 'dev' }}
           version: ${{ needs.test-and-build.outputs.build_version }}
           commit_sha: ${{ github.sha }}
           deployment_url: ${{ needs.deploy.outputs.web_app_url }}
@@ -1043,8 +1100,8 @@ jobs:
           security_event: |
             Security events detected during web application deployment:
             - Application URL: ${{ needs.deploy.outputs.web_app_url }}
-            - Security status: ${{ needs.security-monitoring.outputs.security_status }}
-            - Events detected: ${{ needs.security-monitoring.outputs.security_events_detected }}
+            - Security status: ${{ needs.deploy.outputs.security_status }}
+            - Events detected: ${{ needs.deploy.outputs.security_events_detected }}
 
             Immediate security review recommended for the deployed web application.
           additional_context: |
@@ -1060,17 +1117,19 @@ jobs:
           echo "## 📢 Web Deployment Notifications" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** ${{ needs.test-and-build.outputs.build_version }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Environment:** ${{ inputs.environment || 'production' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ inputs.environment || 'dev' }}" >> $GITHUB_STEP_SUMMARY
           echo "**Deployment Status:** ${{ needs.deploy.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Security Status:** ${{ needs.security-monitoring.outputs.security_status || 'not_monitored' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Security Status:** ${{ needs.deploy.outputs.security_status || 'not_monitored' }}" >> $GITHUB_STEP_SUMMARY
           echo "**Notifications Sent:** ${{ env.HAS_WEBHOOK == 'true' && 'Yes' || 'No (webhook not configured)' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          if [ "${{ needs.deploy.result }}" = "success" ]; then
+          if [ "${{ needs.deploy.result }}" = "success" ] && [ "${{ needs.deploy.outputs.deploy_started }}" = "true" ]; then
             echo "✅ **Web application deployed successfully**" >> $GITHUB_STEP_SUMMARY
             if [ -n "${{ needs.deploy.outputs.web_app_url }}" ]; then
               echo "🌐 **Application URL:** ${{ needs.deploy.outputs.web_app_url }}" >> $GITHUB_STEP_SUMMARY
             fi
+          elif [ "${{ needs.deploy.result }}" = "success" ]; then
+            echo "ℹ️ **Web application not deployed.** The deploy job's summary says why." >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ **Web application deployment failed**" >> $GITHUB_STEP_SUMMARY
             if [ "${{ needs.rollback.result }}" != "skipped" ] && [ -n "${{ needs.rollback.result }}" ]; then
