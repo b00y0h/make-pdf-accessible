@@ -134,10 +134,10 @@ jobs:
       - name: Check AWS credentials availability
         id: check-creds
         env:
-          AWS_ROLE_ARN: ${{ secrets.GITHUB_API_DEPLOY_ROLE_ARN }}
+          AWS_ROLE_ARN: ${{ secrets.AWS_API_DEPLOY_ROLE_ARN }}
         run: |
           if [ -z "$AWS_ROLE_ARN" ]; then
-            echo "::warning::GITHUB_API_DEPLOY_ROLE_ARN secret not configured - deployment steps will be skipped"
+            echo "::warning::AWS_API_DEPLOY_ROLE_ARN secret not configured - deployment steps will be skipped"
             echo "has_creds=false" >> $GITHUB_OUTPUT
           else
             echo "has_creds=true" >> $GITHUB_OUTPUT
@@ -577,7 +577,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.GITHUB_API_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_API_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: GitHubActions-APIDeploy-Build-${{ github.run_id }}
 
@@ -723,7 +723,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.GITHUB_API_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_API_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: GitHubActions-APIDeploy-BlueGreen-${{ github.run_id }}
 
@@ -1106,7 +1106,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.GITHUB_API_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_API_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: GitHubActions-APIDeploy-Cleanup-${{ github.run_id }}
 
@@ -1164,7 +1164,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.GITHUB_API_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_API_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: GitHubActions-APISecurity-${{ github.run_id }}
 
